@@ -56,6 +56,7 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 
 /* Content */
 .content{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.content>*{flex-shrink:0}
 
 /* Stats */
 .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
