@@ -448,8 +448,7 @@ function renderRoleSelector(){
   var trainers=INSTRUCTORS.filter(function(i){return i.role==='trainer';});
   root.innerHTML=`<div class="role-selector">
     <div class="role-header">
-      <div class="logo-mark role-logo-big">NG</div>
-      <h1 class="role-h1">내셔널짐</h1>
+      <img class="role-logo-img" src="assets/logo.svg" alt="내셔널짐">
       <p class="role-sub">Golf PT 협업 시스템</p>
     </div>
     <div class="role-section">
@@ -502,8 +501,7 @@ function render(){
   <div class="sidebar-backdrop${S.sidebarOpen?' show':''}" onclick="toggleSidebar()"></div>
   <div class="sidebar${S.sidebarOpen?' open':''}">
     <div class="sidebar-logo">
-      <div class="logo-mark">NG</div>
-      <div><div class="logo-text">내셔널짐</div><div class="logo-sub">${S.currentUser||''}</div></div>
+      <img class="sidebar-logo-img" src="assets/logo.svg" alt="내셔널짐">
       <div class="sidebar-top-actions">
         <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}🔔</button>
         <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()">🏠</button>
