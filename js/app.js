@@ -26,6 +26,18 @@ const ASSESSMENT_ITEMS = [
 const RESULT_OPTIONS = ['미검사','정상','경미한 제한','주의 필요','제한'];
 const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 
+const INSTRUCTORS = [
+  {name:'정우진 프로', role:'pro'},
+  {name:'홍태양 프로', role:'pro'},
+  {name:'최현승 트레이너', role:'trainer'},
+  {name:'이상렬 트레이너', role:'trainer'}
+];
+function getRole(author){
+  var inst = INSTRUCTORS.find(function(i){return i.name===author;});
+  if(inst) return inst.role;
+  return (author && author.indexOf('프로')!==-1) ? 'pro' : 'trainer';
+}
+
 const BODY_SWING_MAP = {
   static_posture:'정적 자세 불균형 — 어드레스 셋업 일관성 저하',
   overhead_squat:'어드레스 하체 균형 불안정 — 발목/무릎 보상동작 유발',
@@ -54,24 +66,24 @@ const SAMPLE_DATA = {
   },
   sessions:{
     m1:[
-      {id:'s1',date:'2025-06-16',author:'정P',content:'스윙 중에 팔만 내리면서 몸회전을 안해서 문제 발생',supplement:'상하체 분리하는 힘 더 만들어주면 좋을 것 같습니다'},
-      {id:'s2',date:'2025-06-17',author:'최T',content:'상하체 분리운동, 코어운동 진행',supplement:'스윙 시 왼어깨 들리면서 플레인이 바뀌는 느낌'},
-      {id:'s3',date:'2025-06-23',author:'정P',content:'볼 포지션 수정 집중',supplement:''},
-      {id:'s4',date:'2025-06-27',author:'최T',content:'스텝박스 리듬트레이닝, 플라이오메트릭 점프순발력트레이닝, 상체 푸쉬운동',supplement:''},
-      {id:'s5',date:'2025-07-01',author:'최T',content:'발가락, 햄스트링 및 엉덩이 트레이닝',supplement:''},
-      {id:'s6',date:'2025-07-08',author:'최T',content:'회전근개, 코어, 견갑골 안정화 및 어깨근육운동',supplement:''},
-      {id:'s7',date:'2025-08-04',author:'정P',content:'하체랑 코어 연결시켜서 움직여주기',supplement:''}
+      {id:'s1',date:'2025-06-16',author:'정우진 프로',content:'스윙 중에 팔만 내리면서 몸회전을 안해서 문제 발생',supplement:'상하체 분리하는 힘 더 만들어주면 좋을 것 같습니다'},
+      {id:'s2',date:'2025-06-17',author:'최현승 트레이너',content:'상하체 분리운동, 코어운동 진행',supplement:'스윙 시 왼어깨 들리면서 플레인이 바뀌는 느낌'},
+      {id:'s3',date:'2025-06-23',author:'정우진 프로',content:'볼 포지션 수정 집중',supplement:''},
+      {id:'s4',date:'2025-06-27',author:'최현승 트레이너',content:'스텝박스 리듬트레이닝, 플라이오메트릭 점프순발력트레이닝, 상체 푸쉬운동',supplement:''},
+      {id:'s5',date:'2025-07-01',author:'최현승 트레이너',content:'발가락, 햄스트링 및 엉덩이 트레이닝',supplement:''},
+      {id:'s6',date:'2025-07-08',author:'최현승 트레이너',content:'회전근개, 코어, 견갑골 안정화 및 어깨근육운동',supplement:''},
+      {id:'s7',date:'2025-08-04',author:'정우진 프로',content:'하체랑 코어 연결시켜서 움직여주기',supplement:''}
     ],
     m2:[
-      {id:'s8',date:'2025-06-25',author:'최T',content:'삼두근, 흉근, 코어근육 위주로 진행',supplement:'필드를 자주 나가서인지 팔로스루 때 왼쪽 어깨 앞면이 통증. 1달간 회복될 수 있도록 다른 방향의 운동 필요'},
-      {id:'s9',date:'2025-07-01',author:'정P',content:'팔로우에서 넘어오는 힘을 만들어주는 동작',supplement:'상체로 비틀어내는 힘이 더 강하면 좋을 것 같습니다'},
-      {id:'s10',date:'2025-07-05',author:'최T',content:'상체 코어운동, 어깨, 가슴, 삼두 기능성운동',supplement:''},
-      {id:'s11',date:'2025-07-07',author:'정P',content:'템포 맞추면서 오른팔 내리는 공간 확보',supplement:''},
-      {id:'s12',date:'2025-07-09',author:'최T',content:'전완, 이두, 등 근비대 견갑골 안정화운동',supplement:''},
-      {id:'s13',date:'2025-07-14',author:'정P',content:'하체랑 상체 팔 싱크가 떨어져서 싱크에 집중',supplement:''},
-      {id:'s14',date:'2025-07-22',author:'정P',content:'등이랑 팔안쪽 힘 강조하고 상하체 분리',supplement:'상하체 분리 힘이 조금 더 필요합니다'},
-      {id:'s15',date:'2025-07-23',author:'최T',content:'상체 근력운동, 상하체 분리 훈련(케이블)',supplement:''},
-      {id:'s16',date:'2025-07-29',author:'정P',content:'상하체 분리 동작 강조',supplement:'상하체 분리하면서 골반 기울기가 확보가 잘 안됩니다'}
+      {id:'s8',date:'2025-06-25',author:'최현승 트레이너',content:'삼두근, 흉근, 코어근육 위주로 진행',supplement:'필드를 자주 나가서인지 팔로스루 때 왼쪽 어깨 앞면이 통증. 1달간 회복될 수 있도록 다른 방향의 운동 필요'},
+      {id:'s9',date:'2025-07-01',author:'정우진 프로',content:'팔로우에서 넘어오는 힘을 만들어주는 동작',supplement:'상체로 비틀어내는 힘이 더 강하면 좋을 것 같습니다'},
+      {id:'s10',date:'2025-07-05',author:'최현승 트레이너',content:'상체 코어운동, 어깨, 가슴, 삼두 기능성운동',supplement:''},
+      {id:'s11',date:'2025-07-07',author:'정우진 프로',content:'템포 맞추면서 오른팔 내리는 공간 확보',supplement:''},
+      {id:'s12',date:'2025-07-09',author:'최현승 트레이너',content:'전완, 이두, 등 근비대 견갑골 안정화운동',supplement:''},
+      {id:'s13',date:'2025-07-14',author:'정우진 프로',content:'하체랑 상체 팔 싱크가 떨어져서 싱크에 집중',supplement:''},
+      {id:'s14',date:'2025-07-22',author:'정우진 프로',content:'등이랑 팔안쪽 힘 강조하고 상하체 분리',supplement:'상하체 분리 힘이 조금 더 필요합니다'},
+      {id:'s15',date:'2025-07-23',author:'최현승 트레이너',content:'상체 근력운동, 상하체 분리 훈련(케이블)',supplement:''},
+      {id:'s16',date:'2025-07-29',author:'정우진 프로',content:'상하체 분리 동작 강조',supplement:'상하체 분리하면서 골반 기울기가 확보가 잘 안됩니다'}
     ]
   }
 };
@@ -169,7 +181,7 @@ let S = {
   members:[], assessments:{}, sessions:{},
   selectedMember:null, assessOpen:true, filterAuthor:'all',
   showAddSession:false, showAddMember:false, editSessionId:null,
-  newSession:{date:today(), author:'정P', content:'', supplement:'', media:[], mediaUrls:['','']},
+  newSession:{date:today(), author:'정우진 프로', content:'', supplement:'', media:[], mediaUrls:['','']},
   newMemberName:'',
   cloudSync:'local',  // 'local' | 'loading' | 'connected' | 'error'
   warningBannerCollapsed:false
@@ -288,8 +300,8 @@ function stats(mid){
   const sess = S.sessions[mid] || [];
   return {
     total: sess.length,
-    pro: sess.filter(s => s.author==='정P').length,
-    trainer: sess.filter(s => s.author==='최T').length,
+    pro: sess.filter(s => getRole(s.author)==='pro').length,
+    trainer: sess.filter(s => getRole(s.author)==='trainer').length,
     supp: sess.filter(s => s.supplement && s.supplement.trim()).length
   };
 }
@@ -330,7 +342,7 @@ function render(){
   const mid = S.selectedMember;
   const member = mid ? S.members.find(m => m.id===mid) : null;
   const allSess = mid ? (S.sessions[mid]||[]).slice().sort((a,b) => b.date.localeCompare(a.date)) : [];
-  const sessions = S.filterAuthor==='all' ? allSess : allSess.filter(s => s.author===S.filterAuthor);
+  const sessions = S.filterAuthor==='all' ? allSess : allSess.filter(s => getRole(s.author)===S.filterAuthor);
   const assess = mid ? (S.assessments[mid]||{}) : {};
   const st = mid ? stats(mid) : null;
   const fit = mid ? calcFitness(assess) : null;
@@ -375,8 +387,8 @@ function render(){
       ${st ? `
       <div class="stat-row">
         <div class="stat"><div class="stat-val">${st.total}</div><div class="stat-lbl">총 세션</div></div>
-        <div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 레슨 (정P)</div></div>
-        <div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT (최T)</div></div>
+        <div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 프로</div></div>
+        <div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT</div></div>
         <div class="stat"><div class="stat-val amber">${st.supp}</div><div class="stat-lbl">보완 요청</div></div>
         <div class="stat ${fit.cls}"><div class="stat-val">${fit.score}</div><div class="stat-lbl">Golf Fit${fit.untested>0?' · 일부 미검사':''}</div></div>
       </div>` : ''}
@@ -419,8 +431,8 @@ function render(){
           </div>
           <div class="section-right">
             <div class="filter-btn${S.filterAuthor==='all'?' active':''}" onclick="setFilter('all')">전체</div>
-            <div class="filter-btn${S.filterAuthor==='정P'?' pro-active':''}" onclick="setFilter('정P')">정P</div>
-            <div class="filter-btn${S.filterAuthor==='최T'?' trainer-active':''}" onclick="setFilter('최T')">최T</div>
+            <div class="filter-btn${S.filterAuthor==='pro'?' pro-active':''}" onclick="setFilter('pro')">프로</div>
+            <div class="filter-btn${S.filterAuthor==='trainer'?' trainer-active':''}" onclick="setFilter('trainer')">트레이너</div>
           </div>
         </div>
         ${warnings.length>0 ? `<div class="warning-banner${S.warningBannerCollapsed?' collapsed':''}">
@@ -431,8 +443,8 @@ function render(){
           ${sessions.length===0 ? `<div class="empty-state">기록된 세션이 없습니다<br><span style="font-size:11px">상단 '+ 세션 기록' 버튼으로 추가하세요</span></div>` :
           sessions.map(s => `
             <div class="session-card">
-              <div class="session-hd ${s.author==='정P'?'pro':'trainer'}">
-                <div class="role-tag ${s.author==='정P'?'pro':'trainer'}">${s.author==='정P'?'GOLF PRO':'GOLF PT'}</div>
+              <div class="session-hd ${getRole(s.author)==='pro'?'pro':'trainer'}">
+                <div class="role-tag ${getRole(s.author)==='pro'?'pro':'trainer'}">${getRole(s.author)==='pro'?'GOLF PRO':'GOLF PT'}</div>
                 <div class="session-author">${s.author}</div>
                 <div class="session-date">${s.date}</div>
                 ${s.supplement?`<div class="supp-badge">보완요청</div>`:''}
@@ -477,12 +489,10 @@ function render(){
       <div class="form-group">
         <label class="form-label">담당자</label>
         <div class="radio-group">
-          <div class="radio-opt${S.newSession.author==='정P'?' sel-pro':''}" onclick="updateNS('author','정P')">
-            <span>정P</span>&nbsp;<span style="font-size:11px;opacity:.7">골프 프로</span>
-          </div>
-          <div class="radio-opt${S.newSession.author==='최T'?' sel-trainer':''}" onclick="updateNS('author','최T')">
-            <span>최T</span>&nbsp;<span style="font-size:11px;opacity:.7">골프 PT</span>
-          </div>
+          ${INSTRUCTORS.map(function(inst){
+            var sel = S.newSession.author===inst.name ? (inst.role==='pro'?' sel-pro':' sel-trainer') : '';
+            return '<div class="radio-opt'+sel+'" onclick="updateNS(\'author\',\''+inst.name+'\')">'+inst.name+'</div>';
+          }).join('')}
         </div>
       </div>
       <div class="form-group">
@@ -537,10 +547,10 @@ function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; render();}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
-function openAddSession(){S.newSession={date:today(),author:'정P',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
+function openAddSession(){S.newSession={date:today(),author:'정우진 프로',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
 function openAddMember(){S.newMemberName=''; S.showAddMember=true; render();}
 function closeModal(){S.showAddSession=false; S.showAddMember=false; render();}
-function updateNS(k,v){S.newSession[k]=v;}
+function updateNS(k,v){S.newSession[k]=v; if(k==='author'||k==='date') render();}
 
 function updateAssess(key, field, val){
   const mid = S.selectedMember;
