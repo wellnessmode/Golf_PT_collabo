@@ -185,6 +185,33 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 .sm-link:hover{background:#dce9fa}
 .media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer}
 
+/* Role selector */
+.role-selector{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;background:#f4f1eb;padding:20px}
+.role-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;max-width:640px;width:100%}
+.role-card{background:#fff;border:1.5px solid #e8e3d8;border-radius:14px;padding:22px 14px;text-align:center;cursor:pointer;transition:all .15s}
+.role-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.rc-infodesk:hover{border-color:#7c3aed;background:#faf5ff}
+.rc-pro:hover{border-color:#185fa5;background:#eef5fd}
+.rc-trainer:hover{border-color:#3b6d11;background:#eaf3de}
+.role-icon{font-size:28px;margin-bottom:8px}
+.role-card-title{font-size:13px;font-weight:700;color:#1a3d2b;margin-bottom:3px}
+.role-card-desc{font-size:10px;color:#9ca89e}
+
+/* Role badge */
+.role-badge{padding:8px 10px;margin:8px;border-radius:8px;font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer;transition:background .12s}
+.role-badge:hover{opacity:.85}
+.rb-infodesk{background:#f0eafc;color:#7c3aed}
+.rb-pro{background:#eef5fd;color:#185fa5}
+.rb-trainer{background:#eaf3de;color:#3b6d11}
+.rb-name{font-weight:700;flex:1}
+.rb-switch{font-size:10px;opacity:.6;text-decoration:underline}
+
+/* Delete pending */
+.del-pending-badge{font-size:9px;background:#faeeda;color:#854f0b;padding:1px 6px;border-radius:8px;font-weight:600;border:1px solid #e9c06a;white-space:nowrap}
+
+/* Form section label */
+.form-section-label{font-size:11px;font-weight:700;color:#1a3d2b;margin:8px 0 6px;padding:4px 0;border-bottom:1px solid #e8e3d8}
+
 /* Mobile toggle button */
 .mobile-toggle{display:none;position:fixed;bottom:16px;left:16px;z-index:150;width:44px;height:44px;border-radius:50%;background:#1a3d2b;color:#fff;border:none;font-size:18px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);align-items:center;justify-content:center}
 

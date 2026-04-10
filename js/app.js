@@ -57,8 +57,8 @@ const BODY_SWING_MAP = {
 
 const SAMPLE_DATA = {
   members:[
-    {id:'m1',name:'로버트',color:'av-green',sessionType:'골프레슨+PT 패키지',totalSessions:'24',amount:'960,000',expiry:'2025-12-31'},
-    {id:'m2',name:'윤명숙',color:'av-blue',sessionType:'골프레슨+PT 패키지',totalSessions:'24',amount:'960,000',expiry:'2025-12-31'}
+    {id:'m1',name:'로버트',color:'av-green',golfLessonCount:'12',golfPTCount:'12',golfLessonAmount:'480,000',golfPTAmount:'480,000',expiry:'2025-12-31'},
+    {id:'m2',name:'윤명숙',color:'av-blue',golfLessonCount:'12',golfPTCount:'12',golfLessonAmount:'480,000',golfPTAmount:'480,000',expiry:'2025-12-31'}
   ],
   assessments:{
     m1:{static_posture:{result:'정상',note:''},overhead_squat:{result:'정상',note:''},pelvic_tilt:{result:'정상',note:''},pelvic_rotation:{result:'정상',note:''},thoracic_rotation:{result:'경미한 제한',note:'우측 회전 제한'},slr_test:{result:'정상',note:''},'90_90_standing':{result:'정상',note:''},'90_90_address':{result:'경미한 제한',note:'어드레스 시 좌측 제한'},patrick_test:{result:'경미한 제한',note:''},hip_extension:{result:'정상',note:''},ql_palpation:{result:'정상',note:''},one_leg_bridge:{result:'정상',note:''},neck_palpation:{result:'정상',note:''},calf_palpation:{result:'정상',note:''}},
@@ -178,14 +178,15 @@ const cloud = {
 
 // ============ 상태 ============
 let S = {
-  members:[], assessments:{}, sessions:{},
+  members:[], assessments:{}, sessions:{}, deleteRequests:{},
   selectedMember:null, assessOpen:true, filterAuthor:'all',
   showAddSession:false, showAddMember:false, editSessionId:null,
-  newSession:{date:today(), author:'정우진 프로', content:'', supplement:'', media:[], mediaUrls:['','']},
-  newMember:{name:'',sessionType:'골프레슨+PT 패키지',totalSessions:'',amount:'',expiry:''},
+  currentRole:null, currentUser:null,
+  newSession:{date:today(), author:'', content:'', supplement:'', media:[], mediaUrls:['','']},
+  newMember:{name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:''},
   editMemberId:null,
   sidebarOpen:false,
-  cloudSync:'local',  // 'local' | 'loading' | 'connected' | 'error'
+  cloudSync:'local',
   warningBannerCollapsed:false
 };
 
@@ -202,7 +203,7 @@ function initials(name){
 function save(){
   try{
     localStorage.setItem('golf_pt_v2', JSON.stringify({
-      members:S.members, assessments:S.assessments, sessions:S.sessions
+      members:S.members, assessments:S.assessments, sessions:S.sessions, deleteRequests:S.deleteRequests
     }));
   }catch(e){}
 }
@@ -215,6 +216,7 @@ function loadLocal(){
       S.members = p.members || SAMPLE_DATA.members;
       S.assessments = p.assessments || SAMPLE_DATA.assessments;
       S.sessions = p.sessions || SAMPLE_DATA.sessions;
+      S.deleteRequests = p.deleteRequests || {};
     } else {
       S.members = SAMPLE_DATA.members;
       S.assessments = SAMPLE_DATA.assessments;
@@ -228,9 +230,27 @@ function loadLocal(){
   if(S.members.length>0 && !S.selectedMember) S.selectedMember = S.members[0].id;
 }
 
+function readHash(){
+  var h=location.hash.replace('#','');
+  if(!h)return;
+  var parts=h.split('-');
+  var role=parts[0];
+  var user=decodeURIComponent(parts.slice(1).join('-'));
+  if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}
+  else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}
+  else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}
+}
+function setRole(role,user){
+  S.currentRole=role;S.currentUser=user;
+  location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');
+  if(role==='pro'||role==='trainer') S.newSession.author=user;
+  render();
+}
+function switchRole(){S.currentRole=null;S.currentUser=null;location.hash='';render();}
+
 async function init(){
-  // 1) localStorage 로 초기 렌더 (file:// 오프라인에서도 즉시 동작)
   loadLocal();
+  readHash();
   render();
 
   // 2) Supabase 가 설정되어 있으면 원격 동기화 시도
@@ -339,8 +359,30 @@ function syncBadge(){
 }
 
 // ============ Render ============
+function renderRoleSelector(){
+  var root=document.getElementById('root');
+  root.innerHTML=`<div class="role-selector">
+    <div class="role-logo"><div class="logo-mark" style="width:48px;height:48px;font-size:20px;border-radius:12px;margin:0 auto">NG</div>
+      <h1 style="font-size:22px;color:#1a3d2b;margin-top:14px">내셔널짐</h1>
+      <p style="font-size:13px;color:#9ca89e;margin-top:4px">Golf PT 협업 시스템</p>
+    </div>
+    <div class="role-cards">
+      <div class="role-card rc-infodesk" onclick="setRole('infodesk','인포데스크')">
+        <div class="role-icon">🖥</div><div class="role-card-title">인포데스크</div><div class="role-card-desc">회원 등록 · 관리</div>
+      </div>
+      ${INSTRUCTORS.map(function(inst){
+        var icon=inst.role==='pro'?'⛳':'💪';
+        var desc=inst.role==='pro'?'골프 레슨 기록':'골프 PT 기록';
+        return '<div class="role-card rc-'+inst.role+'" onclick="setRole(\''+inst.role+'\',\''+inst.name+'\')"><div class="role-icon">'+icon+'</div><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">'+desc+'</div></div>';
+      }).join('')}
+    </div>
+  </div>`;
+}
+
 function render(){
+  if(!S.currentRole){renderRoleSelector();return;}
   const root = document.getElementById('root');
+  const isInfo = S.currentRole==='infodesk';
   const mid = S.selectedMember;
   const member = mid ? S.members.find(m => m.id===mid) : null;
   const allSess = mid ? (S.sessions[mid]||[]).slice().sort((a,b) => b.date.localeCompare(a.date)) : [];
@@ -367,13 +409,17 @@ function render(){
           <div class="member-name">${m.name}</div>
           <div class="session-badge">${(S.sessions[m.id]||[]).length}</div>
           <div class="member-actions">
-            <button class="member-edit-btn" onclick="event.stopPropagation();openEditMember('${m.id}')">수정</button>
-            <button class="member-del-btn" onclick="event.stopPropagation();deleteMember('${m.id}')">삭제</button>
+            ${isInfo?'<button class="member-edit-btn" onclick="event.stopPropagation();openEditMember(\''+m.id+'\')">수정</button>':''}
+            ${isInfo&&!S.deleteRequests[m.id]?'<button class="member-del-btn" onclick="event.stopPropagation();requestDelete(\''+m.id+'\')">삭제</button>':''}
+            ${S.deleteRequests[m.id]?'<span class="del-pending-badge">삭제대기</span>':''}
           </div>
         </div>`).join('')}
     </div>
-    <div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>
-    ${syncBadge()}
+    ${isInfo?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
+    <div class="role-badge rb-${S.currentRole}" onclick="switchRole()">
+      <span class="rb-name">${S.currentUser||''}</span>
+      <span class="rb-switch">전환</span>
+    </div>
   </div>
   <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
@@ -384,11 +430,12 @@ function render(){
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
         <div>
           <div class="member-title">${member.name} 회원님</div>
-          <div class="member-subtitle">${member.sessionType||'골프레슨 + 골프PT 패키지'}${member.totalSessions?' · '+member.totalSessions+'회':''}${member.expiry?' · ~'+member.expiry:''}</div>
+          <div class="member-subtitle">레슨 ${st?st.pro:0}/${member.golfLessonCount||'0'}회 · PT ${st?st.trainer:0}/${member.golfPTCount||'0'}회${member.expiry?' · ~'+member.expiry:''}</div>
         </div>
       </div>
       <div class="topbar-actions">
-        <button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>
+        ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
+        ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">거절</button>':''}
       </div>
     </div>
     <div class="content">
@@ -541,18 +588,26 @@ function render(){
         <label class="form-label">회원 이름</label>
         <input class="form-input" placeholder="예: 김민수" value="${(S.newMember.name||'').replace(/"/g,'&quot;')}" oninput="S.newMember.name=this.value" autofocus>
       </div>
-      <div class="form-group">
-        <label class="form-label">등록 세션 종류</label>
-        <input class="form-input" placeholder="예: 골프레슨+PT 패키지" value="${(S.newMember.sessionType||'').replace(/"/g,'&quot;')}" oninput="S.newMember.sessionType=this.value">
-      </div>
+      <div class="form-section-label">골프 레슨</div>
       <div class="member-info-row">
         <div class="form-group">
-          <label class="form-label">총 횟수</label>
-          <input class="form-input" placeholder="예: 24" value="${(S.newMember.totalSessions||'').replace(/"/g,'&quot;')}" oninput="S.newMember.totalSessions=this.value">
+          <label class="form-label">등록 횟수</label>
+          <input class="form-input" type="number" placeholder="예: 12" value="${S.newMember.golfLessonCount||''}" oninput="S.newMember.golfLessonCount=this.value">
         </div>
         <div class="form-group">
-          <label class="form-label">등록 금액</label>
-          <input class="form-input" placeholder="예: 960,000" value="${(S.newMember.amount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.amount=this.value">
+          <label class="form-label">등록 금액 (원)</label>
+          <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfLessonAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfLessonAmount=this.value">
+        </div>
+      </div>
+      <div class="form-section-label">골프 PT</div>
+      <div class="member-info-row">
+        <div class="form-group">
+          <label class="form-label">등록 횟수</label>
+          <input class="form-input" type="number" placeholder="예: 12" value="${S.newMember.golfPTCount||''}" oninput="S.newMember.golfPTCount=this.value">
+        </div>
+        <div class="form-group">
+          <label class="form-label">등록 금액 (원)</label>
+          <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfPTAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfPTAmount=this.value">
         </div>
       </div>
       <div class="form-group">
@@ -573,27 +628,35 @@ function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOp
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
-function openAddSession(){S.newSession={date:today(),author:'정우진 프로',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
-function openAddMember(){S.newMember={name:'',sessionType:'골프레슨+PT 패키지',totalSessions:'',amount:'',expiry:''}; S.editMemberId=null; S.showAddMember=true; render();}
+function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
+function openAddMember(){S.newMember={name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:''}; S.editMemberId=null; S.showAddMember=true; render();}
 function openEditMember(id){
   var m=S.members.find(function(x){return x.id===id;});
   if(!m)return;
-  S.newMember={name:m.name,sessionType:m.sessionType||'',totalSessions:m.totalSessions||'',amount:m.amount||'',expiry:m.expiry||''};
+  S.newMember={name:m.name,golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||''};
   S.editMemberId=id; S.showAddMember=true; render();
 }
 function saveMemberEdit(){
   var nm=S.newMember.name.trim();if(!nm){alert('이름을 입력하세요');return;}
   var m=S.members.find(function(x){return x.id===S.editMemberId;});
   if(!m)return;
-  m.name=nm; m.sessionType=S.newMember.sessionType; m.totalSessions=S.newMember.totalSessions; m.amount=S.newMember.amount; m.expiry=S.newMember.expiry;
+  m.name=nm;m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;m.expiry=S.newMember.expiry;
   S.editMemberId=null; S.showAddMember=false; save(); render(); cloud.upsertMember(m);
 }
-function deleteMember(id){
-  if(!confirm('이 회원을 삭제하시겠습니까? 모든 세션과 평가 데이터가 삭제됩니다.'))return;
+function requestDelete(id){
+  if(!confirm('이 회원의 삭제를 요청하시겠습니까? 운동지도자 승인 후 삭제됩니다.'))return;
+  S.deleteRequests[id]={requestedBy:S.currentUser||'인포데스크',requestedAt:today()};
+  save(); render();
+}
+function approveDelete(id){
+  if(!confirm('삭제를 승인하시겠습니까? 모든 세션과 평가 데이터가 영구 삭제됩니다.'))return;
   S.members=S.members.filter(function(x){return x.id!==id;});
-  delete S.assessments[id]; delete S.sessions[id];
+  delete S.assessments[id];delete S.sessions[id];delete S.deleteRequests[id];
   if(S.selectedMember===id) S.selectedMember=S.members.length>0?S.members[0].id:null;
   save(); render();
+}
+function rejectDelete(id){
+  delete S.deleteRequests[id]; save(); render();
 }
 function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen; render();}
 function closeModal(){S.showAddSession=false; S.showAddMember=false; S.editMemberId=null; render();}
@@ -635,7 +698,7 @@ function addMember(){
   if(!name){alert('이름을 입력하세요'); return;}
   const id = uid();
   const color = AVATAR_COLORS[S.members.length % AVATAR_COLORS.length];
-  const m = {id, name, color, sessionType:S.newMember.sessionType, totalSessions:S.newMember.totalSessions, amount:S.newMember.amount, expiry:S.newMember.expiry};
+  const m = {id, name, color, golfLessonCount:S.newMember.golfLessonCount, golfPTCount:S.newMember.golfPTCount, golfLessonAmount:S.newMember.golfLessonAmount, golfPTAmount:S.newMember.golfPTAmount, expiry:S.newMember.expiry};
   S.members.push(m);
   S.assessments[id] = {};
   S.sessions[id] = [];
