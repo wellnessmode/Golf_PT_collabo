@@ -63,19 +63,13 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .content>*{flex-shrink:0}
 
 /* Stats */
-.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .stat{background:#fff;border:1px solid #e8e3d8;border-radius:10px;padding:10px 14px;text-align:center}
 .stat-val{font-size:20px;font-weight:700;line-height:1.1}
 .stat-val.green{color:#3b6d11}
 .stat-val.blue{color:#185fa5}
 .stat-val.amber{color:#ba7517}
 .stat-lbl{font-size:10px;color:#9ca89e;margin-top:3px;font-weight:500}
-.fit-good{background:#eaf3de;border-color:#c0dd97}
-.fit-good .stat-val{color:#3b6d11}
-.fit-warn{background:#fff7e0;border-color:#e9c06a}
-.fit-warn .stat-val{color:#b87000}
-.fit-danger{background:#ffebe8;border-color:#f5b3a8}
-.fit-danger .stat-val{color:#b71919}
 
 /* Section card */
 .section-card{background:#fff;border:1px solid #e8e3d8;border-radius:12px;overflow:hidden}

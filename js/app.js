@@ -492,7 +492,6 @@ function render(){
   const sessions = S.filterAuthor==='all' ? allSess : allSess.filter(s => getRole(s.author)===S.filterAuthor);
   const assess = mid ? (S.assessments[mid]||{}) : {};
   const st = mid ? stats(mid) : null;
-  const fit = mid ? calcFitness(assess) : null;
   const warnings = mid ? ASSESSMENT_ITEMS.filter(function(item){
     var v = assess[item.key]; return v && (v.result==='제한'||v.result==='주의 필요');
   }).map(function(item){ return {name:item.name, result:assess[item.key].result, impact:BODY_SWING_MAP[item.key]||''}; }) : [];
@@ -550,7 +549,6 @@ function render(){
         <div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 프로</div></div>
         <div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT</div></div>
         <div class="stat"><div class="stat-val amber">${st.supp}</div><div class="stat-lbl">보완 요청</div></div>
-        <div class="stat ${fit.cls}"><div class="stat-val">${fit.score}</div><div class="stat-lbl">체형 점수${fit.untested>0?' · 일부 미검사':''}</div></div>
       </div>` : ''}
 
       <div class="section-card">
