@@ -57,8 +57,8 @@ const BODY_SWING_MAP = {
 
 const SAMPLE_DATA = {
   members:[
-    {id:'m1',name:'로버트',color:'av-green'},
-    {id:'m2',name:'윤명숙',color:'av-blue'}
+    {id:'m1',name:'로버트',color:'av-green',sessionType:'골프레슨+PT 패키지',totalSessions:'24',amount:'960,000',expiry:'2025-12-31'},
+    {id:'m2',name:'윤명숙',color:'av-blue',sessionType:'골프레슨+PT 패키지',totalSessions:'24',amount:'960,000',expiry:'2025-12-31'}
   ],
   assessments:{
     m1:{static_posture:{result:'정상',note:''},overhead_squat:{result:'정상',note:''},pelvic_tilt:{result:'정상',note:''},pelvic_rotation:{result:'정상',note:''},thoracic_rotation:{result:'경미한 제한',note:'우측 회전 제한'},slr_test:{result:'정상',note:''},'90_90_standing':{result:'정상',note:''},'90_90_address':{result:'경미한 제한',note:'어드레스 시 좌측 제한'},patrick_test:{result:'경미한 제한',note:''},hip_extension:{result:'정상',note:''},ql_palpation:{result:'정상',note:''},one_leg_bridge:{result:'정상',note:''},neck_palpation:{result:'정상',note:''},calf_palpation:{result:'정상',note:''}},
@@ -182,7 +182,9 @@ let S = {
   selectedMember:null, assessOpen:true, filterAuthor:'all',
   showAddSession:false, showAddMember:false, editSessionId:null,
   newSession:{date:today(), author:'정우진 프로', content:'', supplement:'', media:[], mediaUrls:['','']},
-  newMemberName:'',
+  newMember:{name:'',sessionType:'골프레슨+PT 패키지',totalSessions:'',amount:'',expiry:''},
+  editMemberId:null,
+  sidebarOpen:false,
   cloudSync:'local',  // 'local' | 'loading' | 'connected' | 'error'
   warningBannerCollapsed:false
 };
@@ -351,7 +353,8 @@ function render(){
   }).map(function(item){ return {name:item.name, result:assess[item.key].result, impact:BODY_SWING_MAP[item.key]||''}; }) : [];
 
   root.innerHTML = `
-  <div class="sidebar">
+  <div class="sidebar-backdrop${S.sidebarOpen?' show':''}" onclick="toggleSidebar()"></div>
+  <div class="sidebar${S.sidebarOpen?' open':''}">
     <div class="sidebar-logo">
       <div class="logo-mark">NG</div>
       <div><div class="logo-text">내셔널짐</div><div class="logo-sub">Golf PT 협업</div></div>
@@ -363,11 +366,16 @@ function render(){
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
           <div class="member-name">${m.name}</div>
           <div class="session-badge">${(S.sessions[m.id]||[]).length}</div>
+          <div class="member-actions">
+            <button class="member-edit-btn" onclick="event.stopPropagation();openEditMember('${m.id}')">수정</button>
+            <button class="member-del-btn" onclick="event.stopPropagation();deleteMember('${m.id}')">삭제</button>
+          </div>
         </div>`).join('')}
     </div>
     <div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>
     ${syncBadge()}
   </div>
+  <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
   <div class="main">
     ${member ? `
@@ -376,7 +384,7 @@ function render(){
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
         <div>
           <div class="member-title">${member.name} 회원님</div>
-          <div class="member-subtitle">골프레슨 + 골프PT 패키지</div>
+          <div class="member-subtitle">${member.sessionType||'골프레슨 + 골프PT 패키지'}${member.totalSessions?' · '+member.totalSessions+'회':''}${member.expiry?' · ~'+member.expiry:''}</div>
         </div>
       </div>
       <div class="topbar-actions">
@@ -528,14 +536,32 @@ function render(){
   ${S.showAddMember ? `
   <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <div class="modal-title">새 회원 등록</div>
+      <div class="modal-title">${S.editMemberId?'회원 정보 수정':'새 회원 등록'}</div>
       <div class="form-group">
         <label class="form-label">회원 이름</label>
-        <input class="form-input" placeholder="예: 김민수" oninput="S.newMemberName=this.value" autofocus>
+        <input class="form-input" placeholder="예: 김민수" value="${(S.newMember.name||'').replace(/"/g,'&quot;')}" oninput="S.newMember.name=this.value" autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">등록 세션 종류</label>
+        <input class="form-input" placeholder="예: 골프레슨+PT 패키지" value="${(S.newMember.sessionType||'').replace(/"/g,'&quot;')}" oninput="S.newMember.sessionType=this.value">
+      </div>
+      <div class="member-info-row">
+        <div class="form-group">
+          <label class="form-label">총 횟수</label>
+          <input class="form-input" placeholder="예: 24" value="${(S.newMember.totalSessions||'').replace(/"/g,'&quot;')}" oninput="S.newMember.totalSessions=this.value">
+        </div>
+        <div class="form-group">
+          <label class="form-label">등록 금액</label>
+          <input class="form-input" placeholder="예: 960,000" value="${(S.newMember.amount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.amount=this.value">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">유효기간</label>
+        <input type="date" class="form-input" value="${S.newMember.expiry||''}" oninput="S.newMember.expiry=this.value">
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">취소</button>
-        <button class="btn primary" onclick="addMember()">등록</button>
+        <button class="btn primary" onclick="${S.editMemberId?'saveMemberEdit()':'addMember()'}">${S.editMemberId?'저장':'등록'}</button>
       </div>
     </div>
   </div>` : ''}
@@ -543,13 +569,34 @@ function render(){
 }
 
 // ============ 이벤트 핸들러 ============
-function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; render();}
+function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; render();}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
 function openAddSession(){S.newSession={date:today(),author:'정우진 프로',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
-function openAddMember(){S.newMemberName=''; S.showAddMember=true; render();}
-function closeModal(){S.showAddSession=false; S.showAddMember=false; render();}
+function openAddMember(){S.newMember={name:'',sessionType:'골프레슨+PT 패키지',totalSessions:'',amount:'',expiry:''}; S.editMemberId=null; S.showAddMember=true; render();}
+function openEditMember(id){
+  var m=S.members.find(function(x){return x.id===id;});
+  if(!m)return;
+  S.newMember={name:m.name,sessionType:m.sessionType||'',totalSessions:m.totalSessions||'',amount:m.amount||'',expiry:m.expiry||''};
+  S.editMemberId=id; S.showAddMember=true; render();
+}
+function saveMemberEdit(){
+  var nm=S.newMember.name.trim();if(!nm){alert('이름을 입력하세요');return;}
+  var m=S.members.find(function(x){return x.id===S.editMemberId;});
+  if(!m)return;
+  m.name=nm; m.sessionType=S.newMember.sessionType; m.totalSessions=S.newMember.totalSessions; m.amount=S.newMember.amount; m.expiry=S.newMember.expiry;
+  S.editMemberId=null; S.showAddMember=false; save(); render(); cloud.upsertMember(m);
+}
+function deleteMember(id){
+  if(!confirm('이 회원을 삭제하시겠습니까? 모든 세션과 평가 데이터가 삭제됩니다.'))return;
+  S.members=S.members.filter(function(x){return x.id!==id;});
+  delete S.assessments[id]; delete S.sessions[id];
+  if(S.selectedMember===id) S.selectedMember=S.members.length>0?S.members[0].id:null;
+  save(); render();
+}
+function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen; render();}
+function closeModal(){S.showAddSession=false; S.showAddMember=false; S.editMemberId=null; render();}
 function updateNS(k,v){S.newSession[k]=v; if(k==='author'||k==='date') render();}
 
 function updateAssess(key, field, val){
@@ -584,11 +631,11 @@ function addSession(){
 }
 
 function addMember(){
-  const name = S.newMemberName.trim();
+  const name = S.newMember.name.trim();
   if(!name){alert('이름을 입력하세요'); return;}
   const id = uid();
   const color = AVATAR_COLORS[S.members.length % AVATAR_COLORS.length];
-  const m = {id, name, color};
+  const m = {id, name, color, sessionType:S.newMember.sessionType, totalSessions:S.newMember.totalSessions, amount:S.newMember.amount, expiry:S.newMember.expiry};
   S.members.push(m);
   S.assessments[id] = {};
   S.sessions[id] = [];
