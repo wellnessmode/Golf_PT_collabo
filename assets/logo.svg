@@ -1,21 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120">
-  <style>text{font-family:-apple-system,'Noto Sans KR',sans-serif}</style>
-  <!-- IN mark with vertical bars -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100">
+  <style>
+    text{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
+  </style>
   <g fill="#1a1a1a">
-    <rect x="8" y="10" width="6" height="70"/>
-    <rect x="20" y="10" width="6" height="70"/>
-    <path d="M32 10h6v50l24-50h6v70h-6V30L38 80h-6z"/>
-    <!-- Golf ball circle -->
-    <circle cx="50" cy="90" r="16" fill="none" stroke="#1a1a1a" stroke-width="5"/>
-    <path d="M42 88c4-4 12-4 16 0" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
-    <path d="M42 93c4 4 12 4 16 0" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+    <!-- I vertical bars -->
+    <rect x="5" y="8" width="5.5" height="52" rx="0.5"/>
+    <rect x="15" y="8" width="5.5" height="52" rx="0.5"/>
+    <!-- N diagonal -->
+    <rect x="26" y="8" width="5.5" height="52" rx="0.5"/>
+    <polygon points="31.5,8 56,52 56,60 50.5,60 50.5,18 26,60 26,52"/>
+    <rect x="50.5" y="8" width="5.5" height="52" rx="0.5"/>
+    <!-- Golf ball -->
+    <circle cx="42" cy="78" r="15" fill="none" stroke="#1a1a1a" stroke-width="4.5"/>
+    <path d="M34,75 Q42,69 50,75" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+    <path d="M34,81 Q42,87 50,81" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
   </g>
-  <!-- NATIONAL GYM text -->
-  <text x="90" y="42" font-size="32" font-weight="900" fill="#1a1a1a" letter-spacing="2">NATIONAL</text>
-  <text x="90" y="78" font-size="32" font-weight="900" fill="#1a1a1a" letter-spacing="2">GYM</text>
-  <text x="178" y="64" font-size="10" font-weight="600" fill="#555" letter-spacing="1">PT &amp; GOLF</text>
-  <text x="178" y="78" font-size="10" font-weight="600" fill="#555" letter-spacing="1">TRAINING STUDIO</text>
-  <!-- 내셔널짐 -->
-  <line x1="178" y1="92" x2="300" y2="92" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="220" y="108" font-size="14" font-weight="500" fill="#1a1a1a" letter-spacing="6">내 셔 널 짐</text>
+  <!-- NATIONAL -->
+  <text x="76" y="36" font-size="30" font-weight="900" fill="#1a1a1a" letter-spacing="3">NATIONAL</text>
+  <!-- GYM -->
+  <text x="76" y="68" font-size="30" font-weight="900" fill="#1a1a1a" letter-spacing="3">GYM</text>
+  <!-- PT & GOLF -->
+  <text x="157" y="52" font-size="9" font-weight="700" fill="#444" letter-spacing="1.5">PT &amp; GOLF</text>
+  <!-- TRAINING STUDIO -->
+  <text x="157" y="64" font-size="9" font-weight="700" fill="#444" letter-spacing="1.5">TRAINING STUDIO</text>
+  <!-- Divider line -->
+  <line x1="157" y1="76" x2="330" y2="76" stroke="#1a1a1a" stroke-width="1.8"/>
+  <!-- 내 셔 널 짐 -->
+  <text x="240" y="91" font-size="13" font-weight="600" fill="#1a1a1a" letter-spacing="8">내셔널짐</text>
 </svg>

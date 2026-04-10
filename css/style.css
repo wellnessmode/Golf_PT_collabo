@@ -1,6 +1,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;color:#1a1a1a;height:100vh;overflow:hidden}
 body.role-select{overflow:auto;height:auto}
+body.role-select .app{display:block;height:auto;min-height:100vh}
 .app{display:flex;height:100vh}
 
 /* Sidebar */
@@ -198,7 +199,7 @@ body.role-select{overflow:auto;height:auto}
 /* Role selector */
 .role-selector{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f4f1eb;padding:40px 20px;overflow-y:auto;box-sizing:border-box}
 .role-header{text-align:center;margin-bottom:32px}
-.role-logo-img{height:60px;margin:0 auto;display:block}
+.role-logo-img{width:300px;max-width:80%;margin:0 auto;display:block}
 .role-sub{font-size:13px;color:#9ca89e;margin-top:5px}
 .role-section{width:100%;max-width:420px;margin-bottom:20px}
 .role-section-label{font-size:10px;font-weight:700;color:#9ca89e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;text-align:center}
