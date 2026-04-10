@@ -550,7 +550,7 @@ function render(){
         <div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 프로</div></div>
         <div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT</div></div>
         <div class="stat"><div class="stat-val amber">${st.supp}</div><div class="stat-lbl">보완 요청</div></div>
-        <div class="stat ${fit.cls}"><div class="stat-val">${fit.score}</div><div class="stat-lbl">Golf Fit${fit.untested>0?' · 일부 미검사':''}</div></div>
+        <div class="stat ${fit.cls}"><div class="stat-val">${fit.score}</div><div class="stat-lbl">체형 점수${fit.untested>0?' · 일부 미검사':''}</div></div>
       </div>` : ''}
 
       <div class="section-card">
