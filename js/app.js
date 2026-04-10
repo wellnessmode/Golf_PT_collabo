@@ -26,6 +26,21 @@ const ASSESSMENT_ITEMS = [
 const RESULT_OPTIONS = ['미검사','정상','경미한 제한','주의 필요','제한'];
 const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 
+const APP_VERSION = {
+  version:'v1.2',
+  date:'2026-04-10',
+  changes:[
+    '회원 배정 시스템 — 담당 지도자만 해당 회원 열람 가능',
+    '역할별 화면 분리 (인포데스크 / 프로 / 트레이너)',
+    '회원 삭제 시 운동지도자 승인 필요',
+    '골프레슨 · 골프PT 등록횟수/금액 분리 관리',
+    'Golf Fitness Score (0~100점) 자동 계산',
+    'Body-Swing Connection 매핑 14개 항목',
+    '세션 기록에 스윙 영상/사진 첨부 기능',
+    '모바일 · 태블릿 반응형 UI'
+  ]
+};
+
 const INSTRUCTORS = [
   {name:'정우진 프로', role:'pro'},
   {name:'홍태양 프로', role:'pro'},
@@ -361,20 +376,40 @@ function syncBadge(){
 // ============ Render ============
 function renderRoleSelector(){
   var root=document.getElementById('root');
+  var pros=INSTRUCTORS.filter(function(i){return i.role==='pro';});
+  var trainers=INSTRUCTORS.filter(function(i){return i.role==='trainer';});
   root.innerHTML=`<div class="role-selector">
-    <div class="role-logo"><div class="logo-mark" style="width:48px;height:48px;font-size:20px;border-radius:12px;margin:0 auto">NG</div>
-      <h1 style="font-size:22px;color:#1a3d2b;margin-top:14px">내셔널짐</h1>
-      <p style="font-size:13px;color:#9ca89e;margin-top:4px">Golf PT 협업 시스템</p>
+    <div class="role-header">
+      <div class="logo-mark role-logo-big">NG</div>
+      <h1 class="role-h1">내셔널짐</h1>
+      <p class="role-sub">Golf PT 협업 시스템</p>
     </div>
-    <div class="role-cards">
-      <div class="role-card rc-infodesk" onclick="setRole('infodesk','인포데스크')">
-        <div class="role-icon">🖥</div><div class="role-card-title">인포데스크</div><div class="role-card-desc">회원 등록 · 관리</div>
+    <div class="role-section">
+      <div class="role-section-label">센터 관리</div>
+      <div class="role-row">
+        <div class="role-card rc-infodesk" onclick="setRole('infodesk','인포데스크')">
+          <div class="role-icon">🖥️</div><div class="role-card-title">인포데스크</div><div class="role-card-desc">회원 등록 · 관리</div>
+        </div>
       </div>
-      ${INSTRUCTORS.map(function(inst){
-        var icon=inst.role==='pro'?'⛳':'💪';
-        var desc=inst.role==='pro'?'골프 레슨 기록':'골프 PT 기록';
-        return '<div class="role-card rc-'+inst.role+'" onclick="setRole(\''+inst.role+'\',\''+inst.name+'\')"><div class="role-icon">'+icon+'</div><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">'+desc+'</div></div>';
-      }).join('')}
+    </div>
+    <div class="role-section">
+      <div class="role-section-label">골프 프로</div>
+      <div class="role-row">${pros.map(function(inst){
+        return '<div class="role-card rc-pro" onclick="setRole(\'pro\',\''+inst.name+'\')"><div class="role-icon">⛳</div><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 레슨 기록</div></div>';
+      }).join('')}</div>
+    </div>
+    <div class="role-section">
+      <div class="role-section-label">골프 PT</div>
+      <div class="role-row">${trainers.map(function(inst){
+        return '<div class="role-card rc-trainer" onclick="setRole(\'trainer\',\''+inst.name+'\')"><div class="role-icon">💪</div><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 PT 기록</div></div>';
+      }).join('')}</div>
+    </div>
+    <div class="update-notice">
+      <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span>📋 ${APP_VERSION.version} 업데이트 · ${APP_VERSION.date}</span>
+        <span class="update-chevron">▼</span>
+      </div>
+      <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
     </div>
   </div>`;
 }
