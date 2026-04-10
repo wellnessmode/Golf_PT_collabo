@@ -26,6 +26,16 @@ const ASSESSMENT_ITEMS = [
 const RESULT_OPTIONS = ['미검사','정상','경미한 제한','주의 필요','제한'];
 const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 
+// 비밀번호 설정 — 각 역할별 접근 잠금
+// 변경 시 아래 값만 수정하세요
+const ROLE_PASSWORDS = {
+  'infodesk':'ng2026',
+  '정우진 프로':'jung00',
+  '홍태양 프로':'hong00',
+  '최현승 트레이너':'choi00',
+  '이상렬 트레이너':'lee000'
+};
+
 const APP_VERSION = {
   version:'v1.2',
   date:'2026-04-10',
@@ -251,17 +261,42 @@ function readHash(){
   var parts=h.split('-');
   var role=parts[0];
   var user=decodeURIComponent(parts.slice(1).join('-'));
+  // URL 직접 입력해도 비밀번호 필요 — 세션 내 인증만 허용
+  var authed=sessionStorage.getItem('golf_pt_auth');
+  if(!authed){location.hash='';return;}
   if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}
   else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}
   else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}
 }
 function setRole(role,user){
-  S.currentRole=role;S.currentUser=user;
+  var key=role==='infodesk'?'infodesk':user;
+  var pw=ROLE_PASSWORDS[key];
+  if(pw){
+    S.pendingRole={role:role,user:user};
+    S.showPwModal=true;S.pwError=false;S.pwInput='';
+    render();
+    return;
+  }
+  activateRole(role,user);
+}
+function activateRole(role,user){
+  S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;
+  try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}
   location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');
   if(role==='pro'||role==='trainer') S.newSession.author=user;
   render();
 }
-function switchRole(){S.currentRole=null;S.currentUser=null;location.hash='';render();}
+function submitPassword(){
+  var p=S.pendingRole;if(!p)return;
+  var key=p.role==='infodesk'?'infodesk':p.user;
+  if(S.pwInput===ROLE_PASSWORDS[key]){
+    activateRole(p.role,p.user);
+  } else {
+    S.pwError=true;render();
+  }
+}
+function cancelPassword(){S.showPwModal=false;S.pendingRole=null;S.pwError=false;render();}
+function switchRole(){S.currentRole=null;S.currentUser=null;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}render();}
 
 async function init(){
   loadLocal();
@@ -411,7 +446,7 @@ function renderRoleSelector(){
       </div>
       <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
     </div>
-  </div>`;
+  </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div><div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}`;
 }
 
 function render(){
