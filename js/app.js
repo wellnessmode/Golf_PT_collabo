@@ -57,8 +57,8 @@ const BODY_SWING_MAP = {
 
 const SAMPLE_DATA = {
   members:[
-    {id:'m1',name:'로버트',color:'av-green',golfLessonCount:'12',golfPTCount:'12',golfLessonAmount:'480,000',golfPTAmount:'480,000',expiry:'2025-12-31'},
-    {id:'m2',name:'윤명숙',color:'av-blue',golfLessonCount:'12',golfPTCount:'12',golfLessonAmount:'480,000',golfPTAmount:'480,000',expiry:'2025-12-31'}
+    {id:'m1',name:'로버트',color:'av-green',golfLessonCount:'12',golfPTCount:'12',golfLessonAmount:'480,000',golfPTAmount:'480,000',expiry:'2025-12-31',assignedTo:['정우진 프로','최현승 트레이너']},
+    {id:'m2',name:'윤명숙',color:'av-blue',golfLessonCount:'12',golfPTCount:'12',golfLessonAmount:'480,000',golfPTAmount:'480,000',expiry:'2025-12-31',assignedTo:['정우진 프로','최현승 트레이너']}
   ],
   assessments:{
     m1:{static_posture:{result:'정상',note:''},overhead_squat:{result:'정상',note:''},pelvic_tilt:{result:'정상',note:''},pelvic_rotation:{result:'정상',note:''},thoracic_rotation:{result:'경미한 제한',note:'우측 회전 제한'},slr_test:{result:'정상',note:''},'90_90_standing':{result:'정상',note:''},'90_90_address':{result:'경미한 제한',note:'어드레스 시 좌측 제한'},patrick_test:{result:'경미한 제한',note:''},hip_extension:{result:'정상',note:''},ql_palpation:{result:'정상',note:''},one_leg_bridge:{result:'정상',note:''},neck_palpation:{result:'정상',note:''},calf_palpation:{result:'정상',note:''}},
@@ -401,9 +401,12 @@ function render(){
       <div class="logo-mark">NG</div>
       <div><div class="logo-text">내셔널짐</div><div class="logo-sub">Golf PT 협업</div></div>
     </div>
-    <div class="sidebar-section-label">회원 목록</div>
+    <div class="sidebar-section-label">회원 목록${!isInfo?' (배정)':''}</div>
     <div class="member-list">
-      ${S.members.map(m => `
+      ${S.members.filter(function(m){
+        if(isInfo) return true;
+        return m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1;
+      }).map(m => `
         <div class="member-item${m.id===mid?' active':''}" onclick="selectMember('${m.id}')">
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
           <div class="member-name">${m.name}</div>
@@ -614,6 +617,14 @@ function render(){
         <label class="form-label">유효기간</label>
         <input type="date" class="form-input" value="${S.newMember.expiry||''}" oninput="S.newMember.expiry=this.value">
       </div>
+      <div class="form-group">
+        <label class="form-label">담당 지도자 배정</label>
+        <div class="assign-grid">${INSTRUCTORS.map(function(inst){
+          var checked=(S.newMember.assignedTo||[]).indexOf(inst.name)!==-1;
+          var cls=inst.role==='pro'?'assign-pro':'assign-trainer';
+          return '<label class="assign-opt '+cls+(checked?' checked':'')+'"><input type="checkbox" '+(checked?'checked ':'')+' onchange="toggleAssign(\''+inst.name+'\')"> '+inst.name+'</label>';
+        }).join('')}</div>
+      </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">취소</button>
         <button class="btn primary" onclick="${S.editMemberId?'saveMemberEdit()':'addMember()'}">${S.editMemberId?'저장':'등록'}</button>
@@ -629,18 +640,24 @@ function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
 function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
-function openAddMember(){S.newMember={name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:''}; S.editMemberId=null; S.showAddMember=true; render();}
+function openAddMember(){S.newMember={name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]}; S.editMemberId=null; S.showAddMember=true; render();}
+function toggleAssign(name){
+  var arr=S.newMember.assignedTo||[];
+  var idx=arr.indexOf(name);
+  if(idx===-1) arr.push(name); else arr.splice(idx,1);
+  S.newMember.assignedTo=arr; render();
+}
 function openEditMember(id){
   var m=S.members.find(function(x){return x.id===id;});
   if(!m)return;
-  S.newMember={name:m.name,golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||''};
+  S.newMember={name:m.name,golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',assignedTo:(m.assignedTo||[]).slice()};
   S.editMemberId=id; S.showAddMember=true; render();
 }
 function saveMemberEdit(){
   var nm=S.newMember.name.trim();if(!nm){alert('이름을 입력하세요');return;}
   var m=S.members.find(function(x){return x.id===S.editMemberId;});
   if(!m)return;
-  m.name=nm;m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;m.expiry=S.newMember.expiry;
+  m.name=nm;m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;m.expiry=S.newMember.expiry;m.assignedTo=S.newMember.assignedTo||[];
   S.editMemberId=null; S.showAddMember=false; save(); render(); cloud.upsertMember(m);
 }
 function requestDelete(id){
@@ -698,7 +715,7 @@ function addMember(){
   if(!name){alert('이름을 입력하세요'); return;}
   const id = uid();
   const color = AVATAR_COLORS[S.members.length % AVATAR_COLORS.length];
-  const m = {id, name, color, golfLessonCount:S.newMember.golfLessonCount, golfPTCount:S.newMember.golfPTCount, golfLessonAmount:S.newMember.golfLessonAmount, golfPTAmount:S.newMember.golfPTAmount, expiry:S.newMember.expiry};
+  const m = {id, name, color, golfLessonCount:S.newMember.golfLessonCount, golfPTCount:S.newMember.golfPTCount, golfLessonAmount:S.newMember.golfLessonAmount, golfPTAmount:S.newMember.golfPTAmount, expiry:S.newMember.expiry, assignedTo:S.newMember.assignedTo||[]};
   S.members.push(m);
   S.assessments[id] = {};
   S.sessions[id] = [];
