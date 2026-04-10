@@ -276,6 +276,19 @@ function stats(mid){
   };
 }
 
+function calcFitness(assess){
+  var PTS = {'정상':7,'경미한 제한':5,'주의 필요':2,'제한':0,'미검사':0};
+  var total = 0, untested = 0;
+  for(var i=0;i<ASSESSMENT_ITEMS.length;i++){
+    var v = assess[ASSESSMENT_ITEMS[i].key];
+    if(!v || !v.result || v.result==='미검사'){ untested++; }
+    else { total += (PTS[v.result]||0); }
+  }
+  var score = Math.round((total/98)*100);
+  var cls = score>=85?'fit-good':score>=60?'fit-warn':'fit-danger';
+  return {score:score, cls:cls, untested:untested};
+}
+
 function syncBadge(){
   const map = {
     local:    {cls:'local',     label:'로컬 모드'},
@@ -302,6 +315,7 @@ function render(){
   const sessions = S.filterAuthor==='all' ? allSess : allSess.filter(s => s.author===S.filterAuthor);
   const assess = mid ? (S.assessments[mid]||{}) : {};
   const st = mid ? stats(mid) : null;
+  const fit = mid ? calcFitness(assess) : null;
 
   root.innerHTML = `
   <div class="sidebar">
@@ -343,6 +357,7 @@ function render(){
         <div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 레슨 (정P)</div></div>
         <div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT (최T)</div></div>
         <div class="stat"><div class="stat-val amber">${st.supp}</div><div class="stat-lbl">보완 요청</div></div>
+        <div class="stat ${fit.cls}"><div class="stat-val">${fit.score}</div><div class="stat-lbl">Golf Fit${fit.untested>0?' · 일부 미검사':''}</div></div>
       </div>` : ''}
 
       <div class="section-card">
