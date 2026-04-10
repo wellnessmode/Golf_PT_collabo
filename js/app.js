@@ -169,7 +169,7 @@ let S = {
   members:[], assessments:{}, sessions:{},
   selectedMember:null, assessOpen:true, filterAuthor:'all',
   showAddSession:false, showAddMember:false, editSessionId:null,
-  newSession:{date:today(), author:'정P', content:'', supplement:''},
+  newSession:{date:today(), author:'정P', content:'', supplement:'', media:[], mediaUrls:['','']},
   newMemberName:'',
   cloudSync:'local',  // 'local' | 'loading' | 'connected' | 'error'
   warningBannerCollapsed:false
@@ -439,6 +439,12 @@ function render(){
               </div>
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
+                ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){
+                  if(m.type==='file'&&m.data&&m.data.indexOf('image/')!==-1) return '<img class="sm-thumb" src="'+m.data+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
+                  if(m.type==='file'&&m.data&&m.data.indexOf('video/')!==-1) return '<video class="sm-video" src="'+m.data+'" controls></video>';
+                  if(m.type==='url') return '<a class="sm-link" href="'+((m.data||'').replace(/"/g,'&quot;'))+'" target="_blank" rel="noopener">▶ 영상 보기</a>';
+                  return '';
+                }).join('')+'</div>':''}
                 ${s.supplement ? `
                 <div class="supplement-box">
                   <div class="supp-label">보완점</div>
@@ -483,6 +489,20 @@ function render(){
         <label class="form-label">운동 / 레슨 내용</label>
         <textarea class="form-textarea" placeholder="오늘 진행한 내용을 입력하세요" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">스윙 영상 / 사진 첨부</label>
+        <div class="media-input-box">
+          <div class="media-sub-label">파일 업로드 (최대 2개)</div>
+          <div class="media-file-list">${S.newSession.media.map(function(m,i){
+            return '<div class="media-file-item"><span>'+(m.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+i+')">×</span></div>';
+          }).join('')}</div>
+          ${S.newSession.media.length<2?'<label class="media-upload-btn">+ 파일 선택<input type="file" accept="video/*,image/*" onchange="handleFileUpload(this)" style="display:none"></label>':''}
+          <div class="media-sub-label" style="margin-top:10px">또는 URL 직접 입력 (최대 2개)</div>
+          <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[0]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(0,this.value)" style="margin-bottom:6px">
+          <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[1]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(1,this.value)">
+          <div class="media-hint">영상은 짧게 촬영하세요. 5MB 초과 시 URL 입력을 권장합니다.</div>
+        </div>
+      </div>
       <div class="divider"></div>
       <div class="form-group">
         <label class="form-label accent">보완점 <span style="font-weight:400;opacity:.7;text-transform:none">(상대 담당자에게 전달 — 선택사항)</span></label>
@@ -517,7 +537,7 @@ function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; render();}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
-function openAddSession(){S.newSession={date:today(),author:'정P',content:'',supplement:''}; S.showAddSession=true; render();}
+function openAddSession(){S.newSession={date:today(),author:'정P',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
 function openAddMember(){S.newMemberName=''; S.showAddMember=true; render();}
 function closeModal(){S.showAddSession=false; S.showAddMember=false; render();}
 function updateNS(k,v){S.newSession[k]=v;}
@@ -537,12 +557,15 @@ function addSession(){
   if(!ns.content.trim()){alert('운동/레슨 내용을 입력하세요'); return;}
   const mid = S.selectedMember;
   if(!S.sessions[mid]) S.sessions[mid] = [];
+  var media = (ns.media||[]).slice();
+  (ns.mediaUrls||[]).forEach(function(u){ u=(u||'').trim(); if(u) media.push({type:'url',name:u,data:u}); });
   const s = {
     id: suid(),
     date: ns.date,
     author: ns.author,
     content: ns.content.trim(),
-    supplement: ns.supplement.trim()
+    supplement: ns.supplement.trim(),
+    media: media.length>0 ? media : undefined
   };
   S.sessions[mid].push(s);
   S.showAddSession = false;
@@ -563,6 +586,30 @@ function addMember(){
   S.showAddMember = false;
   save(); render();
   cloud.upsertMember(m);
+}
+
+function handleFileUpload(input){
+  var files=Array.from(input.files||[]);
+  var existing=S.newSession.media||[];
+  if(existing.length+files.length>2){alert('파일은 최대 2개까지 첨부 가능합니다');input.value='';return;}
+  files.forEach(function(file){
+    if(file.size>5*1024*1024){alert(file.name+' 용량이 큽니다. URL 입력을 권장합니다.');}
+    var reader=new FileReader();
+    reader.onload=function(e){
+      S.newSession.media.push({type:'file',name:file.name,data:e.target.result});
+      render();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+function removeMediaFile(idx){S.newSession.media.splice(idx,1);render();}
+function updateMediaUrl(idx,val){S.newSession.mediaUrls[idx]=val;}
+function openMediaView(src){
+  var d=document.createElement('div');d.className='media-overlay';
+  d.onclick=function(){d.remove();};
+  d.innerHTML='<img src="'+src+'" style="max-width:92vw;max-height:92vh;border-radius:8px">';
+  document.body.appendChild(d);
 }
 
 function deleteSession(id){

@@ -163,3 +163,23 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 .radio-opt.sel-trainer{border-color:#3b6d11;background:#eaf3de;color:#3b6d11}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .divider{height:1px;background:#e8e3d8;margin:4px 0 12px}
+
+/* Media input */
+.media-input-box{background:#f9f7f3;border:1px solid #ede9df;border-radius:8px;padding:10px 12px}
+.media-sub-label{font-size:10px;font-weight:600;color:#9ca89e;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.media-file-list{display:flex;flex-direction:column;gap:4px;margin-bottom:6px}
+.media-file-item{display:flex;align-items:center;gap:8px;font-size:11px;background:#fff;border:1px solid #d4cfc4;border-radius:6px;padding:5px 8px}
+.media-file-item span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mf-remove{cursor:pointer;color:#993c1d;font-weight:700;padding:0 4px;font-size:14px}
+.media-upload-btn{display:inline-block;padding:6px 12px;border:1.5px dashed #d4cfc4;border-radius:6px;font-size:11px;color:#6b7a70;cursor:pointer;font-weight:500;margin-bottom:4px}
+.media-upload-btn:hover{border-color:#4a7c59;color:#2d6a4f}
+.media-url{font-size:12px}
+.media-hint{font-size:10px;color:#9ca89e;margin-top:8px;line-height:1.4}
+
+/* Media display in session card */
+.session-media{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed #e8e3d8}
+.sm-thumb{width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e8e3d8;cursor:pointer}
+.sm-video{width:200px;max-height:150px;border-radius:6px;background:#000}
+.sm-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#185fa5;background:#eef5fd;padding:6px 10px;border-radius:6px;text-decoration:none;border:1px solid #b5d4f4;font-weight:600}
+.sm-link:hover{background:#dce9fa}
+.media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer}
