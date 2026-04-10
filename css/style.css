@@ -1,5 +1,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;color:#1a1a1a;height:100vh;overflow:hidden}
+body.role-select{overflow:auto;height:auto}
 .app{display:flex;height:100vh}
 
 /* Sidebar */
@@ -186,18 +187,17 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 .media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer}
 
 /* Role selector */
-.role-selector{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f4f1eb;padding:40px 20px;gap:0;overflow-y:auto}
+.role-selector{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f4f1eb;padding:40px 20px;overflow-y:auto;box-sizing:border-box}
 .role-header{text-align:center;margin-bottom:32px}
 .role-logo-big{width:56px;height:56px;font-size:22px;border-radius:14px;margin:0 auto}
 .role-h1{font-size:24px;color:#1a3d2b;margin-top:14px;font-weight:800}
 .role-sub{font-size:13px;color:#9ca89e;margin-top:5px}
 .role-section{width:100%;max-width:420px;margin-bottom:20px}
-.role-section-label{font-size:10px;font-weight:700;color:#9ca89e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-left:4px;text-align:center}
+.role-section-label{font-size:10px;font-weight:700;color:#9ca89e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;text-align:center}
 .role-row{display:flex;gap:12px;justify-content:center}
-.role-card{flex:1;background:#fff;border:2px solid #e8e3d8;border-radius:16px;padding:20px 12px;text-align:center;cursor:pointer;transition:all .18s}
+.role-card{flex:0 1 180px;background:#fff;border:2px solid #e8e3d8;border-radius:16px;padding:20px 12px;text-align:center;cursor:pointer;transition:all .18s}
 .role-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.08)}
 .role-card:active{transform:translateY(0);box-shadow:none}
-.rc-infodesk{max-width:180px;flex:none;width:180px}
 .rc-infodesk:hover{border-color:#7c3aed;background:#faf5ff}
 .rc-pro:hover{border-color:#185fa5;background:#eef5fd}
 .rc-trainer:hover{border-color:#3b6d11;background:#eaf3de}
@@ -217,16 +217,15 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 .update-list li::before{content:'·';position:absolute;left:2px;font-weight:900;color:#4a7c59}
 
 @media(max-width:480px){
-  .role-selector{padding:30px 16px;justify-content:flex-start;padding-top:60px}
+  .role-selector{justify-content:flex-start;padding:40px 16px}
   .role-header{margin-bottom:24px}
   .role-h1{font-size:20px}
   .role-row{gap:10px}
-  .role-card{padding:16px 8px;border-radius:14px}
+  .role-card{flex:1 1 0;min-width:0;padding:16px 8px;border-radius:14px}
   .role-icon{font-size:26px;margin-bottom:8px}
   .role-card-title{font-size:12px}
   .role-card-desc{font-size:10px}
   .role-section{max-width:100%}
-  .rc-infodesk{max-width:none;width:auto;flex:1}
   .update-notice{max-width:100%}
 }
 

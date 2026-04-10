@@ -450,7 +450,8 @@ function renderRoleSelector(){
 }
 
 function render(){
-  if(!S.currentRole){renderRoleSelector();return;}
+  if(!S.currentRole){document.body.classList.add('role-select');renderRoleSelector();return;}
+  document.body.classList.remove('role-select');
   const root = document.getElementById('root');
   const isInfo = S.currentRole==='infodesk';
   const mid = S.selectedMember;
