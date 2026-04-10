@@ -100,6 +100,17 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 .body-swing-alert{margin-top:6px;background:#fff3e0;border:1px solid #f5c77d;border-radius:6px;padding:6px 9px;font-size:10px;color:#6f4409;line-height:1.5}
 .bsa-icon{margin-right:3px}
 
+/* Warning banner */
+.warning-banner{margin:10px 16px 0;background:#fff3e0;border:1.5px solid #e9a93e;border-radius:9px;overflow:hidden}
+.wb-head{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;font-size:12px;font-weight:700;color:#6f4409}
+.wb-head:hover{background:#ffe9c8}
+.wb-chevron{font-size:10px;transition:transform .2s}
+.warning-banner.collapsed .wb-chevron{transform:rotate(-90deg)}
+.warning-banner.collapsed .wb-body{display:none}
+.wb-body{padding:4px 14px 12px;font-size:11px;color:#6f4409;line-height:1.6}
+.wb-item{padding:5px 0;border-top:1px dashed #e9a93e}
+.wb-item strong{font-weight:700;color:#5a2e00}
+
 /* Sessions */
 .filter-bar{display:flex;gap:6px;padding:10px 16px 0}
 .filter-btn{font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #d4cfc4;cursor:pointer;background:#fff;color:#6b7a70;font-weight:500;transition:all .15s}

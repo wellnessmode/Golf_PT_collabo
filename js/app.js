@@ -171,7 +171,8 @@ let S = {
   showAddSession:false, showAddMember:false, editSessionId:null,
   newSession:{date:today(), author:'정P', content:'', supplement:''},
   newMemberName:'',
-  cloudSync:'local'  // 'local' | 'loading' | 'connected' | 'error'
+  cloudSync:'local',  // 'local' | 'loading' | 'connected' | 'error'
+  warningBannerCollapsed:false
 };
 
 // ============ Helpers ============
@@ -333,6 +334,9 @@ function render(){
   const assess = mid ? (S.assessments[mid]||{}) : {};
   const st = mid ? stats(mid) : null;
   const fit = mid ? calcFitness(assess) : null;
+  const warnings = mid ? ASSESSMENT_ITEMS.filter(function(item){
+    var v = assess[item.key]; return v && (v.result==='제한'||v.result==='주의 필요');
+  }).map(function(item){ return {name:item.name, result:assess[item.key].result, impact:BODY_SWING_MAP[item.key]||''}; }) : [];
 
   root.innerHTML = `
   <div class="sidebar">
@@ -419,6 +423,10 @@ function render(){
             <div class="filter-btn${S.filterAuthor==='최T'?' trainer-active':''}" onclick="setFilter('최T')">최T</div>
           </div>
         </div>
+        ${warnings.length>0 ? `<div class="warning-banner${S.warningBannerCollapsed?' collapsed':''}">
+          <div class="wb-head" onclick="toggleWarningBanner()"><span>⚠ 체형 제한 ${warnings.length}개 확인 — 레슨/운동 전 검토 필요</span><span class="wb-chevron">▼</span></div>
+          <div class="wb-body">${warnings.map(function(w){ return '<div class="wb-item"><strong>'+w.name+'</strong> ('+w.result+'): '+w.impact+'</div>'; }).join('')}</div>
+        </div>` : ''}
         <div class="sessions-list">
           ${sessions.length===0 ? `<div class="empty-state">기록된 세션이 없습니다<br><span style="font-size:11px">상단 '+ 세션 기록' 버튼으로 추가하세요</span></div>` :
           sessions.map(s => `
@@ -507,6 +515,7 @@ function render(){
 // ============ 이벤트 핸들러 ============
 function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; render();}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
+function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
 function openAddSession(){S.newSession={date:today(),author:'정P',content:'',supplement:''}; S.showAddSession=true; render();}
 function openAddMember(){S.newMemberName=''; S.showAddMember=true; render();}
