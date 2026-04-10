@@ -97,6 +97,8 @@ body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#f4f1eb;colo
 .assess-select{font-size:11px;border:1px solid #d4cfc4;border-radius:6px;padding:3px 6px;background:#fff;color:#1a1a1a;flex:1;cursor:pointer}
 .assess-note-input{font-size:11px;border:1px solid #d4cfc4;border-radius:6px;padding:4px 7px;background:#fff;color:#1a1a1a;width:100%;margin-top:5px}
 .assess-note-input::placeholder{color:#b0aa9e}
+.body-swing-alert{margin-top:6px;background:#fff3e0;border:1px solid #f5c77d;border-radius:6px;padding:6px 9px;font-size:10px;color:#6f4409;line-height:1.5}
+.bsa-icon{margin-right:3px}
 
 /* Sessions */
 .filter-bar{display:flex;gap:6px;padding:10px 16px 0}

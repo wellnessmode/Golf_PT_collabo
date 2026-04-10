@@ -26,6 +26,23 @@ const ASSESSMENT_ITEMS = [
 const RESULT_OPTIONS = ['미검사','정상','경미한 제한','주의 필요','제한'];
 const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 
+const BODY_SWING_MAP = {
+  static_posture:'정적 자세 불균형 — 어드레스 셋업 일관성 저하',
+  overhead_squat:'어드레스 하체 균형 불안정 — 발목/무릎 보상동작 유발',
+  pelvic_tilt:'어드레스 척추각도 불안정 — S/C-Posture 위험',
+  pelvic_rotation:'다운스윙 골반 회전 감소 — X-Factor 감소, 비거리 손실',
+  thoracic_rotation:'백스윙 상체 회전 부족 — 팔로만 올리는 동작 유발',
+  slr_test:'팔로스루 시 하체 안정성 저하 — 체중이동 불완전',
+  '90_90_standing':'백스윙 탑 포지션 제한 — 어깨 회전 범위 감소',
+  '90_90_address':'어드레스 어깨 가동성 부족 — 플라잉 엘보 연관',
+  patrick_test:'다운스윙 골반 회전 제한 — 스웨이/슬라이드 발생 가능',
+  hip_extension:'임팩트 후 얼리 익스텐션(Early Extension) 위험',
+  ql_palpation:'요방형근 긴장 — 스윙 시 옆구리 제한',
+  one_leg_bridge:'고관절 신전근 약화 — 지면반력 감소, 하체 드라이브 부족',
+  neck_palpation:'경추/승모근 긴장 — 헤드업 경향, 임팩트 시선 불안정',
+  calf_palpation:'종아리/아킬레스 긴장 — 체중이동 시 발뒤꿈치 들림'
+};
+
 const SAMPLE_DATA = {
   members:[
     {id:'m1',name:'로버트',color:'av-green'},
@@ -383,6 +400,7 @@ function render(){
                 </select>
               </div>
               <input class="assess-note-input" placeholder="특이사항" value="${(v.note||'').replace(/"/g,'&quot;')}" onchange="updateAssess('${item.key}','note',this.value)" />
+              ${warn && BODY_SWING_MAP[item.key] ? `<div class="body-swing-alert"><span class="bsa-icon">⚠</span> ${BODY_SWING_MAP[item.key]}</div>` : ''}
             </div>`;
           }).join('')}
         </div>` : ''}
