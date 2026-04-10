@@ -625,7 +625,7 @@ function render(){
                   <div class="supp-text">${s.supplement}</div>
                 </div>` : ''}
                 <div class="session-actions">
-                  <button class="small-btn del" onclick="deleteSession('${s.id}')">삭제</button>
+                  ${!isInfo?'<button class="small-btn del" onclick="deleteSession(\''+s.id+'\')">삭제</button>':''}
                 </div>
               </div>
             </div>`).join('')}
