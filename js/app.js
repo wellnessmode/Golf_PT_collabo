@@ -204,8 +204,10 @@ const cloud = {
 // ============ 상태 ============
 let S = {
   members:[], assessments:{}, sessions:{}, deleteRequests:{},
+  activityLog:[], lastSeen:{},
   selectedMember:null, assessOpen:true, filterAuthor:'all',
-  showAddSession:false, showAddMember:false, editSessionId:null,
+  showAddSession:false, showAddMember:false, showActivityLog:false,
+  editSessionId:null,
   currentRole:null, currentUser:null,
   newSession:{date:today(), author:'', content:'', supplement:'', media:[], mediaUrls:['','']},
   newMember:{name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:''},
@@ -214,6 +216,34 @@ let S = {
   cloudSync:'local',
   warningBannerCollapsed:false
 };
+
+// ============ Activity Log ============
+function logActivity(action, memberId, detail){
+  var mName='';
+  var m=S.members.find(function(x){return x.id===memberId;});
+  if(m) mName=m.name;
+  S.activityLog.push({
+    time:new Date().toISOString(),
+    user:S.currentUser||'시스템',
+    action:action,
+    memberId:memberId||'',
+    memberName:mName,
+    detail:detail||''
+  });
+  if(S.activityLog.length>200) S.activityLog=S.activityLog.slice(-200);
+}
+function getUnreadCount(){
+  if(!S.currentUser) return 0;
+  var last=S.lastSeen[S.currentUser]||'';
+  return S.activityLog.filter(function(e){
+    return e.time>last && e.user!==S.currentUser;
+  }).length;
+}
+function markSeen(){
+  if(!S.currentUser)return;
+  S.lastSeen[S.currentUser]=new Date().toISOString();
+  save();
+}
 
 // ============ Helpers ============
 function today(){return new Date().toISOString().slice(0,10);}
@@ -228,7 +258,8 @@ function initials(name){
 function save(){
   try{
     localStorage.setItem('golf_pt_v2', JSON.stringify({
-      members:S.members, assessments:S.assessments, sessions:S.sessions, deleteRequests:S.deleteRequests
+      members:S.members, assessments:S.assessments, sessions:S.sessions,
+      deleteRequests:S.deleteRequests, activityLog:S.activityLog, lastSeen:S.lastSeen
     }));
   }catch(e){}
 }
@@ -242,6 +273,8 @@ function loadLocal(){
       S.assessments = p.assessments || SAMPLE_DATA.assessments;
       S.sessions = p.sessions || SAMPLE_DATA.sessions;
       S.deleteRequests = p.deleteRequests || {};
+      S.activityLog = p.activityLog || [];
+      S.lastSeen = p.lastSeen || {};
     } else {
       S.members = SAMPLE_DATA.members;
       S.assessments = SAMPLE_DATA.assessments;
@@ -470,7 +503,11 @@ function render(){
   <div class="sidebar${S.sidebarOpen?' open':''}">
     <div class="sidebar-logo">
       <div class="logo-mark">NG</div>
-      <div><div class="logo-text">내셔널짐</div><div class="logo-sub">Golf PT 협업</div></div>
+      <div><div class="logo-text">내셔널짐</div><div class="logo-sub">${S.currentUser||''}</div></div>
+      <div class="sidebar-top-actions">
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}🔔</button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()">🏠</button>
+      </div>
     </div>
     <div class="sidebar-section-label">회원 목록${!isInfo?' (배정)':''}</div>
     <div class="member-list">
@@ -490,10 +527,6 @@ function render(){
         </div>`).join('')}
     </div>
     ${isInfo?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
-    <div class="role-badge rb-${S.currentRole}" onclick="switchRole()">
-      <span class="rb-name">${S.currentUser||''}</span>
-      <span class="rb-switch">전환</span>
-    </div>
   </div>
   <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
@@ -540,11 +573,11 @@ function render(){
               <div class="assess-name">${item.name}</div>
               <div class="assess-cp">${item.cp}</div>
               <div class="assess-row">
-                <select class="assess-select" onchange="updateAssess('${item.key}','result',this.value)">
+                <select class="assess-select" ${isInfo?'disabled ':''} onchange="updateAssess('${item.key}','result',this.value)">
                   ${RESULT_OPTIONS.map(o => `<option value="${o}"${v.result===o?' selected':''}>${o}</option>`).join('')}
                 </select>
               </div>
-              <input class="assess-note-input" placeholder="특이사항" value="${(v.note||'').replace(/"/g,'&quot;')}" onchange="updateAssess('${item.key}','note',this.value)" />
+              <input class="assess-note-input" placeholder="특이사항" value="${(v.note||'').replace(/"/g,'&quot;')}" ${isInfo?'disabled ':''} onchange="updateAssess('${item.key}','note',this.value)" />
               ${warn && BODY_SWING_MAP[item.key] ? `<div class="body-swing-alert"><span class="bsa-icon">⚠</span> ${BODY_SWING_MAP[item.key]}</div>` : ''}
             </div>`;
           }).join('')}
@@ -702,6 +735,21 @@ function render(){
       </div>
     </div>
   </div>` : ''}
+
+  ${S.showActivityLog ? `
+  <div class="modal-overlay" onclick="if(event.target===this){S.showActivityLog=false;render()}">
+    <div class="modal" style="width:520px">
+      <div class="modal-title">📋 활동 로그</div>
+      <div class="activity-log-list">
+        ${S.activityLog.slice().reverse().slice(0,50).map(function(e){
+          var d=new Date(e.time);
+          var ts=(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+          return '<div class="log-item"><div class="log-time">'+ts+'</div><div class="log-body"><strong>'+e.user+'</strong> — '+(e.memberName||'')+' '+e.action+(e.detail?' : '+e.detail:'')+'</div></div>';
+        }).join('')||'<div class="empty-state">아직 활동 기록이 없습니다</div>'}
+      </div>
+      <div class="modal-actions"><button class="btn" onclick="S.showActivityLog=false;render()">닫기</button></div>
+    </div>
+  </div>` : ''}
   `;
 }
 
@@ -729,7 +777,9 @@ function saveMemberEdit(){
   var m=S.members.find(function(x){return x.id===S.editMemberId;});
   if(!m)return;
   m.name=nm;m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;m.expiry=S.newMember.expiry;m.assignedTo=S.newMember.assignedTo||[];
-  S.editMemberId=null; S.showAddMember=false; save(); render(); cloud.upsertMember(m);
+  S.editMemberId=null; S.showAddMember=false;
+  logActivity('회원 수정', S.editMemberId, nm);
+  save(); render(); cloud.upsertMember(m);
 }
 function requestDelete(id){
   if(!confirm('이 회원의 삭제를 요청하시겠습니까? 운동지도자 승인 후 삭제됩니다.'))return;
@@ -747,7 +797,8 @@ function rejectDelete(id){
   delete S.deleteRequests[id]; save(); render();
 }
 function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen; render();}
-function closeModal(){S.showAddSession=false; S.showAddMember=false; S.editMemberId=null; render();}
+function closeModal(){S.showAddSession=false; S.showAddMember=false; S.showActivityLog=false; S.editMemberId=null; render();}
+function openActivityLog(){markSeen(); S.showActivityLog=true; render();}
 function updateNS(k,v){S.newSession[k]=v; if(k==='author'||k==='date') render();}
 
 function updateAssess(key, field, val){
@@ -757,6 +808,8 @@ function updateAssess(key, field, val){
   S.assessments[mid][key][field] = val;
   save();
   const v = S.assessments[mid][key];
+  var itemName=(ASSESSMENT_ITEMS.find(function(i){return i.key===key;})||{}).name||key;
+  logActivity('평가 수정', mid, itemName+': '+v.result);
   cloud.upsertAssessment(mid, key, v.result, v.note);
 }
 
@@ -777,6 +830,7 @@ function addSession(){
   };
   S.sessions[mid].push(s);
   S.showAddSession = false;
+  logActivity('세션 추가', mid, s.content.slice(0,40));
   save(); render();
   cloud.upsertSession(mid, s);
 }
@@ -792,6 +846,7 @@ function addMember(){
   S.sessions[id] = [];
   S.selectedMember = id;
   S.showAddMember = false;
+  logActivity('회원 등록', id, name);
   save(); render();
   cloud.upsertMember(m);
 }
@@ -824,6 +879,7 @@ function deleteSession(id){
   if(!confirm('이 세션 기록을 삭제하시겠습니까?')) return;
   const mid = S.selectedMember;
   S.sessions[mid] = (S.sessions[mid]||[]).filter(s => s.id!==id);
+  logActivity('세션 삭제', mid, '');
   save(); render();
   cloud.deleteSession(id);
 }

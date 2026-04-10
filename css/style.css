@@ -5,7 +5,11 @@ body.role-select{overflow:auto;height:auto}
 
 /* Sidebar */
 .sidebar{width:220px;min-width:220px;background:#fff;border-right:1px solid #e8e3d8;display:flex;flex-direction:column;overflow:hidden}
-.sidebar-logo{padding:16px 14px 12px;border-bottom:1px solid #e8e3d8;display:flex;align-items:center;gap:8px}
+.sidebar-logo{padding:12px 14px;border-bottom:1px solid #e8e3d8;display:flex;align-items:center;gap:8px}
+.sidebar-top-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+.sidebar-bell,.sidebar-home-btn{border:none;background:transparent;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px;position:relative;line-height:1}
+.sidebar-bell:hover,.sidebar-home-btn:hover{background:#f4f1eb}
+.bell-badge{position:absolute;top:-2px;right:-4px;background:#c92020;color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
 .logo-mark{width:28px;height:28px;background:#1a3d2b;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0}
 .logo-text{font-size:12px;font-weight:600;color:#1a3d2b;line-height:1.3}
 .logo-sub{font-size:10px;color:#7a8a80;font-weight:400}
@@ -186,6 +190,13 @@ body.role-select{overflow:auto;height:auto}
 .sm-link:hover{background:#dce9fa}
 .media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer}
 
+/* Activity log */
+.activity-log-list{max-height:400px;overflow-y:auto;margin-bottom:12px}
+.log-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f0efe9;font-size:12px}
+.log-time{color:#9ca89e;font-size:10px;flex-shrink:0;width:50px;padding-top:2px}
+.log-body{color:#3d3d3d;line-height:1.5}
+.log-body strong{color:#1a3d2b}
+
 /* Role selector */
 .role-selector{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f4f1eb;padding:40px 20px;overflow-y:auto;box-sizing:border-box}
 .role-header{text-align:center;margin-bottom:32px}
@@ -229,14 +240,7 @@ body.role-select{overflow:auto;height:auto}
   .update-notice{max-width:100%}
 }
 
-/* Role badge */
-.role-badge{padding:8px 10px;margin:8px;border-radius:8px;font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer;transition:background .12s}
-.role-badge:hover{opacity:.85}
-.rb-infodesk{background:#f0eafc;color:#7c3aed}
-.rb-pro{background:#eef5fd;color:#185fa5}
-.rb-trainer{background:#eaf3de;color:#3b6d11}
-.rb-name{font-weight:700;flex:1}
-.rb-switch{font-size:10px;opacity:.6;text-decoration:underline}
+/* (role-badge removed — replaced by sidebar-top-actions) */
 
 /* Delete pending */
 .del-pending-badge{font-size:9px;background:#faeeda;color:#854f0b;padding:1px 6px;border-radius:8px;font-weight:600;border:1px solid #e9c06a;white-space:nowrap}
