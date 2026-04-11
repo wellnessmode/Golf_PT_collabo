@@ -245,6 +245,9 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .sp-metric{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px dashed #262626;font-size:10px}
 .spm-lbl{color:#9ca89e}
 .spm-val{color:#00ff7f;font-family:'SF Mono',Menlo,monospace;font-weight:700}
+.spm-delta{font-size:9px;font-weight:700;padding:1px 5px;margin-left:5px;border-radius:3px}
+.spm-delta.ok{background:rgba(0,255,127,.12);color:#7fdd95}
+.spm-delta.warn{background:rgba(255,120,80,.15);color:#ff9070}
 .sp-metrics-checklist{display:flex;flex-direction:column;gap:3px}
 .sp-check{font-size:10px;padding:4px 8px;border-radius:5px;line-height:1.4}
 .sp-check.ok{background:rgba(0,255,127,.08);color:#7fdd95;border-left:2px solid #00ff7f}

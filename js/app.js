@@ -53,9 +53,15 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.3',
+  version:'v2.4',
   date:'2026-04-11',
   changes:[
+    '▶ 영상 자동 분석 시작 — 재생 버튼 누르지 않아도 로드되면 바로 분석 (preload=auto + canplay 트리거)',
+    '📱 iOS Safari 디코더 Kick — muted play/pause 로 seek 동작 활성화, 모바일에서 스켈레톤 미표시 버그 수정',
+    '🎯 뷰별 전용 기준선 — 정면: 척추/어깨/골반/좌우 힙 수직/헤드 수직, 측면: 척추/헤드/힙/무릎 수직',
+    '👻 Address · Finish 유령 기준선 — 노란(Address)/하늘(Finish) 참조선을 오버레이해 스윙 전반의 움직임 변화 추적',
+    '📊 지표 변화량(Δ) 표시 — 현재값 옆에 Address 대비 차이(+/-)를 색상 태그로 표시, 한계치 초과 시 경고색',
+    '🛡 R2 영상 CORS 문제 수정 — crossorigin=anonymous 로 Tainted canvas 에러 해결',
     '⚡ 분석 속도 10배 개선 — Lite 모델 + 10fps 샘플링 + 다운샘플 캔버스 + rVFC 프레임 동기화 (5초 영상 기준 3분 → 15초)',
     '🌓 어두운 실내 영상 감지력 향상 — 밝기/대비 보정 + 감지 임계값 완화 (0.6 → 0.3)',
     '📦 업로드 전 자동 영상 압축 — 1280px / 2.5Mbps 재인코딩으로 원본 15MB → 2~4MB (R2 저장/전송 효율 개선)',
@@ -1953,7 +1959,7 @@ function renderSwingPlayer(sessionId, mediaIdx, m, src){
   }
   return '<div class="swing-player" data-sid="'+sessionId+'" data-mi="'+mediaIdx+'" data-mediaid="'+(m.mediaId||'')+'">'+
     '<div class="sp-screen">'+
-      '<video class="sp-video" src="'+src+'" playsinline webkit-playsinline preload="metadata" crossorigin="anonymous"></video>'+
+      '<video class="sp-video" src="'+src+'" playsinline webkit-playsinline preload="auto" muted crossorigin="anonymous"></video>'+
       '<canvas class="sp-canvas"></canvas>'+
       viewTag+
       '<div class="sp-loading"><div class="sp-loading-inner"><div class="sp-spinner"></div><div class="sp-loading-text">분석 준비...</div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div></div></div>'+
@@ -2034,9 +2040,93 @@ function setupSwingPlayer(el){
     return mm+':'+(ss<10?'0':'')+ss;
   }
 
+  // ===== 보조 드로잉 헬퍼 =====
+  function vLine(x, color, dash, width){
+    ctx.strokeStyle=color; ctx.lineWidth=width||1.5;
+    ctx.setLineDash(dash||[]);
+    ctx.beginPath();
+    ctx.moveTo(x*canvas.width, 0);
+    ctx.lineTo(x*canvas.width, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function hLine(y, color, dash, width){
+    ctx.strokeStyle=color; ctx.lineWidth=width||1.5;
+    ctx.setLineDash(dash||[]);
+    ctx.beginPath();
+    ctx.moveTo(0, y*canvas.height);
+    ctx.lineTo(canvas.width, y*canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function segLine(a, b, color, dash, width){
+    ctx.strokeStyle=color; ctx.lineWidth=width||2;
+    ctx.setLineDash(dash||[]);
+    ctx.beginPath();
+    ctx.moveTo(a.x*canvas.width, a.y*canvas.height);
+    ctx.lineTo(b.x*canvas.width, b.y*canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function labelTag(text, x, y, bg){
+    ctx.font='600 12px -apple-system,system-ui,sans-serif';
+    var pad=5;
+    var w = ctx.measureText(text).width + pad*2;
+    var h = 18;
+    ctx.fillStyle=bg||'rgba(0,0,0,.65)';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle='#fff';
+    ctx.fillText(text, x+pad, y+13);
+  }
+
+  // 뷰별 기준선 그리기 — 현재 프레임
+  function drawLiveGuides(lm, view){
+    var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
+    var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
+    var nose = lm[LM.NOSE];
+    if(view==='side'){
+      // 측면: 척추선 + 헤드 수직 + 힙 수직 + 무릎 수직
+      segLine(midHip, midSh, 'rgba(255,64,129,.9)', null, 3);  // 척추선
+      vLine(nose.x, 'rgba(138,207,255,.85)', [6,4], 2);          // 헤드 수직
+      vLine(midHip.x, 'rgba(255,200,64,.85)', [6,4], 2);         // 힙 수직
+      var midKnee = {x:(lm[LM.L_KNEE].x+lm[LM.R_KNEE].x)/2};
+      vLine(midKnee.x, 'rgba(180,255,120,.55)', [3,4], 1.5);     // 무릎 수직
+    } else {
+      // 정면: 척추선 + 어깨선 + 골반선 + 좌우 힙 수직(sway 경계) + 헤드 수직
+      segLine(midHip, midSh, 'rgba(255,64,129,.9)', null, 3);    // 척추선
+      segLine(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER], 'rgba(64,200,255,.9)', null, 2);  // 어깨선
+      segLine(lm[LM.L_HIP], lm[LM.R_HIP], 'rgba(255,200,64,.9)', null, 2);             // 골반선
+      vLine(nose.x, 'rgba(255,255,255,.55)', [5,5], 1.5);         // 헤드 수직
+      vLine(lm[LM.L_HIP].x, 'rgba(255,200,64,.5)', [4,5], 1.5);   // 좌 힙 수직
+      vLine(lm[LM.R_HIP].x, 'rgba(255,200,64,.5)', [4,5], 1.5);   // 우 힙 수직
+    }
+  }
+
+  // 어드레스/피니시 참조 유령선
+  function drawGhostReference(lm, color, opacity, view, labelText){
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
+    var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
+    var nose = lm[LM.NOSE];
+    if(view==='side'){
+      segLine(midHip, midSh, color, [6,4], 2);       // 척추선 ghost
+      vLine(nose.x, color, [5,5], 1.5);              // 헤드 수직 ghost
+      vLine(midHip.x, color, [5,5], 1.5);            // 힙 수직 ghost
+    } else {
+      segLine(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER], color, [6,4], 2);
+      segLine(lm[LM.L_HIP], lm[LM.R_HIP], color, [6,4], 2);
+      vLine(nose.x, color, [5,5], 1.5);
+    }
+    ctx.globalAlpha = 1;
+    if(labelText){
+      labelTag(labelText, Math.round(nose.x*canvas.width)-18, 6, 'rgba(0,0,0,.75)');
+    }
+    ctx.restore();
+  }
+
   function draw(){
     if(!state.analysis || !state.analysis.frames.length){
-      // 분석 전 — 캔버스만 클리어
       if(canvas.width!==video.videoWidth) canvas.width = video.videoWidth||640;
       if(canvas.height!==video.videoHeight) canvas.height = video.videoHeight||480;
       ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -2045,49 +2135,48 @@ function setupSwingPlayer(el){
     canvas.width = video.videoWidth || canvas.clientWidth;
     canvas.height = video.videoHeight || canvas.clientHeight;
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    var frame = findNearestFrame(state.analysis.frames, video.currentTime);
+    var frames = state.analysis.frames;
+    var frame = findNearestFrame(frames, video.currentTime);
     if(!frame) return;
+    var view = m.view||'front';
+
+    // 1) 어드레스/피니시 참조 유령선 (가이드 ON 일 때)
+    if(state.showGuide && frames.length>0){
+      var addrFrame = frames[0];
+      var finFrame = frames[frames.length-1];
+      if(addrFrame && addrFrame.landmarks){
+        drawGhostReference(addrFrame.landmarks, 'rgba(255,220,80,1)', 0.45, view, 'Address');
+      }
+      if(finFrame && finFrame.landmarks && frames.length>3){
+        drawGhostReference(finFrame.landmarks, 'rgba(100,220,255,1)', 0.35, view, 'Finish');
+      }
+    }
+    // 2) 현재 프레임 기준선
+    if(state.showGuide && frame.landmarks){
+      drawLiveGuides(frame.landmarks, view);
+    }
+    // 3) 스켈레톤 (위에 덮어씀)
     if(state.showSkel && typeof drawConnectors!=='undefined'){
       drawConnectors(ctx, frame.landmarks, POSE_CONNECTIONS, {color:'#00ff7f', lineWidth:3});
       drawLandmarks(ctx, frame.landmarks, {color:'#ff4081', lineWidth:1, radius:3});
     }
-    if(state.showGuide && frame.landmarks){
-      var lm = frame.landmarks;
-      var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
-      var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
-      // 척추선
-      ctx.strokeStyle='rgba(255,64,129,.85)'; ctx.lineWidth=3;
-      ctx.beginPath();
-      ctx.moveTo(midHip.x*canvas.width, midHip.y*canvas.height);
-      ctx.lineTo(midSh.x*canvas.width, midSh.y*canvas.height);
-      ctx.stroke();
-      // 어깨선
-      ctx.strokeStyle='rgba(64,200,255,.85)'; ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(lm[LM.L_SHOULDER].x*canvas.width, lm[LM.L_SHOULDER].y*canvas.height);
-      ctx.lineTo(lm[LM.R_SHOULDER].x*canvas.width, lm[LM.R_SHOULDER].y*canvas.height);
-      ctx.stroke();
-      // 골반선
-      ctx.strokeStyle='rgba(255,200,64,.85)'; ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(lm[LM.L_HIP].x*canvas.width, lm[LM.L_HIP].y*canvas.height);
-      ctx.lineTo(lm[LM.R_HIP].x*canvas.width, lm[LM.R_HIP].y*canvas.height);
-      ctx.stroke();
-      // 수직 기준선
-      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.setLineDash([5,5]); ctx.lineWidth=1;
-      ctx.beginPath();
-      ctx.moveTo(midHip.x*canvas.width, 0);
-      ctx.lineTo(midHip.x*canvas.width, canvas.height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
     if(state.showMetrics){
-      // 지표 패널 업데이트
+      // 지표 패널 업데이트 — 현재값 + Address 대비 변화량
       var defs = VIEW_METRICS[m.view||'front'] || VIEW_METRICS.front;
+      var addrM = frames[0] && frames[0].metrics ? frames[0].metrics : null;
       metricsLive.innerHTML = defs.map(function(d){
         var v = frame.metrics ? frame.metrics[d.key] : null;
         var display = (v===null||v===undefined) ? '—' : Number(v).toFixed(d.fix)+(d.unit||'');
-        return '<div class="sp-metric"><span class="spm-lbl">'+d.label+'</span><span class="spm-val">'+display+'</span></div>';
+        var delta = '';
+        if(addrM && v!==null && v!==undefined && addrM[d.key]!==null && addrM[d.key]!==undefined){
+          var dv = v - addrM[d.key];
+          if(Math.abs(dv) >= Math.pow(10, -(d.fix||0))-1e-9){
+            var sign = dv>=0?'+':'';
+            var cls = Math.abs(dv) > (d.warnDelta||999) ? 'warn' : 'ok';
+            delta = ' <span class="spm-delta '+cls+'">'+sign+Number(dv).toFixed(d.fix)+(d.unit||'')+'</span>';
+          }
+        }
+        return '<div class="sp-metric"><span class="spm-lbl">'+d.label+'</span><span class="spm-val">'+display+delta+'</span></div>';
       }).join('');
     }
   }
@@ -2111,6 +2200,15 @@ function setupSwingPlayer(el){
     draw();
     tryLoadOrAnalyze();
   });
+  // 모바일에서 loadedmetadata 가 늦게 오는 경우 대비 — canplay 에도 트리거
+  var _autoTriggered = false;
+  function _autoTrigger(){
+    if(_autoTriggered) return;
+    _autoTriggered = true;
+    tryLoadOrAnalyze();
+  }
+  video.addEventListener('canplay', _autoTrigger);
+  video.addEventListener('loadeddata', _autoTrigger);
   video.addEventListener('timeupdate', function(){
     var pct = video.duration>0 ? (video.currentTime/video.duration)*1000 : 0;
     scrub.value = pct;
@@ -2189,8 +2287,40 @@ function setupSwingPlayer(el){
     if(state.analyzing) return;
     state.analyzing = true;
     loadingEl.style.display = 'flex';
-    loadingText.textContent = '분석 대기 중...';
+    loadingText.textContent = '영상 로드 중...';
     progressFill.style.width = '0%';
+
+    // 2-a. 영상이 seek 가능한 상태가 될 때까지 대기
+    // (readyState >= 2 = HAVE_CURRENT_DATA, seeking 가능)
+    try{ video.load(); }catch(e){}
+    if(video.readyState < 2){
+      await new Promise(function(resolve){
+        var settled = false;
+        var onReady = function(){
+          if(settled) return;
+          settled = true;
+          video.removeEventListener('loadeddata', onReady);
+          video.removeEventListener('canplay', onReady);
+          video.removeEventListener('canplaythrough', onReady);
+          resolve();
+        };
+        video.addEventListener('loadeddata', onReady);
+        video.addEventListener('canplay', onReady);
+        video.addEventListener('canplaythrough', onReady);
+        setTimeout(onReady, 5000); // max wait
+      });
+    }
+
+    // 2-b. iOS Safari 디코더 Kick — muted play/pause 로 seek 동작 활성화
+    try{
+      video.muted = true;
+      var playP = video.play();
+      if(playP && playP.then){ await playP; }
+      video.pause();
+      try{ video.currentTime = 0; }catch(e){}
+    }catch(e){ /* autoplay 차단은 무시 */ }
+
+    loadingText.textContent = '분석 대기 중...';
     var analysis = await queueAnalysis(video, mediaId, function(p){
       var pct = Math.floor(p*100);
       loadingText.textContent = '분석 중 '+pct+'%';
