@@ -53,9 +53,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.0',
+  version:'v2.1',
   date:'2026-04-11',
   changes:[
+    '🛡 초기 동기화 머지 방식으로 변경 — 로컬에만 있던 세션/회원/평가가 원격 덮어쓰기로 손실되던 버그 수정',
     '☁ Supabase 클라우드 동기화 활성화 — 회원/세션/체형평가 데이터가 모든 기기에서 실시간 공유',
     '🆕 사이드바 하단 동기화 상태 배지 — 연결/로딩/오류 상태 시각화 + 새로고침 버튼',
     '🎯 스켈레톤 정확도 개선 — MediaPipe Full 모델로 업그레이드 (Lite→Full, modelComplexity 1)',
@@ -569,10 +570,18 @@ async function init(){
   });
   if(allMedia.length>0) render();
 
-  // 2) Supabase 가 설정되어 있으면 원격 동기화 시도
+  // 2) Supabase 가 설정되어 있으면 원격 동기화 시도 (머지 방식 — 데이터 손실 방지)
   if(cloud.init()){
     S.cloudSync = 'loading';
     render();
+
+    // 병합 전 로컬 스냅샷 — 원격에 없는 로컬 전용 항목을 업로드하기 위함
+    const localSnap = {
+      members: S.members.map(m=>({...m})),
+      assessments: JSON.parse(JSON.stringify(S.assessments||{})),
+      sessions: JSON.parse(JSON.stringify(S.sessions||{}))
+    };
+
     const remote = await cloud.loadAll();
     if(remote){
       if(remote.members.length > 0){
@@ -591,8 +600,47 @@ async function init(){
             if(localMediaMap[s.id]) s.media = localMediaMap[s.id];
           });
         });
+
+        // 로컬 전용 항목 업로드 — 원격에 없는 회원/세션/평가를 추가 업로드
+        const remoteMemberIds = new Set(S.members.map(m=>m.id));
+        for(const m of localSnap.members){
+          if(!remoteMemberIds.has(m.id)){
+            await cloud.upsertMember(m);
+            S.members.push(m);
+            remoteMemberIds.add(m.id);
+          }
+        }
+        const remoteSessionIds = new Set();
+        Object.keys(S.sessions).forEach(function(mid){
+          (S.sessions[mid]||[]).forEach(function(s){ remoteSessionIds.add(s.id); });
+        });
+        for(const mid in localSnap.sessions){
+          for(const s of localSnap.sessions[mid]){
+            if(!remoteSessionIds.has(s.id)){
+              await cloud.upsertSession(mid, s);
+              if(!S.sessions[mid]) S.sessions[mid] = [];
+              // 로컬에만 있는 세션은 media 필드도 그대로 유지
+              S.sessions[mid].push(s);
+              remoteSessionIds.add(s.id);
+            }
+          }
+        }
+        for(const mid in localSnap.assessments){
+          for(const key in localSnap.assessments[mid]){
+            // 메타(_date, _history) 는 업로드 대상 아님
+            if(key.indexOf('_')===0) continue;
+            const hasRemote = S.assessments[mid] && S.assessments[mid][key];
+            if(!hasRemote){
+              const v = localSnap.assessments[mid][key];
+              await cloud.upsertAssessment(mid, key, v.result, v.note);
+              if(!S.assessments[mid]) S.assessments[mid] = {};
+              S.assessments[mid][key] = v;
+            }
+          }
+        }
+
         if(!S.members.find(m => m.id === S.selectedMember)){
-          S.selectedMember = S.members[0].id;
+          S.selectedMember = S.members[0] ? S.members[0].id : null;
         }
       } else {
         // 원격이 비어있으면 현재 로컬 데이터를 초기 업로드
