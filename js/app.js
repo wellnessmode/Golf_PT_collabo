@@ -1953,7 +1953,7 @@ function renderSwingPlayer(sessionId, mediaIdx, m, src){
   }
   return '<div class="swing-player" data-sid="'+sessionId+'" data-mi="'+mediaIdx+'" data-mediaid="'+(m.mediaId||'')+'">'+
     '<div class="sp-screen">'+
-      '<video class="sp-video" src="'+src+'" playsinline webkit-playsinline preload="metadata"></video>'+
+      '<video class="sp-video" src="'+src+'" playsinline webkit-playsinline preload="metadata" crossorigin="anonymous"></video>'+
       '<canvas class="sp-canvas"></canvas>'+
       viewTag+
       '<div class="sp-loading"><div class="sp-loading-inner"><div class="sp-spinner"></div><div class="sp-loading-text">분석 준비...</div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div></div></div>'+
