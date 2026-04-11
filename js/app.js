@@ -37,9 +37,14 @@ const ROLE_PASSWORDS = {
 };
 
 const APP_VERSION = {
-  version:'v1.3',
+  version:'v1.4',
   date:'2026-04-11',
   changes:[
+    '🆕 골프 스윙 종합 분석 — X-Factor, 척추각, 리드암, 무릎굴곡, 머리이동 실시간 측정',
+    '🆕 스윙 페이즈 자동 감지 (어드레스→백스윙→탑→다운스윙→임팩트→팔로스루→피니시)',
+    '🆕 체크리스트 자동 피드백 (얼리 익스텐션, 헤드 무브먼트, 리드암 직선 등)',
+    '🆕 가이드라인 오버레이 (척추선, 수직 기준선)',
+    '⚡ 스켈레톤 분석 속도 2~3배 개선 (modelComplexity lite 적용)',
     '🆕 IndexedDB 대용량 미디어 저장 — 파일당 100MB까지 (기존 3MB 한도 해제)',
     '🆕 MediaPipe 스켈레톤 분석 — 스윙 영상에서 관절 자동 추출',
     '🆕 체형평가 히스토리 — 평가일 기록 + 애프터 평가 스냅샷',
@@ -1040,6 +1045,68 @@ function openMediaView(src){
 }
 
 // MediaPipe Pose 스켈레톤 분석
+// ============ Golf Swing Analysis ============
+// MediaPipe Pose 랜드마크 인덱스 (https://google.github.io/mediapipe/solutions/pose.html)
+const LM = {
+  NOSE:0, L_EYE:2, R_EYE:5,
+  L_SHOULDER:11, R_SHOULDER:12,
+  L_ELBOW:13, R_ELBOW:14,
+  L_WRIST:15, R_WRIST:16,
+  L_HIP:23, R_HIP:24,
+  L_KNEE:25, R_KNEE:26,
+  L_ANKLE:27, R_ANKLE:28
+};
+
+function angleAt(a,b,c){
+  // b를 꼭짓점으로 하는 각도 (도 단위)
+  var ab={x:a.x-b.x,y:a.y-b.y};
+  var cb={x:c.x-b.x,y:c.y-b.y};
+  var dot=ab.x*cb.x+ab.y*cb.y;
+  var mag=Math.sqrt(ab.x*ab.x+ab.y*ab.y)*Math.sqrt(cb.x*cb.x+cb.y*cb.y);
+  if(mag===0) return 0;
+  return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;
+}
+function lineAngle(a,b){
+  // 수평선 대비 각도 (-180~180)
+  return Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
+}
+
+function analyzeSwing(lm){
+  if(!lm || !lm[LM.L_SHOULDER]) return null;
+  // 어깨/골반 회전 (수평 각도)
+  var shoulderLineAngle = lineAngle(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER]);
+  var hipLineAngle = lineAngle(lm[LM.L_HIP], lm[LM.R_HIP]);
+  var xFactor = Math.abs(shoulderLineAngle - hipLineAngle);
+  if(xFactor>90) xFactor = 180-xFactor;
+
+  // 척추각 (미드힙→미드숄더 vector vs 수직)
+  var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
+  var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
+  var spineAngle = Math.atan2(midSh.x-midHip.x, midHip.y-midSh.y)*180/Math.PI;
+
+  // 무릎 굴곡 (작을수록 많이 굽힘, 180=곧게 폄)
+  var lKnee = angleAt(lm[LM.L_HIP], lm[LM.L_KNEE], lm[LM.L_ANKLE]);
+  var rKnee = angleAt(lm[LM.R_HIP], lm[LM.R_KNEE], lm[LM.R_ANKLE]);
+
+  // 팔 각도 (팔꿈치에서의 각도, 180=곧게 폄)
+  var lArm = angleAt(lm[LM.L_SHOULDER], lm[LM.L_ELBOW], lm[LM.L_WRIST]);
+  var rArm = angleAt(lm[LM.R_SHOULDER], lm[LM.R_ELBOW], lm[LM.R_WRIST]);
+
+  // 머리-중심 편차 (x 좌표 기준)
+  var bodyCenterX = (midHip.x + midSh.x)/2;
+  var headOffset = (lm[LM.NOSE].x - bodyCenterX);
+
+  // 손목 높이 (스윙 페이즈 감지용)
+  var wristY = Math.min(lm[LM.L_WRIST].y, lm[LM.R_WRIST].y);
+
+  return {
+    shoulderTilt:shoulderLineAngle, hipTilt:hipLineAngle, xFactor:xFactor,
+    spineAngle:spineAngle, lKnee:lKnee, rKnee:rKnee, lArm:lArm, rArm:rArm,
+    headOffset:headOffset, wristY:wristY,
+    midHip:midHip, midSh:midSh
+  };
+}
+
 function openPoseAnalyzer(sessionId, mediaIdx){
   var mid=S.selectedMember;
   var sess=(S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
@@ -1053,40 +1120,207 @@ function openPoseAnalyzer(sessionId, mediaIdx){
   }
   var overlay=document.createElement('div');
   overlay.className='pose-overlay';
-  overlay.innerHTML='<div class="pose-box"><div class="pose-title">🦴 자세 분석 <button class="pose-close" onclick="this.closest(\'.pose-overlay\').remove()">✕</button></div><div class="pose-canvas-wrap"><video class="pose-video" src="'+src+'" controls playsinline crossorigin="anonymous"></video><canvas class="pose-canvas"></canvas></div><div class="pose-status">로딩 중...</div></div>';
+  overlay.innerHTML =
+    '<div class="pose-box">'+
+      '<div class="pose-title">🦴 골프 스윙 분석 <button class="pose-close" onclick="closePoseAnalyzer(this)">✕</button></div>'+
+      '<div class="pose-body">'+
+        '<div class="pose-canvas-wrap">'+
+          '<video class="pose-video" src="'+src+'" controls playsinline crossorigin="anonymous"></video>'+
+          '<canvas class="pose-canvas"></canvas>'+
+        '</div>'+
+        '<div class="pose-metrics-panel">'+
+          '<div class="metric-section-title">실시간 지표</div>'+
+          '<div class="metric"><span class="m-lbl">X-Factor (상하체 분리)</span><span class="m-val" id="m-xfactor">—</span></div>'+
+          '<div class="metric"><span class="m-lbl">어깨 틸트</span><span class="m-val" id="m-shoulder">—</span></div>'+
+          '<div class="metric"><span class="m-lbl">골반 틸트</span><span class="m-val" id="m-hip">—</span></div>'+
+          '<div class="metric"><span class="m-lbl">척추 각도</span><span class="m-val" id="m-spine">—</span></div>'+
+          '<div class="metric"><span class="m-lbl">리드 암 (좌/우)</span><span class="m-val" id="m-arm">—</span></div>'+
+          '<div class="metric"><span class="m-lbl">무릎 굴곡 (좌/우)</span><span class="m-val" id="m-knee">—</span></div>'+
+          '<div class="metric"><span class="m-lbl">머리 이동</span><span class="m-val" id="m-head">—</span></div>'+
+          '<div class="metric-section-title">스윙 페이즈</div>'+
+          '<div class="phase-display" id="phase-display">대기</div>'+
+          '<div class="metric-section-title">체크리스트</div>'+
+          '<div class="checklist" id="checklist"></div>'+
+          '<div class="metric-section-title">설정</div>'+
+          '<label class="toggle-row"><input type="checkbox" id="toggle-guide" checked> 가이드라인 표시</label>'+
+          '<label class="toggle-row"><input type="checkbox" id="toggle-smooth" checked> 스무딩</label>'+
+        '</div>'+
+      '</div>'+
+      '<div class="pose-status">로딩 중...</div>'+
+    '</div>';
   document.body.appendChild(overlay);
+
   var video=overlay.querySelector('.pose-video');
   var canvas=overlay.querySelector('.pose-canvas');
   var status=overlay.querySelector('.pose-status');
-  var ctx=canvas.getContext('2d');
+  var ctx=canvas.getContext('2d',{desynchronized:true});
+  var toggleGuide=overlay.querySelector('#toggle-guide');
+
+  // 속도 최적화: modelComplexity 0 (lite, 2~3배 빠름)
   var pose=new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
-  pose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.5,minTrackingConfidence:.5});
+  pose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.5, minTrackingConfidence:.5});
+
+  // 스윙 페이즈 트래킹
+  var phaseHistory = [];  // {t, wristY, metrics}
+  var phaseStartMetrics = null;
+  var currentPhase = '대기';
+  var initialHeadX = null;
+
+  function detectPhase(metrics){
+    // 손목 Y 기반 간단 페이즈 감지 (wristY가 작을수록 위쪽)
+    if(phaseHistory.length<5) return currentPhase;
+    var recent = phaseHistory.slice(-5);
+    var dy = recent[4].wristY - recent[0].wristY;
+    var absY = metrics.wristY;
+    // 손목이 어깨보다 낮고 안정: 어드레스
+    var shoulderY = (metrics.midSh ? metrics.midSh.y : 0.5);
+    if(Math.abs(dy)<0.01 && absY>shoulderY){
+      if(currentPhase==='팔로스루'||currentPhase==='임팩트') return '피니시';
+      return '어드레스';
+    }
+    // 손목이 올라가는 중: 백스윙
+    if(dy<-0.015) return currentPhase==='어드레스'||currentPhase==='대기'||currentPhase==='백스윙' ? '백스윙' : currentPhase;
+    // 손목이 내려가는 중: 다운스윙
+    if(dy>0.015 && currentPhase==='백스윙') return '다운스윙';
+    if(dy>0.015 && currentPhase==='탑') return '다운스윙';
+    // 손목이 최고점 근처에서 정지: 탑
+    if(Math.abs(dy)<0.008 && absY<shoulderY && currentPhase==='백스윙') return '탑';
+    // 손목이 허리 높이 통과 (내려가는 중): 임팩트
+    if(currentPhase==='다운스윙' && absY>shoulderY) return '임팩트';
+    if(currentPhase==='임팩트') return '팔로스루';
+    return currentPhase;
+  }
+
+  function updateMetricsUI(metrics, phase){
+    function setEl(id,val){var el=overlay.querySelector('#'+id);if(el)el.textContent=val;}
+    setEl('m-xfactor', metrics.xFactor.toFixed(1)+'°');
+    setEl('m-shoulder', metrics.shoulderTilt.toFixed(1)+'°');
+    setEl('m-hip', metrics.hipTilt.toFixed(1)+'°');
+    setEl('m-spine', metrics.spineAngle.toFixed(1)+'°');
+    setEl('m-arm', metrics.lArm.toFixed(0)+'° / '+metrics.rArm.toFixed(0)+'°');
+    setEl('m-knee', metrics.lKnee.toFixed(0)+'° / '+metrics.rKnee.toFixed(0)+'°');
+    var headDelta = initialHeadX===null ? 0 : (metrics.headOffset - initialHeadX);
+    setEl('m-head', (headDelta*100).toFixed(1)+' cm');
+    var phaseEl = overlay.querySelector('#phase-display');
+    if(phaseEl){phaseEl.textContent = phase; phaseEl.className='phase-display phase-'+phase;}
+
+    // 체크리스트 업데이트
+    var checks = [];
+    // X-Factor 체크 (탑에서 30도 이상 권장)
+    if(phase==='탑' || phase==='다운스윙'){
+      if(metrics.xFactor >= 30) checks.push({ok:true, text:'X-Factor 양호 ('+metrics.xFactor.toFixed(0)+'°)'});
+      else checks.push({ok:false, text:'X-Factor 부족 — 상체 회전 늘리기'});
+    }
+    // 척추 각도 유지
+    if(phaseStartMetrics && Math.abs(metrics.spineAngle - phaseStartMetrics.spineAngle) > 8){
+      checks.push({ok:false, text:'얼리 익스텐션 의심 — 척추각 변화 '+Math.abs(metrics.spineAngle-phaseStartMetrics.spineAngle).toFixed(0)+'°'});
+    } else if(phaseStartMetrics) {
+      checks.push({ok:true, text:'척추 각도 유지 양호'});
+    }
+    // 머리 이동
+    if(Math.abs(headDelta) > 0.05){
+      checks.push({ok:false, text:'헤드 무브먼트 과다 — '+(headDelta*100).toFixed(0)+'cm'});
+    } else if(initialHeadX!==null){
+      checks.push({ok:true, text:'헤드 위치 안정'});
+    }
+    // 리드 암 (백스윙 탑에서 거의 펴져있어야)
+    if(phase==='탑' || phase==='다운스윙'){
+      if(metrics.lArm > 160) checks.push({ok:true, text:'리드 암 직선 유지'});
+      else checks.push({ok:false, text:'리드 암 굽힘 — '+metrics.lArm.toFixed(0)+'°'});
+    }
+    // 오른쪽 무릎 각도 유지 (백스윙 중 무너지면 안됨)
+    if(phase==='백스윙' || phase==='탑'){
+      if(phaseStartMetrics && Math.abs(metrics.rKnee - phaseStartMetrics.rKnee) < 10){
+        checks.push({ok:true, text:'우측 무릎 안정'});
+      } else if(phaseStartMetrics) {
+        checks.push({ok:false, text:'우측 무릎 무너짐 의심'});
+      }
+    }
+    var clEl=overlay.querySelector('#checklist');
+    if(clEl){
+      clEl.innerHTML = checks.map(function(c){
+        return '<div class="check-item '+(c.ok?'ok':'warn')+'">'+(c.ok?'✓':'⚠')+' '+c.text+'</div>';
+      }).join('') || '<div class="check-empty">분석 중...</div>';
+    }
+  }
+
+  function drawGuidelines(metrics){
+    if(!toggleGuide.checked) return;
+    // 척추선 (빨간색)
+    ctx.strokeStyle='rgba(255,64,129,.7)'; ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(metrics.midHip.x*canvas.width, metrics.midHip.y*canvas.height);
+    ctx.lineTo(metrics.midSh.x*canvas.width, metrics.midSh.y*canvas.height);
+    ctx.stroke();
+    // 수직 기준선 (점선, 하양)
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(metrics.midHip.x*canvas.width, 0);
+    ctx.lineTo(metrics.midHip.x*canvas.width, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // X-Factor 각도 표시 (어깨선 초록, 골반선 주황)
+    // Already drawn via drawConnectors, but add visual markers
+  }
+
   pose.onResults(function(results){
     canvas.width=video.videoWidth||640;
     canvas.height=video.videoHeight||480;
     ctx.save();
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(results.poseLandmarks && typeof drawConnectors!=='undefined'){
-      drawConnectors(ctx,results.poseLandmarks,POSE_CONNECTIONS,{color:'#00ff7f',lineWidth:3});
-      drawLandmarks(ctx,results.poseLandmarks,{color:'#ff4081',lineWidth:1,radius:4});
+    if(results.poseLandmarks){
+      if(typeof drawConnectors!=='undefined'){
+        drawConnectors(ctx,results.poseLandmarks,POSE_CONNECTIONS,{color:'#00ff7f',lineWidth:3});
+        drawLandmarks(ctx,results.poseLandmarks,{color:'#ff4081',lineWidth:1,radius:3});
+      }
+      var metrics = analyzeSwing(results.poseLandmarks);
+      if(metrics){
+        if(initialHeadX===null) initialHeadX = metrics.headOffset;
+        phaseHistory.push({t:Date.now(), wristY:metrics.wristY});
+        if(phaseHistory.length>20) phaseHistory.shift();
+        var newPhase = detectPhase(metrics);
+        if(newPhase!==currentPhase){
+          currentPhase = newPhase;
+          phaseStartMetrics = metrics;
+        }
+        drawGuidelines(metrics);
+        updateMetricsUI(metrics, currentPhase);
+      }
     }
     ctx.restore();
   });
+
   var rafId=null;
   var processing=false;
   function loop(){
-    if(video.paused||video.ended||processing){rafId=requestAnimationFrame(loop);return;}
-    processing=true;
-    pose.send({image:video}).then(function(){processing=false;}).catch(function(){processing=false;});
+    if(video.paused||video.ended){rafId=requestAnimationFrame(loop);return;}
+    if(!processing){
+      processing=true;
+      pose.send({image:video}).then(function(){processing=false;}).catch(function(){processing=false;});
+    }
     rafId=requestAnimationFrame(loop);
   }
   video.addEventListener('loadeddata',function(){
     canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-    status.textContent='▶ 재생하면 스켈레톤이 표시됩니다';
+    status.textContent='▶ 재생하면 분석이 시작됩니다';
   });
-  video.addEventListener('play',function(){status.textContent='분석 중...';loop();});
+  video.addEventListener('play',function(){
+    status.textContent='분석 중...';
+    initialHeadX=null; phaseHistory=[]; currentPhase='대기'; phaseStartMetrics=null;
+    loop();
+  });
   video.addEventListener('pause',function(){status.textContent='일시정지';});
-  overlay.addEventListener('click',function(e){if(e.target===overlay){if(rafId)cancelAnimationFrame(rafId);overlay.remove();}});
+  overlay._pose = pose;
+  overlay._rafId = rafId;
+  overlay.addEventListener('click',function(e){if(e.target===overlay){closePoseAnalyzer(overlay);}});
+}
+
+function closePoseAnalyzer(el){
+  var overlay = el.classList && el.classList.contains('pose-overlay') ? el : el.closest('.pose-overlay');
+  if(!overlay) return;
+  if(overlay._rafId) cancelAnimationFrame(overlay._rafId);
+  try{if(overlay._pose && overlay._pose.close) overlay._pose.close();}catch(e){}
+  overlay.remove();
 }
 
 async function deleteSession(id){
