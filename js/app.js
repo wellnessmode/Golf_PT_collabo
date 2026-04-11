@@ -53,9 +53,14 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v1.5',
+  version:'v1.6',
   date:'2026-04-11',
   changes:[
+    '🆕 트랙맨 방식 사전 분석 — 영상 로드 시 전체 프레임을 미리 분석해 캐싱, 스크러빙해도 스켈레톤이 고정',
+    '🆕 정면/측면 영상 업로드 분리 — 뷰별 전용 슬롯',
+    '🆕 뷰별 체크리스트 — 정면은 X-Factor·무릎·리드암, 측면은 척추각·힙벤드·헤드업·C/S-Posture',
+    '🆕 분석 결과 영구 캐시 — 한 번 분석하면 재분석 없이 즉시 표시 (재분석 버튼 제공)',
+    '🆕 다중 가이드라인 오버레이 — 척추선·어깨선·골반선·수직기준선',
     '🆕 회원 CRM 확장 — 연락처 · 이메일 · 등록일 필드 추가',
     '🆕 유효기간 D-day 배지 — 30일 이내 만료 회원 자동 경고',
     '🆕 마이페이지 섹션 — 사이드바에서 비밀번호 변경 가능',
@@ -149,15 +154,18 @@ const SAMPLE_DATA = {
 // 영상/사진 같은 대용량 파일은 localStorage(5MB) 한도 때문에 IndexedDB에 저장
 // localStorage 에는 mediaId 참조만 남김. 렌더 시 ObjectURL로 변환.
 const mediaDB = {
-  db:null, DB_NAME:'golf_pt_media', STORE:'media',
+  db:null, DB_NAME:'golf_pt_media', STORE:'media', ANALYSIS_STORE:'analysis',
   init:function(){
     return new Promise(function(resolve){
       if(!window.indexedDB){resolve(false);return;}
-      var req = indexedDB.open(mediaDB.DB_NAME, 1);
+      var req = indexedDB.open(mediaDB.DB_NAME, 2);
       req.onupgradeneeded = function(e){
         var db = e.target.result;
         if(!db.objectStoreNames.contains(mediaDB.STORE)){
           db.createObjectStore(mediaDB.STORE, {keyPath:'id'});
+        }
+        if(!db.objectStoreNames.contains(mediaDB.ANALYSIS_STORE)){
+          db.createObjectStore(mediaDB.ANALYSIS_STORE, {keyPath:'id'});
         }
       };
       req.onsuccess = function(e){mediaDB.db = e.target.result; resolve(true);};
@@ -204,6 +212,40 @@ const mediaDB = {
       try{
         var tx = mediaDB.db.transaction(mediaDB.STORE,'readwrite');
         var req = tx.objectStore(mediaDB.STORE).delete(id);
+        req.onsuccess = function(){resolve(true);};
+        req.onerror = function(){resolve(false);};
+      }catch(e){resolve(false);}
+    });
+  },
+  putAnalysis:function(id, data){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve(false);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.ANALYSIS_STORE,'readwrite');
+        var store = tx.objectStore(mediaDB.ANALYSIS_STORE);
+        var req = store.put({id:id, data:data, savedAt:Date.now()});
+        req.onsuccess = function(){resolve(true);};
+        req.onerror = function(){resolve(false);};
+      }catch(e){resolve(false);}
+    });
+  },
+  getAnalysis:function(id){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve(null);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.ANALYSIS_STORE,'readonly');
+        var req = tx.objectStore(mediaDB.ANALYSIS_STORE).get(id);
+        req.onsuccess = function(e){resolve(e.target.result?e.target.result.data:null);};
+        req.onerror = function(){resolve(null);};
+      }catch(e){resolve(null);}
+    });
+  },
+  delAnalysis:function(id){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve(false);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.ANALYSIS_STORE,'readwrite');
+        var req = tx.objectStore(mediaDB.ANALYSIS_STORE).delete(id);
         req.onsuccess = function(){resolve(true);};
         req.onerror = function(){resolve(false);};
       }catch(e){resolve(false);}
@@ -834,7 +876,10 @@ function render(){
                   var isImg = mime.indexOf('image/')!==-1 || (m.data&&m.data.indexOf('image/')!==-1);
                   var isVideo = mime.indexOf('video/')!==-1 || (m.data&&m.data.indexOf('video/')!==-1);
                   if(m.type==='file' && src && isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
-                  if(m.type==='file' && src && isVideo) return '<div class="sm-video-wrap"><video class="sm-video" src="'+src+'" controls playsinline></video><button class="sm-pose-btn" onclick="openPoseAnalyzer(\''+s.id+'\','+mi+')">🦴 스켈레톤 분석</button></div>';
+                  if(m.type==='file' && src && isVideo){
+                    var viewTag = m.view==='front'?'<span class="sm-view-tag tag-front">정면</span>':(m.view==='side'?'<span class="sm-view-tag tag-side">측면</span>':'');
+                    return '<div class="sm-video-wrap">'+viewTag+'<video class="sm-video" src="'+src+'" controls playsinline></video><button class="sm-pose-btn" onclick="openPoseAnalyzer(\''+s.id+'\','+mi+')">🦴 분석</button></div>';
+                  }
                   if(m.type==='file' && !src) return '<div class="sm-missing">⚠ 미디어 로딩 중...</div>';
                   if(m.type==='url') return '<a class="sm-link" href="'+((m.data||'').replace(/"/g,'&quot;'))+'" target="_blank" rel="noopener">▶ 영상 보기</a>';
                   return '';
@@ -877,17 +922,32 @@ function render(){
         <textarea class="form-textarea" placeholder="오늘 진행한 내용을 입력하세요" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">스윙 영상 / 사진 첨부</label>
+        <label class="form-label">📹 스윙 영상 첨부</label>
         <div class="media-input-box">
-          <div class="media-sub-label">파일 업로드 (최대 2개)</div>
-          <div class="media-file-list">${S.newSession.media.map(function(m,i){
-            return '<div class="media-file-item"><span>'+(m.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+i+')">×</span></div>';
-          }).join('')}</div>
-          ${S.newSession.media.length<2?'<label class="media-upload-btn">+ 파일 선택<input type="file" accept="video/*,image/*" onchange="handleFileUpload(this)" style="display:none"></label>':''}
-          <div class="media-sub-label" style="margin-top:10px">또는 URL 직접 입력 (최대 2개)</div>
-          <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[0]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(0,this.value)" style="margin-bottom:6px">
-          <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[1]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(1,this.value)">
-          <div class="media-hint">파일당 최대 100MB · 브라우저 IndexedDB에 저장됩니다</div>
+          <div class="video-slot-grid">
+            <div class="video-slot">
+              <div class="vs-label">🎯 정면 영상</div>
+              ${(function(){
+                var f = (S.newSession.media||[]).find(function(x){return x.view==='front';});
+                var idx = (S.newSession.media||[]).findIndex(function(x){return x.view==='front';});
+                if(f) return '<div class="media-file-item"><span>'+(f.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
+                return '<label class="media-upload-btn">+ 정면 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'front\')" style="display:none"></label>';
+              })()}
+            </div>
+            <div class="video-slot">
+              <div class="vs-label">📐 측면 영상</div>
+              ${(function(){
+                var f = (S.newSession.media||[]).find(function(x){return x.view==='side';});
+                var idx = (S.newSession.media||[]).findIndex(function(x){return x.view==='side';});
+                if(f) return '<div class="media-file-item"><span>'+(f.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
+                return '<label class="media-upload-btn">+ 측면 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'side\')" style="display:none"></label>';
+              })()}
+            </div>
+          </div>
+          <div class="media-sub-label" style="margin-top:10px">또는 URL 직접 입력 (유튜브/드라이브)</div>
+          <input class="form-input media-url" placeholder="영상 링크 붙여넣기" value="${(S.newSession.mediaUrls[0]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(0,this.value)" style="margin-bottom:6px">
+          <input class="form-input media-url" placeholder="영상 링크 붙여넣기" value="${(S.newSession.mediaUrls[1]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(1,this.value)">
+          <div class="media-hint">파일당 최대 100MB · 영상은 사전 자동 분석 후 스켈레톤이 고정 표시됩니다</div>
         </div>
       </div>
       <div class="modal-actions">
@@ -1248,16 +1308,20 @@ function addMember(){
   cloud.upsertMember(m);
 }
 
-async function handleFileUpload(input){
+async function handleFileUpload(input, view){
   var files=Array.from(input.files||[]);
+  if(!files.length)return;
   var existing=S.newSession.media||[];
-  if(existing.length+files.length>2){alert('파일은 최대 2개까지 첨부 가능합니다');input.value='';return;}
+  // view별로 1개만 허용
+  if(view){
+    var exists = existing.find(function(x){return x.view===view;});
+    if(exists){alert(view==='front'?'정면 영상이 이미 있습니다':'측면 영상이 이미 있습니다');input.value='';return;}
+  }
   var MAX_FILE_SIZE = 100*1024*1024;
   if(!mediaDB.db){
     var ok = await mediaDB.init();
     if(!ok){alert('브라우저가 IndexedDB를 지원하지 않습니다.\nURL 입력을 사용해주세요.');input.value='';return;}
   }
-  // iOS Safari 등에서 저장소 강제 삭제 방지 요청
   if(navigator.storage && navigator.storage.persist){
     try{await navigator.storage.persist();}catch(e){}
   }
@@ -1287,7 +1351,6 @@ async function handleFileUpload(input){
       render();
       continue;
     }
-    // 저장 검증 — put 후 실제로 읽히는지 확인
     var verify = await mediaDB.get(mediaId);
     if(!verify || !verify.blob){
       alert(file.name+' 저장 검증 실패 — 다시 시도해주세요');
@@ -1295,14 +1358,16 @@ async function handleFileUpload(input){
       continue;
     }
     try{S.mediaUrls[mediaId] = URL.createObjectURL(file);}catch(e){}
-    S.newSession.media.push({type:'file', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId});
+    S.newSession.media.push({type:'file', view:view||'other', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId});
     render();
+    if(view) break; // view별 1개만
   }
 }
 async function removeMediaFile(idx){
   var m = S.newSession.media[idx];
   if(m && m.mediaId){
     await mediaDB.del(m.mediaId);
+    await mediaDB.delAnalysis(m.mediaId);
     if(S.mediaUrls[m.mediaId]){URL.revokeObjectURL(S.mediaUrls[m.mediaId]); delete S.mediaUrls[m.mediaId];}
   }
   S.newSession.media.splice(idx,1);
@@ -1345,41 +1410,184 @@ function lineAngle(a,b){
 
 function analyzeSwing(lm){
   if(!lm || !lm[LM.L_SHOULDER]) return null;
-  // 어깨/골반 회전 (수평 각도)
   var shoulderLineAngle = lineAngle(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER]);
   var hipLineAngle = lineAngle(lm[LM.L_HIP], lm[LM.R_HIP]);
   var xFactor = Math.abs(shoulderLineAngle - hipLineAngle);
   if(xFactor>90) xFactor = 180-xFactor;
 
-  // 척추각 (미드힙→미드숄더 vector vs 수직)
   var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
   var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
   var spineAngle = Math.atan2(midSh.x-midHip.x, midHip.y-midSh.y)*180/Math.PI;
 
-  // 무릎 굴곡 (작을수록 많이 굽힘, 180=곧게 폄)
+  // 힙 벤드 (측면 뷰 — 둔부 굴곡): 수직선-미드숄더-미드힙-미드앵클
+  var midKnee = {x:(lm[LM.L_KNEE].x+lm[LM.R_KNEE].x)/2, y:(lm[LM.L_KNEE].y+lm[LM.R_KNEE].y)/2};
+  var hipBend = angleAt(midSh, midHip, midKnee);
+
   var lKnee = angleAt(lm[LM.L_HIP], lm[LM.L_KNEE], lm[LM.L_ANKLE]);
   var rKnee = angleAt(lm[LM.R_HIP], lm[LM.R_KNEE], lm[LM.R_ANKLE]);
 
-  // 팔 각도 (팔꿈치에서의 각도, 180=곧게 폄)
   var lArm = angleAt(lm[LM.L_SHOULDER], lm[LM.L_ELBOW], lm[LM.L_WRIST]);
   var rArm = angleAt(lm[LM.R_SHOULDER], lm[LM.R_ELBOW], lm[LM.R_WRIST]);
 
-  // 머리-중심 편차 (x 좌표 기준)
   var bodyCenterX = (midHip.x + midSh.x)/2;
-  var headOffset = (lm[LM.NOSE].x - bodyCenterX);
+  var headOffsetX = (lm[LM.NOSE].x - bodyCenterX);
+  var headY = lm[LM.NOSE].y;
 
-  // 손목 높이 (스윙 페이즈 감지용)
   var wristY = Math.min(lm[LM.L_WRIST].y, lm[LM.R_WRIST].y);
+
+  // 무릎 간격 (정면 뷰 — 무릎 무너짐 체크)
+  var kneeDistance = Math.abs(lm[LM.L_KNEE].x - lm[LM.R_KNEE].x);
+  var ankleDistance = Math.abs(lm[LM.L_ANKLE].x - lm[LM.R_ANKLE].x);
+  var kneeRatio = ankleDistance>0 ? kneeDistance/ankleDistance : 1;
 
   return {
     shoulderTilt:shoulderLineAngle, hipTilt:hipLineAngle, xFactor:xFactor,
-    spineAngle:spineAngle, lKnee:lKnee, rKnee:rKnee, lArm:lArm, rArm:rArm,
-    headOffset:headOffset, wristY:wristY,
-    midHip:midHip, midSh:midSh
+    spineAngle:spineAngle, hipBend:hipBend,
+    lKnee:lKnee, rKnee:rKnee, lArm:lArm, rArm:rArm,
+    headOffsetX:headOffsetX, headY:headY,
+    kneeRatio:kneeRatio, wristY:wristY,
+    midHip:midHip, midSh:midSh, midKnee:midKnee
   };
 }
 
-function openPoseAnalyzer(sessionId, mediaIdx){
+// 뷰별 표시할 지표 정의
+const VIEW_METRICS = {
+  front: [
+    {key:'xFactor', label:'X-Factor (상하체 분리)', unit:'°', fix:1},
+    {key:'shoulderTilt', label:'어깨 틸트', unit:'°', fix:1},
+    {key:'hipTilt', label:'골반 틸트', unit:'°', fix:1},
+    {key:'headOffsetX', label:'머리 좌우 편차', unit:'', fix:3, scale:1},
+    {key:'lArm', label:'좌팔 각도', unit:'°', fix:0},
+    {key:'rArm', label:'우팔 각도', unit:'°', fix:0},
+    {key:'kneeRatio', label:'무릎 간격/발폭', unit:'', fix:2}
+  ],
+  side: [
+    {key:'spineAngle', label:'척추 각도', unit:'°', fix:1},
+    {key:'hipBend', label:'힙 벤드', unit:'°', fix:0},
+    {key:'headY', label:'머리 수직 위치', unit:'', fix:3},
+    {key:'lKnee', label:'좌무릎 굴곡', unit:'°', fix:0},
+    {key:'rKnee', label:'우무릎 굴곡', unit:'°', fix:0}
+  ]
+};
+
+// 뷰별 체크리스트 정의
+function getChecklist(view, frames, currentIdx){
+  if(!frames || !frames.length) return [];
+  var cur = frames[currentIdx] || frames[0];
+  var first = frames[0];
+  var checks = [];
+  if(view==='front'){
+    // X-Factor 피크 — 전체 프레임 중 최대값
+    var maxXF = frames.reduce(function(a,f){return Math.max(a,f.metrics.xFactor||0);},0);
+    checks.push({ok:maxXF>=30, text:'X-Factor 피크 '+maxXF.toFixed(0)+'° '+(maxXF>=30?'(양호)':'(30° 권장)')});
+    // 머리 좌우 이동
+    var headXRange = frames.reduce(function(a,f){return {min:Math.min(a.min,f.metrics.headOffsetX),max:Math.max(a.max,f.metrics.headOffsetX)};},{min:1,max:0});
+    var headXDelta = Math.abs(headXRange.max-headXRange.min);
+    checks.push({ok:headXDelta<0.05, text:'머리 좌우 이동 '+(headXDelta*100).toFixed(1)+'cm '+(headXDelta<0.05?'(양호)':'(과다)')});
+    // 리드암 최대
+    var maxLArm = frames.reduce(function(a,f){return Math.max(a,f.metrics.lArm||0);},0);
+    checks.push({ok:maxLArm>=160, text:'리드암 최대 '+maxLArm.toFixed(0)+'° '+(maxLArm>=160?'(직선 유지)':'(굽힘)')});
+    // 무릎 간격 유지
+    var kneeMin = frames.reduce(function(a,f){return Math.min(a,f.metrics.kneeRatio||1);},2);
+    checks.push({ok:kneeMin>0.7, text:'무릎 간격 최소 '+(kneeMin*100).toFixed(0)+'% '+(kneeMin>0.7?'(양호)':'(무릎 무너짐)')});
+    // 어깨 수평 (어드레스 기준)
+    checks.push({ok:Math.abs(first.metrics.shoulderTilt)<15, text:'어드레스 어깨 수평 '+first.metrics.shoulderTilt.toFixed(0)+'°'});
+  } else if(view==='side'){
+    // 척추각 유지 (얼리 익스텐션 체크)
+    var spineDelta = frames.reduce(function(a,f){return Math.max(a,Math.abs((f.metrics.spineAngle||0)-first.metrics.spineAngle));},0);
+    checks.push({ok:spineDelta<8, text:'척추각 변화 최대 '+spineDelta.toFixed(0)+'° '+(spineDelta<8?'(양호)':'(얼리 익스텐션)')});
+    // 힙 벤드 유지
+    var hipBendDelta = frames.reduce(function(a,f){return Math.max(a,Math.abs((f.metrics.hipBend||0)-first.metrics.hipBend));},0);
+    checks.push({ok:hipBendDelta<15, text:'힙 벤드 변화 '+hipBendDelta.toFixed(0)+'° '+(hipBendDelta<15?'(양호)':'(자세 무너짐)')});
+    // 머리 상하 이동
+    var headYRange = frames.reduce(function(a,f){return {min:Math.min(a.min,f.metrics.headY),max:Math.max(a.max,f.metrics.headY)};},{min:1,max:0});
+    var headYDelta = headYRange.max-headYRange.min;
+    checks.push({ok:headYDelta<0.05, text:'머리 상하 이동 '+(headYDelta*100).toFixed(1)+'cm '+(headYDelta<0.05?'(안정)':'(헤드업)')});
+    // 무릎 굴곡 유지 (우측 기준)
+    var rKneeDelta = frames.reduce(function(a,f){return Math.max(a,Math.abs((f.metrics.rKnee||0)-first.metrics.rKnee));},0);
+    checks.push({ok:rKneeDelta<12, text:'우무릎 굴곡 변화 '+rKneeDelta.toFixed(0)+'° '+(rKneeDelta<12?'(안정)':'(무릎 무너짐)')});
+    // C-Posture / S-Posture 판별 (어드레스)
+    var addrSpine = first.metrics.spineAngle;
+    var posture = addrSpine<-5 ? 'C-Posture 경향' : (addrSpine>5 ? 'S-Posture 경향' : '중립 (양호)');
+    checks.push({ok:Math.abs(addrSpine)<5, text:'어드레스 자세: '+posture});
+  }
+  return checks;
+}
+
+// 사전 분석 — 전체 프레임을 미리 처리해서 캐싱
+async function preAnalyzeVideo(video, pose, progressCb){
+  var duration = video.duration;
+  if(!duration || !isFinite(duration)) return null;
+  var sampleRate = 15; // 15 fps
+  var step = 1/sampleRate;
+  var frames = [];
+
+  // Promise 기반 onResults
+  var resolveResults = null;
+  pose.onResults(function(r){ if(resolveResults){ var f=resolveResults; resolveResults=null; f(r); } });
+
+  video.pause();
+  var t = 0;
+  while(t < duration){
+    // Seek
+    await new Promise(function(resolve){
+      var handler = function(){video.removeEventListener('seeked', handler); resolve();};
+      video.addEventListener('seeked', handler);
+      try{video.currentTime = t;}catch(e){resolve();}
+    });
+    // 프레임 렌더 대기
+    await new Promise(function(r){setTimeout(r, 30);});
+    // 자세 추출
+    var results = await new Promise(function(resolve){
+      resolveResults = resolve;
+      try{pose.send({image: video});}catch(e){resolve({});}
+      // timeout
+      setTimeout(function(){if(resolveResults){resolveResults({});resolveResults=null;}}, 2000);
+    });
+    if(results && results.poseLandmarks){
+      var metrics = analyzeSwing(results.poseLandmarks);
+      if(metrics){
+        // 렌더 최소화: 주요 랜드마크만 저장 (33개 → 필요한 것만)
+        var lmSlim = results.poseLandmarks.map(function(p){
+          return {x:Number(p.x.toFixed(4)), y:Number(p.y.toFixed(4)), v:Number((p.visibility||1).toFixed(2))};
+        });
+        // midHip/midSh/midKnee는 저장 안함 (공간 절약 — 재계산 가능)
+        var slimMetrics = {
+          shoulderTilt:Number(metrics.shoulderTilt.toFixed(2)),
+          hipTilt:Number(metrics.hipTilt.toFixed(2)),
+          xFactor:Number(metrics.xFactor.toFixed(2)),
+          spineAngle:Number(metrics.spineAngle.toFixed(2)),
+          hipBend:Number(metrics.hipBend.toFixed(2)),
+          lKnee:Number(metrics.lKnee.toFixed(2)),
+          rKnee:Number(metrics.rKnee.toFixed(2)),
+          lArm:Number(metrics.lArm.toFixed(2)),
+          rArm:Number(metrics.rArm.toFixed(2)),
+          headOffsetX:Number(metrics.headOffsetX.toFixed(4)),
+          headY:Number(metrics.headY.toFixed(4)),
+          kneeRatio:Number(metrics.kneeRatio.toFixed(3)),
+          wristY:Number(metrics.wristY.toFixed(4))
+        };
+        frames.push({t:Number(t.toFixed(3)), landmarks:lmSlim, metrics:slimMetrics});
+      }
+    }
+    if(progressCb) progressCb(t/duration);
+    t += step;
+  }
+  return {frames:frames, duration:duration, sampleRate:sampleRate};
+}
+
+function findNearestFrame(frames, t){
+  if(!frames || !frames.length) return null;
+  var lo=0, hi=frames.length-1;
+  while(lo<hi){
+    var mid=(lo+hi)>>1;
+    if(frames[mid].t < t) lo=mid+1; else hi=mid;
+  }
+  if(lo>0 && Math.abs(frames[lo-1].t-t) < Math.abs(frames[lo].t-t)) lo--;
+  return frames[lo];
+}
+
+async function openPoseAnalyzer(sessionId, mediaIdx){
   var mid=S.selectedMember;
   var sess=(S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
   if(!sess||!sess.media||!sess.media[mediaIdx])return;
@@ -1390,201 +1598,188 @@ function openPoseAnalyzer(sessionId, mediaIdx){
     alert('MediaPipe 로딩 중입니다. 잠시 후 다시 시도해주세요.');
     return;
   }
+  var view = m.view || 'front';
+  var viewLabel = view==='front' ? '정면' : (view==='side' ? '측면' : '기타');
+
   var overlay=document.createElement('div');
   overlay.className='pose-overlay';
   overlay.innerHTML =
     '<div class="pose-box">'+
-      '<div class="pose-title">🦴 골프 스윙 분석 <button class="pose-close" onclick="closePoseAnalyzer(this)">✕</button></div>'+
+      '<div class="pose-title">🦴 골프 스윙 분석 · '+viewLabel+' 뷰 <button class="pose-close" onclick="closePoseAnalyzer(this)">✕</button></div>'+
       '<div class="pose-body">'+
         '<div class="pose-canvas-wrap">'+
           '<video class="pose-video" src="'+src+'" controls playsinline crossorigin="anonymous"></video>'+
           '<canvas class="pose-canvas"></canvas>'+
+          '<div class="pose-progress" style="display:none"><div class="pose-progress-track"><div class="pose-progress-fill"></div></div><div class="pose-progress-text">분석 중 0%</div></div>'+
         '</div>'+
         '<div class="pose-metrics-panel">'+
-          '<div class="metric-section-title">실시간 지표</div>'+
-          '<div class="metric"><span class="m-lbl">X-Factor (상하체 분리)</span><span class="m-val" id="m-xfactor">—</span></div>'+
-          '<div class="metric"><span class="m-lbl">어깨 틸트</span><span class="m-val" id="m-shoulder">—</span></div>'+
-          '<div class="metric"><span class="m-lbl">골반 틸트</span><span class="m-val" id="m-hip">—</span></div>'+
-          '<div class="metric"><span class="m-lbl">척추 각도</span><span class="m-val" id="m-spine">—</span></div>'+
-          '<div class="metric"><span class="m-lbl">리드 암 (좌/우)</span><span class="m-val" id="m-arm">—</span></div>'+
-          '<div class="metric"><span class="m-lbl">무릎 굴곡 (좌/우)</span><span class="m-val" id="m-knee">—</span></div>'+
-          '<div class="metric"><span class="m-lbl">머리 이동</span><span class="m-val" id="m-head">—</span></div>'+
-          '<div class="metric-section-title">스윙 페이즈</div>'+
-          '<div class="phase-display" id="phase-display">대기</div>'+
-          '<div class="metric-section-title">체크리스트</div>'+
-          '<div class="checklist" id="checklist"></div>'+
-          '<div class="metric-section-title">설정</div>'+
+          '<div class="metric-section-title">📊 '+viewLabel+' 뷰 지표</div>'+
+          '<div id="metrics-live"></div>'+
+          '<div class="metric-section-title">✅ 체크리스트</div>'+
+          '<div class="checklist" id="checklist"><div class="check-empty">분석 대기 중...</div></div>'+
+          '<div class="metric-section-title">🎛 설정</div>'+
           '<label class="toggle-row"><input type="checkbox" id="toggle-guide" checked> 가이드라인 표시</label>'+
-          '<label class="toggle-row"><input type="checkbox" id="toggle-smooth" checked> 스무딩</label>'+
+          '<label class="toggle-row"><input type="checkbox" id="toggle-skeleton" checked> 스켈레톤 표시</label>'+
+          (m.mediaId ? '<button class="btn" style="font-size:10px;padding:4px 8px;margin-top:6px" onclick="reAnalyzeVideo(\''+sessionId+'\','+mediaIdx+')">🔄 재분석</button>' : '')+
         '</div>'+
       '</div>'+
-      '<div class="pose-status">로딩 중...</div>'+
+      '<div class="pose-status">초기화 중...</div>'+
     '</div>';
   document.body.appendChild(overlay);
 
   var video=overlay.querySelector('.pose-video');
   var canvas=overlay.querySelector('.pose-canvas');
   var status=overlay.querySelector('.pose-status');
+  var progressBox=overlay.querySelector('.pose-progress');
+  var progressBar=overlay.querySelector('.pose-progress-fill');
+  var progressText=overlay.querySelector('.pose-progress-text');
   var ctx=canvas.getContext('2d',{desynchronized:true});
   var toggleGuide=overlay.querySelector('#toggle-guide');
+  var toggleSkel=overlay.querySelector('#toggle-skeleton');
 
-  // 속도 최적화: modelComplexity 0 (lite, 2~3배 빠름)
   var pose=new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
   pose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.5, minTrackingConfidence:.5});
 
-  // 스윙 페이즈 트래킹
-  var phaseHistory = [];  // {t, wristY, metrics}
-  var phaseStartMetrics = null;
-  var currentPhase = '대기';
-  var initialHeadX = null;
+  var analysis = null;
 
-  function detectPhase(metrics){
-    // 손목 Y 기반 간단 페이즈 감지 (wristY가 작을수록 위쪽)
-    if(phaseHistory.length<5) return currentPhase;
-    var recent = phaseHistory.slice(-5);
-    var dy = recent[4].wristY - recent[0].wristY;
-    var absY = metrics.wristY;
-    // 손목이 어깨보다 낮고 안정: 어드레스
-    var shoulderY = (metrics.midSh ? metrics.midSh.y : 0.5);
-    if(Math.abs(dy)<0.01 && absY>shoulderY){
-      if(currentPhase==='팔로스루'||currentPhase==='임팩트') return '피니시';
-      return '어드레스';
-    }
-    // 손목이 올라가는 중: 백스윙
-    if(dy<-0.015) return currentPhase==='어드레스'||currentPhase==='대기'||currentPhase==='백스윙' ? '백스윙' : currentPhase;
-    // 손목이 내려가는 중: 다운스윙
-    if(dy>0.015 && currentPhase==='백스윙') return '다운스윙';
-    if(dy>0.015 && currentPhase==='탑') return '다운스윙';
-    // 손목이 최고점 근처에서 정지: 탑
-    if(Math.abs(dy)<0.008 && absY<shoulderY && currentPhase==='백스윙') return '탑';
-    // 손목이 허리 높이 통과 (내려가는 중): 임팩트
-    if(currentPhase==='다운스윙' && absY>shoulderY) return '임팩트';
-    if(currentPhase==='임팩트') return '팔로스루';
-    return currentPhase;
+  function renderMetricsPanel(metrics){
+    var defs = VIEW_METRICS[view] || VIEW_METRICS.front;
+    var html = defs.map(function(d){
+      var v = metrics ? metrics[d.key] : null;
+      var display = '—';
+      if(v!==null && v!==undefined){
+        var num = Number(v);
+        display = num.toFixed(d.fix) + (d.unit||'');
+      }
+      return '<div class="metric"><span class="m-lbl">'+d.label+'</span><span class="m-val">'+display+'</span></div>';
+    }).join('');
+    var el = overlay.querySelector('#metrics-live');
+    if(el) el.innerHTML = html;
   }
 
-  function updateMetricsUI(metrics, phase){
-    function setEl(id,val){var el=overlay.querySelector('#'+id);if(el)el.textContent=val;}
-    setEl('m-xfactor', metrics.xFactor.toFixed(1)+'°');
-    setEl('m-shoulder', metrics.shoulderTilt.toFixed(1)+'°');
-    setEl('m-hip', metrics.hipTilt.toFixed(1)+'°');
-    setEl('m-spine', metrics.spineAngle.toFixed(1)+'°');
-    setEl('m-arm', metrics.lArm.toFixed(0)+'° / '+metrics.rArm.toFixed(0)+'°');
-    setEl('m-knee', metrics.lKnee.toFixed(0)+'° / '+metrics.rKnee.toFixed(0)+'°');
-    var headDelta = initialHeadX===null ? 0 : (metrics.headOffset - initialHeadX);
-    setEl('m-head', (headDelta*100).toFixed(1)+' cm');
-    var phaseEl = overlay.querySelector('#phase-display');
-    if(phaseEl){phaseEl.textContent = phase; phaseEl.className='phase-display phase-'+phase;}
-
-    // 체크리스트 업데이트
-    var checks = [];
-    // X-Factor 체크 (탑에서 30도 이상 권장)
-    if(phase==='탑' || phase==='다운스윙'){
-      if(metrics.xFactor >= 30) checks.push({ok:true, text:'X-Factor 양호 ('+metrics.xFactor.toFixed(0)+'°)'});
-      else checks.push({ok:false, text:'X-Factor 부족 — 상체 회전 늘리기'});
-    }
-    // 척추 각도 유지
-    if(phaseStartMetrics && Math.abs(metrics.spineAngle - phaseStartMetrics.spineAngle) > 8){
-      checks.push({ok:false, text:'얼리 익스텐션 의심 — 척추각 변화 '+Math.abs(metrics.spineAngle-phaseStartMetrics.spineAngle).toFixed(0)+'°'});
-    } else if(phaseStartMetrics) {
-      checks.push({ok:true, text:'척추 각도 유지 양호'});
-    }
-    // 머리 이동
-    if(Math.abs(headDelta) > 0.05){
-      checks.push({ok:false, text:'헤드 무브먼트 과다 — '+(headDelta*100).toFixed(0)+'cm'});
-    } else if(initialHeadX!==null){
-      checks.push({ok:true, text:'헤드 위치 안정'});
-    }
-    // 리드 암 (백스윙 탑에서 거의 펴져있어야)
-    if(phase==='탑' || phase==='다운스윙'){
-      if(metrics.lArm > 160) checks.push({ok:true, text:'리드 암 직선 유지'});
-      else checks.push({ok:false, text:'리드 암 굽힘 — '+metrics.lArm.toFixed(0)+'°'});
-    }
-    // 오른쪽 무릎 각도 유지 (백스윙 중 무너지면 안됨)
-    if(phase==='백스윙' || phase==='탑'){
-      if(phaseStartMetrics && Math.abs(metrics.rKnee - phaseStartMetrics.rKnee) < 10){
-        checks.push({ok:true, text:'우측 무릎 안정'});
-      } else if(phaseStartMetrics) {
-        checks.push({ok:false, text:'우측 무릎 무너짐 의심'});
-      }
-    }
-    var clEl=overlay.querySelector('#checklist');
+  function renderChecklist(){
+    if(!analysis || !analysis.frames) return;
+    var checks = getChecklist(view, analysis.frames, 0);
+    var clEl = overlay.querySelector('#checklist');
     if(clEl){
       clEl.innerHTML = checks.map(function(c){
         return '<div class="check-item '+(c.ok?'ok':'warn')+'">'+(c.ok?'✓':'⚠')+' '+c.text+'</div>';
-      }).join('') || '<div class="check-empty">분석 중...</div>';
+      }).join('') || '<div class="check-empty">데이터 부족</div>';
     }
   }
 
-  function drawGuidelines(metrics){
-    if(!toggleGuide.checked) return;
-    // 척추선 (빨간색)
-    ctx.strokeStyle='rgba(255,64,129,.7)'; ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(metrics.midHip.x*canvas.width, metrics.midHip.y*canvas.height);
-    ctx.lineTo(metrics.midSh.x*canvas.width, metrics.midSh.y*canvas.height);
-    ctx.stroke();
-    // 수직 기준선 (점선, 하양)
-    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(metrics.midHip.x*canvas.width, 0);
-    ctx.lineTo(metrics.midHip.x*canvas.width, canvas.height);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // X-Factor 각도 표시 (어깨선 초록, 골반선 주황)
-    // Already drawn via drawConnectors, but add visual markers
-  }
-
-  pose.onResults(function(results){
-    canvas.width=video.videoWidth||640;
-    canvas.height=video.videoHeight||480;
-    ctx.save();
+  function drawFrame(frame){
+    canvas.width = video.videoWidth||640;
+    canvas.height = video.videoHeight||480;
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(results.poseLandmarks){
-      if(typeof drawConnectors!=='undefined'){
-        drawConnectors(ctx,results.poseLandmarks,POSE_CONNECTIONS,{color:'#00ff7f',lineWidth:3});
-        drawLandmarks(ctx,results.poseLandmarks,{color:'#ff4081',lineWidth:1,radius:3});
-      }
-      var metrics = analyzeSwing(results.poseLandmarks);
-      if(metrics){
-        if(initialHeadX===null) initialHeadX = metrics.headOffset;
-        phaseHistory.push({t:Date.now(), wristY:metrics.wristY});
-        if(phaseHistory.length>20) phaseHistory.shift();
-        var newPhase = detectPhase(metrics);
-        if(newPhase!==currentPhase){
-          currentPhase = newPhase;
-          phaseStartMetrics = metrics;
-        }
-        drawGuidelines(metrics);
-        updateMetricsUI(metrics, currentPhase);
-      }
+    if(!frame || !frame.landmarks) return;
+    if(toggleSkel.checked && typeof drawConnectors!=='undefined'){
+      drawConnectors(ctx, frame.landmarks, POSE_CONNECTIONS, {color:'#00ff7f', lineWidth:3});
+      drawLandmarks(ctx, frame.landmarks, {color:'#ff4081', lineWidth:1, radius:3});
     }
-    ctx.restore();
+    if(toggleGuide.checked && frame.metrics){
+      var lm = frame.landmarks;
+      var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
+      var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
+      // 척추선
+      ctx.strokeStyle='rgba(255,64,129,.85)'; ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.moveTo(midHip.x*canvas.width, midHip.y*canvas.height);
+      ctx.lineTo(midSh.x*canvas.width, midSh.y*canvas.height);
+      ctx.stroke();
+      // 어깨선
+      ctx.strokeStyle='rgba(64,200,255,.85)'; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(lm[LM.L_SHOULDER].x*canvas.width, lm[LM.L_SHOULDER].y*canvas.height);
+      ctx.lineTo(lm[LM.R_SHOULDER].x*canvas.width, lm[LM.R_SHOULDER].y*canvas.height);
+      ctx.stroke();
+      // 골반선
+      ctx.strokeStyle='rgba(255,200,64,.85)'; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(lm[LM.L_HIP].x*canvas.width, lm[LM.L_HIP].y*canvas.height);
+      ctx.lineTo(lm[LM.R_HIP].x*canvas.width, lm[LM.R_HIP].y*canvas.height);
+      ctx.stroke();
+      // 수직 기준선
+      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.setLineDash([5,5]); ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(midHip.x*canvas.width, 0);
+      ctx.lineTo(midHip.x*canvas.width, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function syncToVideoTime(){
+    if(!analysis || !analysis.frames) return;
+    var f = findNearestFrame(analysis.frames, video.currentTime);
+    if(f){
+      drawFrame(f);
+      renderMetricsPanel(f.metrics);
+    }
+  }
+
+  video.addEventListener('loadedmetadata', async function(){
+    status.textContent = '분석 데이터 확인 중...';
+    // 1. 캐시 확인
+    if(m.mediaId){
+      analysis = await mediaDB.getAnalysis(m.mediaId);
+    }
+    if(analysis && analysis.frames && analysis.frames.length>0){
+      status.textContent = '✓ 캐시된 분석 ('+analysis.frames.length+' 프레임 · '+analysis.sampleRate+'fps)';
+      renderChecklist();
+      syncToVideoTime();
+      return;
+    }
+    // 2. 사전 분석 실행
+    progressBox.style.display = 'flex';
+    status.textContent = '스윙 사전 분석 중...';
+    try{
+      analysis = await preAnalyzeVideo(video, pose, function(p){
+        var pct = Math.floor(p*100);
+        progressBar.style.width = pct+'%';
+        progressText.textContent = '분석 중 '+pct+'%';
+      });
+    }catch(e){
+      console.error(e);
+      status.textContent = '분석 실패: '+e.message;
+      return;
+    }
+    progressBox.style.display = 'none';
+    if(!analysis || !analysis.frames.length){
+      status.textContent = '분석 데이터 없음 (영상에서 사람을 감지하지 못함)';
+      return;
+    }
+    // 캐시 저장
+    if(m.mediaId){
+      await mediaDB.putAnalysis(m.mediaId, analysis);
+    }
+    status.textContent = '✓ 분석 완료 — '+analysis.frames.length+' 프레임';
+    video.currentTime = 0;
+    renderChecklist();
+    syncToVideoTime();
   });
 
-  var rafId=null;
-  var processing=false;
-  function loop(){
-    if(video.paused||video.ended){rafId=requestAnimationFrame(loop);return;}
-    if(!processing){
-      processing=true;
-      pose.send({image:video}).then(function(){processing=false;}).catch(function(){processing=false;});
-    }
-    rafId=requestAnimationFrame(loop);
-  }
-  video.addEventListener('loadeddata',function(){
-    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-    status.textContent='▶ 재생하면 분석이 시작됩니다';
-  });
-  video.addEventListener('play',function(){
-    status.textContent='분석 중...';
-    initialHeadX=null; phaseHistory=[]; currentPhase='대기'; phaseStartMetrics=null;
-    loop();
-  });
-  video.addEventListener('pause',function(){status.textContent='일시정지';});
+  // 재생/스크러빙 모두에서 동기화
+  video.addEventListener('timeupdate', syncToVideoTime);
+  video.addEventListener('seeked', syncToVideoTime);
+  toggleGuide.addEventListener('change', syncToVideoTime);
+  toggleSkel.addEventListener('change', syncToVideoTime);
+
   overlay._pose = pose;
-  overlay._rafId = rafId;
   overlay.addEventListener('click',function(e){if(e.target===overlay){closePoseAnalyzer(overlay);}});
+}
+
+async function reAnalyzeVideo(sessionId, mediaIdx){
+  var mid=S.selectedMember;
+  var sess=(S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
+  if(!sess||!sess.media||!sess.media[mediaIdx])return;
+  var m=sess.media[mediaIdx];
+  if(!m.mediaId)return;
+  if(!confirm('기존 분석 데이터를 삭제하고 다시 분석하시겠습니까?')) return;
+  await mediaDB.delAnalysis(m.mediaId);
+  // 현재 모달 닫고 재오픈
+  document.querySelectorAll('.pose-overlay').forEach(function(el){closePoseAnalyzer(el);});
+  setTimeout(function(){openPoseAnalyzer(sessionId, mediaIdx);}, 100);
 }
 
 function closePoseAnalyzer(el){
@@ -1604,6 +1799,7 @@ async function deleteSession(id){
       var m = sess.media[i];
       if(m.mediaId){
         await mediaDB.del(m.mediaId);
+    await mediaDB.delAnalysis(m.mediaId);
         if(S.mediaUrls[m.mediaId]){URL.revokeObjectURL(S.mediaUrls[m.mediaId]); delete S.mediaUrls[m.mediaId];}
       }
     }

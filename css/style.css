@@ -179,6 +179,22 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .media-url{font-size:12px}
 .media-hint{font-size:10px;color:#9ca89e;margin-top:8px;line-height:1.4}
 
+/* Video slot grid (front/side) */
+.video-slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.video-slot{border:1.5px dashed #d4cfc4;border-radius:8px;padding:10px;background:#fff}
+.vs-label{font-size:11px;font-weight:700;color:#1a3d2b;margin-bottom:6px;text-align:center}
+
+/* Video view tag on session card */
+.sm-view-tag{position:absolute;top:6px;left:6px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;z-index:2;color:#fff}
+.tag-front{background:rgba(24,95,165,.9)}
+.tag-side{background:rgba(59,109,17,.9)}
+
+/* Pose analysis progress */
+.pose-progress{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#fff;padding:20px 30px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:10px;z-index:5;min-width:240px}
+.pose-progress-track{width:220px;height:8px;background:#222;border-radius:4px;overflow:hidden}
+.pose-progress-fill{width:0%;height:100%;background:linear-gradient(90deg,#00ff7f,#00c8ff);transition:width .2s}
+.pose-progress-text{font-size:12px;color:#fff}
+
 .sm-missing{padding:20px;background:#f4f1eb;color:#9ca89e;font-size:11px;border-radius:6px;border:1px dashed #d4cfc4;text-align:center}
 
 /* Expiry badge */
