@@ -45,9 +45,9 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 
 /* Main */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
-.topbar{padding:12px 20px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);background:#fff;border-bottom:1px solid #e8e3d8;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:10}
-.sidebar-logo{padding-top:calc(env(safe-area-inset-top,0px) + 12px)}
-.role-selector{padding-top:calc(env(safe-area-inset-top,0px) + 40px)}
+.topbar{padding:12px 20px;padding-top:max(14px,calc(env(safe-area-inset-top,0px) + 14px));background:#fff;border-bottom:1px solid #e8e3d8;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:10}
+.sidebar-logo{padding-top:max(12px,calc(env(safe-area-inset-top,0px) + 12px))}
+.role-selector{padding-top:max(40px,calc(env(safe-area-inset-top,0px) + 40px))}
 .member-title-wrap{display:flex;align-items:center;gap:10px}
 .topbar-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
 .member-title{font-size:16px;font-weight:600;color:#1a1a1a}
@@ -286,7 +286,7 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
   .mobile-toggle{display:flex}
   .stat-row{grid-template-columns:repeat(3,1fr)}
   .assessment-grid{grid-template-columns:1fr}
-  .topbar{padding:10px 14px}
+  .topbar{padding:10px 14px;padding-top:max(54px,calc(env(safe-area-inset-top,0px) + 12px))}
   .content{padding:12px 14px}
   .radio-opt{flex:0 0 calc(50% - 4px);font-size:12px;padding:7px 8px}
   .session-hd{flex-wrap:wrap}

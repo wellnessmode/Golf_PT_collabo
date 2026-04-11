@@ -261,7 +261,18 @@ function save(){
       members:S.members, assessments:S.assessments, sessions:S.sessions,
       deleteRequests:S.deleteRequests, activityLog:S.activityLog, lastSeen:S.lastSeen
     }));
-  }catch(e){}
+    return true;
+  }catch(e){
+    console.error('[save] failed:', e);
+    alert('⚠️ 저장 실패 — 브라우저 저장 공간이 부족합니다.\n\n' +
+          '원인: 영상/사진이 저장 한도(약 5MB)를 초과했습니다.\n' +
+          '해결: 용량이 큰 영상은 유튜브/드라이브에 올린 뒤 URL 입력을 사용해주세요.');
+    return false;
+  }
+}
+
+function estimateStorageSize(){
+  try{return JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,lastSeen:S.lastSeen}).length;}catch(e){return 0;}
 }
 
 function loadLocal(){
@@ -847,9 +858,16 @@ function addSession(){
     media: media.length>0 ? media : undefined
   };
   S.sessions[mid].push(s);
-  S.showAddSession = false;
   logActivity('세션 추가', mid, s.content.slice(0,40));
-  save(); render();
+  if(!save()){
+    // 저장 실패 시 롤백
+    S.sessions[mid].pop();
+    S.activityLog.pop();
+    render();
+    return;
+  }
+  S.showAddSession = false;
+  render();
   cloud.upsertSession(mid, s);
 }
 
@@ -873,15 +891,23 @@ function handleFileUpload(input){
   var files=Array.from(input.files||[]);
   var existing=S.newSession.media||[];
   if(existing.length+files.length>2){alert('파일은 최대 2개까지 첨부 가능합니다');input.value='';return;}
+  // localStorage 실질 한도는 약 5MB (브라우저마다 다름)
+  // base64는 원본 대비 약 1.33배 커지므로 파일 1개당 3MB 초과 시 차단
+  var MAX_FILE_SIZE = 3*1024*1024;
   files.forEach(function(file){
-    if(file.size>25*1024*1024){
-      alert(file.name+' : 25MB 초과 파일은 저장할 수 없습니다.\n영상 길이를 줄이거나 URL(유튜브/드라이브) 입력을 사용하세요.');
+    if(file.size > MAX_FILE_SIZE){
+      alert(file.name + ' : ' + (file.size/1024/1024).toFixed(1) + 'MB\n\n' +
+            '⚠️ 브라우저 저장소 한도상 3MB 이하만 업로드 가능합니다.\n' +
+            '📹 영상은 유튜브/드라이브에 올린 뒤 아래 "URL 직접 입력"에 링크를 붙여넣어 주세요.\n' +
+            '(URL 방식은 용량 제한이 없습니다)');
       return;
     }
     var reader=new FileReader();
     reader.onload=function(e){
       var mt=file.type||'';
-      S.newSession.media.push({type:'file',name:file.name,mimeType:mt,data:e.target.result});
+      // 임시 추가 → save 시도 → 실패 시 롤백
+      var entry={type:'file',name:file.name,mimeType:mt,data:e.target.result};
+      S.newSession.media.push(entry);
       render();
     };
     reader.readAsDataURL(file);
