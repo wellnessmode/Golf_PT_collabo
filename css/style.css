@@ -181,6 +181,46 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 
 .sm-missing{padding:20px;background:#f4f1eb;color:#9ca89e;font-size:11px;border-radius:6px;border:1px dashed #d4cfc4;text-align:center}
 
+/* Expiry badge */
+.exp-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle}
+.exp-soon{background:#fff7e0;color:#b87000;border:1px solid #e9c06a}
+.exp-expired{background:#ffebe8;color:#b71919;border:1px solid #f5b3a8}
+
+/* Member detail line (phone/email/registered) */
+.member-detail-line{font-size:10px;color:#9ca89e;margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}
+
+/* Sidebar my-page */
+.sidebar-mypage{padding:8px;border-top:1px solid #e8e3d8;margin-top:4px}
+.mp-label{font-size:9px;font-weight:700;color:#9ca89e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-left:4px}
+.mp-btn{display:block;width:100%;text-align:left;padding:7px 10px;border:1px solid #e8e3d8;border-radius:6px;background:#fff;cursor:pointer;font-size:11px;color:#3d3d3d;margin-bottom:4px;font-weight:500}
+.mp-btn:hover{background:#f4f9f0;border-color:#4a7c59;color:#2d6a4f}
+
+/* Admin role card */
+.rc-admin:hover{border-color:#c92020;background:#fef0f0}
+
+/* Audit log */
+.audit-filter{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.audit-filter-btn{font-size:10px;padding:4px 10px;border-radius:12px;border:1px solid #d4cfc4;background:#fff;color:#6b7a70;cursor:pointer;font-weight:600}
+.audit-filter-btn.active{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
+.audit-log-list{max-height:420px;overflow-y:auto;font-family:'SF Mono',Menlo,monospace;font-size:10px;border:1px solid #e8e3d8;border-radius:6px}
+.audit-row{display:grid;grid-template-columns:110px 60px 90px 90px 90px 1fr;gap:6px;padding:6px 10px;border-bottom:1px solid #f0efe9;align-items:center}
+.audit-row:hover{background:#f9f7f3}
+.au-time{color:#9ca89e}
+.au-cat{font-weight:700}
+.audit-auth .au-cat{color:#7c3aed}
+.audit-member .au-cat{color:#185fa5}
+.audit-session .au-cat{color:#3b6d11}
+.audit-assess .au-cat{color:#b87000}
+.audit-system .au-cat{color:#555}
+.au-user{color:#1a3d2b;font-weight:600}
+.au-action{color:#1a1a1a;font-weight:600}
+.au-target{color:#555}
+.au-meta{color:#9ca89e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
+@media(max-width:768px){
+  .audit-row{grid-template-columns:1fr;gap:2px;padding:8px;font-size:10px}
+  .au-meta{white-space:normal;word-break:break-all}
+}
+
 /* Media display in session card */
 .session-media{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed #e8e3d8}
 .sm-thumb{width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e8e3d8;cursor:pointer}
