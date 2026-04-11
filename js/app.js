@@ -113,6 +113,80 @@ const SAMPLE_DATA = {
   }
 };
 
+// ============ Media DB (IndexedDB) ============
+// 영상/사진 같은 대용량 파일은 localStorage(5MB) 한도 때문에 IndexedDB에 저장
+// localStorage 에는 mediaId 참조만 남김. 렌더 시 ObjectURL로 변환.
+const mediaDB = {
+  db:null, DB_NAME:'golf_pt_media', STORE:'media',
+  init:function(){
+    return new Promise(function(resolve){
+      if(!window.indexedDB){resolve(false);return;}
+      var req = indexedDB.open(mediaDB.DB_NAME, 1);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if(!db.objectStoreNames.contains(mediaDB.STORE)){
+          db.createObjectStore(mediaDB.STORE, {keyPath:'id'});
+        }
+      };
+      req.onsuccess = function(e){mediaDB.db = e.target.result; resolve(true);};
+      req.onerror = function(){console.warn('[mediaDB] init failed'); resolve(false);};
+    });
+  },
+  put:function(id, blob, meta){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve(false);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.STORE,'readwrite');
+        var store = tx.objectStore(mediaDB.STORE);
+        var req = store.put({id:id, blob:blob, mimeType:meta.mimeType||'', name:meta.name||'', size:blob.size, createdAt:Date.now()});
+        req.onsuccess = function(){resolve(true);};
+        req.onerror = function(e){console.warn('[mediaDB] put failed',e); resolve(false);};
+      }catch(e){console.warn(e);resolve(false);}
+    });
+  },
+  get:function(id){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve(null);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.STORE,'readonly');
+        var req = tx.objectStore(mediaDB.STORE).get(id);
+        req.onsuccess = function(e){resolve(e.target.result||null);};
+        req.onerror = function(){resolve(null);};
+      }catch(e){resolve(null);}
+    });
+  },
+  getAll:function(){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve([]);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.STORE,'readonly');
+        var req = tx.objectStore(mediaDB.STORE).getAll();
+        req.onsuccess = function(e){resolve(e.target.result||[]);};
+        req.onerror = function(){resolve([]);};
+      }catch(e){resolve([]);}
+    });
+  },
+  del:function(id){
+    return new Promise(function(resolve){
+      if(!mediaDB.db){resolve(false);return;}
+      try{
+        var tx = mediaDB.db.transaction(mediaDB.STORE,'readwrite');
+        var req = tx.objectStore(mediaDB.STORE).delete(id);
+        req.onsuccess = function(){resolve(true);};
+        req.onerror = function(){resolve(false);};
+      }catch(e){resolve(false);}
+    });
+  }
+};
+
+async function getStorageEstimate(){
+  if(!navigator.storage||!navigator.storage.estimate) return null;
+  try{
+    var est = await navigator.storage.estimate();
+    return {usage:est.usage||0, quota:est.quota||0};
+  }catch(e){return null;}
+}
+
 // ============ Supabase 연동 모듈 ============
 const cloud = {
   client:null,
@@ -205,6 +279,7 @@ const cloud = {
 let S = {
   members:[], assessments:{}, sessions:{}, deleteRequests:{},
   activityLog:[], lastSeen:{},
+  mediaUrls:{}, // {mediaId: objectURL} — IndexedDB에서 로드된 blob의 ObjectURL 캐시
   selectedMember:null, assessOpen:false, filterAuthor:'all',
   showAddSession:false, showAddMember:false, showActivityLog:false,
   editSessionId:null,
@@ -346,6 +421,14 @@ async function init(){
   loadLocal();
   readHash();
   render();
+
+  // IndexedDB 미디어 로드 → ObjectURL 캐시
+  await mediaDB.init();
+  var allMedia = await mediaDB.getAll();
+  allMedia.forEach(function(rec){
+    try{S.mediaUrls[rec.id] = URL.createObjectURL(rec.blob);}catch(e){}
+  });
+  if(allMedia.length>0) render();
 
   // 2) Supabase 가 설정되어 있으면 원격 동기화 시도
   if(cloud.init()){
@@ -624,8 +707,13 @@ function render(){
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
                 ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){
-                  if(m.type==='file'&&m.data&&m.data.indexOf('image/')!==-1) return '<img class="sm-thumb" src="'+m.data+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
-                  if(m.type==='file'&&m.data&&m.data.indexOf('video/')!==-1) return '<div class="sm-video-wrap"><video class="sm-video" src="'+m.data+'" controls></video><button class="sm-pose-btn" onclick="openPoseAnalyzer(\''+s.id+'\','+mi+')">🦴 스켈레톤 분석</button></div>';
+                  var src = m.mediaId ? (S.mediaUrls[m.mediaId]||'') : (m.data||'');
+                  var mime = m.mimeType || (m.data||'').slice(5, 30) || '';
+                  var isImg = mime.indexOf('image/')!==-1 || (m.data&&m.data.indexOf('image/')!==-1);
+                  var isVideo = mime.indexOf('video/')!==-1 || (m.data&&m.data.indexOf('video/')!==-1);
+                  if(m.type==='file' && src && isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
+                  if(m.type==='file' && src && isVideo) return '<div class="sm-video-wrap"><video class="sm-video" src="'+src+'" controls playsinline></video><button class="sm-pose-btn" onclick="openPoseAnalyzer(\''+s.id+'\','+mi+')">🦴 스켈레톤 분석</button></div>';
+                  if(m.type==='file' && !src) return '<div class="sm-missing">⚠ 미디어 로딩 중...</div>';
                   if(m.type==='url') return '<a class="sm-link" href="'+((m.data||'').replace(/"/g,'&quot;'))+'" target="_blank" rel="noopener">▶ 영상 보기</a>';
                   return '';
                 }).join('')+'</div>':''}
@@ -677,7 +765,7 @@ function render(){
           <div class="media-sub-label" style="margin-top:10px">또는 URL 직접 입력 (최대 2개)</div>
           <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[0]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(0,this.value)" style="margin-bottom:6px">
           <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[1]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(1,this.value)">
-          <div class="media-hint">영상은 짧게 촬영하세요. 5MB 초과 시 URL 입력을 권장합니다.</div>
+          <div class="media-hint">파일당 최대 100MB · 브라우저 IndexedDB에 저장됩니다</div>
         </div>
       </div>
       <div class="modal-actions">
@@ -887,34 +975,56 @@ function addMember(){
   cloud.upsertMember(m);
 }
 
-function handleFileUpload(input){
+async function handleFileUpload(input){
   var files=Array.from(input.files||[]);
   var existing=S.newSession.media||[];
   if(existing.length+files.length>2){alert('파일은 최대 2개까지 첨부 가능합니다');input.value='';return;}
-  // localStorage 실질 한도는 약 5MB (브라우저마다 다름)
-  // base64는 원본 대비 약 1.33배 커지므로 파일 1개당 3MB 초과 시 차단
-  var MAX_FILE_SIZE = 3*1024*1024;
-  files.forEach(function(file){
-    if(file.size > MAX_FILE_SIZE){
-      alert(file.name + ' : ' + (file.size/1024/1024).toFixed(1) + 'MB\n\n' +
-            '⚠️ 브라우저 저장소 한도상 3MB 이하만 업로드 가능합니다.\n' +
-            '📹 영상은 유튜브/드라이브에 올린 뒤 아래 "URL 직접 입력"에 링크를 붙여넣어 주세요.\n' +
-            '(URL 방식은 용량 제한이 없습니다)');
-      return;
+  // IndexedDB 사용 — 개별 파일 최대 100MB (브라우저 quota 내)
+  var MAX_FILE_SIZE = 100*1024*1024;
+  if(!mediaDB.db){
+    var ok = await mediaDB.init();
+    if(!ok){
+      alert('브라우저가 IndexedDB를 지원하지 않습니다.\n영상 업로드 대신 URL 입력을 사용해주세요.');
+      input.value=''; return;
     }
-    var reader=new FileReader();
-    reader.onload=function(e){
-      var mt=file.type||'';
-      // 임시 추가 → save 시도 → 실패 시 롤백
-      var entry={type:'file',name:file.name,mimeType:mt,data:e.target.result};
-      S.newSession.media.push(entry);
-      render();
-    };
-    reader.readAsDataURL(file);
-  });
+  }
+  // Quota 체크
+  var est = await getStorageEstimate();
+  if(est && est.quota){
+    var totalWanted = files.reduce(function(a,f){return a+f.size;},0);
+    var remaining = est.quota - est.usage;
+    if(totalWanted > remaining * 0.8){
+      alert('저장 공간 부족: 남은 용량 ' + (remaining/1024/1024).toFixed(0) + 'MB\n\n오래된 영상을 삭제하거나 URL 입력을 사용하세요.');
+      input.value=''; return;
+    }
+  }
+  for(var i=0;i<files.length;i++){
+    var file = files[i];
+    if(file.size > MAX_FILE_SIZE){
+      alert(file.name + ' : ' + (file.size/1024/1024).toFixed(1) + 'MB\n\n파일당 최대 100MB까지 업로드 가능합니다.');
+      continue;
+    }
+    var mediaId = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    var saved = await mediaDB.put(mediaId, file, {mimeType:file.type, name:file.name});
+    if(!saved){
+      alert(file.name + ' 저장 실패');
+      continue;
+    }
+    try{S.mediaUrls[mediaId] = URL.createObjectURL(file);}catch(e){}
+    S.newSession.media.push({type:'file', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId});
+    render();
+  }
   input.value='';
 }
-function removeMediaFile(idx){S.newSession.media.splice(idx,1);render();}
+async function removeMediaFile(idx){
+  var m = S.newSession.media[idx];
+  if(m && m.mediaId){
+    await mediaDB.del(m.mediaId);
+    if(S.mediaUrls[m.mediaId]){URL.revokeObjectURL(S.mediaUrls[m.mediaId]); delete S.mediaUrls[m.mediaId];}
+  }
+  S.newSession.media.splice(idx,1);
+  render();
+}
 function updateMediaUrl(idx,val){S.newSession.mediaUrls[idx]=val;}
 function openMediaView(src){
   var d=document.createElement('div');d.className='media-overlay';
@@ -928,7 +1038,9 @@ function openPoseAnalyzer(sessionId, mediaIdx){
   var mid=S.selectedMember;
   var sess=(S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
   if(!sess||!sess.media||!sess.media[mediaIdx])return;
-  var src=sess.media[mediaIdx].data;
+  var m = sess.media[mediaIdx];
+  var src = m.mediaId ? S.mediaUrls[m.mediaId] : m.data;
+  if(!src){alert('영상을 불러올 수 없습니다'); return;}
   if(typeof Pose==='undefined'){
     alert('MediaPipe 로딩 중입니다. 잠시 후 다시 시도해주세요.');
     return;
@@ -971,9 +1083,19 @@ function openPoseAnalyzer(sessionId, mediaIdx){
   overlay.addEventListener('click',function(e){if(e.target===overlay){if(rafId)cancelAnimationFrame(rafId);overlay.remove();}});
 }
 
-function deleteSession(id){
+async function deleteSession(id){
   if(!confirm('이 세션 기록을 삭제하시겠습니까?')) return;
   const mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]).find(function(x){return x.id===id;});
+  if(sess && sess.media){
+    for(var i=0;i<sess.media.length;i++){
+      var m = sess.media[i];
+      if(m.mediaId){
+        await mediaDB.del(m.mediaId);
+        if(S.mediaUrls[m.mediaId]){URL.revokeObjectURL(S.mediaUrls[m.mediaId]); delete S.mediaUrls[m.mediaId];}
+      }
+    }
+  }
   S.sessions[mid] = (S.sessions[mid]||[]).filter(s => s.id!==id);
   logActivity('세션 삭제', mid, '');
   save(); render();

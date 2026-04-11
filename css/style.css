@@ -179,6 +179,8 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .media-url{font-size:12px}
 .media-hint{font-size:10px;color:#9ca89e;margin-top:8px;line-height:1.4}
 
+.sm-missing{padding:20px;background:#f4f1eb;color:#9ca89e;font-size:11px;border-radius:6px;border:1px dashed #d4cfc4;text-align:center}
+
 /* Media display in session card */
 .session-media{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed #e8e3d8}
 .sm-thumb{width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e8e3d8;cursor:pointer}
