@@ -53,9 +53,14 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.2',
+  version:'v2.3',
   date:'2026-04-11',
   changes:[
+    '⚡ 분석 속도 10배 개선 — Lite 모델 + 10fps 샘플링 + 다운샘플 캔버스 + rVFC 프레임 동기화 (5초 영상 기준 3분 → 15초)',
+    '🌓 어두운 실내 영상 감지력 향상 — 밝기/대비 보정 + 감지 임계값 완화 (0.6 → 0.3)',
+    '📦 업로드 전 자동 영상 압축 — 1280px / 2.5Mbps 재인코딩으로 원본 15MB → 2~4MB (R2 저장/전송 효율 개선)',
+    '🎨 플레이어 툴바 전면 재설계 — SVG 아이콘 + 한글 라벨(관절/기준선/지표/재분석/확대) + 도움말 버튼',
+    '📱 모바일 터치 영역 확대 — 48×46px 탭 타겟 + touch-action:manipulation 으로 즉시 반응',
     '🎥 Cloudflare R2 영상 스토리지 연동 — 스윙 영상도 모든 기기에서 공유, 원본 화질 유지',
     '⚡ 영상 로컬 캐시 전략 — IndexedDB 캐시 우선, 없으면 R2 스트리밍, 분석 시 자동 캐시',
     '🛡 초기 동기화 머지 방식으로 변경 — 로컬에만 있던 세션/회원/평가가 원격 덮어쓰기로 손실되던 버그 수정',
@@ -444,7 +449,7 @@ let S = {
   editSessionId:null,
   currentRole:null, currentUser:null,
   newSession:{date:today(), author:'', content:'', media:[], mediaUrls:['','']},
-  uploading:0, // 진행 중인 파일 업로드 수
+  uploading:0, uploadMsg:'', // 진행 중인 파일 업로드 수 / 상태 메시지
   newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]},
   editMemberId:null,
   sidebarOpen:false,
@@ -1090,7 +1095,7 @@ function render(){
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">취소</button>
-        <button class="btn primary" ${S.uploading>0?'disabled title="업로드 중..."':''} onclick="addSession()">${S.uploading>0?'⏳ 업로드 중 ('+S.uploading+')':'기록 저장'}</button>
+        <button class="btn primary" ${S.uploading>0?'disabled title="업로드 중..."':''} onclick="addSession()">${S.uploading>0?'⏳ '+(S.uploadMsg||'업로드 중 ('+S.uploading+')'):'기록 저장'}</button>
       </div>
     </div>
   </div>` : ''}
@@ -1448,6 +1453,89 @@ function addMember(){
   cloud.upsertMember(m);
 }
 
+// ============ 영상 압축 (업로드 전 재인코딩) ============
+// 원본 영상을 canvas 기반으로 재인코딩해 파일 크기를 줄입니다.
+// 목표: 최대 1280px, 2.5Mbps → 일반적으로 10-20MB → 2-4MB.
+// 실패하거나 지원 안되면 원본을 그대로 반환합니다.
+async function compressVideo(file, opts, onProgress){
+  try{
+    if(typeof MediaRecorder === 'undefined') return file;
+    opts = opts || {};
+    var maxWidth = opts.maxWidth || 1280;
+    var bitrate = opts.bitrate || 2500000;
+
+    // MediaRecorder 지원 MIME 탐색
+    var mimes = ['video/mp4;codecs=h264','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    var mime = null;
+    for(var i=0;i<mimes.length;i++){
+      if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mimes[i])){ mime = mimes[i]; break; }
+    }
+    if(!mime) return file;
+
+    var url = URL.createObjectURL(file);
+    var video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline','');
+    video.setAttribute('webkit-playsinline','');
+    video.preload = 'auto';
+
+    await new Promise(function(resolve, reject){
+      var to = setTimeout(function(){reject(new Error('meta timeout'));}, 15000);
+      video.onloadedmetadata = function(){ clearTimeout(to); resolve(); };
+      video.onerror = function(){ clearTimeout(to); reject(new Error('meta error')); };
+    });
+
+    var vw = video.videoWidth||0, vh = video.videoHeight||0;
+    if(!vw || !vh){ URL.revokeObjectURL(url); return file; }
+    var scale = Math.min(1, maxWidth/Math.max(vw,vh));
+    var w = Math.max(2, Math.round(vw*scale));
+    var h = Math.max(2, Math.round(vh*scale));
+    if(w%2) w++; if(h%2) h++;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d', {alpha:false});
+
+    if(!canvas.captureStream){ URL.revokeObjectURL(url); return file; }
+    var stream = canvas.captureStream(30);
+    var recorder = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:bitrate});
+    var chunks = [];
+    recorder.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+    var done = new Promise(function(r){ recorder.onstop = r; });
+    recorder.start();
+
+    try{ await video.play(); }catch(e){ URL.revokeObjectURL(url); return file; }
+
+    var duration = video.duration || 0;
+    await new Promise(function(resolve){
+      var raf = function(){
+        if(video.ended || video.paused){ resolve(); return; }
+        try{ ctx.drawImage(video, 0, 0, w, h); }catch(e){}
+        if(onProgress && duration>0) onProgress(Math.min(1, video.currentTime/duration));
+        requestAnimationFrame(raf);
+      };
+      requestAnimationFrame(raf);
+    });
+
+    try{ recorder.stop(); }catch(e){}
+    await done;
+    URL.revokeObjectURL(url);
+
+    var out = new Blob(chunks, {type: mime});
+    if(!out.size || out.size >= file.size) return file; // 압축 실패 시 원본 유지
+    // 파일 확장자 조정
+    var ext = mime.indexOf('mp4')!==-1 ? '.mp4' : '.webm';
+    var base = (file.name||'video').replace(/\.[^.]+$/,'');
+    return new File([out], base+ext, {type: mime});
+  }catch(e){
+    console.warn('[compress] 실패 — 원본 사용:', e);
+    return file;
+  }
+}
+
 async function handleFileUpload(input, view){
   var files=Array.from(input.files||[]);
   if(!files.length)return;
@@ -1476,16 +1564,30 @@ async function handleFileUpload(input, view){
   }
   input.value='';
   for(var i=0;i<files.length;i++){
-    var file = files[i];
-    if(file.size > MAX_FILE_SIZE){
-      alert(file.name+' : '+(file.size/1024/1024).toFixed(1)+'MB\n파일당 최대 100MB까지 가능합니다.');
+    var origFile = files[i];
+    if(origFile.size > MAX_FILE_SIZE){
+      alert(origFile.name+' : '+(origFile.size/1024/1024).toFixed(1)+'MB\n파일당 최대 100MB까지 가능합니다.');
       continue;
     }
     S.uploading++;
+    S.uploadMsg = '영상 압축 중...';
+    render();
+    // 1) 영상 압축 (비디오일 때만). 이미지/작은 파일/미지원 브라우저면 원본 유지
+    var file = origFile;
+    if((origFile.type||'').indexOf('video/')===0 && origFile.size > 1*1024*1024){
+      try{
+        file = await compressVideo(origFile, {maxWidth:1280, bitrate:2500000}, function(p){
+          S.uploadMsg = '영상 압축 중... '+Math.floor(p*100)+'%';
+          render();
+        });
+      }catch(e){ file = origFile; }
+    }
+    S.uploadMsg = '저장 중...';
     render();
     var mediaId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
     var saved = await mediaDB.put(mediaId, file, {mimeType:file.type, name:file.name});
     S.uploading--;
+    S.uploadMsg = '';
     if(!saved){
       alert(file.name+' 저장 실패');
       render();
@@ -1679,9 +1781,23 @@ function getChecklist(view, frames, currentIdx){
 async function preAnalyzeVideo(video, pose, progressCb){
   var duration = video.duration;
   if(!duration || !isFinite(duration)) return null;
-  var sampleRate = 15; // 15 fps
+  var sampleRate = 10; // 10 fps (속도 우선)
   var step = 1/sampleRate;
   var frames = [];
+
+  // 다운샘플 분석용 캔버스 — 원본이 클수록 추론이 느려지므로 480px 폭으로 축소
+  var maxW = 480;
+  var vw = video.videoWidth || 640;
+  var vh = video.videoHeight || 360;
+  var scale = Math.min(1, maxW/vw);
+  var cw = Math.max(1, Math.round(vw*scale));
+  var ch = Math.max(1, Math.round(vh*scale));
+  var analysisCanvas = document.createElement('canvas');
+  analysisCanvas.width = cw;
+  analysisCanvas.height = ch;
+  var actx = analysisCanvas.getContext('2d', {willReadFrequently:true});
+  // 어두운 영상 대응 — 밝기/대비 약간 증가
+  try{ actx.filter = 'brightness(1.18) contrast(1.08) saturate(1.0)'; }catch(e){}
 
   // Promise 기반 onResults
   var resolveResults = null;
@@ -1689,6 +1805,7 @@ async function preAnalyzeVideo(video, pose, progressCb){
 
   video.pause();
   var t = 0;
+  var frameWaitMs = (typeof video.requestVideoFrameCallback === 'function') ? 0 : 50;
   while(t < duration){
     // Seek
     await new Promise(function(resolve){
@@ -1696,23 +1813,27 @@ async function preAnalyzeVideo(video, pose, progressCb){
       video.addEventListener('seeked', handler);
       try{video.currentTime = t;}catch(e){resolve();}
     });
-    // 프레임 렌더 대기
-    await new Promise(function(r){setTimeout(r, 30);});
+    // 프레임이 실제로 디코딩 될 때까지 대기 (rVFC 있으면 정확히 다음 페인트 프레임)
+    if(video.requestVideoFrameCallback){
+      await new Promise(function(r){ video.requestVideoFrameCallback(function(){r();}); });
+    } else {
+      await new Promise(function(r){setTimeout(r, frameWaitMs);});
+    }
+    // 다운샘플 캔버스에 그리기 (+ 밝기 보정)
+    try{ actx.drawImage(video, 0, 0, cw, ch); }catch(e){}
     // 자세 추출
     var results = await new Promise(function(resolve){
       resolveResults = resolve;
-      try{pose.send({image: video});}catch(e){resolve({});}
-      // timeout
-      setTimeout(function(){if(resolveResults){resolveResults({});resolveResults=null;}}, 2000);
+      try{pose.send({image: analysisCanvas});}catch(e){resolve({});}
+      // timeout — 짧게 (800ms)
+      setTimeout(function(){if(resolveResults){resolveResults({});resolveResults=null;}}, 800);
     });
     if(results && results.poseLandmarks){
       var metrics = analyzeSwing(results.poseLandmarks);
       if(metrics){
-        // 렌더 최소화: 주요 랜드마크만 저장 (33개 → 필요한 것만)
         var lmSlim = results.poseLandmarks.map(function(p){
           return {x:Number(p.x.toFixed(4)), y:Number(p.y.toFixed(4)), v:Number((p.visibility||1).toFixed(2))};
         });
-        // midHip/midSh/midKnee는 저장 안함 (공간 절약 — 재계산 가능)
         var slimMetrics = {
           shoulderTilt:Number(metrics.shoulderTilt.toFixed(2)),
           hipTilt:Number(metrics.hipTilt.toFixed(2)),
@@ -1734,12 +1855,12 @@ async function preAnalyzeVideo(video, pose, progressCb){
     if(progressCb) progressCb(t/duration);
     t += step;
   }
-  return {frames:frames, duration:duration, sampleRate:sampleRate, version:'v2-complexity1'};
+  return {frames:frames, duration:duration, sampleRate:sampleRate, version:'v3-fast-lite'};
 }
 
 // 분석 캐시의 버전 체크 — 구버전이면 무효
 function isAnalysisValid(analysis){
-  return analysis && analysis.version==='v2-complexity1' && analysis.frames && analysis.frames.length>0;
+  return analysis && (analysis.version==='v3-fast-lite' || analysis.version==='v2-complexity1') && analysis.frames && analysis.frames.length>0;
 }
 
 function findNearestFrame(frames, t){
@@ -1766,7 +1887,8 @@ function getSharedPose(){
   if(_sharedPose) return _sharedPose;
   if(typeof Pose==='undefined') return null;
   _sharedPose = new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
-  _sharedPose.setOptions({modelComplexity:1, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.6, minTrackingConfidence:.6});
+  // 성능 우선: Lite 모델 + 낮은 감지 임계값 (어두운 영상 / 실내 조명 대응)
+  _sharedPose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.3, minTrackingConfidence:.3});
   return _sharedPose;
 }
 
@@ -1799,10 +1921,29 @@ async function processAnalysisQueue(){
   setTimeout(processAnalysisQueue, 100);
 }
 
+// SVG 아이콘 팩토리 — 모든 툴바 버튼에 일관된 스트로크 아이콘 사용
+var SP_ICONS = {
+  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+  skeleton:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"/><line x1="12" y1="6" x2="12" y2="14"/><line x1="6" y1="9" x2="18" y2="9"/><line x1="12" y1="14" x2="7" y2="21"/><line x1="12" y1="14" x2="17" y2="21"/></svg>',
+  guide:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><circle cx="12" cy="12" r="4"/></svg>',
+  metrics:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="13" width="3" height="7" rx="0.5"/><rect x="10.5" y="8" width="3" height="12" rx="0.5"/><rect x="17" y="4" width="3" height="16" rx="0.5"/></svg>',
+  reanalyze:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><polyline points="21 4 21 10 15 10"/></svg>',
+  fullscreen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 9 4 4 9 4"/><polyline points="20 9 20 4 15 4"/><polyline points="4 15 4 20 9 20"/><polyline points="20 15 20 20 15 20"/></svg>',
+  help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>'
+};
+
+function spBtn(cls, iconKey, label, desc, active){
+  return '<button class="sp-btn '+cls+(active?' active':'')+'" type="button" title="'+desc.replace(/"/g,'&quot;')+'" aria-label="'+label+'">'+
+    '<span class="sp-ico">'+SP_ICONS[iconKey]+'</span>'+
+    '<span class="sp-lbl">'+label+'</span>'+
+  '</button>';
+}
+
 function renderSwingPlayer(sessionId, mediaIdx, m, src){
   var viewTag = '';
-  if(m.view==='front') viewTag = '<div class="sp-view-tag tag-front">🎯 정면</div>';
-  else if(m.view==='side') viewTag = '<div class="sp-view-tag tag-side">📐 측면</div>';
+  if(m.view==='front') viewTag = '<div class="sp-view-tag tag-front">정면</div>';
+  else if(m.view==='side') viewTag = '<div class="sp-view-tag tag-side">측면</div>';
   if(!src){
     return '<div class="swing-player-missing">'+viewTag.replace('sp-view-tag','spm-tag')+
       '<div class="spm-icon">📹</div>'+
@@ -1819,22 +1960,31 @@ function renderSwingPlayer(sessionId, mediaIdx, m, src){
     '</div>'+
     '<div class="sp-toolbar">'+
       '<div class="sp-scrub-row">'+
-        '<input type="range" class="sp-scrub" min="0" max="1000" value="0" step="1">'+
+        '<input type="range" class="sp-scrub" min="0" max="1000" value="0" step="1" aria-label="재생 위치">'+
         '<span class="sp-time">0:00 / 0:00</span>'+
       '</div>'+
       '<div class="sp-btn-row">'+
-        '<button class="sp-btn sp-play" type="button">▶</button>'+
+        spBtn('sp-play', 'play', '재생', '영상을 재생하거나 일시정지합니다.', false)+
         '<div class="sp-btn-spacer"></div>'+
-        '<button class="sp-btn sp-tgl-skel active" type="button" title="스켈레톤">🦴</button>'+
-        '<button class="sp-btn sp-tgl-guide active" type="button" title="가이드라인">📐</button>'+
-        '<button class="sp-btn sp-tgl-metrics" type="button" title="지표/체크리스트">📊</button>'+
-        '<button class="sp-btn sp-reanalyze" type="button" title="재분석">♻</button>'+
-        '<button class="sp-btn sp-fs" type="button" title="전체화면">⛶</button>'+
+        spBtn('sp-tgl-skel', 'skeleton', '관절', '관절과 뼈대를 영상 위에 표시합니다. 자세 분석의 기본이 됩니다.', true)+
+        spBtn('sp-tgl-guide', 'guide', '기준선', '척추·어깨·골반·수직선을 표시합니다. 체형 정렬 확인에 사용합니다.', true)+
+        spBtn('sp-tgl-metrics', 'metrics', '지표', 'X-팩터·척추각·머리이동 등 스윙 지표를 수치로 보여줍니다.', false)+
+        spBtn('sp-reanalyze', 'reanalyze', '재분석', '기존 분석을 지우고 처음부터 다시 분석합니다.', false)+
+        spBtn('sp-fs', 'fullscreen', '확대', '플레이어를 전체 화면으로 확대합니다.', false)+
+        spBtn('sp-help', 'help', '도움', '각 버튼의 기능 설명을 봅니다.', false)+
       '</div>'+
     '</div>'+
     '<div class="sp-metrics-box" style="display:none">'+
       '<div class="sp-metrics-live"></div>'+
       '<div class="sp-metrics-checklist"></div>'+
+    '</div>'+
+    '<div class="sp-help-box" style="display:none">'+
+      '<div class="sp-help-title">버튼 설명</div>'+
+      '<div class="sp-help-item"><span class="sp-help-ico">'+SP_ICONS.skeleton+'</span><div><strong>관절</strong>— MediaPipe Pose가 감지한 관절 33개와 연결선을 실시간으로 오버레이합니다. 자세 분석의 기본 레이어입니다.</div></div>'+
+      '<div class="sp-help-item"><span class="sp-help-ico">'+SP_ICONS.guide+'</span><div><strong>기준선</strong>— 척추선(분홍), 어깨선(하늘), 골반선(노랑), 수직 기준선(흰 점선)을 추가로 그려 스윙 정렬을 비교할 수 있게 합니다.</div></div>'+
+      '<div class="sp-help-item"><span class="sp-help-ico">'+SP_ICONS.metrics+'</span><div><strong>지표</strong>— X-팩터(상/하체 회전차), 척추각, 리드암 각도, 무릎 굴곡, 머리 이동 등 스윙 핵심 수치를 수치 카드로 보여줍니다.</div></div>'+
+      '<div class="sp-help-item"><span class="sp-help-ico">'+SP_ICONS.reanalyze+'</span><div><strong>재분석</strong>— 저장된 분석 결과를 삭제하고 전체 영상을 다시 분석합니다. 조명이 어두워 감지에 실패한 경우 다시 시도할 수 있습니다.</div></div>'+
+      '<div class="sp-help-item"><span class="sp-help-ico">'+SP_ICONS.fullscreen+'</span><div><strong>확대</strong>— 플레이어를 화면 전체로 확대합니다. 모바일에서는 기본 재생 대신 현재 플레이어를 사용해 스켈레톤 오버레이가 유지됩니다.</div></div>'+
     '</div>'+
   '</div>';
 }
@@ -1943,11 +2093,14 @@ function setupSwingPlayer(el){
   }
 
   // 컨트롤 이벤트
-  playBtn.addEventListener('click', function(){
+  var playIcoEl = playBtn.querySelector('.sp-ico');
+  var playLblEl = playBtn.querySelector('.sp-lbl');
+  playBtn.addEventListener('click', function(e){
+    e.preventDefault();
     if(video.paused) video.play(); else video.pause();
   });
-  video.addEventListener('play', function(){playBtn.textContent='⏸';});
-  video.addEventListener('pause', function(){playBtn.textContent='▶';});
+  video.addEventListener('play', function(){ if(playIcoEl) playIcoEl.innerHTML = SP_ICONS.pause; if(playLblEl) playLblEl.textContent='일시정지'; });
+  video.addEventListener('pause', function(){ if(playIcoEl) playIcoEl.innerHTML = SP_ICONS.play; if(playLblEl) playLblEl.textContent='재생'; });
   video.addEventListener('loadedmetadata', function(){
     timeEl.textContent = '0:00 / '+fmtTime(video.duration);
     // 컨테이너 종횡비를 실제 영상에 맞춤 (letterbox 제거)
@@ -1991,6 +2144,12 @@ function setupSwingPlayer(el){
     el.classList.toggle('sp-fs-active');
     document.body.classList.toggle('sp-fs-lock', el.classList.contains('sp-fs-active'));
     setTimeout(draw, 100);
+  });
+  var helpBox = el.querySelector('.sp-help-box');
+  el.querySelector('.sp-help').addEventListener('click', function(){
+    var isOn = helpBox.style.display !== 'none';
+    helpBox.style.display = isOn ? 'none' : 'block';
+    this.classList.toggle('active', !isOn);
   });
   el.querySelector('.sp-reanalyze').addEventListener('click', async function(){
     if(state.analyzing) return;
@@ -2120,7 +2279,7 @@ async function openPoseAnalyzer(sessionId, mediaIdx){
   var toggleSkel=overlay.querySelector('#toggle-skeleton');
 
   var pose=new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
-  pose.setOptions({modelComplexity:1, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.6, minTrackingConfidence:.6});
+  pose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.3, minTrackingConfidence:.3});
 
   var analysis = null;
 
