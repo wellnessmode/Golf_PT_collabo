@@ -53,9 +53,14 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.4',
+  version:'v2.5',
   date:'2026-04-11',
   changes:[
+    '🏋️ 운동 DB 100여 개 내장 — 웨이트/골프 피트니스(TPI)/골프 스킬 카테고리, 초성 검색 지원 (예: "ㅅㅋㅌ" → 스쿼트)',
+    '⚡ 세션 기록 빠른추가 — "+ 운동 빠른추가" 버튼으로 모달에서 다중 선택 + 세트/횟수 입력 → 자동 포맷으로 내용 추가',
+    '📊 Trackman 스타일 A→F 변화량 카드 — 좌/우 힙 이동, 힙 센터 스웨이, 어깨/힙 회전, 최대 X-팩터, 헤드 최대 측면/수직 이동을 한눈에',
+    '🎯 기준선 두께·가독성 대폭 개선 — 고정 위치 수직선(A: 노랑 점선 / F: 하늘 실선, 4px) + 라운드 배경 라벨로 화면 비율 따라 자동 크기',
+    '⚓ 힙·헤드 수직선 고정화 — 프레임마다 흔들리던 수직선을 Address/Finish 두 시점에만 고정 표시, 중간 움직임 무시',
     '▶ 영상 자동 분석 시작 — 재생 버튼 누르지 않아도 로드되면 바로 분석 (preload=auto + canplay 트리거)',
     '📱 iOS Safari 디코더 Kick — muted play/pause 로 seek 동작 활성화, 모바일에서 스켈레톤 미표시 버그 수정',
     '🎯 뷰별 전용 기준선 — 정면: 척추/어깨/골반/좌우 힙 수직/헤드 수직, 측면: 척추/헤드/힙/무릎 수직',
@@ -113,6 +118,150 @@ const APP_VERSION = {
     '❌ 체형 점수(Golf Fit) 카드 제거 · 보완요청 기능 제거'
   ]
 };
+
+// ============ 운동 DB ============
+// 트레이너/프로가 세션 기록 시 빠르게 선택 가능한 운동 카탈로그.
+// c: 카테고리 (weight/golf_fit/golf_skill), s: 서브, f: 타겟, u: 단위, ds/dr: 기본 세트/횟수, d: 난이도
+const EXERCISES = [
+  // === 웨이트 트레이닝 ===
+  {n:'스쿼트', e:'Back Squat', c:'weight', s:'하체', f:'대퇴사두·둔근·코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'프론트 스쿼트', e:'Front Squat', c:'weight', s:'하체', f:'대퇴사두·코어', u:'rep', ds:3, dr:8, d:3},
+  {n:'고블릿 스쿼트', e:'Goblet Squat', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'루마니안 데드리프트', e:'RDL', c:'weight', s:'하체', f:'햄스트링·둔근', u:'rep', ds:3, dr:10, d:2},
+  {n:'컨벤셔널 데드리프트', e:'Deadlift', c:'weight', s:'전신', f:'후면사슬', u:'rep', ds:3, dr:6, d:3},
+  {n:'스모 데드리프트', e:'Sumo DL', c:'weight', s:'하체', f:'내전근·둔근', u:'rep', ds:3, dr:6, d:3},
+  {n:'불가리안 스플릿 스쿼트', e:'Bulgarian SS', c:'weight', s:'하체', f:'대퇴사두·둔근·밸런스', u:'rep', ds:3, dr:10, d:2},
+  {n:'워킹 런지', e:'Walking Lunge', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'스텝업', e:'Step Up', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:10, d:1},
+  {n:'힙 쓰러스트', e:'Hip Thrust', c:'weight', s:'하체', f:'둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'글루트 브릿지', e:'Glute Bridge', c:'weight', s:'하체', f:'둔근·햄스트링', u:'rep', ds:3, dr:15, d:1},
+  {n:'레그 프레스', e:'Leg Press', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'레그 컬', e:'Leg Curl', c:'weight', s:'하체', f:'햄스트링', u:'rep', ds:3, dr:12, d:1},
+  {n:'레그 익스텐션', e:'Leg Extension', c:'weight', s:'하체', f:'대퇴사두', u:'rep', ds:3, dr:12, d:1},
+  {n:'카프 레이즈', e:'Calf Raise', c:'weight', s:'하체', f:'종아리', u:'rep', ds:3, dr:15, d:1},
+  {n:'벤치프레스', e:'Bench Press', c:'weight', s:'상체', f:'대흉근·삼두·전면삼각근', u:'rep', ds:3, dr:8, d:2},
+  {n:'인클라인 벤치프레스', e:'Incline Bench', c:'weight', s:'상체', f:'상부 대흉근', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 플라이', e:'DB Fly', c:'weight', s:'상체', f:'대흉근', u:'rep', ds:3, dr:12, d:1},
+  {n:'푸쉬업', e:'Push Up', c:'weight', s:'상체', f:'대흉근·코어', u:'rep', ds:3, dr:15, d:1},
+  {n:'딥스', e:'Dips', c:'weight', s:'상체', f:'삼두·하부 대흉근', u:'rep', ds:3, dr:10, d:2},
+  {n:'풀업', e:'Pull Up', c:'weight', s:'상체', f:'광배근·이두', u:'rep', ds:3, dr:8, d:3},
+  {n:'친업', e:'Chin Up', c:'weight', s:'상체', f:'광배근·이두', u:'rep', ds:3, dr:8, d:2},
+  {n:'랫풀다운', e:'Lat Pulldown', c:'weight', s:'상체', f:'광배근', u:'rep', ds:3, dr:12, d:1},
+  {n:'바벨 로우', e:'Barbell Row', c:'weight', s:'상체', f:'광배근·승모근', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 로우', e:'DB Row', c:'weight', s:'상체', f:'광배근', u:'rep', ds:3, dr:10, d:1},
+  {n:'케이블 로우', e:'Cable Row', c:'weight', s:'상체', f:'광배근·승모근', u:'rep', ds:3, dr:12, d:1},
+  {n:'숄더 프레스', e:'Shoulder Press', c:'weight', s:'상체', f:'삼각근', u:'rep', ds:3, dr:10, d:2},
+  {n:'래터럴 레이즈', e:'Lateral Raise', c:'weight', s:'상체', f:'측면 삼각근', u:'rep', ds:3, dr:15, d:1},
+  {n:'프론트 레이즈', e:'Front Raise', c:'weight', s:'상체', f:'전면 삼각근', u:'rep', ds:3, dr:12, d:1},
+  {n:'페이스 풀', e:'Face Pull', c:'weight', s:'상체', f:'후면삼각근·승모근', u:'rep', ds:3, dr:15, d:1},
+  {n:'바벨 컬', e:'Barbell Curl', c:'weight', s:'상체', f:'이두', u:'rep', ds:3, dr:12, d:1},
+  {n:'해머 컬', e:'Hammer Curl', c:'weight', s:'상체', f:'이두·상완근', u:'rep', ds:3, dr:12, d:1},
+  {n:'트라이셉 푸쉬다운', e:'Triceps Pushdown', c:'weight', s:'상체', f:'삼두', u:'rep', ds:3, dr:12, d:1},
+  {n:'스컬크러셔', e:'Skullcrusher', c:'weight', s:'상체', f:'삼두', u:'rep', ds:3, dr:12, d:2},
+  {n:'플랭크', e:'Plank', c:'weight', s:'코어', f:'복직근·횡격막', u:'sec', ds:3, dr:60, d:1},
+  {n:'사이드 플랭크', e:'Side Plank', c:'weight', s:'코어', f:'복사근', u:'sec', ds:3, dr:40, d:2},
+  {n:'행잉 레그 레이즈', e:'Hanging Leg Raise', c:'weight', s:'코어', f:'하복부', u:'rep', ds:3, dr:10, d:3},
+  {n:'데드버그', e:'Dead Bug', c:'weight', s:'코어', f:'안정성·호흡', u:'rep', ds:3, dr:10, d:1},
+  {n:'버드독', e:'Bird Dog', c:'weight', s:'코어', f:'코어 안정성', u:'rep', ds:3, dr:10, d:1},
+
+  // === 골프 피트니스 (TPI 스타일) ===
+  {n:'월드 그레이티스트 스트레치', e:'WGS', c:'golf_fit', s:'모빌리티', f:'전신 가동성', u:'rep', ds:2, dr:5, d:1},
+  {n:'90/90 호흡', e:'90/90 Breathing', c:'golf_fit', s:'호흡', f:'복식호흡·코어 활성', u:'sec', ds:1, dr:120, d:1},
+  {n:'90/90 힙 트위스트', e:'90/90 Hip Twist', c:'golf_fit', s:'모빌리티', f:'힙 내·외회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'힙 에어플레인', e:'Hip Airplane', c:'golf_fit', s:'밸런스', f:'힙 안정성·회전', u:'rep', ds:2, dr:8, d:2},
+  {n:'싱글 레그 RDL', e:'SL-RDL', c:'golf_fit', s:'밸런스', f:'후면사슬·균형', u:'rep', ds:3, dr:8, d:2},
+  {n:'싱글 레그 브릿지', e:'SL Bridge', c:'golf_fit', s:'밸런스', f:'둔근·안정성', u:'rep', ds:3, dr:10, d:1},
+  {n:'T스파인 로테이션', e:'T-Spine Rotation', c:'golf_fit', s:'모빌리티', f:'흉추 회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'쿼드러페드 T스파인', e:'Quadruped T-Spine', c:'golf_fit', s:'모빌리티', f:'흉추 회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'오픈 북', e:'Open Book', c:'golf_fit', s:'모빌리티', f:'흉추·어깨', u:'rep', ds:2, dr:10, d:1},
+  {n:'월 슬라이드', e:'Wall Slide', c:'golf_fit', s:'모빌리티', f:'어깨·흉추', u:'rep', ds:2, dr:10, d:1},
+  {n:'월 엔젤', e:'Wall Angel', c:'golf_fit', s:'모빌리티', f:'어깨 가동성', u:'rep', ds:2, dr:10, d:1},
+  {n:'월 힙 힌지', e:'Wall Hip Hinge', c:'golf_fit', s:'패턴', f:'힙 힌지 학습', u:'rep', ds:2, dr:10, d:1},
+  {n:'터키시 겟업', e:'Turkish Get Up', c:'golf_fit', s:'전신', f:'전신 안정성·협응', u:'rep', ds:2, dr:5, d:3},
+  {n:'케틀벨 스윙', e:'KB Swing', c:'golf_fit', s:'파워', f:'힙 힌지·폭발력', u:'rep', ds:3, dr:15, d:2},
+  {n:'메디신볼 회전 슬램', e:'MB Rotational Slam', c:'golf_fit', s:'파워', f:'회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'메디신볼 사이드 슬램', e:'MB Side Slam', c:'golf_fit', s:'파워', f:'코어 회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'메디신볼 체스트 패스', e:'MB Chest Pass', c:'golf_fit', s:'파워', f:'상체 파워', u:'rep', ds:3, dr:10, d:1},
+  {n:'로테이셔널 MB 쓰로우', e:'Rot MB Throw', c:'golf_fit', s:'파워', f:'회전 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'우드 찹 (고→저)', e:'Wood Chop', c:'golf_fit', s:'회전', f:'사선 코어', u:'rep', ds:3, dr:12, d:1},
+  {n:'리버스 우드 찹', e:'Reverse Wood Chop', c:'golf_fit', s:'회전', f:'사선 코어', u:'rep', ds:3, dr:12, d:1},
+  {n:'랜드마인 트위스트', e:'Landmine Twist', c:'golf_fit', s:'회전', f:'회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'랜드마인 프레스', e:'Landmine Press', c:'golf_fit', s:'상체', f:'어깨·코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'하프 닐링 체스트 패스', e:'Half Kneeling Chest Pass', c:'golf_fit', s:'안정성', f:'상체·코어 안정', u:'rep', ds:3, dr:10, d:1},
+  {n:'하프 닐링 우드 찹', e:'Half Kneeling Chop', c:'golf_fit', s:'회전', f:'힙·코어', u:'rep', ds:3, dr:10, d:1},
+  {n:'글루트 미드 밴드 워크', e:'Glute Med Walk', c:'golf_fit', s:'하체', f:'중둔근·안정성', u:'rep', ds:3, dr:15, d:1},
+  {n:'클램셸', e:'Clamshell', c:'golf_fit', s:'하체', f:'중둔근', u:'rep', ds:3, dr:15, d:1},
+  {n:'윈드밀', e:'Windmill', c:'golf_fit', s:'모빌리티', f:'흉추·햄스트링', u:'rep', ds:2, dr:8, d:2},
+  {n:'컵 홀드 스쿼트', e:'Cossack Squat', c:'golf_fit', s:'모빌리티', f:'힙 가동성·내전근', u:'rep', ds:2, dr:8, d:2},
+  {n:'케이블 리프트', e:'Cable Lift', c:'golf_fit', s:'회전', f:'코어 회전 상승', u:'rep', ds:3, dr:12, d:2},
+  {n:'케이블 찹', e:'Cable Chop', c:'golf_fit', s:'회전', f:'코어 회전 하강', u:'rep', ds:3, dr:12, d:2},
+  {n:'밴디드 풀 어파트', e:'Band Pull Apart', c:'golf_fit', s:'상체', f:'후면 삼각근·능형근', u:'rep', ds:3, dr:15, d:1},
+  {n:'프론 Y·T·W', e:'Prone YTW', c:'golf_fit', s:'상체', f:'하부 승모근·능형근', u:'rep', ds:3, dr:10, d:1},
+  {n:'딘 쓰러스트', e:'Thoracic Thrust', c:'golf_fit', s:'모빌리티', f:'흉추 신전', u:'rep', ds:2, dr:8, d:1},
+
+  // === 골프 스킬 훈련 ===
+  {n:'그립 체크', e:'Grip Check', c:'golf_skill', s:'셋업', f:'그립 일관성', u:'min', ds:1, dr:5, d:1},
+  {n:'포스처 체크', e:'Posture Check', c:'golf_skill', s:'셋업', f:'어드레스 자세', u:'min', ds:1, dr:5, d:1},
+  {n:'볼 포지션 드릴', e:'Ball Position', c:'golf_skill', s:'셋업', f:'볼 위치 일관성', u:'min', ds:1, dr:10, d:1},
+  {n:'알라이먼트 스틱 드릴', e:'Alignment Stick', c:'golf_skill', s:'셋업', f:'조준 정렬', u:'min', ds:1, dr:10, d:1},
+  {n:'템포 드릴 (1-2-3)', e:'Tempo Drill', c:'golf_skill', s:'리듬', f:'스윙 템포', u:'rep', ds:3, dr:10, d:1},
+  {n:'3 to 9 드릴', e:'3 to 9', c:'golf_skill', s:'드릴', f:'스윙 아크 제한', u:'rep', ds:3, dr:10, d:2},
+  {n:'하프 백스윙 드릴', e:'Half Backswing', c:'golf_skill', s:'백스윙', f:'백스윙 컨트롤', u:'rep', ds:3, dr:10, d:1},
+  {n:'탑 포지션 홀드', e:'Top Position Hold', c:'golf_skill', s:'백스윙', f:'탑 자세', u:'sec', ds:5, dr:5, d:2},
+  {n:'다운스윙 슬롯 드릴', e:'Slot Drill', c:'golf_skill', s:'다운스윙', f:'스윙 플레인', u:'rep', ds:3, dr:10, d:2},
+  {n:'임팩트 백 드릴', e:'Impact Bag', c:'golf_skill', s:'임팩트', f:'임팩트 포지션', u:'rep', ds:3, dr:10, d:2},
+  {n:'임팩트 포지션 홀드', e:'Impact Hold', c:'golf_skill', s:'임팩트', f:'임팩트 자세', u:'sec', ds:5, dr:5, d:2},
+  {n:'피니시 홀드', e:'Finish Hold', c:'golf_skill', s:'피니시', f:'피니시 밸런스', u:'sec', ds:5, dr:5, d:1},
+  {n:'스트레치 코드 드릴', e:'Stretch Cord', c:'golf_skill', s:'드릴', f:'스윙 저항 훈련', u:'rep', ds:3, dr:10, d:2},
+  {n:'스플릿 그립 드릴', e:'Split Grip', c:'golf_skill', s:'드릴', f:'핸드 동작 분리', u:'rep', ds:3, dr:10, d:2},
+  {n:'프리샷 루틴 훈련', e:'Pre-Shot Routine', c:'golf_skill', s:'멘탈', f:'일관성', u:'rep', ds:1, dr:20, d:1},
+  {n:'웨지 거리 컨트롤', e:'Wedge Distance', c:'golf_skill', s:'숏게임', f:'거리 감각', u:'min', ds:1, dr:20, d:2},
+  {n:'피치 샷 드릴', e:'Pitch Shot', c:'golf_skill', s:'숏게임', f:'피치 기술', u:'rep', ds:3, dr:10, d:2},
+  {n:'칩 샷 드릴', e:'Chip Shot', c:'golf_skill', s:'숏게임', f:'칩 기술', u:'rep', ds:3, dr:15, d:1},
+  {n:'벙커 샷 기본', e:'Bunker Basic', c:'golf_skill', s:'숏게임', f:'벙커 익스플로전', u:'rep', ds:3, dr:10, d:2},
+  {n:'플롭 샷', e:'Flop Shot', c:'golf_skill', s:'숏게임', f:'높은 탄도', u:'rep', ds:3, dr:8, d:3},
+  {n:'러닝 어프로치', e:'Running Approach', c:'golf_skill', s:'숏게임', f:'낮은 탄도', u:'rep', ds:3, dr:10, d:1},
+  {n:'퍼팅 거리 드릴', e:'Putt Distance', c:'golf_skill', s:'퍼팅', f:'거리 감각', u:'min', ds:1, dr:15, d:1},
+  {n:'퍼팅 방향 드릴', e:'Putt Line', c:'golf_skill', s:'퍼팅', f:'방향성', u:'min', ds:1, dr:15, d:1},
+  {n:'게이트 드릴', e:'Gate Drill', c:'golf_skill', s:'퍼팅', f:'임팩트 중앙성', u:'min', ds:1, dr:10, d:2},
+  {n:'퍼팅 루틴 훈련', e:'Putt Routine', c:'golf_skill', s:'퍼팅', f:'루틴 일관성', u:'rep', ds:1, dr:10, d:1},
+  {n:'3 클럽 드릴', e:'3 Club Drill', c:'golf_skill', s:'드릴', f:'스윙 템포·경로', u:'rep', ds:3, dr:10, d:2},
+  {n:'클럽 페이스 컨트롤', e:'Face Control', c:'golf_skill', s:'드릴', f:'페이스 앵글', u:'rep', ds:3, dr:10, d:2},
+  {n:'스윙 플레인 체크', e:'Plane Check', c:'golf_skill', s:'드릴', f:'스윙 플레인', u:'rep', ds:3, dr:10, d:2},
+  {n:'웨이트 시프트 드릴', e:'Weight Shift', c:'golf_skill', s:'드릴', f:'체중 이동', u:'rep', ds:3, dr:10, d:1},
+  {n:'풋워크 드릴', e:'Footwork', c:'golf_skill', s:'드릴', f:'지면반력', u:'rep', ds:3, dr:10, d:2},
+];
+
+// 한글 초성 추출 (검색용)
+function getChosung(str){
+  if(!str) return '';
+  const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  let result = '';
+  for(let i=0;i<str.length;i++){
+    const code = str.charCodeAt(i);
+    if(code >= 0xAC00 && code <= 0xD7A3){
+      result += CHO[Math.floor((code - 0xAC00) / 588)];
+    } else {
+      result += str[i];
+    }
+  }
+  return result;
+}
+
+function matchExercise(ex, query){
+  if(!query) return true;
+  const q = query.trim().toLowerCase();
+  if(!q) return true;
+  if(ex.n.toLowerCase().indexOf(q)!==-1) return true;
+  if((ex.e||'').toLowerCase().indexOf(q)!==-1) return true;
+  if((ex.f||'').toLowerCase().indexOf(q)!==-1) return true;
+  if((ex.s||'').toLowerCase().indexOf(q)!==-1) return true;
+  // 초성 매칭
+  const qCho = getChosung(q);
+  const nCho = getChosung(ex.n);
+  if(nCho.indexOf(qCho)!==-1) return true;
+  return false;
+}
 
 const INSTRUCTORS = [
   {name:'정우진 프로', role:'pro'},
@@ -456,6 +605,7 @@ let S = {
   currentRole:null, currentUser:null,
   newSession:{date:today(), author:'', content:'', media:[], mediaUrls:['','']},
   uploading:0, uploadMsg:'', // 진행 중인 파일 업로드 수 / 상태 메시지
+  exercisePicker:{open:false, query:'', category:'all', selected:[]},
   newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]},
   editMemberId:null,
   sidebarOpen:false,
@@ -1067,7 +1217,9 @@ function render(){
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">운동 / 레슨 내용</label>
+        <label class="form-label">운동 / 레슨 내용
+          <button type="button" class="ex-add-btn" onclick="openExercisePicker()">+ 운동 빠른추가</button>
+        </label>
         <textarea class="form-textarea" placeholder="오늘 진행한 내용을 입력하세요" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea>
       </div>
       <div class="form-group">
@@ -1171,6 +1323,8 @@ function render(){
     </div>
   </div>` : ''}
 
+  ${renderExercisePicker()}
+
   ${S.showActivityLog ? `
   <div class="modal-overlay" onclick="if(event.target===this){S.showActivityLog=false;render()}">
     <div class="modal" style="width:520px">
@@ -1272,6 +1426,134 @@ function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
 function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',content:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
+
+// ============ 운동 빠른추가 픽커 ============
+function openExercisePicker(){
+  S.exercisePicker = {open:true, query:'', category:'all', selected:[]};
+  render();
+  setTimeout(function(){
+    var inp = document.querySelector('.ex-picker-search input');
+    if(inp) inp.focus();
+  }, 50);
+}
+function closeExercisePicker(){
+  S.exercisePicker.open = false;
+  render();
+}
+function updateExerciseQuery(v){
+  S.exercisePicker.query = v;
+  render();
+  setTimeout(function(){
+    var inp = document.querySelector('.ex-picker-search input');
+    if(inp){ inp.focus(); var l=inp.value.length; try{inp.setSelectionRange(l,l);}catch(e){} }
+  }, 10);
+}
+function setExerciseCategory(c){
+  S.exercisePicker.category = c;
+  render();
+}
+function toggleExerciseSelect(idx){
+  var ex = EXERCISES[idx];
+  if(!ex) return;
+  var list = S.exercisePicker.selected;
+  var found = list.findIndex(function(x){return x.n===ex.n;});
+  if(found >= 0){
+    list.splice(found, 1);
+  } else {
+    list.push({n:ex.n, s:ex.s, sets:ex.ds, reps:ex.dr, u:ex.u});
+  }
+  render();
+}
+function updateSelectedEx(i, key, v){
+  var item = S.exercisePicker.selected[i];
+  if(!item) return;
+  var n = parseInt(v, 10);
+  if(isFinite(n) && n>0) item[key] = n;
+  // 재렌더 없이 값만 업데이트 — 입력 포커스 유지 위해
+}
+function removeSelectedEx(i){
+  S.exercisePicker.selected.splice(i, 1);
+  render();
+}
+function applyExercisePicker(){
+  var sel = S.exercisePicker.selected;
+  if(!sel.length){ closeExercisePicker(); return; }
+  var lines = sel.map(function(x){
+    var unit = x.u==='sec'?'초':x.u==='min'?'분':'회';
+    return '• '+x.n+' ('+x.s+') '+x.sets+'×'+x.reps+unit;
+  });
+  var existing = (S.newSession.content||'').trim();
+  S.newSession.content = existing ? (existing + '\n' + lines.join('\n')) : lines.join('\n');
+  closeExercisePicker();
+}
+
+function renderExercisePicker(){
+  if(!S.exercisePicker || !S.exercisePicker.open) return '';
+  var p = S.exercisePicker;
+  var filtered = EXERCISES.map(function(ex, i){return {ex:ex, i:i};}).filter(function(x){
+    if(p.category!=='all' && x.ex.c!==p.category) return false;
+    return matchExercise(x.ex, p.query);
+  });
+  var catCounts = {all:EXERCISES.length, weight:0, golf_fit:0, golf_skill:0};
+  EXERCISES.forEach(function(e){ catCounts[e.c] = (catCounts[e.c]||0)+1; });
+  return '<div class="modal-overlay ex-picker-overlay" onclick="if(event.target===this)closeExercisePicker()">'+
+    '<div class="modal ex-picker">'+
+      '<div class="ex-picker-hd">'+
+        '<div class="ex-picker-title">운동 빠른추가</div>'+
+        '<button class="modal-close" onclick="closeExercisePicker()">×</button>'+
+      '</div>'+
+      '<div class="ex-picker-search">'+
+        '<input class="form-input" placeholder="운동명 · 초성(ㅅㅋㅌ) · 부위 검색..." value="'+(p.query||'').replace(/"/g,'&quot;')+'" oninput="updateExerciseQuery(this.value)">'+
+      '</div>'+
+      '<div class="ex-picker-tabs">'+
+        '<button class="ex-tab '+(p.category==='all'?'active':'')+'" onclick="setExerciseCategory(\'all\')">전체 <span>'+catCounts.all+'</span></button>'+
+        '<button class="ex-tab '+(p.category==='weight'?'active':'')+'" onclick="setExerciseCategory(\'weight\')">💪 웨이트 <span>'+catCounts.weight+'</span></button>'+
+        '<button class="ex-tab '+(p.category==='golf_fit'?'active':'')+'" onclick="setExerciseCategory(\'golf_fit\')">🏌️ 골프피트 <span>'+catCounts.golf_fit+'</span></button>'+
+        '<button class="ex-tab '+(p.category==='golf_skill'?'active':'')+'" onclick="setExerciseCategory(\'golf_skill\')">⛳ 골프스킬 <span>'+catCounts.golf_skill+'</span></button>'+
+      '</div>'+
+      '<div class="ex-picker-list">'+
+        (filtered.length===0 ?
+          '<div class="ex-empty">검색 결과가 없습니다</div>' :
+          filtered.map(function(o){
+            var ex = o.ex;
+            var sel = p.selected.find(function(x){return x.n===ex.n;});
+            var diff = ['', '초급', '중급', '고급'][ex.d||1];
+            return '<div class="ex-item'+(sel?' selected':'')+'" onclick="toggleExerciseSelect('+o.i+')">'+
+              '<div class="ex-col">'+
+                '<div class="ex-name">'+ex.n+'</div>'+
+                '<div class="ex-meta"><span class="ex-sub">'+ex.s+'</span> · '+ex.f+'</div>'+
+              '</div>'+
+              '<div class="ex-right">'+
+                '<div class="ex-diff d'+(ex.d||1)+'">'+diff+'</div>'+
+                (sel ? '<div class="ex-check">✓</div>' : '')+
+              '</div>'+
+            '</div>';
+          }).join('')
+        )+
+      '</div>'+
+      (p.selected.length>0 ?
+        '<div class="ex-selected-box">'+
+          '<div class="ex-selected-title">선택된 '+p.selected.length+'개</div>'+
+          p.selected.map(function(s, i){
+            var unit = s.u==='sec'?'초':s.u==='min'?'분':'회';
+            return '<div class="ex-sel-row">'+
+              '<span class="ex-sel-name">'+s.n+'</span>'+
+              '<input class="ex-sel-num" type="number" value="'+s.sets+'" min="1" max="99" onchange="updateSelectedEx('+i+',\'sets\',this.value)">'+
+              '<span class="ex-sel-x">세트 ×</span>'+
+              '<input class="ex-sel-num" type="number" value="'+s.reps+'" min="1" max="999" onchange="updateSelectedEx('+i+',\'reps\',this.value)">'+
+              '<span class="ex-sel-x">'+unit+'</span>'+
+              '<button class="ex-sel-rm" onclick="event.stopPropagation();removeSelectedEx('+i+')">×</button>'+
+            '</div>';
+          }).join('')+
+        '</div>' : ''
+      )+
+      '<div class="ex-picker-ft">'+
+        '<button class="btn" onclick="closeExercisePicker()">취소</button>'+
+        '<button class="btn primary"'+(p.selected.length===0?' disabled':'')+' onclick="applyExercisePicker()">선택 '+p.selected.length+'개 추가</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
 function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]}; S.editMemberId=null; S.showAddMember=true; render();}
 function toggleAssign(name){
   var arr=S.newMember.assignedTo||[];
@@ -2068,61 +2350,105 @@ function setupSwingPlayer(el){
     ctx.stroke();
     ctx.setLineDash([]);
   }
-  function labelTag(text, x, y, bg){
-    ctx.font='600 12px -apple-system,system-ui,sans-serif';
-    var pad=5;
+  function labelPill(text, cx, y, color){
+    // 가운데 정렬 둥근 라벨 (가독성 우선)
+    var fontSize = Math.max(13, Math.round(canvas.width/48));
+    ctx.font='800 '+fontSize+'px -apple-system,system-ui,sans-serif';
+    var pad = Math.round(fontSize*0.55);
     var w = ctx.measureText(text).width + pad*2;
-    var h = 18;
-    ctx.fillStyle=bg||'rgba(0,0,0,.65)';
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle='#fff';
-    ctx.fillText(text, x+pad, y+13);
+    var h = Math.round(fontSize*1.65);
+    var x = cx - w/2;
+    // 화면 밖으로 튀어나가지 않게 클램프
+    if(x<2) x=2;
+    if(x+w>canvas.width-2) x=canvas.width-w-2;
+    // 배경
+    ctx.fillStyle = 'rgba(0,0,0,.88)';
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, h/2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(x, y, w, h);
+    }
+    // 테두리
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, h/2);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x, y, w, h);
+    }
+    // 텍스트
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x+pad, y+h/2+1);
+    ctx.textBaseline = 'alphabetic';
   }
 
-  // 뷰별 기준선 그리기 — 현재 프레임
-  function drawLiveGuides(lm, view){
+  // 현재 프레임의 회전 라인 (척추/어깨/힙 세그먼트만 — 수직선 X)
+  function drawLiveRotational(lm, view){
     var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
     var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
-    var nose = lm[LM.NOSE];
-    if(view==='side'){
-      // 측면: 척추선 + 헤드 수직 + 힙 수직 + 무릎 수직
-      segLine(midHip, midSh, 'rgba(255,64,129,.9)', null, 3);  // 척추선
-      vLine(nose.x, 'rgba(138,207,255,.85)', [6,4], 2);          // 헤드 수직
-      vLine(midHip.x, 'rgba(255,200,64,.85)', [6,4], 2);         // 힙 수직
-      var midKnee = {x:(lm[LM.L_KNEE].x+lm[LM.R_KNEE].x)/2};
-      vLine(midKnee.x, 'rgba(180,255,120,.55)', [3,4], 1.5);     // 무릎 수직
-    } else {
-      // 정면: 척추선 + 어깨선 + 골반선 + 좌우 힙 수직(sway 경계) + 헤드 수직
-      segLine(midHip, midSh, 'rgba(255,64,129,.9)', null, 3);    // 척추선
-      segLine(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER], 'rgba(64,200,255,.9)', null, 2);  // 어깨선
-      segLine(lm[LM.L_HIP], lm[LM.R_HIP], 'rgba(255,200,64,.9)', null, 2);             // 골반선
-      vLine(nose.x, 'rgba(255,255,255,.55)', [5,5], 1.5);         // 헤드 수직
-      vLine(lm[LM.L_HIP].x, 'rgba(255,200,64,.5)', [4,5], 1.5);   // 좌 힙 수직
-      vLine(lm[LM.R_HIP].x, 'rgba(255,200,64,.5)', [4,5], 1.5);   // 우 힙 수직
-    }
+    // 척추선
+    segLine(midHip, midSh, 'rgba(255,64,129,.95)', null, 5);
+    // 어깨선
+    segLine(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER], 'rgba(64,200,255,.95)', null, 4);
+    // 골반선
+    segLine(lm[LM.L_HIP], lm[LM.R_HIP], 'rgba(255,200,64,.95)', null, 4);
   }
 
-  // 어드레스/피니시 참조 유령선
-  function drawGhostReference(lm, color, opacity, view, labelText){
+  // Address + Finish 고정 참조선 — 프레임마다 변하지 않음
+  function drawFixedReferences(addrLm, finLm, view){
+    var YELLOW = '#ffcc33';
+    var CYAN = '#33d9ff';
+    var vw = canvas.width;
+    var fs = Math.max(13, Math.round(vw/48));
+    var topA = 10;
+    var topF = topA + Math.round(fs*1.95);
+    var topBottom = canvas.height - Math.round(fs*1.95) - 8;
+    var topBottomF = topBottom - Math.round(fs*1.95);
+
+    // === ADDRESS 기준선 (노란, 두꺼운 점선) ===
     ctx.save();
-    ctx.globalAlpha = opacity;
-    var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
-    var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
-    var nose = lm[LM.NOSE];
-    if(view==='side'){
-      segLine(midHip, midSh, color, [6,4], 2);       // 척추선 ghost
-      vLine(nose.x, color, [5,5], 1.5);              // 헤드 수직 ghost
-      vLine(midHip.x, color, [5,5], 1.5);            // 힙 수직 ghost
+    ctx.globalAlpha = 0.82;
+    vLine(addrLm[LM.L_HIP].x, YELLOW, [10,5], 4);
+    vLine(addrLm[LM.R_HIP].x, YELLOW, [10,5], 4);
+    if(view!=='side'){
+      vLine(addrLm[LM.NOSE].x, YELLOW, [6,5], 3);
     } else {
-      segLine(lm[LM.L_SHOULDER], lm[LM.R_SHOULDER], color, [6,4], 2);
-      segLine(lm[LM.L_HIP], lm[LM.R_HIP], color, [6,4], 2);
-      vLine(nose.x, color, [5,5], 1.5);
-    }
-    ctx.globalAlpha = 1;
-    if(labelText){
-      labelTag(labelText, Math.round(nose.x*canvas.width)-18, 6, 'rgba(0,0,0,.75)');
+      // 측면: 헤드 + 힙 중앙 + 무릎 중앙
+      vLine(addrLm[LM.NOSE].x, YELLOW, [6,5], 3);
+      var addrMidKnee = (addrLm[LM.L_KNEE].x+addrLm[LM.R_KNEE].x)/2;
+      vLine(addrMidKnee, YELLOW, [4,5], 2);
     }
     ctx.restore();
+
+    // === FINISH 기준선 (하늘색, 실선 두꺼움) ===
+    ctx.save();
+    ctx.globalAlpha = 0.82;
+    vLine(finLm[LM.L_HIP].x, CYAN, null, 4);
+    vLine(finLm[LM.R_HIP].x, CYAN, null, 4);
+    if(view!=='side'){
+      vLine(finLm[LM.NOSE].x, CYAN, null, 3);
+    } else {
+      vLine(finLm[LM.NOSE].x, CYAN, null, 3);
+      var finMidKnee = (finLm[LM.L_KNEE].x+finLm[LM.R_KNEE].x)/2;
+      vLine(finMidKnee, CYAN, null, 2);
+    }
+    ctx.restore();
+
+    // === 라벨 (큰 pill — 상단 Address, 하단 Finish) ===
+    // Address 라벨 — 상단
+    labelPill('L힙 A', addrLm[LM.L_HIP].x*vw, topA, YELLOW);
+    labelPill('R힙 A', addrLm[LM.R_HIP].x*vw, topA, YELLOW);
+    labelPill('헤드 A', addrLm[LM.NOSE].x*vw, topF, YELLOW);
+
+    // Finish 라벨 — 하단 (영상 내 겹침 방지)
+    labelPill('L힙 F', finLm[LM.L_HIP].x*vw, topBottomF, CYAN);
+    labelPill('R힙 F', finLm[LM.R_HIP].x*vw, topBottomF, CYAN);
+    labelPill('헤드 F', finLm[LM.NOSE].x*vw, topBottom, CYAN);
   }
 
   function draw(){
@@ -2140,20 +2466,17 @@ function setupSwingPlayer(el){
     if(!frame) return;
     var view = m.view||'front';
 
-    // 1) 어드레스/피니시 참조 유령선 (가이드 ON 일 때)
-    if(state.showGuide && frames.length>0){
+    // 1) Address/Finish 고정 참조선 (가이드 ON, 프레임 3개 이상)
+    if(state.showGuide && frames.length>3){
       var addrFrame = frames[0];
       var finFrame = frames[frames.length-1];
-      if(addrFrame && addrFrame.landmarks){
-        drawGhostReference(addrFrame.landmarks, 'rgba(255,220,80,1)', 0.45, view, 'Address');
-      }
-      if(finFrame && finFrame.landmarks && frames.length>3){
-        drawGhostReference(finFrame.landmarks, 'rgba(100,220,255,1)', 0.35, view, 'Finish');
+      if(addrFrame && addrFrame.landmarks && finFrame && finFrame.landmarks){
+        drawFixedReferences(addrFrame.landmarks, finFrame.landmarks, view);
       }
     }
-    // 2) 현재 프레임 기준선
+    // 2) 현재 프레임 회전 라인 (척추/어깨/골반 세그먼트)
     if(state.showGuide && frame.landmarks){
-      drawLiveGuides(frame.landmarks, view);
+      drawLiveRotational(frame.landmarks, view);
     }
     // 3) 스켈레톤 (위에 덮어씀)
     if(state.showSkel && typeof drawConnectors!=='undefined'){
@@ -2179,6 +2502,117 @@ function setupSwingPlayer(el){
         return '<div class="sp-metric"><span class="spm-lbl">'+d.label+'</span><span class="spm-val">'+display+delta+'</span></div>';
       }).join('');
     }
+  }
+
+  // Trackman 스타일 A→F 요약 지표 계산
+  function computeTrackmanSummary(){
+    if(!state.analysis || !state.analysis.frames || state.analysis.frames.length<3) return null;
+    var frames = state.analysis.frames;
+    var addr = frames[0];
+    var fin = frames[frames.length-1];
+    if(!addr.landmarks || !fin.landmarks) return null;
+    var aLm = addr.landmarks, fLm = fin.landmarks;
+    var view = m.view||'front';
+
+    // 핵심 계산 — 정규화된 좌표계 (화면 비율 %)
+    var lHipDx = (fLm[LM.L_HIP].x - aLm[LM.L_HIP].x) * 100;
+    var rHipDx = (fLm[LM.R_HIP].x - aLm[LM.R_HIP].x) * 100;
+    var headDx = (fLm[LM.NOSE].x - aLm[LM.NOSE].x) * 100;
+    var headDy = (fLm[LM.NOSE].y - aLm[LM.NOSE].y) * 100;
+    // 힙 센터 이동
+    var aHipCx = (aLm[LM.L_HIP].x + aLm[LM.R_HIP].x) / 2;
+    var fHipCx = (fLm[LM.L_HIP].x + fLm[LM.R_HIP].x) / 2;
+    var hipCenterDx = (fHipCx - aHipCx) * 100;
+    // 어깨 회전 차이 (shoulderTilt = asin((Ly-Ry)/dist))
+    var aShT = addr.metrics ? addr.metrics.shoulderTilt : null;
+    var fShT = fin.metrics ? fin.metrics.shoulderTilt : null;
+    var shoulderRot = (aShT!==null && fShT!==null) ? (fShT - aShT) : null;
+    // 힙 회전 차이
+    var aHipT = addr.metrics ? addr.metrics.hipTilt : null;
+    var fHipT = fin.metrics ? fin.metrics.hipTilt : null;
+    var hipRot = (aHipT!==null && fHipT!==null) ? (fHipT - aHipT) : null;
+    // X-factor 최대값 (상하체 회전차의 피크)
+    var maxXFactor = 0;
+    var xFactorT = 0;
+    frames.forEach(function(f){
+      if(f.metrics && f.metrics.xFactor!==null && f.metrics.xFactor!==undefined){
+        if(Math.abs(f.metrics.xFactor) > Math.abs(maxXFactor)){
+          maxXFactor = f.metrics.xFactor;
+          xFactorT = f.t;
+        }
+      }
+    });
+    // 척추각 변화
+    var aSpine = addr.metrics ? addr.metrics.spineAngle : null;
+    var fSpine = fin.metrics ? fin.metrics.spineAngle : null;
+    var spineChange = (aSpine!==null && fSpine!==null) ? (fSpine - aSpine) : null;
+    // 헤드 최대 변동 (전체 프레임 동안)
+    var aNoseX = aLm[LM.NOSE].x, aNoseY = aLm[LM.NOSE].y;
+    var maxHeadDx = 0, maxHeadDy = 0;
+    frames.forEach(function(f){
+      if(!f.landmarks || !f.landmarks[LM.NOSE]) return;
+      var dx = (f.landmarks[LM.NOSE].x - aNoseX) * 100;
+      var dy = (f.landmarks[LM.NOSE].y - aNoseY) * 100;
+      if(Math.abs(dx) > Math.abs(maxHeadDx)) maxHeadDx = dx;
+      if(Math.abs(dy) > Math.abs(maxHeadDy)) maxHeadDy = dy;
+    });
+
+    return {
+      view: view,
+      lHipDx: lHipDx, rHipDx: rHipDx, hipCenterDx: hipCenterDx,
+      headDx: headDx, headDy: headDy,
+      maxHeadDx: maxHeadDx, maxHeadDy: maxHeadDy,
+      shoulderRot: shoulderRot, hipRot: hipRot,
+      maxXFactor: maxXFactor, xFactorT: xFactorT,
+      spineChange: spineChange
+    };
+  }
+
+  // 요약 카드 HTML 생성
+  function renderTrackmanSummary(){
+    var s = computeTrackmanSummary();
+    if(!s) return '';
+    function row(label, v, unit, warnAbs, hint){
+      if(v===null || v===undefined) return '';
+      var sign = v>=0?'+':'';
+      var abs = Math.abs(v);
+      var cls = (warnAbs && abs > warnAbs) ? 'warn' : (abs < (warnAbs||999)*0.4 ? 'ok' : 'mid');
+      var arrow = '';
+      if(hint==='lateral'){
+        arrow = v>0 ? ' ▶' : ' ◀';
+      } else if(hint==='vert'){
+        arrow = v>0 ? ' ▼' : ' ▲';
+      }
+      return '<div class="tm-row '+cls+'"><span class="tm-lbl">'+label+'</span><span class="tm-val">'+sign+v.toFixed(1)+unit+arrow+'</span></div>';
+    }
+    var isSide = s.view==='side';
+    var html = '<div class="tm-sum">';
+    html += '<div class="tm-sum-title">A→F 스윙 변화량 <span class="tm-sum-sub">(Trackman 스타일)</span></div>';
+    html += '<div class="tm-grid">';
+    // 하체
+    html += '<div class="tm-section"><div class="tm-sec-lbl">하체 · 힙</div>';
+    html += row('좌측 힙 이동', s.lHipDx, '%', 4, 'lateral');
+    html += row('우측 힙 이동', s.rHipDx, '%', 4, 'lateral');
+    html += row('힙 센터 스웨이', s.hipCenterDx, '%', 3, 'lateral');
+    if(s.hipRot!==null) html += row('힙 회전', s.hipRot, '°', 50);
+    html += '</div>';
+    // 상체
+    html += '<div class="tm-section"><div class="tm-sec-lbl">상체 · 회전</div>';
+    if(s.shoulderRot!==null) html += row('어깨 회전', s.shoulderRot, '°', 90);
+    html += row('최대 X-팩터', s.maxXFactor, '°', 60);
+    if(s.spineChange!==null) html += row('척추각 변화', s.spineChange, '°', 15);
+    html += '</div>';
+    // 헤드
+    html += '<div class="tm-section"><div class="tm-sec-lbl">헤드 이동</div>';
+    html += row('A→F 측면', s.headDx, '%', 3, 'lateral');
+    html += row('A→F 수직', s.headDy, '%', 3, 'vert');
+    html += row('최대 측면', s.maxHeadDx, '%', 4, 'lateral');
+    html += row('최대 수직', s.maxHeadDy, '%', 4, 'vert');
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="tm-legend">● 초록 = 정상, ● 노랑 = 주의, ● 빨강 = 과도</div>';
+    html += '</div>';
+    return html;
   }
 
   // 컨트롤 이벤트
@@ -2261,9 +2695,11 @@ function setupSwingPlayer(el){
   function renderCheckList(){
     if(!state.analysis || !state.analysis.frames) return;
     var checks = getChecklist(m.view||'front', state.analysis.frames, 0);
-    metricsCheck.innerHTML = checks.map(function(c){
+    var checksHtml = checks.map(function(c){
       return '<div class="sp-check '+(c.ok?'ok':'warn')+'">'+(c.ok?'✓':'⚠')+' '+c.text+'</div>';
     }).join('') || '<div class="sp-check-empty">데이터 부족</div>';
+    // Trackman 요약 + 체크리스트
+    metricsCheck.innerHTML = renderTrackmanSummary() + checksHtml;
   }
 
   async function tryLoadOrAnalyze(){
