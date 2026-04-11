@@ -53,9 +53,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v1.8',
+  version:'v1.9',
   date:'2026-04-11',
   changes:[
+    '🎯 스켈레톤 정확도 개선 — MediaPipe Full 모델로 업그레이드 (Lite→Full, modelComplexity 1)',
+    '♻ 재분석 버튼 추가 — 플레이어 툴바에서 바로 캐시 무효화 + 재분석',
+    '🛠 구버전 분석 캐시 자동 무효화 — 버전 태그 기반',
     '🎨 플레이어 레이아웃 개선 — 전체 너비 스크럽바 + 아래 버튼 행, 영상 크기 확대',
     '🛠 영상 종횡비 자동 반영 — 가로/세로 영상에 따라 캔버스 자동 매칭 (스켈레톤 정렬 정확도 개선)',
     '🆕 기기간 영상 누락 안내 — 다른 기기에서 업로드된 영상은 "찾을 수 없음" 플레이스홀더 표시',
@@ -1581,7 +1584,12 @@ async function preAnalyzeVideo(video, pose, progressCb){
     if(progressCb) progressCb(t/duration);
     t += step;
   }
-  return {frames:frames, duration:duration, sampleRate:sampleRate};
+  return {frames:frames, duration:duration, sampleRate:sampleRate, version:'v2-complexity1'};
+}
+
+// 분석 캐시의 버전 체크 — 구버전이면 무효
+function isAnalysisValid(analysis){
+  return analysis && analysis.version==='v2-complexity1' && analysis.frames && analysis.frames.length>0;
 }
 
 function findNearestFrame(frames, t){
@@ -1608,7 +1616,7 @@ function getSharedPose(){
   if(_sharedPose) return _sharedPose;
   if(typeof Pose==='undefined') return null;
   _sharedPose = new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
-  _sharedPose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.5, minTrackingConfidence:.5});
+  _sharedPose.setOptions({modelComplexity:1, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.6, minTrackingConfidence:.6});
   return _sharedPose;
 }
 
@@ -1670,6 +1678,7 @@ function renderSwingPlayer(sessionId, mediaIdx, m, src){
         '<button class="sp-btn sp-tgl-skel active" type="button" title="스켈레톤">🦴</button>'+
         '<button class="sp-btn sp-tgl-guide active" type="button" title="가이드라인">📐</button>'+
         '<button class="sp-btn sp-tgl-metrics" type="button" title="지표/체크리스트">📊</button>'+
+        '<button class="sp-btn sp-reanalyze" type="button" title="재분석">♻</button>'+
         '<button class="sp-btn sp-fs" type="button" title="전체화면">⛶</button>'+
       '</div>'+
     '</div>'+
@@ -1833,6 +1842,14 @@ function setupSwingPlayer(el){
     document.body.classList.toggle('sp-fs-lock', el.classList.contains('sp-fs-active'));
     setTimeout(draw, 100);
   });
+  el.querySelector('.sp-reanalyze').addEventListener('click', async function(){
+    if(state.analyzing) return;
+    if(!confirm('기존 분석을 삭제하고 다시 분석하시겠습니까?\n(정확도가 더 높은 모델로 재분석됩니다)')) return;
+    if(mediaId) await mediaDB.delAnalysis(mediaId);
+    state.analysis = null;
+    canvas.width=canvas.width; // clear
+    tryLoadOrAnalyze();
+  });
 
   function renderCheckList(){
     if(!state.analysis || !state.analysis.frames) return;
@@ -1847,7 +1864,7 @@ function setupSwingPlayer(el){
     // 1. 캐시 확인
     if(!state.analysis){
       var cached = await mediaDB.getAnalysis(mediaId);
-      if(cached && cached.frames && cached.frames.length>0){
+      if(isAnalysisValid(cached)){
         state.analysis = cached;
         loadingEl.style.display = 'none';
         draw();
@@ -1942,7 +1959,7 @@ async function openPoseAnalyzer(sessionId, mediaIdx){
   var toggleSkel=overlay.querySelector('#toggle-skeleton');
 
   var pose=new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
-  pose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.5, minTrackingConfidence:.5});
+  pose.setOptions({modelComplexity:1, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.6, minTrackingConfidence:.6});
 
   var analysis = null;
 

@@ -196,9 +196,9 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .sp-progress-fill{width:0%;height:100%;background:linear-gradient(90deg,#00ff7f,#00c8ff);transition:width .2s}
 
 /* Toolbar: 2-row layout — scrub + time on top, buttons on bottom */
-.sp-toolbar{background:#141414;border-top:1px solid #262626;padding:12px 14px}
-.sp-scrub-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.sp-scrub{flex:1;accent-color:#00ff7f;cursor:pointer;height:8px}
+.sp-toolbar{background:#141414;border-top:1px solid #262626;padding:12px 14px;display:block}
+.sp-scrub-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;width:100%}
+.sp-scrub{flex:1 1 auto;min-width:0;accent-color:#00ff7f;cursor:pointer;height:8px;width:auto}
 .sp-scrub::-webkit-slider-runnable-track{height:5px;background:#333;border-radius:3px}
 .sp-scrub::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#00ff7f;border-radius:50%;cursor:pointer;margin-top:-6.5px;box-shadow:0 0 6px rgba(0,255,127,.5)}
 .sp-scrub::-moz-range-track{height:5px;background:#333;border-radius:3px}
