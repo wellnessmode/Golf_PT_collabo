@@ -675,7 +675,7 @@ function renderRoleSelector(){
       <div class="role-section-label">시스템 관리</div>
       <div class="role-row">
         <div class="role-card rc-admin" onclick="setRole('admin','관리자')">
-          <div class="role-icon">🔐</div><div class="role-card-title">관리자</div><div class="role-card-desc">전체 로그 · 감사</div>
+          <div class="role-icon">🔐</div><div class="role-card-title">관리자</div><div class="role-card-desc">관리자 모드 접속</div>
         </div>
       </div>
     </div>
