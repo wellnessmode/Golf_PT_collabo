@@ -56,11 +56,11 @@ const APP_VERSION = {
   version:'v1.5',
   date:'2026-04-11',
   changes:[
-    '🆕 관리자 계정 추가 — 전체 감사 로그 · 비밀번호 변경 · 로그인 이력 추적',
     '🆕 회원 CRM 확장 — 연락처 · 이메일 · 등록일 필드 추가',
     '🆕 유효기간 D-day 배지 — 30일 이내 만료 회원 자동 경고',
     '🆕 마이페이지 섹션 — 사이드바에서 비밀번호 변경 가능',
-    '🆕 감사 로그 CSV 내보내기 — 관리자용 전체 이력 다운로드',
+    '🛠 영상 업로드 race condition 해결 (업로드 중 저장 차단)',
+    '🛠 iOS Safari 저장소 영속화 요청 (IndexedDB eviction 방지)',
     '🆕 골프 스윙 종합 분석 — X-Factor, 척추각, 리드암, 무릎굴곡, 머리이동 실시간 측정',
     '🆕 스윙 페이즈 자동 감지 (어드레스→백스윙→탑→다운스윙→임팩트→팔로스루→피니시)',
     '🆕 체크리스트 자동 피드백 (얼리 익스텐션, 헤드 무브먼트, 리드암 직선 등)',
@@ -317,6 +317,7 @@ let S = {
   editSessionId:null,
   currentRole:null, currentUser:null,
   newSession:{date:today(), author:'', content:'', media:[], mediaUrls:['','']},
+  uploading:0, // 진행 중인 파일 업로드 수
   newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]},
   editMemberId:null,
   sidebarOpen:false,
@@ -492,11 +493,25 @@ async function init(){
   readHash();
   render();
 
+  // 영속 저장 요청 (iOS Safari eviction 방지)
+  if(navigator.storage && navigator.storage.persist){
+    try{await navigator.storage.persist();}catch(e){}
+  }
   // IndexedDB 미디어 로드 → ObjectURL 캐시
   await mediaDB.init();
   var allMedia = await mediaDB.getAll();
   allMedia.forEach(function(rec){
     try{S.mediaUrls[rec.id] = URL.createObjectURL(rec.blob);}catch(e){}
+  });
+  // 세션의 mediaId가 IndexedDB에 없으면 콘솔 경고
+  Object.keys(S.sessions).forEach(function(mid){
+    (S.sessions[mid]||[]).forEach(function(s){
+      if(s.media) s.media.forEach(function(m){
+        if(m.mediaId && !S.mediaUrls[m.mediaId]){
+          console.warn('[media] 누락:',s.id,m.name,m.mediaId);
+        }
+      });
+    });
   });
   if(allMedia.length>0) render();
 
@@ -507,10 +522,21 @@ async function init(){
     const remote = await cloud.loadAll();
     if(remote){
       if(remote.members.length > 0){
-        // 원격 데이터로 덮어씀
+        // 로컬 미디어 보존 — Supabase는 media 필드를 저장 안함
+        var localMediaMap = {};
+        Object.keys(S.sessions).forEach(function(mid){
+          (S.sessions[mid]||[]).forEach(function(s){
+            if(s.media) localMediaMap[s.id] = s.media;
+          });
+        });
         S.members = remote.members;
         S.assessments = remote.assessments;
         S.sessions = remote.sessions;
+        Object.keys(S.sessions).forEach(function(mid){
+          (S.sessions[mid]||[]).forEach(function(s){
+            if(localMediaMap[s.id]) s.media = localMediaMap[s.id];
+          });
+        });
         if(!S.members.find(m => m.id === S.selectedMember)){
           S.selectedMember = S.members[0].id;
         }
@@ -551,9 +577,20 @@ async function refreshFromCloud(){
   S.cloudSync = 'loading'; render();
   const remote = await cloud.loadAll();
   if(remote){
+    var localMediaMap = {};
+    Object.keys(S.sessions).forEach(function(mid){
+      (S.sessions[mid]||[]).forEach(function(s){
+        if(s.media) localMediaMap[s.id] = s.media;
+      });
+    });
     S.members = remote.members;
     S.assessments = remote.assessments;
     S.sessions = remote.sessions;
+    Object.keys(S.sessions).forEach(function(mid){
+      (S.sessions[mid]||[]).forEach(function(s){
+        if(localMediaMap[s.id]) s.media = localMediaMap[s.id];
+      });
+    });
     if(S.members.length>0 && !S.members.find(m => m.id === S.selectedMember)){
       S.selectedMember = S.members[0].id;
     }
@@ -855,7 +892,7 @@ function render(){
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">취소</button>
-        <button class="btn primary" onclick="addSession()">기록 저장</button>
+        <button class="btn primary" ${S.uploading>0?'disabled title="업로드 중..."':''} onclick="addSession()">${S.uploading>0?'⏳ 업로드 중 ('+S.uploading+')':'기록 저장'}</button>
       </div>
     </div>
   </div>` : ''}
@@ -964,29 +1001,57 @@ function render(){
     </div>
   </div>` : ''}
 
-  ${S.showAuditLog ? `
-  <div class="modal-overlay" onclick="if(event.target===this){S.showAuditLog=false;render()}">
-    <div class="modal" style="width:780px;max-width:96vw">
-      <div class="modal-title">🔍 관리자 감사 로그 <span style="font-size:11px;font-weight:400;color:#9ca89e;margin-left:8px">(최근 ${Math.min(200, S.auditLog.length)}건 / 총 ${S.auditLog.length}건)</span></div>
-      <div class="audit-filter">
-        ${['all','auth','member','session','assess','system'].map(function(c){
-          return '<button class="audit-filter-btn '+(S.auditFilter===c?' active':'')+'" onclick="S.auditFilter=\''+c+'\';render()">'+(c==='all'?'전체':c==='auth'?'인증':c==='member'?'회원':c==='session'?'세션':c==='assess'?'평가':'시스템')+'</button>';
-        }).join('')}
-        <button class="btn" style="font-size:10px;padding:4px 8px;margin-left:auto" onclick="exportAuditLog()">📥 CSV 내보내기</button>
+  ${S.showAuditLog ? (function(){
+    var allUsers = ['인포데스크'].concat(INSTRUCTORS.map(function(i){return i.name;}));
+    var userCounts = {};
+    allUsers.forEach(function(u){userCounts[u]=0;});
+    S.auditLog.forEach(function(e){if(userCounts.hasOwnProperty(e.user)) userCounts[e.user]++;});
+    if(!S.auditUserSelected){
+      // 1단계: 계정 선택 화면
+      return `<div class="modal-overlay" onclick="if(event.target===this){S.showAuditLog=false;render()}">
+        <div class="modal" style="width:520px">
+          <div class="modal-title">🔍 감사 로그 — 계정 선택</div>
+          <div class="audit-user-grid">
+            ${allUsers.map(function(u){
+              var role = u==='인포데스크'?'infodesk':(INSTRUCTORS.find(function(i){return i.name===u;})||{}).role||'';
+              var icon = u==='인포데스크'?'🖥':(role==='pro'?'⛳':'💪');
+              return '<div class="audit-user-card au-'+role+'" onclick="S.auditUserSelected=\''+u+'\';render()"><div class="auc-icon">'+icon+'</div><div class="auc-name">'+u+'</div><div class="auc-count">'+userCounts[u]+'건</div></div>';
+            }).join('')}
+          </div>
+          <div class="modal-actions"><button class="btn" onclick="S.showAuditLog=false;render()">닫기</button></div>
+        </div>
+      </div>`;
+    }
+    // 2단계: 선택한 계정의 로그
+    var filtered = S.auditLog.filter(function(e){return e.user===S.auditUserSelected;});
+    if(S.auditFilter&&S.auditFilter!=='all') filtered = filtered.filter(function(e){return e.category===S.auditFilter;});
+    return `<div class="modal-overlay" onclick="if(event.target===this){S.showAuditLog=false;S.auditUserSelected=null;render()}">
+      <div class="modal" style="width:780px;max-width:96vw">
+        <div class="modal-title">
+          <button class="btn" style="font-size:10px;padding:4px 8px;margin-right:8px" onclick="S.auditUserSelected=null;render()">← 뒤로</button>
+          🔍 ${S.auditUserSelected} 감사 로그
+          <span style="font-size:11px;font-weight:400;color:#9ca89e;margin-left:8px">(${filtered.length}건)</span>
+        </div>
+        <div class="audit-filter">
+          ${['all','auth','member','session','assess','system'].map(function(c){
+            return '<button class="audit-filter-btn'+(S.auditFilter===c?' active':'')+'" onclick="S.auditFilter=\''+c+'\';render()">'+(c==='all'?'전체':c==='auth'?'인증':c==='member'?'회원':c==='session'?'세션':c==='assess'?'평가':'시스템')+'</button>';
+          }).join('')}
+          <button class="btn" style="font-size:10px;padding:4px 8px;margin-left:auto" onclick="exportAuditLog('${S.auditUserSelected}')">📥 CSV</button>
+        </div>
+        <div class="audit-log-list">
+          ${filtered.slice().reverse().slice(0,200).map(function(e){
+            var d=new Date(e.time);
+            var ts=d.getFullYear().toString().slice(2)+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+            var catLabel = {auth:'🔐',member:'👤',session:'📝',assess:'📊',system:'⚙'}[e.category]||e.category;
+            var metaStr = '';
+            try{metaStr=JSON.stringify(e.meta).slice(0,200);}catch(err){metaStr='';}
+            return '<div class="audit-row audit-'+e.category+'"><div class="au-time">'+ts+'</div><div class="au-cat">'+catLabel+'</div><div class="au-action">'+e.action+'</div><div class="au-target">'+(e.target||'')+'</div><div class="au-meta">'+metaStr+'</div></div>';
+          }).join('')||'<div class="empty-state">로그가 없습니다</div>'}
+        </div>
+        <div class="modal-actions"><button class="btn" onclick="S.showAuditLog=false;S.auditUserSelected=null;render()">닫기</button></div>
       </div>
-      <div class="audit-log-list">
-        ${S.auditLog.slice().reverse().filter(function(e){return S.auditFilter==='all'||e.category===S.auditFilter;}).slice(0,200).map(function(e){
-          var d=new Date(e.time);
-          var ts=d.getFullYear().toString().slice(2)+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
-          var catLabel = {auth:'🔐 인증',member:'👤 회원',session:'📝 세션',assess:'📊 평가',system:'⚙ 시스템'}[e.category]||e.category;
-          var metaStr = '';
-          try{metaStr=JSON.stringify(e.meta).slice(0,200);}catch(err){metaStr='';}
-          return '<div class="audit-row audit-'+e.category+'"><div class="au-time">'+ts+'</div><div class="au-cat">'+catLabel+'</div><div class="au-user">'+e.user+'</div><div class="au-action">'+e.action+'</div><div class="au-target">'+(e.target||'')+'</div><div class="au-meta">'+metaStr+'</div></div>';
-        }).join('')||'<div class="empty-state">감사 로그가 없습니다</div>'}
-      </div>
-      <div class="modal-actions"><button class="btn" onclick="S.showAuditLog=false;render()">닫기</button></div>
-    </div>
-  </div>` : ''}
+    </div>`;
+  })() : ''}
   `;
 }
 
@@ -1067,17 +1132,18 @@ function submitPasswordChange(){
   alert('비밀번호가 변경되었습니다');
   render();
 }
-function openAuditLog(){S.showAuditLog=true; S.auditFilter=S.auditFilter||'all'; render();}
-function exportAuditLog(){
+function openAuditLog(){S.showAuditLog=true; S.auditFilter=S.auditFilter||'all'; S.auditUserSelected=null; render();}
+function exportAuditLog(user){
+  var entries = user ? S.auditLog.filter(function(e){return e.user===user;}) : S.auditLog;
   var rows = [['시간','카테고리','사용자','역할','액션','대상','메타']];
-  S.auditLog.forEach(function(e){
+  entries.forEach(function(e){
     rows.push([e.time, e.category, e.user, e.role||'', e.action, e.target||'', JSON.stringify(e.meta||{})]);
   });
   var csv = rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url; a.download = 'audit_log_'+today()+'.csv';
+  a.href = url; a.download = 'audit_'+(user||'all')+'_'+today()+'.csv';
   a.click();
   setTimeout(function(){URL.revokeObjectURL(url);}, 100);
 }
@@ -1186,42 +1252,52 @@ async function handleFileUpload(input){
   var files=Array.from(input.files||[]);
   var existing=S.newSession.media||[];
   if(existing.length+files.length>2){alert('파일은 최대 2개까지 첨부 가능합니다');input.value='';return;}
-  // IndexedDB 사용 — 개별 파일 최대 100MB (브라우저 quota 내)
   var MAX_FILE_SIZE = 100*1024*1024;
   if(!mediaDB.db){
     var ok = await mediaDB.init();
-    if(!ok){
-      alert('브라우저가 IndexedDB를 지원하지 않습니다.\n영상 업로드 대신 URL 입력을 사용해주세요.');
-      input.value=''; return;
-    }
+    if(!ok){alert('브라우저가 IndexedDB를 지원하지 않습니다.\nURL 입력을 사용해주세요.');input.value='';return;}
   }
-  // Quota 체크
+  // iOS Safari 등에서 저장소 강제 삭제 방지 요청
+  if(navigator.storage && navigator.storage.persist){
+    try{await navigator.storage.persist();}catch(e){}
+  }
   var est = await getStorageEstimate();
   if(est && est.quota){
     var totalWanted = files.reduce(function(a,f){return a+f.size;},0);
     var remaining = est.quota - est.usage;
     if(totalWanted > remaining * 0.8){
-      alert('저장 공간 부족: 남은 용량 ' + (remaining/1024/1024).toFixed(0) + 'MB\n\n오래된 영상을 삭제하거나 URL 입력을 사용하세요.');
+      alert('저장 공간 부족: 남은 용량 '+(remaining/1024/1024).toFixed(0)+'MB');
       input.value=''; return;
     }
   }
+  input.value='';
   for(var i=0;i<files.length;i++){
     var file = files[i];
     if(file.size > MAX_FILE_SIZE){
-      alert(file.name + ' : ' + (file.size/1024/1024).toFixed(1) + 'MB\n\n파일당 최대 100MB까지 업로드 가능합니다.');
+      alert(file.name+' : '+(file.size/1024/1024).toFixed(1)+'MB\n파일당 최대 100MB까지 가능합니다.');
       continue;
     }
-    var mediaId = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    S.uploading++;
+    render();
+    var mediaId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
     var saved = await mediaDB.put(mediaId, file, {mimeType:file.type, name:file.name});
+    S.uploading--;
     if(!saved){
-      alert(file.name + ' 저장 실패');
+      alert(file.name+' 저장 실패');
+      render();
+      continue;
+    }
+    // 저장 검증 — put 후 실제로 읽히는지 확인
+    var verify = await mediaDB.get(mediaId);
+    if(!verify || !verify.blob){
+      alert(file.name+' 저장 검증 실패 — 다시 시도해주세요');
+      render();
       continue;
     }
     try{S.mediaUrls[mediaId] = URL.createObjectURL(file);}catch(e){}
     S.newSession.media.push({type:'file', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId});
     render();
   }
-  input.value='';
 }
 async function removeMediaFile(idx){
   var m = S.newSession.media[idx];

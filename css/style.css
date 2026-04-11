@@ -199,11 +199,21 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .rc-admin:hover{border-color:#c92020;background:#fef0f0}
 
 /* Audit log */
+.audit-user-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.audit-user-card{padding:16px 12px;border:1.5px solid #e8e3d8;border-radius:10px;text-align:center;cursor:pointer;transition:all .15s;background:#fff}
+.audit-user-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.au-infodesk:hover{border-color:#7c3aed;background:#faf5ff}
+.au-pro:hover{border-color:#185fa5;background:#eef5fd}
+.au-trainer:hover{border-color:#3b6d11;background:#eaf3de}
+.auc-icon{font-size:24px;margin-bottom:6px}
+.auc-name{font-size:12px;font-weight:700;color:#1a3d2b;margin-bottom:3px}
+.auc-count{font-size:10px;color:#9ca89e;font-weight:500}
+
 .audit-filter{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
 .audit-filter-btn{font-size:10px;padding:4px 10px;border-radius:12px;border:1px solid #d4cfc4;background:#fff;color:#6b7a70;cursor:pointer;font-weight:600}
 .audit-filter-btn.active{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
 .audit-log-list{max-height:420px;overflow-y:auto;font-family:'SF Mono',Menlo,monospace;font-size:10px;border:1px solid #e8e3d8;border-radius:6px}
-.audit-row{display:grid;grid-template-columns:110px 60px 90px 90px 90px 1fr;gap:6px;padding:6px 10px;border-bottom:1px solid #f0efe9;align-items:center}
+.audit-row{display:grid;grid-template-columns:120px 34px 100px 100px 1fr;gap:6px;padding:6px 10px;border-bottom:1px solid #f0efe9;align-items:center}
 .audit-row:hover{background:#f9f7f3}
 .au-time{color:#9ca89e}
 .au-cat{font-weight:700}
