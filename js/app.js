@@ -205,7 +205,7 @@ const cloud = {
 let S = {
   members:[], assessments:{}, sessions:{}, deleteRequests:{},
   activityLog:[], lastSeen:{},
-  selectedMember:null, assessOpen:true, filterAuthor:'all',
+  selectedMember:null, assessOpen:false, filterAuthor:'all',
   showAddSession:false, showAddMember:false, showActivityLog:false,
   editSessionId:null,
   currentRole:null, currentUser:null,
@@ -554,11 +554,17 @@ function render(){
           <div class="section-label">
             <div class="dot dot-green"></div>
             체형 기능 평가
-            <span class="sec-count">(${ASSESSMENT_ITEMS.filter(i=>{const v=assess[i.key];return v&&v.result&&v.result!=='미검사'}).length}/${ASSESSMENT_ITEMS.length})</span>
+            <span class="sec-count">(${ASSESSMENT_ITEMS.filter(i=>{const v=assess[i.key];return v&&v.result&&v.result!=='미검사'}).length}/${ASSESSMENT_ITEMS.length})${assess._date?' · '+assess._date:''}${assess._history&&assess._history.length>0?' · 히스토리 '+assess._history.length+'회':''}</span>
           </div>
           <div class="chevron">▼</div>
         </div>
         ${S.assessOpen ? `
+        <div class="assess-meta">
+          <label class="assess-date-label">평가일</label>
+          <input type="date" class="assess-date-input" value="${assess._date||''}" ${isInfo?'disabled':''} onchange="updateAssessDate(this.value)">
+          ${!isInfo?'<button class="btn" style="font-size:11px;padding:5px 10px" onclick="snapshotAssessment()">📸 애프터 평가 시작</button>':''}
+        </div>
+        ${assess._history&&assess._history.length>0?'<div class="assess-history">'+assess._history.map(function(h,i){return '<div class="history-item"><strong>'+h.date+'</strong> <span>('+ASSESSMENT_ITEMS.filter(function(it){var v=h.items[it.key];return v&&v.result&&v.result!=='미검사';}).length+'/'+ASSESSMENT_ITEMS.length+')</span></div>';}).join('')+'</div>':''}
         <div class="assessment-grid">
           ${ASSESSMENT_ITEMS.map(item => {
             const v = assess[item.key] || {result:'미검사', note:''};
@@ -608,7 +614,7 @@ function render(){
                 <div class="session-content">${s.content}</div>
                 ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){
                   if(m.type==='file'&&m.data&&m.data.indexOf('image/')!==-1) return '<img class="sm-thumb" src="'+m.data+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
-                  if(m.type==='file'&&m.data&&m.data.indexOf('video/')!==-1) return '<video class="sm-video" src="'+m.data+'" controls></video>';
+                  if(m.type==='file'&&m.data&&m.data.indexOf('video/')!==-1) return '<div class="sm-video-wrap"><video class="sm-video" src="'+m.data+'" controls></video><button class="sm-pose-btn" onclick="openPoseAnalyzer(\''+s.id+'\','+mi+')">🦴 스켈레톤 분석</button></div>';
                   if(m.type==='url') return '<a class="sm-link" href="'+((m.data||'').replace(/"/g,'&quot;'))+'" target="_blank" rel="noopener">▶ 영상 보기</a>';
                   return '';
                 }).join('')+'</div>':''}
@@ -789,11 +795,41 @@ function updateAssess(key, field, val){
   if(!S.assessments[mid]) S.assessments[mid] = {};
   if(!S.assessments[mid][key]) S.assessments[mid][key] = {result:'미검사', note:''};
   S.assessments[mid][key][field] = val;
+  if(!S.assessments[mid]._date) S.assessments[mid]._date = today();
   save();
   const v = S.assessments[mid][key];
   var itemName=(ASSESSMENT_ITEMS.find(function(i){return i.key===key;})||{}).name||key;
   logActivity('평가 수정', mid, itemName+': '+v.result);
   cloud.upsertAssessment(mid, key, v.result, v.note);
+}
+
+function snapshotAssessment(){
+  const mid = S.selectedMember;
+  if(!mid || !S.assessments[mid]) return;
+  if(!confirm('현재 평가를 히스토리에 저장하고 새 평가를 시작하시겠습니까?\n(초기 평가 → 애프터 평가 기록용)')) return;
+  var cur = S.assessments[mid];
+  var snapshot = {date: cur._date||today(), items:{}};
+  for(var k in cur){
+    if(k==='_date'||k==='_history') continue;
+    snapshot.items[k] = {result:cur[k].result, note:cur[k].note};
+  }
+  if(!cur._history) cur._history = [];
+  cur._history.push(snapshot);
+  // 현재 평가 초기화 (날짜는 오늘로)
+  var newAssess = {_date: today(), _history: cur._history};
+  ASSESSMENT_ITEMS.forEach(function(item){
+    newAssess[item.key] = {result:'미검사', note:''};
+  });
+  S.assessments[mid] = newAssess;
+  logActivity('평가 스냅샷', mid, snapshot.date+' 기록 저장');
+  save(); render();
+}
+
+function updateAssessDate(val){
+  const mid = S.selectedMember;
+  if(!S.assessments[mid]) S.assessments[mid] = {};
+  S.assessments[mid]._date = val;
+  save();
 }
 
 function addSession(){
@@ -838,10 +874,14 @@ function handleFileUpload(input){
   var existing=S.newSession.media||[];
   if(existing.length+files.length>2){alert('파일은 최대 2개까지 첨부 가능합니다');input.value='';return;}
   files.forEach(function(file){
-    if(file.size>5*1024*1024){alert(file.name+' 용량이 큽니다. URL 입력을 권장합니다.');}
+    if(file.size>25*1024*1024){
+      alert(file.name+' : 25MB 초과 파일은 저장할 수 없습니다.\n영상 길이를 줄이거나 URL(유튜브/드라이브) 입력을 사용하세요.');
+      return;
+    }
     var reader=new FileReader();
     reader.onload=function(e){
-      S.newSession.media.push({type:'file',name:file.name,data:e.target.result});
+      var mt=file.type||'';
+      S.newSession.media.push({type:'file',name:file.name,mimeType:mt,data:e.target.result});
       render();
     };
     reader.readAsDataURL(file);
@@ -855,6 +895,54 @@ function openMediaView(src){
   d.onclick=function(){d.remove();};
   d.innerHTML='<img src="'+src+'" style="max-width:92vw;max-height:92vh;border-radius:8px">';
   document.body.appendChild(d);
+}
+
+// MediaPipe Pose 스켈레톤 분석
+function openPoseAnalyzer(sessionId, mediaIdx){
+  var mid=S.selectedMember;
+  var sess=(S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
+  if(!sess||!sess.media||!sess.media[mediaIdx])return;
+  var src=sess.media[mediaIdx].data;
+  if(typeof Pose==='undefined'){
+    alert('MediaPipe 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+  var overlay=document.createElement('div');
+  overlay.className='pose-overlay';
+  overlay.innerHTML='<div class="pose-box"><div class="pose-title">🦴 자세 분석 <button class="pose-close" onclick="this.closest(\'.pose-overlay\').remove()">✕</button></div><div class="pose-canvas-wrap"><video class="pose-video" src="'+src+'" controls playsinline crossorigin="anonymous"></video><canvas class="pose-canvas"></canvas></div><div class="pose-status">로딩 중...</div></div>';
+  document.body.appendChild(overlay);
+  var video=overlay.querySelector('.pose-video');
+  var canvas=overlay.querySelector('.pose-canvas');
+  var status=overlay.querySelector('.pose-status');
+  var ctx=canvas.getContext('2d');
+  var pose=new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
+  pose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.5,minTrackingConfidence:.5});
+  pose.onResults(function(results){
+    canvas.width=video.videoWidth||640;
+    canvas.height=video.videoHeight||480;
+    ctx.save();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(results.poseLandmarks && typeof drawConnectors!=='undefined'){
+      drawConnectors(ctx,results.poseLandmarks,POSE_CONNECTIONS,{color:'#00ff7f',lineWidth:3});
+      drawLandmarks(ctx,results.poseLandmarks,{color:'#ff4081',lineWidth:1,radius:4});
+    }
+    ctx.restore();
+  });
+  var rafId=null;
+  var processing=false;
+  function loop(){
+    if(video.paused||video.ended||processing){rafId=requestAnimationFrame(loop);return;}
+    processing=true;
+    pose.send({image:video}).then(function(){processing=false;}).catch(function(){processing=false;});
+    rafId=requestAnimationFrame(loop);
+  }
+  video.addEventListener('loadeddata',function(){
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    status.textContent='▶ 재생하면 스켈레톤이 표시됩니다';
+  });
+  video.addEventListener('play',function(){status.textContent='분석 중...';loop();});
+  video.addEventListener('pause',function(){status.textContent='일시정지';});
+  overlay.addEventListener('click',function(e){if(e.target===overlay){if(rafId)cancelAnimationFrame(rafId);overlay.remove();}});
 }
 
 function deleteSession(id){

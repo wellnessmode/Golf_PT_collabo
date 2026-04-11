@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Golf PT Collaboration — 내셔널짐</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -10,10 +10,11 @@
 
 <div class="app" id="root"></div>
 
-<!-- Supabase JS SDK (원격 동기화용)
-     config.js 값이 비어 있거나 네트워크가 없을 경우 앱은 자동으로 localStorage 로컬 모드로 동작합니다.
-     file:// 로 열어도 브라우저가 https CDN 을 로드할 수 있으면 동기화가 동작합니다. -->
+<!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- MediaPipe Pose (스켈레톤 오버레이용) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 
 <!-- 앱 설정 (Supabase URL / anon key 를 여기에 입력) -->
 <script src="config.js"></script>
