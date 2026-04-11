@@ -53,9 +53,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v1.7',
+  version:'v1.8',
   date:'2026-04-11',
   changes:[
+    '🎨 플레이어 레이아웃 개선 — 전체 너비 스크럽바 + 아래 버튼 행, 영상 크기 확대',
+    '🛠 영상 종횡비 자동 반영 — 가로/세로 영상에 따라 캔버스 자동 매칭 (스켈레톤 정렬 정확도 개선)',
+    '🆕 기기간 영상 누락 안내 — 다른 기기에서 업로드된 영상은 "찾을 수 없음" 플레이스홀더 표시',
     '🆕 인라인 커스텀 비디오 플레이어 — 세션 카드에 직접 박힘, 별도 모달 없음',
     '🆕 Pseudo 전체화면 — iOS Safari에서도 스켈레톤 오버레이 유지 (⛶ 버튼)',
     '🆕 스켈레톤/가이드/지표 인라인 토글 — 플레이어 툴바에서 바로 제어',
@@ -1642,6 +1645,13 @@ function renderSwingPlayer(sessionId, mediaIdx, m, src){
   var viewTag = '';
   if(m.view==='front') viewTag = '<div class="sp-view-tag tag-front">🎯 정면</div>';
   else if(m.view==='side') viewTag = '<div class="sp-view-tag tag-side">📐 측면</div>';
+  if(!src){
+    return '<div class="swing-player-missing">'+viewTag.replace('sp-view-tag','spm-tag')+
+      '<div class="spm-icon">📹</div>'+
+      '<div class="spm-text">이 기기에서 영상을 찾을 수 없습니다</div>'+
+      '<div class="spm-sub">영상은 업로드한 기기의 브라우저에만 저장됩니다</div>'+
+    '</div>';
+  }
   return '<div class="swing-player" data-sid="'+sessionId+'" data-mi="'+mediaIdx+'" data-mediaid="'+(m.mediaId||'')+'">'+
     '<div class="sp-screen">'+
       '<video class="sp-video" src="'+src+'" playsinline webkit-playsinline preload="metadata"></video>'+
@@ -1650,13 +1660,18 @@ function renderSwingPlayer(sessionId, mediaIdx, m, src){
       '<div class="sp-loading"><div class="sp-loading-inner"><div class="sp-spinner"></div><div class="sp-loading-text">분석 준비...</div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div></div></div>'+
     '</div>'+
     '<div class="sp-toolbar">'+
-      '<button class="sp-btn sp-play" type="button">▶</button>'+
-      '<input type="range" class="sp-scrub" min="0" max="1000" value="0" step="1">'+
-      '<span class="sp-time">0:00</span>'+
-      '<button class="sp-btn sp-tgl-skel active" type="button" title="스켈레톤">🦴</button>'+
-      '<button class="sp-btn sp-tgl-guide active" type="button" title="가이드라인">📐</button>'+
-      '<button class="sp-btn sp-tgl-metrics" type="button" title="지표/체크리스트">📊</button>'+
-      '<button class="sp-btn sp-fs" type="button" title="전체화면">⛶</button>'+
+      '<div class="sp-scrub-row">'+
+        '<input type="range" class="sp-scrub" min="0" max="1000" value="0" step="1">'+
+        '<span class="sp-time">0:00 / 0:00</span>'+
+      '</div>'+
+      '<div class="sp-btn-row">'+
+        '<button class="sp-btn sp-play" type="button">▶</button>'+
+        '<div class="sp-btn-spacer"></div>'+
+        '<button class="sp-btn sp-tgl-skel active" type="button" title="스켈레톤">🦴</button>'+
+        '<button class="sp-btn sp-tgl-guide active" type="button" title="가이드라인">📐</button>'+
+        '<button class="sp-btn sp-tgl-metrics" type="button" title="지표/체크리스트">📊</button>'+
+        '<button class="sp-btn sp-fs" type="button" title="전체화면">⛶</button>'+
+      '</div>'+
     '</div>'+
     '<div class="sp-metrics-box" style="display:none">'+
       '<div class="sp-metrics-live"></div>'+
@@ -1776,8 +1791,12 @@ function setupSwingPlayer(el){
   video.addEventListener('pause', function(){playBtn.textContent='▶';});
   video.addEventListener('loadedmetadata', function(){
     timeEl.textContent = '0:00 / '+fmtTime(video.duration);
+    // 컨테이너 종횡비를 실제 영상에 맞춤 (letterbox 제거)
+    var screen = el.querySelector('.sp-screen');
+    if(video.videoWidth && video.videoHeight){
+      screen.style.aspectRatio = video.videoWidth + '/' + video.videoHeight;
+    }
     draw();
-    // 분석 시도
     tryLoadOrAnalyze();
   });
   video.addEventListener('timeupdate', function(){
