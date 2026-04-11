@@ -53,9 +53,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.1',
+  version:'v2.2',
   date:'2026-04-11',
   changes:[
+    '🎥 Cloudflare R2 영상 스토리지 연동 — 스윙 영상도 모든 기기에서 공유, 원본 화질 유지',
+    '⚡ 영상 로컬 캐시 전략 — IndexedDB 캐시 우선, 없으면 R2 스트리밍, 분석 시 자동 캐시',
     '🛡 초기 동기화 머지 방식으로 변경 — 로컬에만 있던 세션/회원/평가가 원격 덮어쓰기로 손실되던 버그 수정',
     '☁ Supabase 클라우드 동기화 활성화 — 회원/세션/체형평가 데이터가 모든 기기에서 실시간 공유',
     '🆕 사이드바 하단 동기화 상태 배지 — 연결/로딩/오류 상태 시각화 + 새로고침 버튼',
@@ -313,7 +315,8 @@ const cloud = {
         if(!sessions[r.member_id]) sessions[r.member_id] = [];
         sessions[r.member_id].push({
           id:r.id, date:r.date, author:r.author,
-          content:r.content||'', supplement:r.supplement||''
+          content:r.content||'', supplement:r.supplement||'',
+          media: Array.isArray(r.media) ? r.media : (r.media ? r.media : [])
         });
       });
       return {members, assessments, sessions};
@@ -342,13 +345,27 @@ const cloud = {
   async upsertSession(memberId, s){
     if(!this.enabled) return;
     try{
+      // blob/url 캐시는 제외하고 클라우드 공유 가능한 메타데이터만 직렬화
+      const mediaMeta = (s.media||[]).map(function(m){
+        return {
+          type: m.type,
+          view: m.view||'other',
+          name: m.name||'',
+          mimeType: m.mimeType||'',
+          size: m.size||0,
+          mediaId: m.mediaId||null,
+          r2Key: m.r2Key||m.mediaId||null,
+          data: (m.type==='url' ? (m.data||'') : undefined)
+        };
+      });
       const {error} = await this.client.from('sessions').upsert({
         id: s.id,
         member_id: memberId,
         date: s.date,
         author: s.author,
         content: s.content||'',
-        supplement: s.supplement||''
+        supplement: s.supplement||'',
+        media: mediaMeta
       });
       if(error) throw error;
     }catch(e){console.warn('[cloud] upsertSession 실패:',e);}
@@ -359,6 +376,61 @@ const cloud = {
       const {error} = await this.client.from('sessions').delete().eq('id',id);
       if(error) throw error;
     }catch(e){console.warn('[cloud] deleteSession 실패:',e);}
+  }
+};
+
+// ============ Cloudflare R2 미디어 스토리지 ============
+// config.js 의 R2_WORKER_URL / R2_API_KEY 가 있으면 활성화.
+// 업로드한 영상을 R2 에 올려 모든 기기에서 공유 가능.
+const r2 = {
+  workerUrl:'', apiKey:'', enabled:false,
+  init(){
+    const cfg = window.APP_CONFIG || {};
+    if(!cfg.R2_WORKER_URL || !cfg.R2_API_KEY) return false;
+    this.workerUrl = String(cfg.R2_WORKER_URL).replace(/\/+$/,'');
+    this.apiKey = cfg.R2_API_KEY;
+    this.enabled = true;
+    return true;
+  },
+  url(key){
+    if(!this.enabled || !key) return '';
+    return this.workerUrl + '/' + encodeURIComponent(key);
+  },
+  async upload(key, blob){
+    if(!this.enabled) return false;
+    try{
+      const res = await fetch(this.url(key), {
+        method:'PUT',
+        headers:{
+          'X-API-Key': this.apiKey,
+          'Content-Type': (blob && blob.type) || 'application/octet-stream'
+        },
+        body: blob
+      });
+      if(!res.ok){
+        console.warn('[r2] upload http', res.status);
+        return false;
+      }
+      return true;
+    }catch(e){console.warn('[r2] upload 실패:', e); return false;}
+  },
+  async download(key){
+    if(!this.enabled) return null;
+    try{
+      const res = await fetch(this.url(key));
+      if(!res.ok) return null;
+      return await res.blob();
+    }catch(e){console.warn('[r2] download 실패:', e); return null;}
+  },
+  async remove(key){
+    if(!this.enabled) return false;
+    try{
+      const res = await fetch(this.url(key), {
+        method:'DELETE',
+        headers:{'X-API-Key': this.apiKey}
+      });
+      return res.ok;
+    }catch(e){console.warn('[r2] delete 실패:', e); return false;}
   }
 };
 
@@ -569,6 +641,9 @@ async function init(){
     });
   });
   if(allMedia.length>0) render();
+
+  // R2 미디어 스토리지 초기화 (있으면 활성화)
+  r2.init();
 
   // 2) Supabase 가 설정되어 있으면 원격 동기화 시도 (머지 방식 — 데이터 손실 방지)
   if(cloud.init()){
@@ -932,7 +1007,10 @@ function render(){
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
                 ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){
-                  var src = m.mediaId ? (S.mediaUrls[m.mediaId]||'') : (m.data||'');
+                  // 우선순위: 로컬 ObjectURL > R2 원격 URL > data URL
+                  var localSrc = m.mediaId ? (S.mediaUrls[m.mediaId]||'') : '';
+                  var remoteSrc = (r2.enabled && (m.r2Key||m.mediaId)) ? r2.url(m.r2Key||m.mediaId) : '';
+                  var src = localSrc || remoteSrc || (m.data||'');
                   var mime = m.mimeType || (m.data||'').slice(5, 30) || '';
                   var isImg = mime.indexOf('image/')!==-1 || (m.data&&m.data.indexOf('image/')!==-1);
                   var isVideo = mime.indexOf('video/')!==-1 || (m.data&&m.data.indexOf('video/')!==-1);
@@ -1420,7 +1498,27 @@ async function handleFileUpload(input, view){
       continue;
     }
     try{S.mediaUrls[mediaId] = URL.createObjectURL(file);}catch(e){}
-    S.newSession.media.push({type:'file', view:view||'other', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId});
+    var mediaItem = {type:'file', view:view||'other', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId};
+    // R2 업로드 (백그라운드) — 성공 시 r2Key 기록
+    if(r2.enabled){
+      mediaItem.r2Key = mediaId;
+      mediaItem.r2Status = 'uploading';
+      (function(item, blob, sessDraft){
+        r2.upload(mediaId, blob).then(function(ok){
+          item.r2Status = ok ? 'synced' : 'failed';
+          render();
+          // 이미 세션이 저장된 이후라면 세션 메타를 재업로드해서 r2Key 동기화
+          try{
+            var sid = S.selectedMember;
+            var stored = sid && (S.sessions[sid]||[]).find(function(x){
+              return (x.media||[]).some(function(mm){return mm.mediaId===mediaId;});
+            });
+            if(stored) cloud.upsertSession(sid, stored);
+          }catch(e){}
+        });
+      })(mediaItem, file, S.newSession);
+    }
+    S.newSession.media.push(mediaItem);
     render();
     if(view) break; // view별 1개만
   }
@@ -1430,6 +1528,7 @@ async function removeMediaFile(idx){
   if(m && m.mediaId){
     await mediaDB.del(m.mediaId);
     await mediaDB.delAnalysis(m.mediaId);
+    if(m.r2Key || m.mediaId) r2.remove(m.r2Key||m.mediaId);
     if(S.mediaUrls[m.mediaId]){URL.revokeObjectURL(S.mediaUrls[m.mediaId]); delete S.mediaUrls[m.mediaId];}
   }
   S.newSession.media.splice(idx,1);
@@ -1965,6 +2064,17 @@ async function openPoseAnalyzer(sessionId, mediaIdx){
   if(!sess||!sess.media||!sess.media[mediaIdx])return;
   var m = sess.media[mediaIdx];
   var src = m.mediaId ? S.mediaUrls[m.mediaId] : m.data;
+  // 로컬 캐시 없으면 R2에서 다운로드 후 IndexedDB에 저장
+  if(!src && r2.enabled && (m.r2Key || m.mediaId)){
+    var key = m.r2Key || m.mediaId;
+    var blob = await r2.download(key);
+    if(blob){
+      if(m.mediaId){
+        await mediaDB.put(m.mediaId, blob, {mimeType:m.mimeType||blob.type, name:m.name||''});
+        try{S.mediaUrls[m.mediaId] = URL.createObjectURL(blob); src = S.mediaUrls[m.mediaId];}catch(e){}
+      }
+    }
+  }
   if(!src){alert('영상을 불러올 수 없습니다'); return;}
   if(typeof Pose==='undefined'){
     alert('MediaPipe 로딩 중입니다. 잠시 후 다시 시도해주세요.');
@@ -2171,7 +2281,8 @@ async function deleteSession(id){
       var m = sess.media[i];
       if(m.mediaId){
         await mediaDB.del(m.mediaId);
-    await mediaDB.delAnalysis(m.mediaId);
+        await mediaDB.delAnalysis(m.mediaId);
+        if(m.r2Key || m.mediaId) r2.remove(m.r2Key||m.mediaId);
         if(S.mediaUrls[m.mediaId]){URL.revokeObjectURL(S.mediaUrls[m.mediaId]); delete S.mediaUrls[m.mediaId];}
       }
     }
