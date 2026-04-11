@@ -53,10 +53,14 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v1.6',
+  version:'v1.7',
   date:'2026-04-11',
   changes:[
-    '🆕 트랙맨 방식 사전 분석 — 영상 로드 시 전체 프레임을 미리 분석해 캐싱, 스크러빙해도 스켈레톤이 고정',
+    '🆕 인라인 커스텀 비디오 플레이어 — 세션 카드에 직접 박힘, 별도 모달 없음',
+    '🆕 Pseudo 전체화면 — iOS Safari에서도 스켈레톤 오버레이 유지 (⛶ 버튼)',
+    '🆕 스켈레톤/가이드/지표 인라인 토글 — 플레이어 툴바에서 바로 제어',
+    '🆕 자동 백그라운드 사전 분석 — 영상 로드 시 프레임 분석 자동 시작',
+    '🆕 트랙맨 방식 프레임 캐싱 — 스크러빙해도 스켈레톤이 영상과 정확히 동기화',
     '🆕 정면/측면 영상 업로드 분리 — 뷰별 전용 슬롯',
     '🆕 뷰별 체크리스트 — 정면은 X-Factor·무릎·리드암, 측면은 척추각·힙벤드·헤드업·C/S-Posture',
     '🆕 분석 결과 영구 캐시 — 한 번 분석하면 재분석 없이 즉시 표시 (재분석 버튼 제공)',
@@ -877,8 +881,7 @@ function render(){
                   var isVideo = mime.indexOf('video/')!==-1 || (m.data&&m.data.indexOf('video/')!==-1);
                   if(m.type==='file' && src && isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
                   if(m.type==='file' && src && isVideo){
-                    var viewTag = m.view==='front'?'<span class="sm-view-tag tag-front">정면</span>':(m.view==='side'?'<span class="sm-view-tag tag-side">측면</span>':'');
-                    return '<div class="sm-video-wrap">'+viewTag+'<video class="sm-video" src="'+src+'" controls playsinline></video><button class="sm-pose-btn" onclick="openPoseAnalyzer(\''+s.id+'\','+mi+')">🦴 분석</button></div>';
+                    return renderSwingPlayer(s.id, mi, m, src);
                   }
                   if(m.type==='file' && !src) return '<div class="sm-missing">⚠ 미디어 로딩 중...</div>';
                   if(m.type==='url') return '<a class="sm-link" href="'+((m.data||'').replace(/"/g,'&quot;'))+'" target="_blank" rel="noopener">▶ 영상 보기</a>';
@@ -1113,6 +1116,8 @@ function render(){
     </div>`;
   })() : ''}
   `;
+  // 커스텀 플레이어 초기화 (세션 카드의 영상)
+  setTimeout(initSwingPlayers, 0);
 }
 
 // ============ 이벤트 핸들러 ============
@@ -1587,6 +1592,286 @@ function findNearestFrame(frames, t){
   return frames[lo];
 }
 
+// ============ Inline Swing Player ============
+// 세션 카드에 인라인으로 박히는 커스텀 비디오 플레이어
+// - 기본 비디오 컨트롤 대신 커스텀 컨트롤
+// - 캔버스 스켈레톤 오버레이 영구 부착
+// - Pseudo-fullscreen (CSS 클래스 토글) — iOS Safari 호환
+// - 자동 사전 분석 + 캐시
+
+// 공유 Pose 인스턴스 (한 번만 로드)
+var _sharedPose = null;
+function getSharedPose(){
+  if(_sharedPose) return _sharedPose;
+  if(typeof Pose==='undefined') return null;
+  _sharedPose = new Pose({locateFile:function(file){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+file;}});
+  _sharedPose.setOptions({modelComplexity:0, smoothLandmarks:true, enableSegmentation:false, minDetectionConfidence:.5, minTrackingConfidence:.5});
+  return _sharedPose;
+}
+
+// 동시 분석 방지 큐
+var _analysisQueue = [];
+var _analyzing = false;
+function queueAnalysis(video, mediaId, onProgress){
+  return new Promise(function(resolve){
+    _analysisQueue.push({video:video, mediaId:mediaId, onProgress:onProgress, resolve:resolve});
+    processAnalysisQueue();
+  });
+}
+async function processAnalysisQueue(){
+  if(_analyzing || !_analysisQueue.length) return;
+  _analyzing = true;
+  var task = _analysisQueue.shift();
+  var pose = getSharedPose();
+  if(!pose){task.resolve(null); _analyzing=false; return;}
+  try{
+    var analysis = await preAnalyzeVideo(task.video, pose, task.onProgress);
+    if(analysis && analysis.frames.length>0){
+      await mediaDB.putAnalysis(task.mediaId, analysis);
+    }
+    task.resolve(analysis);
+  }catch(e){
+    console.error('[analysis] failed',e);
+    task.resolve(null);
+  }
+  _analyzing = false;
+  setTimeout(processAnalysisQueue, 100);
+}
+
+function renderSwingPlayer(sessionId, mediaIdx, m, src){
+  var viewTag = '';
+  if(m.view==='front') viewTag = '<div class="sp-view-tag tag-front">🎯 정면</div>';
+  else if(m.view==='side') viewTag = '<div class="sp-view-tag tag-side">📐 측면</div>';
+  return '<div class="swing-player" data-sid="'+sessionId+'" data-mi="'+mediaIdx+'" data-mediaid="'+(m.mediaId||'')+'">'+
+    '<div class="sp-screen">'+
+      '<video class="sp-video" src="'+src+'" playsinline webkit-playsinline preload="metadata"></video>'+
+      '<canvas class="sp-canvas"></canvas>'+
+      viewTag+
+      '<div class="sp-loading"><div class="sp-loading-inner"><div class="sp-spinner"></div><div class="sp-loading-text">분석 준비...</div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div></div></div>'+
+    '</div>'+
+    '<div class="sp-toolbar">'+
+      '<button class="sp-btn sp-play" type="button">▶</button>'+
+      '<input type="range" class="sp-scrub" min="0" max="1000" value="0" step="1">'+
+      '<span class="sp-time">0:00</span>'+
+      '<button class="sp-btn sp-tgl-skel active" type="button" title="스켈레톤">🦴</button>'+
+      '<button class="sp-btn sp-tgl-guide active" type="button" title="가이드라인">📐</button>'+
+      '<button class="sp-btn sp-tgl-metrics" type="button" title="지표/체크리스트">📊</button>'+
+      '<button class="sp-btn sp-fs" type="button" title="전체화면">⛶</button>'+
+    '</div>'+
+    '<div class="sp-metrics-box" style="display:none">'+
+      '<div class="sp-metrics-live"></div>'+
+      '<div class="sp-metrics-checklist"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+function initSwingPlayers(){
+  document.querySelectorAll('.swing-player:not([data-init])').forEach(function(el){
+    el.setAttribute('data-init','1');
+    setupSwingPlayer(el);
+  });
+}
+
+function setupSwingPlayer(el){
+  var mediaId = el.getAttribute('data-mediaid');
+  var sessionId = el.getAttribute('data-sid');
+  var mediaIdx = parseInt(el.getAttribute('data-mi'));
+  var video = el.querySelector('.sp-video');
+  var canvas = el.querySelector('.sp-canvas');
+  var ctx = canvas.getContext('2d', {desynchronized:true});
+  var playBtn = el.querySelector('.sp-play');
+  var scrub = el.querySelector('.sp-scrub');
+  var timeEl = el.querySelector('.sp-time');
+  var loadingEl = el.querySelector('.sp-loading');
+  var loadingText = el.querySelector('.sp-loading-text');
+  var progressFill = el.querySelector('.sp-progress-fill');
+  var metricsBox = el.querySelector('.sp-metrics-box');
+  var metricsLive = el.querySelector('.sp-metrics-live');
+  var metricsCheck = el.querySelector('.sp-metrics-checklist');
+
+  if(!S.playerStates) S.playerStates = {};
+  if(!S.playerStates[mediaId]){
+    S.playerStates[mediaId] = {
+      analysis:null, analyzing:false,
+      showSkel:true, showGuide:true, showMetrics:false
+    };
+  }
+  var state = S.playerStates[mediaId];
+
+  // 세션/미디어 찾기
+  var mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
+  var m = sess && sess.media ? sess.media[mediaIdx] : null;
+  if(!m) return;
+
+  function fmtTime(s){
+    if(!isFinite(s)||s<0)return '0:00';
+    var mm=Math.floor(s/60), ss=Math.floor(s%60);
+    return mm+':'+(ss<10?'0':'')+ss;
+  }
+
+  function draw(){
+    if(!state.analysis || !state.analysis.frames.length){
+      // 분석 전 — 캔버스만 클리어
+      if(canvas.width!==video.videoWidth) canvas.width = video.videoWidth||640;
+      if(canvas.height!==video.videoHeight) canvas.height = video.videoHeight||480;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      return;
+    }
+    canvas.width = video.videoWidth || canvas.clientWidth;
+    canvas.height = video.videoHeight || canvas.clientHeight;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    var frame = findNearestFrame(state.analysis.frames, video.currentTime);
+    if(!frame) return;
+    if(state.showSkel && typeof drawConnectors!=='undefined'){
+      drawConnectors(ctx, frame.landmarks, POSE_CONNECTIONS, {color:'#00ff7f', lineWidth:3});
+      drawLandmarks(ctx, frame.landmarks, {color:'#ff4081', lineWidth:1, radius:3});
+    }
+    if(state.showGuide && frame.landmarks){
+      var lm = frame.landmarks;
+      var midHip = {x:(lm[LM.L_HIP].x+lm[LM.R_HIP].x)/2, y:(lm[LM.L_HIP].y+lm[LM.R_HIP].y)/2};
+      var midSh = {x:(lm[LM.L_SHOULDER].x+lm[LM.R_SHOULDER].x)/2, y:(lm[LM.L_SHOULDER].y+lm[LM.R_SHOULDER].y)/2};
+      // 척추선
+      ctx.strokeStyle='rgba(255,64,129,.85)'; ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.moveTo(midHip.x*canvas.width, midHip.y*canvas.height);
+      ctx.lineTo(midSh.x*canvas.width, midSh.y*canvas.height);
+      ctx.stroke();
+      // 어깨선
+      ctx.strokeStyle='rgba(64,200,255,.85)'; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(lm[LM.L_SHOULDER].x*canvas.width, lm[LM.L_SHOULDER].y*canvas.height);
+      ctx.lineTo(lm[LM.R_SHOULDER].x*canvas.width, lm[LM.R_SHOULDER].y*canvas.height);
+      ctx.stroke();
+      // 골반선
+      ctx.strokeStyle='rgba(255,200,64,.85)'; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(lm[LM.L_HIP].x*canvas.width, lm[LM.L_HIP].y*canvas.height);
+      ctx.lineTo(lm[LM.R_HIP].x*canvas.width, lm[LM.R_HIP].y*canvas.height);
+      ctx.stroke();
+      // 수직 기준선
+      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.setLineDash([5,5]); ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(midHip.x*canvas.width, 0);
+      ctx.lineTo(midHip.x*canvas.width, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if(state.showMetrics){
+      // 지표 패널 업데이트
+      var defs = VIEW_METRICS[m.view||'front'] || VIEW_METRICS.front;
+      metricsLive.innerHTML = defs.map(function(d){
+        var v = frame.metrics ? frame.metrics[d.key] : null;
+        var display = (v===null||v===undefined) ? '—' : Number(v).toFixed(d.fix)+(d.unit||'');
+        return '<div class="sp-metric"><span class="spm-lbl">'+d.label+'</span><span class="spm-val">'+display+'</span></div>';
+      }).join('');
+    }
+  }
+
+  // 컨트롤 이벤트
+  playBtn.addEventListener('click', function(){
+    if(video.paused) video.play(); else video.pause();
+  });
+  video.addEventListener('play', function(){playBtn.textContent='⏸';});
+  video.addEventListener('pause', function(){playBtn.textContent='▶';});
+  video.addEventListener('loadedmetadata', function(){
+    timeEl.textContent = '0:00 / '+fmtTime(video.duration);
+    draw();
+    // 분석 시도
+    tryLoadOrAnalyze();
+  });
+  video.addEventListener('timeupdate', function(){
+    var pct = video.duration>0 ? (video.currentTime/video.duration)*1000 : 0;
+    scrub.value = pct;
+    timeEl.textContent = fmtTime(video.currentTime)+' / '+fmtTime(video.duration);
+    draw();
+  });
+  video.addEventListener('seeked', draw);
+  scrub.addEventListener('input', function(){
+    if(video.duration>0) video.currentTime = (scrub.value/1000)*video.duration;
+  });
+
+  // 토글 버튼
+  el.querySelector('.sp-tgl-skel').addEventListener('click', function(){
+    state.showSkel = !state.showSkel;
+    this.classList.toggle('active', state.showSkel);
+    draw();
+  });
+  el.querySelector('.sp-tgl-guide').addEventListener('click', function(){
+    state.showGuide = !state.showGuide;
+    this.classList.toggle('active', state.showGuide);
+    draw();
+  });
+  el.querySelector('.sp-tgl-metrics').addEventListener('click', function(){
+    state.showMetrics = !state.showMetrics;
+    this.classList.toggle('active', state.showMetrics);
+    metricsBox.style.display = state.showMetrics ? 'block' : 'none';
+    draw();
+    if(state.showMetrics && state.analysis) renderCheckList();
+  });
+  el.querySelector('.sp-fs').addEventListener('click', function(){
+    el.classList.toggle('sp-fs-active');
+    document.body.classList.toggle('sp-fs-lock', el.classList.contains('sp-fs-active'));
+    setTimeout(draw, 100);
+  });
+
+  function renderCheckList(){
+    if(!state.analysis || !state.analysis.frames) return;
+    var checks = getChecklist(m.view||'front', state.analysis.frames, 0);
+    metricsCheck.innerHTML = checks.map(function(c){
+      return '<div class="sp-check '+(c.ok?'ok':'warn')+'">'+(c.ok?'✓':'⚠')+' '+c.text+'</div>';
+    }).join('') || '<div class="sp-check-empty">데이터 부족</div>';
+  }
+
+  async function tryLoadOrAnalyze(){
+    if(!mediaId) return;
+    // 1. 캐시 확인
+    if(!state.analysis){
+      var cached = await mediaDB.getAnalysis(mediaId);
+      if(cached && cached.frames && cached.frames.length>0){
+        state.analysis = cached;
+        loadingEl.style.display = 'none';
+        draw();
+        if(state.showMetrics) renderCheckList();
+        return;
+      }
+    } else {
+      loadingEl.style.display = 'none';
+      draw();
+      return;
+    }
+    // 2. 자동 사전 분석
+    if(state.analyzing) return;
+    state.analyzing = true;
+    loadingEl.style.display = 'flex';
+    loadingText.textContent = '분석 대기 중...';
+    progressFill.style.width = '0%';
+    var analysis = await queueAnalysis(video, mediaId, function(p){
+      var pct = Math.floor(p*100);
+      loadingText.textContent = '분석 중 '+pct+'%';
+      progressFill.style.width = pct+'%';
+    });
+    state.analyzing = false;
+    if(analysis && analysis.frames.length>0){
+      state.analysis = analysis;
+      loadingText.textContent = '✓ 완료';
+      progressFill.style.width = '100%';
+      setTimeout(function(){loadingEl.style.display='none';},800);
+      draw();
+      if(state.showMetrics) renderCheckList();
+    } else {
+      loadingText.textContent = '분석 실패 (사람 감지 불가)';
+    }
+  }
+
+  // 캔버스 크기 맞추기
+  if(video.readyState >= 1){
+    timeEl.textContent = '0:00 / '+fmtTime(video.duration);
+    tryLoadOrAnalyze();
+  }
+}
+
+// (deprecated) 레거시 모달 분석기 — 현재는 인라인 플레이어가 사용됨, reAnalyze에서만 호출
 async function openPoseAnalyzer(sessionId, mediaIdx){
   var mid=S.selectedMember;
   var sess=(S.sessions[mid]||[]).find(function(x){return x.id===sessionId;});
