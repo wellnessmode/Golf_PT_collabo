@@ -14,6 +14,6 @@
 // ---------------------------------------------------------------
 
 window.APP_CONFIG = {
-  SUPABASE_URL: '',        // 예: 'https://xxxxxxxxxxxx.supabase.co'
-  SUPABASE_ANON_KEY: ''    // 예: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  SUPABASE_URL: 'https://cacytkmijttyeasmhvhq.supabase.co',        // 예: 'https://xxxxxxxxxxxx.supabase.co'
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhY3l0a21panR0eWVhc21odmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjAyMjUsImV4cCI6MjA5MTQ5NjIyNX0.ovjMFi4WSB18KeTm7MNd4jmvKEmMamObyclMjgXomNg'    // 예: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
 };
