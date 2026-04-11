@@ -53,9 +53,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v1.9',
+  version:'v2.0',
   date:'2026-04-11',
   changes:[
+    '☁ Supabase 클라우드 동기화 활성화 — 회원/세션/체형평가 데이터가 모든 기기에서 실시간 공유',
+    '🆕 사이드바 하단 동기화 상태 배지 — 연결/로딩/오류 상태 시각화 + 새로고침 버튼',
     '🎯 스켈레톤 정확도 개선 — MediaPipe Full 모델로 업그레이드 (Lite→Full, modelComplexity 1)',
     '♻ 재분석 버튼 추가 — 플레이어 툴바에서 바로 캐시 무효화 + 재분석',
     '🛠 구버전 분석 캐시 자동 무효화 — 버전 태그 기반',
@@ -790,6 +792,7 @@ function render(){
       ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">🔑 비밀번호 변경</button>':''}
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">🔍 전체 감사 로그</button>':''}
     </div>
+    ${syncBadge()}
   </div>
   <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
