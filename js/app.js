@@ -91,24 +91,24 @@ const SAMPLE_DATA = {
   },
   sessions:{
     m1:[
-      {id:'s1',date:'2025-06-16',author:'정우진 프로',content:'스윙 중에 팔만 내리면서 몸회전을 안해서 문제 발생',supplement:'상하체 분리하는 힘 더 만들어주면 좋을 것 같습니다'},
-      {id:'s2',date:'2025-06-17',author:'최현승 트레이너',content:'상하체 분리운동, 코어운동 진행',supplement:'스윙 시 왼어깨 들리면서 플레인이 바뀌는 느낌'},
-      {id:'s3',date:'2025-06-23',author:'정우진 프로',content:'볼 포지션 수정 집중',supplement:''},
-      {id:'s4',date:'2025-06-27',author:'최현승 트레이너',content:'스텝박스 리듬트레이닝, 플라이오메트릭 점프순발력트레이닝, 상체 푸쉬운동',supplement:''},
-      {id:'s5',date:'2025-07-01',author:'최현승 트레이너',content:'발가락, 햄스트링 및 엉덩이 트레이닝',supplement:''},
-      {id:'s6',date:'2025-07-08',author:'최현승 트레이너',content:'회전근개, 코어, 견갑골 안정화 및 어깨근육운동',supplement:''},
-      {id:'s7',date:'2025-08-04',author:'정우진 프로',content:'하체랑 코어 연결시켜서 움직여주기',supplement:''}
+      {id:'s1',date:'2025-06-16',author:'정우진 프로',content:'스윙 중에 팔만 내리면서 몸회전을 안해서 문제 발생'},
+      {id:'s2',date:'2025-06-17',author:'최현승 트레이너',content:'상하체 분리운동, 코어운동 진행'},
+      {id:'s3',date:'2025-06-23',author:'정우진 프로',content:'볼 포지션 수정 집중'},
+      {id:'s4',date:'2025-06-27',author:'최현승 트레이너',content:'스텝박스 리듬트레이닝, 플라이오메트릭 점프순발력트레이닝, 상체 푸쉬운동'},
+      {id:'s5',date:'2025-07-01',author:'최현승 트레이너',content:'발가락, 햄스트링 및 엉덩이 트레이닝'},
+      {id:'s6',date:'2025-07-08',author:'최현승 트레이너',content:'회전근개, 코어, 견갑골 안정화 및 어깨근육운동'},
+      {id:'s7',date:'2025-08-04',author:'정우진 프로',content:'하체랑 코어 연결시켜서 움직여주기'}
     ],
     m2:[
-      {id:'s8',date:'2025-06-25',author:'최현승 트레이너',content:'삼두근, 흉근, 코어근육 위주로 진행',supplement:'필드를 자주 나가서인지 팔로스루 때 왼쪽 어깨 앞면이 통증. 1달간 회복될 수 있도록 다른 방향의 운동 필요'},
-      {id:'s9',date:'2025-07-01',author:'정우진 프로',content:'팔로우에서 넘어오는 힘을 만들어주는 동작',supplement:'상체로 비틀어내는 힘이 더 강하면 좋을 것 같습니다'},
-      {id:'s10',date:'2025-07-05',author:'최현승 트레이너',content:'상체 코어운동, 어깨, 가슴, 삼두 기능성운동',supplement:''},
-      {id:'s11',date:'2025-07-07',author:'정우진 프로',content:'템포 맞추면서 오른팔 내리는 공간 확보',supplement:''},
-      {id:'s12',date:'2025-07-09',author:'최현승 트레이너',content:'전완, 이두, 등 근비대 견갑골 안정화운동',supplement:''},
-      {id:'s13',date:'2025-07-14',author:'정우진 프로',content:'하체랑 상체 팔 싱크가 떨어져서 싱크에 집중',supplement:''},
-      {id:'s14',date:'2025-07-22',author:'정우진 프로',content:'등이랑 팔안쪽 힘 강조하고 상하체 분리',supplement:'상하체 분리 힘이 조금 더 필요합니다'},
-      {id:'s15',date:'2025-07-23',author:'최현승 트레이너',content:'상체 근력운동, 상하체 분리 훈련(케이블)',supplement:''},
-      {id:'s16',date:'2025-07-29',author:'정우진 프로',content:'상하체 분리 동작 강조',supplement:'상하체 분리하면서 골반 기울기가 확보가 잘 안됩니다'}
+      {id:'s8',date:'2025-06-25',author:'최현승 트레이너',content:'삼두근, 흉근, 코어근육 위주로 진행'},
+      {id:'s9',date:'2025-07-01',author:'정우진 프로',content:'팔로우에서 넘어오는 힘을 만들어주는 동작'},
+      {id:'s10',date:'2025-07-05',author:'최현승 트레이너',content:'상체 코어운동, 어깨, 가슴, 삼두 기능성운동'},
+      {id:'s11',date:'2025-07-07',author:'정우진 프로',content:'템포 맞추면서 오른팔 내리는 공간 확보'},
+      {id:'s12',date:'2025-07-09',author:'최현승 트레이너',content:'전완, 이두, 등 근비대 견갑골 안정화운동'},
+      {id:'s13',date:'2025-07-14',author:'정우진 프로',content:'하체랑 상체 팔 싱크가 떨어져서 싱크에 집중'},
+      {id:'s14',date:'2025-07-22',author:'정우진 프로',content:'등이랑 팔안쪽 힘 강조하고 상하체 분리'},
+      {id:'s15',date:'2025-07-23',author:'최현승 트레이너',content:'상체 근력운동, 상하체 분리 훈련(케이블)'},
+      {id:'s16',date:'2025-07-29',author:'정우진 프로',content:'상하체 분리 동작 강조'}
     ]
   }
 };
@@ -209,7 +209,7 @@ let S = {
   showAddSession:false, showAddMember:false, showActivityLog:false,
   editSessionId:null,
   currentRole:null, currentUser:null,
-  newSession:{date:today(), author:'', content:'', supplement:'', media:[], mediaUrls:['','']},
+  newSession:{date:today(), author:'', content:'', media:[], mediaUrls:['','']},
   newMember:{name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:''},
   editMemberId:null,
   sidebarOpen:false,
@@ -406,8 +406,7 @@ function stats(mid){
   return {
     total: sess.length,
     pro: sess.filter(s => getRole(s.author)==='pro').length,
-    trainer: sess.filter(s => getRole(s.author)==='trainer').length,
-    supp: sess.filter(s => s.supplement && s.supplement.trim()).length
+    trainer: sess.filter(s => getRole(s.author)==='trainer').length
   };
 }
 
@@ -548,7 +547,6 @@ function render(){
         <div class="stat"><div class="stat-val">${st.total}</div><div class="stat-lbl">총 세션</div></div>
         <div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 프로</div></div>
         <div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT</div></div>
-        <div class="stat"><div class="stat-val amber">${st.supp}</div><div class="stat-lbl">보완 요청</div></div>
       </div>` : ''}
 
       <div class="section-card">
@@ -605,7 +603,6 @@ function render(){
                 <div class="role-tag ${getRole(s.author)==='pro'?'pro':'trainer'}">${getRole(s.author)==='pro'?'GOLF PRO':'GOLF PT'}</div>
                 <div class="session-author">${s.author}</div>
                 <div class="session-date">${s.date}</div>
-                ${s.supplement?`<div class="supp-badge">보완요청</div>`:''}
               </div>
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
@@ -615,11 +612,6 @@ function render(){
                   if(m.type==='url') return '<a class="sm-link" href="'+((m.data||'').replace(/"/g,'&quot;'))+'" target="_blank" rel="noopener">▶ 영상 보기</a>';
                   return '';
                 }).join('')+'</div>':''}
-                ${s.supplement ? `
-                <div class="supplement-box">
-                  <div class="supp-label">보완점</div>
-                  <div class="supp-text">${s.supplement}</div>
-                </div>` : ''}
                 <div class="session-actions">
                   ${!isInfo?'<button class="small-btn del" onclick="deleteSession(\''+s.id+'\')">삭제</button>':''}
                 </div>
@@ -670,11 +662,6 @@ function render(){
           <input class="form-input media-url" placeholder="영상 링크 붙여넣기 (유튜브, 드라이브 등)" value="${(S.newSession.mediaUrls[1]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(1,this.value)">
           <div class="media-hint">영상은 짧게 촬영하세요. 5MB 초과 시 URL 입력을 권장합니다.</div>
         </div>
-      </div>
-      <div class="divider"></div>
-      <div class="form-group">
-        <label class="form-label accent">보완점 <span style="font-weight:400;opacity:.7;text-transform:none">(상대 담당자에게 전달 — 선택사항)</span></label>
-        <textarea class="form-textarea accent" style="border-color:#e9c06a;background:#fffbf2" placeholder="상대방이 보완해주면 좋을 내용 (비워도 됩니다)" oninput="updateNS('supplement',this.value)">${S.newSession.supplement}</textarea>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">취소</button>
@@ -754,7 +741,7 @@ function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOp
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
-function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',content:'',supplement:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
+function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',content:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
 function openAddMember(){S.newMember={name:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]}; S.editMemberId=null; S.showAddMember=true; render();}
 function toggleAssign(name){
   var arr=S.newMember.assignedTo||[];
@@ -821,7 +808,6 @@ function addSession(){
     date: ns.date,
     author: ns.author,
     content: ns.content.trim(),
-    supplement: ns.supplement.trim(),
     media: media.length>0 ? media : undefined
   };
   S.sessions[mid].push(s);

@@ -63,7 +63,7 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .content>*{flex-shrink:0}
 
 /* Stats */
-.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .stat{background:#fff;border:1px solid #e8e3d8;border-radius:10px;padding:10px 14px;text-align:center}
 .stat-val{font-size:20px;font-weight:700;line-height:1.1}
 .stat-val.green{color:#3b6d11}
@@ -127,12 +127,8 @@ body.role-select .app{display:block;height:auto;min-height:100vh}
 .role-tag.trainer{background:#c0dd97;color:#3b6d11}
 .session-author{font-size:12px;font-weight:600;color:#1a1a1a}
 .session-date{font-size:11px;color:#9ca89e}
-.supp-badge{margin-left:auto;font-size:10px;background:#faeeda;color:#854f0b;padding:2px 8px;border-radius:20px;font-weight:600;border:1px solid #e9c06a}
 .session-bd{padding:10px 12px;background:#fff}
 .session-content{font-size:13px;color:#2a2a2a;line-height:1.6;margin-bottom:0}
-.supplement-box{margin-top:8px;background:#fff8ee;border-radius:7px;padding:8px 10px;border-left:3px solid #e9c06a;display:flex;gap:8px;align-items:flex-start}
-.supp-label{font-size:10px;font-weight:700;color:#854f0b;white-space:nowrap;margin-top:1px;letter-spacing:.02em;text-transform:uppercase}
-.supp-text{font-size:12px;color:#5c3d10;line-height:1.5}
 .session-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
 .small-btn{font-size:10px;padding:3px 9px;border-radius:6px;border:1px solid #d4cfc4;background:#fff;cursor:pointer;color:#6b7a70;font-weight:500;transition:all .12s}
 .small-btn:hover{background:#f4f1eb}
