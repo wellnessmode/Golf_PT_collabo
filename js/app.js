@@ -1112,7 +1112,9 @@ function render(){
         <label class="form-label">담당자</label>
         <div class="radio-group">
           ${INSTRUCTORS.map(function(inst){
+            var isMe = inst.name===S.currentUser;
             var sel = S.newSession.author===inst.name ? (inst.role==='pro'?' sel-pro':' sel-trainer') : '';
+            if(!isMe) return '<div class="radio-opt disabled" style="opacity:0.4;pointer-events:none">'+inst.name+'</div>';
             return '<div class="radio-opt'+sel+'" onclick="updateNS(\'author\',\''+inst.name+'\')">'+inst.name+'</div>';
           }).join('')}
         </div>
