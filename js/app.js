@@ -507,7 +507,9 @@ let S = {
   warningBannerCollapsed:false,
   handovers:{}, // {memberId: [{date, from, to, summary}]}
   showHandover:null, // memberId to show handover card
-  showReport:false // member report modal
+  showReport:false,
+  memberSearch:'',
+  showDashboard:false
 };
 
 // ============ Audit Log (관리자용 상세 감사 로그) ============
@@ -953,10 +955,15 @@ function render(){
       </div>
     </div>
     <div class="sidebar-section-label">회원 목록${!isInfo?' (배정)':''}</div>
+    <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
     <div class="member-list">
       ${S.members.filter(function(m){
-        if(isInfo) return true;
-        return m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1;
+        if(!isInfo && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
+        if(S.memberSearch){
+          var q=S.memberSearch.trim().toLowerCase();
+          if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
+        }
+        return true;
       }).map(m => `
         <div class="member-item${m.id===mid?' active':''}" onclick="selectMember('${m.id}')">
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
@@ -971,6 +978,7 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
+      <button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>
       <div class="mp-label">마이페이지</div>
       ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">🔑 비밀번호 변경</button>':''}
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">🔍 전체 감사 로그</button>':''}
@@ -1065,6 +1073,7 @@ function render(){
                 <div class="role-tag ${getRole(s.author)==='pro'?'pro':'trainer'}">${getRole(s.author)==='pro'?'GOLF PRO':'GOLF PT'}</div>
                 <div class="session-author">${s.author}</div>
                 <div class="session-date">${s.date}</div>
+                ${s.author!==S.currentUser && s._addedAt && s._addedAt>(S.lastSeen[S.currentUser]||'') ? '<span class="new-badge">NEW</span>' : ''}
               </div>
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
@@ -1085,6 +1094,7 @@ function render(){
                   return '';
                 }).join('')+'</div>':''}
                 <div class="session-actions">
+                  ${!isInfo?'<button class="small-btn edit" onclick="openEditSession(\''+s.id+'\')">수정</button>':''}
                   ${!isInfo?'<button class="small-btn del" onclick="deleteSession(\''+s.id+'\')">삭제</button>':''}
                 </div>
               </div>
@@ -1093,17 +1103,17 @@ function render(){
       </div>
     </div>
     ` : `
-    <div class="no-member">
+    ${S.showDashboard ? renderDashboard() : `<div class="no-member">
       <div class="no-member-icon">⛳</div>
       <div style="font-size:14px;font-weight:600;color:#6b7a70">회원을 선택하세요</div>
       <div style="font-size:12px">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div>
-    </div>`}
+    </div>`}`}
   </div>
 
   ${S.showAddSession ? `
   <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <div class="modal-title">세션 기록 추가 — ${member?member.name+' 회원님':''}</div>
+      <div class="modal-title">${S.editSessionId?'세션 기록 수정':'세션 기록 추가'} — ${member?member.name+' 회원님':''}</div>
       <div class="form-group">
         <label class="form-label">날짜</label>
         <input type="date" class="form-input" value="${S.newSession.date}" onchange="updateNS('date',this.value)">
@@ -1166,7 +1176,7 @@ function render(){
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">취소</button>
-        <button class="btn primary" ${S.uploading>0?'disabled title="업로드 중..."':''} onclick="addSession()">${S.uploading>0?'⏳ '+(S.uploadMsg||'업로드 중 ('+S.uploading+')'):'기록 저장'}</button>
+        <button class="btn primary" ${S.uploading>0?'disabled title="업로드 중..."':''} onclick="${S.editSessionId?'saveEditSession()':'addSession()'}">${S.uploading>0?'⏳ '+(S.uploadMsg||'업로드 중 ('+S.uploading+')'):(S.editSessionId?'수정 저장':'기록 저장')}</button>
       </div>
     </div>
   </div>` : ''}
@@ -1686,7 +1696,7 @@ function rejectDelete(id){
   save(); render();
 }
 function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen; render();}
-function closeModal(){S.showAddSession=false; S.showAddMember=false; S.showActivityLog=false; S.editMemberId=null; render();}
+function closeModal(){S.showAddSession=false; S.showAddMember=false; S.showActivityLog=false; S.editMemberId=null; S.editSessionId=null; render();}
 function openActivityLog(){markSeen(); S.showActivityLog=true; render();}
 function openPasswordChange(){S.pwChange={current:'',newPw:'',confirm:''}; S.pwChangeError=''; S.showPwChange=true; render();}
 function submitPasswordChange(){
@@ -1771,7 +1781,8 @@ function addSession(){
     date: ns.date,
     author: ns.author,
     content: ns.content.trim(),
-    media: media.length>0 ? media : undefined
+    media: media.length>0 ? media : undefined,
+    _addedAt: new Date().toISOString()
   };
   S.sessions[mid].push(s);
   logActivity('세션 추가', mid, s.content.slice(0,40));
@@ -1786,6 +1797,144 @@ function addSession(){
   S.showAddSession = false;
   render();
   cloud.upsertSession(mid, s);
+}
+
+// ============ 세션 수정 ============
+function openEditSession(sid){
+  var mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]).find(function(s){return s.id===sid;});
+  if(!sess) return;
+  S.editSessionId = sid;
+  S.newSession = {
+    date: sess.date,
+    author: sess.author,
+    content: sess.content,
+    media: (sess.media||[]).slice(),
+    mediaUrls:['','']
+  };
+  S.showAddSession = true;
+  render();
+}
+function saveEditSession(){
+  var mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]).find(function(s){return s.id===S.editSessionId;});
+  if(!sess) return;
+  if(!S.newSession.content.trim()){alert('내용을 입력하세요');return;}
+  sess.date = S.newSession.date;
+  sess.content = S.newSession.content.trim();
+  sess.media = (S.newSession.media||[]).slice();
+  logActivity('세션 수정', mid, sess.content.slice(0,40));
+  logAudit('session','세션 수정',(S.members.find(function(x){return x.id===mid;})||{}).name||'',{date:sess.date,content:sess.content.slice(0,80)});
+  S.editSessionId = null;
+  S.showAddSession = false;
+  save(); render();
+  cloud.upsertSession(mid, sess);
+}
+
+// ============ 대시보드 ============
+function openDashboard(){S.showDashboard=true;S.selectedMember=null;render();}
+function closeDashboard(){S.showDashboard=false;render();}
+function renderDashboard(){
+  if(!S.showDashboard) return '';
+  var isInfo = S.currentRole==='infodesk'||S.currentRole==='admin';
+  var visibleMembers = S.members.filter(function(m){
+    if(isInfo) return true;
+    return m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1;
+  });
+  var totalMembers = visibleMembers.length;
+  var totalSessions = 0;
+  var proSessions = 0;
+  var trainerSessions = 0;
+  var thisMonthSessions = 0;
+  var thisMonth = today().slice(0,7);
+  var expiringMembers = [];
+  var recentActivity = [];
+  visibleMembers.forEach(function(m){
+    var sess = S.sessions[m.id]||[];
+    totalSessions += sess.length;
+    sess.forEach(function(s){
+      if(getRole(s.author)==='pro') proSessions++;
+      else trainerSessions++;
+      if(s.date.slice(0,7)===thisMonth) thisMonthSessions++;
+      recentActivity.push({member:m.name, date:s.date, author:s.author, content:s.content});
+    });
+    var d = daysUntilExpiry(m.expiry);
+    if(d!==null && d>=0 && d<=30) expiringMembers.push({name:m.name, days:d, expiry:m.expiry});
+  });
+  recentActivity.sort(function(a,b){return b.date.localeCompare(a.date);});
+  recentActivity = recentActivity.slice(0,15);
+  expiringMembers.sort(function(a,b){return a.days-b.days;});
+  // 지도자별 세션 수
+  var instructorStats = {};
+  INSTRUCTORS.forEach(function(i){instructorStats[i.name]=0;});
+  visibleMembers.forEach(function(m){
+    (S.sessions[m.id]||[]).forEach(function(s){
+      if(instructorStats.hasOwnProperty(s.author)) instructorStats[s.author]++;
+    });
+  });
+  // 회원별 진행률
+  var memberProgress = visibleMembers.map(function(m){
+    var sess = (S.sessions[m.id]||[]);
+    var st = stats(m.id);
+    var lessonTotal = parseInt(m.golfLessonCount)||0;
+    var ptTotal = parseInt(m.golfPTCount)||0;
+    var lessonPct = lessonTotal>0?Math.min(100,Math.round(st.pro/lessonTotal*100)):0;
+    var ptPct = ptTotal>0?Math.min(100,Math.round(st.trainer/ptTotal*100)):0;
+    return {name:m.name, id:m.id, total:sess.length, lessonPct:lessonPct, ptPct:ptPct, pro:st.pro, trainer:st.trainer, lessonTotal:lessonTotal, ptTotal:ptTotal};
+  }).sort(function(a,b){return b.total-a.total;});
+
+  return `
+  <div class="dashboard">
+    <div class="dash-header">
+      <h2>📊 대시보드</h2>
+      <button class="btn" onclick="closeDashboard()">닫기</button>
+    </div>
+    <div class="dash-stats">
+      <div class="dash-stat"><div class="ds-val">${totalMembers}</div><div class="ds-lbl">회원</div></div>
+      <div class="dash-stat"><div class="ds-val">${totalSessions}</div><div class="ds-lbl">총 세션</div></div>
+      <div class="dash-stat"><div class="ds-val blue">${thisMonthSessions}</div><div class="ds-lbl">이번 달</div></div>
+      <div class="dash-stat"><div class="ds-val green">${proSessions}</div><div class="ds-lbl">프로 세션</div></div>
+      <div class="dash-stat"><div class="ds-val amber">${trainerSessions}</div><div class="ds-lbl">PT 세션</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="dash-card">
+        <h3>지도자별 세션</h3>
+        <div class="dash-bar-list">${Object.keys(instructorStats).map(function(name){
+          var cnt = instructorStats[name];
+          var pct = totalSessions>0?Math.round(cnt/totalSessions*100):0;
+          return '<div class="dash-bar-row"><span class="dbr-name">'+name+'</span><div class="dbr-bar-wrap"><div class="dbr-bar '+(name.indexOf('프로')!==-1?'pro':'trainer')+'" style="width:'+pct+'%"></div></div><span class="dbr-cnt">'+cnt+'</span></div>';
+        }).join('')}</div>
+      </div>
+      <div class="dash-card">
+        <h3>만료 임박 회원</h3>
+        ${expiringMembers.length>0?'<div class="dash-expire-list">'+expiringMembers.map(function(e){
+          return '<div class="dash-expire-item"><span>'+e.name+'</span><span class="exp-badge exp-soon">D-'+e.days+'</span><span class="de-date">~'+e.expiry+'</span></div>';
+        }).join('')+'</div>':'<div class="empty-state" style="padding:20px">30일 이내 만료 회원이 없습니다</div>'}
+      </div>
+    </div>
+    <div class="dash-card" style="margin-top:12px">
+      <h3>회원별 진행률</h3>
+      <div class="dash-progress-list">
+        ${memberProgress.map(function(p){
+          return '<div class="dash-prog-row" onclick="selectMember(\''+p.id+'\');closeDashboard()">'+
+            '<span class="dp-name">'+p.name+'</span>'+
+            '<div class="dp-bars">'+
+              '<div class="dp-bar-group"><span class="dp-lbl">레슨</span><div class="dp-bar-wrap"><div class="dp-bar pro" style="width:'+p.lessonPct+'%"></div></div><span class="dp-pct">'+p.pro+'/'+p.lessonTotal+'</span></div>'+
+              '<div class="dp-bar-group"><span class="dp-lbl">PT</span><div class="dp-bar-wrap"><div class="dp-bar trainer" style="width:'+p.ptPct+'%"></div></div><span class="dp-pct">'+p.trainer+'/'+p.ptTotal+'</span></div>'+
+            '</div>'+
+          '</div>';
+        }).join('')}
+      </div>
+    </div>
+    <div class="dash-card" style="margin-top:12px">
+      <h3>최근 활동 (최근 15건)</h3>
+      <div class="dash-recent">
+        ${recentActivity.map(function(a){
+          return '<div class="dash-recent-item"><span class="dr-date">'+a.date+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+a.content.slice(0,50)+(a.content.length>50?'…':'')+'</span></div>';
+        }).join('')||'<div class="empty-state" style="padding:20px">최근 활동이 없습니다</div>'}
+      </div>
+    </div>
+  </div>`;
 }
 
 function addMember(){
