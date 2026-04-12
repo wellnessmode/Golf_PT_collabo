@@ -511,7 +511,6 @@ let S = {
   memberSearch:'',
   showDashboard:false,
   sidebarTab:'pt_lesson',
-  showQuickNote:false,
   showGoalEdit:false,
   showImageCard:false
 };
@@ -1026,7 +1025,6 @@ function render(){
         <button class="btn" onclick="openImageCard()" title="이미지 카드">🖼️ 카드</button>
         <button class="btn" onclick="openReport()" title="회원 리포트">📄 리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
-        ${!isInfo?'<button class="btn" onclick="openQuickNote()">📝 레슨 노트</button>':''}
         ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">거절</button>':''}
       </div>
@@ -1393,7 +1391,6 @@ function render(){
 
   ${renderHandoverModal()}
   ${renderReportModal()}
-  ${renderQuickNoteModal()}
   ${renderImageCardModal()}
   `;
   // 커스텀 플레이어 초기화 (세션 카드의 영상)
