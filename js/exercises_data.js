@@ -1,0 +1,1257 @@
+// exercises_data.js — 운동 DB 별도 파일
+// app.js 에서 이 파일을 먼저 로드한 뒤 EXERCISES 상수를 참조합니다.
+// index.html 에 <script src="js/exercises_data.js"></script> 추가 필요
+
+const EXERCISES = [
+
+  // =========================================================
+  // 웨이트 트레이닝 (100)
+  // =========================================================
+
+  // --- 하체 : 스쿼트 계열 ---
+  {n:'백 스쿼트', e:'Back Squat', c:'weight', s:'하체', f:'대퇴사두·둔근·코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'프론트 스쿼트', e:'Front Squat', c:'weight', s:'하체', f:'대퇴사두·코어', u:'rep', ds:3, dr:8, d:3},
+  {n:'고블릿 스쿼트', e:'Goblet Squat', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'오버헤드 스쿼트', e:'Overhead Squat', c:'weight', s:'하체', f:'전신·어깨 안정성', u:'rep', ds:3, dr:6, d:3},
+  {n:'제르처 스쿼트', e:'Zercher Squat', c:'weight', s:'하체', f:'대퇴사두·코어', u:'rep', ds:3, dr:8, d:3},
+  {n:'박스 스쿼트', e:'Box Squat', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:8, d:2},
+  {n:'페이즈 스쿼트', e:'Pause Squat', c:'weight', s:'하체', f:'대퇴사두 근력', u:'rep', ds:3, dr:6, d:3},
+  {n:'점프 스쿼트', e:'Jump Squat', c:'weight', s:'하체', f:'폭발력·대퇴사두', u:'rep', ds:3, dr:8, d:2},
+  {n:'서모 스쿼트', e:'Sumo Squat', c:'weight', s:'하체', f:'내전근·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'핵 스쿼트', e:'Hack Squat', c:'weight', s:'하체', f:'대퇴사두', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 하체 : 런지·단일 다리 ---
+  {n:'불가리안 스플릿 스쿼트', e:'Bulgarian SS', c:'weight', s:'하체', f:'대퇴사두·둔근·밸런스', u:'rep', ds:3, dr:10, d:2},
+  {n:'워킹 런지', e:'Walking Lunge', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'리버스 런지', e:'Reverse Lunge', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:10, d:1},
+  {n:'래터럴 런지', e:'Lateral Lunge', c:'weight', s:'하체', f:'내전근·둔근', u:'rep', ds:3, dr:10, d:2},
+  {n:'커튼시 런지', e:'Curtsy Lunge', c:'weight', s:'하체', f:'둔근·내전근', u:'rep', ds:3, dr:10, d:2},
+  {n:'스텝업', e:'Step Up', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:10, d:1},
+  {n:'피스톨 스쿼트', e:'Pistol Squat', c:'weight', s:'하체', f:'단일 다리 근력·밸런스', u:'rep', ds:3, dr:5, d:3},
+  {n:'싱글 레그 레그프레스', e:'SL Leg Press', c:'weight', s:'하체', f:'대퇴사두', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 하체 : 데드리프트·힙힌지 ---
+  {n:'컨벤셔널 데드리프트', e:'Deadlift', c:'weight', s:'하체', f:'후면사슬 전체', u:'rep', ds:3, dr:6, d:3},
+  {n:'스모 데드리프트', e:'Sumo Deadlift', c:'weight', s:'하체', f:'내전근·둔근·후면사슬', u:'rep', ds:3, dr:6, d:3},
+  {n:'루마니안 데드리프트', e:'RDL', c:'weight', s:'하체', f:'햄스트링·둔근', u:'rep', ds:3, dr:10, d:2},
+  {n:'싱글 레그 RDL', e:'SL RDL', c:'weight', s:'하체', f:'햄스트링·밸런스', u:'rep', ds:3, dr:8, d:2},
+  {n:'트랩바 데드리프트', e:'Trap Bar DL', c:'weight', s:'하체', f:'후면사슬·무릎 우호적', u:'rep', ds:3, dr:8, d:2},
+  {n:'굿모닝', e:'Good Morning', c:'weight', s:'하체', f:'햄스트링·척추기립근', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 하체 : 둔근·고관절 ---
+  {n:'힙 쓰러스트', e:'Hip Thrust', c:'weight', s:'하체', f:'둔근 최대 수축', u:'rep', ds:3, dr:12, d:1},
+  {n:'글루트 브릿지', e:'Glute Bridge', c:'weight', s:'하체', f:'둔근·햄스트링', u:'rep', ds:3, dr:15, d:1},
+  {n:'싱글 레그 힙 쓰러스트', e:'SL Hip Thrust', c:'weight', s:'하체', f:'둔근 단측성', u:'rep', ds:3, dr:10, d:2},
+  {n:'클램셸', e:'Clamshell', c:'weight', s:'하체', f:'중둔근', u:'rep', ds:3, dr:15, d:1},
+  {n:'파이어 하이드런트', e:'Fire Hydrant', c:'weight', s:'하체', f:'중둔근·외회전근', u:'rep', ds:3, dr:15, d:1},
+  {n:'케이블 힙 익스텐션', e:'Cable Hip Extension', c:'weight', s:'하체', f:'둔근·햄스트링', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 하체 : 머신·기타 ---
+  {n:'레그 프레스', e:'Leg Press', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'레그 컬', e:'Leg Curl', c:'weight', s:'하체', f:'햄스트링', u:'rep', ds:3, dr:12, d:1},
+  {n:'레그 익스텐션', e:'Leg Extension', c:'weight', s:'하체', f:'대퇴사두', u:'rep', ds:3, dr:12, d:1},
+  {n:'시티드 레그 컬', e:'Seated Leg Curl', c:'weight', s:'하체', f:'햄스트링', u:'rep', ds:3, dr:12, d:1},
+  {n:'어덕터 머신', e:'Hip Adduction', c:'weight', s:'하체', f:'내전근', u:'rep', ds:3, dr:15, d:1},
+  {n:'어브덕터 머신', e:'Hip Abduction', c:'weight', s:'하체', f:'중둔근·외전근', u:'rep', ds:3, dr:15, d:1},
+  {n:'카프 레이즈 (스탠딩)', e:'Standing Calf Raise', c:'weight', s:'하체', f:'비복근', u:'rep', ds:3, dr:15, d:1},
+  {n:'카프 레이즈 (시티드)', e:'Seated Calf Raise', c:'weight', s:'하체', f:'가자미근', u:'rep', ds:3, dr:15, d:1},
+  {n:'노르딕 햄스트링', e:'Nordic Hamstring', c:'weight', s:'하체', f:'햄스트링 편심성', u:'rep', ds:3, dr:6, d:3},
+
+  // --- 상체 : 가슴 ---
+  {n:'바벨 벤치프레스', e:'Barbell Bench Press', c:'weight', s:'상체', f:'대흉근·삼두·전면삼각', u:'rep', ds:3, dr:8, d:2},
+  {n:'인클라인 벤치프레스', e:'Incline Bench Press', c:'weight', s:'상체', f:'상부 대흉근', u:'rep', ds:3, dr:10, d:2},
+  {n:'디클라인 벤치프레스', e:'Decline Bench Press', c:'weight', s:'상체', f:'하부 대흉근', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 벤치프레스', e:'DB Bench Press', c:'weight', s:'상체', f:'대흉근·안정근', u:'rep', ds:3, dr:10, d:2},
+  {n:'인클라인 덤벨 프레스', e:'Incline DB Press', c:'weight', s:'상체', f:'상부 대흉근', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 플라이', e:'DB Fly', c:'weight', s:'상체', f:'대흉근 스트레치', u:'rep', ds:3, dr:12, d:1},
+  {n:'케이블 크로스오버', e:'Cable Crossover', c:'weight', s:'상체', f:'대흉근 내측', u:'rep', ds:3, dr:12, d:1},
+  {n:'푸쉬업', e:'Push Up', c:'weight', s:'상체', f:'대흉근·삼두·코어', u:'rep', ds:3, dr:15, d:1},
+  {n:'다이아몬드 푸쉬업', e:'Diamond Push Up', c:'weight', s:'상체', f:'삼두·내측 흉근', u:'rep', ds:3, dr:12, d:2},
+  {n:'딥스', e:'Dips', c:'weight', s:'상체', f:'삼두·하부 대흉근', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 상체 : 등 ---
+  {n:'풀업', e:'Pull Up', c:'weight', s:'상체', f:'광배근·이두', u:'rep', ds:3, dr:8, d:3},
+  {n:'친업', e:'Chin Up', c:'weight', s:'상체', f:'광배근·이두 강조', u:'rep', ds:3, dr:8, d:2},
+  {n:'랫풀다운', e:'Lat Pulldown', c:'weight', s:'상체', f:'광배근', u:'rep', ds:3, dr:12, d:1},
+  {n:'언더그립 랫풀다운', e:'Undergrip Pulldown', c:'weight', s:'상체', f:'광배근·이두', u:'rep', ds:3, dr:12, d:1},
+  {n:'바벨 로우', e:'Barbell Row', c:'weight', s:'상체', f:'광배근·승모근', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 로우', e:'DB Row', c:'weight', s:'상체', f:'광배근', u:'rep', ds:3, dr:10, d:1},
+  {n:'티바 로우', e:'T-Bar Row', c:'weight', s:'상체', f:'광배근·대원근', u:'rep', ds:3, dr:10, d:2},
+  {n:'케이블 시티드 로우', e:'Seated Cable Row', c:'weight', s:'상체', f:'광배근·승모근', u:'rep', ds:3, dr:12, d:1},
+  {n:'체스트 서포티드 로우', e:'Chest Supported Row', c:'weight', s:'상체', f:'광배근·능형근', u:'rep', ds:3, dr:12, d:1},
+  {n:'인버티드 로우', e:'Inverted Row', c:'weight', s:'상체', f:'광배근·코어', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 상체 : 어깨 ---
+  {n:'바벨 오버헤드프레스', e:'Overhead Press', c:'weight', s:'상체', f:'삼각근·삼두', u:'rep', ds:3, dr:8, d:2},
+  {n:'덤벨 숄더프레스', e:'DB Shoulder Press', c:'weight', s:'상체', f:'삼각근', u:'rep', ds:3, dr:10, d:2},
+  {n:'아놀드 프레스', e:'Arnold Press', c:'weight', s:'상체', f:'삼각근 전·측·후', u:'rep', ds:3, dr:10, d:2},
+  {n:'래터럴 레이즈', e:'Lateral Raise', c:'weight', s:'상체', f:'측면 삼각근', u:'rep', ds:3, dr:15, d:1},
+  {n:'케이블 래터럴 레이즈', e:'Cable Lateral Raise', c:'weight', s:'상체', f:'측면 삼각근', u:'rep', ds:3, dr:15, d:1},
+  {n:'프론트 레이즈', e:'Front Raise', c:'weight', s:'상체', f:'전면 삼각근', u:'rep', ds:3, dr:12, d:1},
+  {n:'리어 델트 플라이', e:'Rear Delt Fly', c:'weight', s:'상체', f:'후면 삼각근', u:'rep', ds:3, dr:15, d:1},
+  {n:'페이스 풀', e:'Face Pull', c:'weight', s:'상체', f:'후면삼각근·승모근', u:'rep', ds:3, dr:15, d:1},
+  {n:'업라이트 로우', e:'Upright Row', c:'weight', s:'상체', f:'삼각근·승모근', u:'rep', ds:3, dr:12, d:2},
+  {n:'슈러그', e:'Shrug', c:'weight', s:'상체', f:'상부 승모근', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 상체 : 팔 ---
+  {n:'바벨 컬', e:'Barbell Curl', c:'weight', s:'상체', f:'이두', u:'rep', ds:3, dr:12, d:1},
+  {n:'덤벨 컬', e:'DB Curl', c:'weight', s:'상체', f:'이두', u:'rep', ds:3, dr:12, d:1},
+  {n:'해머 컬', e:'Hammer Curl', c:'weight', s:'상체', f:'이두·상완근', u:'rep', ds:3, dr:12, d:1},
+  {n:'인클라인 덤벨 컬', e:'Incline DB Curl', c:'weight', s:'상체', f:'이두 장두', u:'rep', ds:3, dr:10, d:2},
+  {n:'프리처 컬', e:'Preacher Curl', c:'weight', s:'상체', f:'이두 단두', u:'rep', ds:3, dr:12, d:1},
+  {n:'케이블 컬', e:'Cable Curl', c:'weight', s:'상체', f:'이두', u:'rep', ds:3, dr:12, d:1},
+  {n:'트라이셉 푸쉬다운', e:'Triceps Pushdown', c:'weight', s:'상체', f:'삼두', u:'rep', ds:3, dr:12, d:1},
+  {n:'스컬크러셔', e:'Skullcrusher', c:'weight', s:'상체', f:'삼두', u:'rep', ds:3, dr:12, d:2},
+  {n:'오버헤드 트라이셉 익스텐션', e:'OHT Extension', c:'weight', s:'상체', f:'삼두 장두', u:'rep', ds:3, dr:12, d:2},
+  {n:'킥백', e:'Tricep Kickback', c:'weight', s:'상체', f:'삼두', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 코어 ---
+  {n:'플랭크', e:'Plank', c:'weight', s:'코어', f:'복직근·횡격막', u:'sec', ds:3, dr:60, d:1},
+  {n:'사이드 플랭크', e:'Side Plank', c:'weight', s:'코어', f:'복사근', u:'sec', ds:3, dr:40, d:2},
+  {n:'행잉 레그 레이즈', e:'Hanging Leg Raise', c:'weight', s:'코어', f:'하복부', u:'rep', ds:3, dr:10, d:3},
+  {n:'케이블 크런치', e:'Cable Crunch', c:'weight', s:'코어', f:'복직근', u:'rep', ds:3, dr:15, d:1},
+  {n:'AB 휠 롤아웃', e:'Ab Wheel Rollout', c:'weight', s:'코어', f:'복직근·코어 안정성', u:'rep', ds:3, dr:10, d:3},
+  {n:'데드버그', e:'Dead Bug', c:'weight', s:'코어', f:'심부 안정성·호흡', u:'rep', ds:3, dr:10, d:1},
+  {n:'버드독', e:'Bird Dog', c:'weight', s:'코어', f:'코어 안정성·밸런스', u:'rep', ds:3, dr:10, d:1},
+  {n:'팔로프 프레스', e:'Pallof Press', c:'weight', s:'코어', f:'코어 항회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'러시안 트위스트', e:'Russian Twist', c:'weight', s:'코어', f:'복사근·회전', u:'rep', ds:3, dr:20, d:1},
+  {n:'브이업', e:'V-Up', c:'weight', s:'코어', f:'복직근 전체', u:'rep', ds:3, dr:12, d:2},
+
+  // --- 전신·파워·복합 ---
+  {n:'파워 클린', e:'Power Clean', c:'weight', s:'전신', f:'전신 폭발력', u:'rep', ds:4, dr:4, d:3},
+  {n:'행 클린', e:'Hang Clean', c:'weight', s:'전신', f:'전신 파워·폭발력', u:'rep', ds:4, dr:4, d:3},
+  {n:'파워 스내치', e:'Power Snatch', c:'weight', s:'전신', f:'전신 협응·파워', u:'rep', ds:4, dr:3, d:3},
+  {n:'케틀벨 스윙', e:'KB Swing', c:'weight', s:'전신', f:'힙 힌지·폭발력', u:'rep', ds:3, dr:15, d:2},
+  {n:'케틀벨 클린', e:'KB Clean', c:'weight', s:'전신', f:'힙 파워·협응', u:'rep', ds:3, dr:8, d:2},
+  {n:'케틀벨 스내치', e:'KB Snatch', c:'weight', s:'전신', f:'힙 파워·어깨 안정성', u:'rep', ds:3, dr:6, d:3},
+  {n:'버피', e:'Burpee', c:'weight', s:'전신', f:'심폐·전신', u:'rep', ds:3, dr:10, d:2},
+  {n:'슬레드 푸쉬', e:'Sled Push', c:'weight', s:'전신', f:'전신 파워·심폐', u:'min', ds:3, dr:1, d:2},
+  {n:'배틀로프 웨이브', e:'Battle Rope Wave', c:'weight', s:'전신', f:'상체 파워·심폐', u:'sec', ds:3, dr:30, d:2},
+  {n:'파머스 워크', e:'Farmer Walk', c:'weight', s:'전신', f:'악력·코어·심폐', u:'min', ds:3, dr:1, d:1},
+
+  // =========================================================
+  // 골프 피트니스 TPI (100)
+  // =========================================================
+
+  // --- 모빌리티 : 흉추 ---
+  {n:'T스파인 로테이션', e:'T-Spine Rotation', c:'golf_fit', s:'모빌리티', f:'흉추 회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'쿼드러페드 T스파인 로테이션', e:'Quadruped T-Spine', c:'golf_fit', s:'모빌리티', f:'흉추 회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'오픈 북', e:'Open Book', c:'golf_fit', s:'모빌리티', f:'흉추·어깨 가동성', u:'rep', ds:2, dr:10, d:1},
+  {n:'폼롤러 흉추 신전', e:'Foam Roller T-Spine Ext', c:'golf_fit', s:'모빌리티', f:'흉추 신전', u:'rep', ds:2, dr:8, d:1},
+  {n:'흉추 버터플라이', e:'T-Spine Butterfly', c:'golf_fit', s:'모빌리티', f:'흉추 신전·회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'쏘라식 케이트-카우', e:'Thoracic Cat-Cow', c:'golf_fit', s:'모빌리티', f:'흉추 굴신', u:'rep', ds:2, dr:10, d:1},
+  {n:'앉아 흉추 회전', e:'Seated T-Spine Rotation', c:'golf_fit', s:'모빌리티', f:'흉추 회전 패턴', u:'rep', ds:2, dr:10, d:1},
+  {n:'스파이더맨 흉추 로테이션', e:'Spiderman T-Spine Rot', c:'golf_fit', s:'모빌리티', f:'흉추·힙 복합 가동', u:'rep', ds:2, dr:6, d:2},
+
+  // --- 모빌리티 : 고관절 ---
+  {n:'90/90 힙 트위스트', e:'90/90 Hip Twist', c:'golf_fit', s:'모빌리티', f:'힙 내·외회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'힙 플렉서 스트레치 (하프 닐링)', e:'Hip Flexor Stretch', c:'golf_fit', s:'모빌리티', f:'장요근 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'코삭 스쿼트', e:'Cossack Squat', c:'golf_fit', s:'모빌리티', f:'힙·내전근 가동성', u:'rep', ds:2, dr:8, d:2},
+  {n:'힙 서클', e:'Hip Circle', c:'golf_fit', s:'모빌리티', f:'고관절 전방위 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'피죤 포즈 스트레치', e:'Pigeon Pose Stretch', c:'golf_fit', s:'모빌리티', f:'이상근·외회전근 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'스파이더맨 런지', e:'Spiderman Lunge', c:'golf_fit', s:'모빌리티', f:'힙 굴곡·신전 복합', u:'rep', ds:2, dr:8, d:1},
+  {n:'월드 그레이티스트 스트레치', e:'World Greatest Stretch', c:'golf_fit', s:'모빌리티', f:'전신 복합 가동성', u:'rep', ds:2, dr:5, d:1},
+  {n:'인트라셋 힙 로테이션', e:'Intra-Hip Rotation', c:'golf_fit', s:'모빌리티', f:'힙 내·외회전 능동', u:'rep', ds:2, dr:10, d:1},
+
+  // --- 모빌리티 : 어깨·흉곽 ---
+  {n:'월 슬라이드', e:'Wall Slide', c:'golf_fit', s:'모빌리티', f:'견갑 상방회전·어깨', u:'rep', ds:2, dr:10, d:1},
+  {n:'월 엔젤', e:'Wall Angel', c:'golf_fit', s:'모빌리티', f:'어깨 가동성', u:'rep', ds:2, dr:10, d:1},
+  {n:'숄더 서클', e:'Shoulder Circle', c:'golf_fit', s:'모빌리티', f:'어깨 전방위 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'크로스바디 숄더 스트레치', e:'Cross-Body Shoulder', c:'golf_fit', s:'모빌리티', f:'후면 관절낭 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'슬리퍼 스트레치', e:'Sleeper Stretch', c:'golf_fit', s:'모빌리티', f:'내회전 가동성', u:'sec', ds:2, dr:30, d:1},
+  {n:'폼롤러 흉곽 신전', e:'Foam Roller Thoracic', c:'golf_fit', s:'모빌리티', f:'흉곽·흉추 신전', u:'rep', ds:2, dr:8, d:1},
+
+  // --- 모빌리티 : 발목·하퇴 ---
+  {n:'발목 모빌리티 드릴', e:'Ankle Mobility Drill', c:'golf_fit', s:'모빌리티', f:'발목 배굴 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'밴디드 발목 모빌리티', e:'Banded Ankle Mob', c:'golf_fit', s:'모빌리티', f:'발목 관절 가동성', u:'rep', ds:2, dr:10, d:1},
+  {n:'종아리 폼롤링', e:'Calf Foam Roll', c:'golf_fit', s:'모빌리티', f:'종아리 근막 이완', u:'sec', ds:1, dr:60, d:1},
+
+  // --- 안정성·밸런스 ---
+  {n:'힙 에어플레인', e:'Hip Airplane', c:'golf_fit', s:'안정성', f:'힙 안정성·회전', u:'rep', ds:2, dr:8, d:2},
+  {n:'싱글 레그 스탠스', e:'SL Stance', c:'golf_fit', s:'안정성', f:'고관절·족부 안정', u:'sec', ds:3, dr:30, d:1},
+  {n:'싱글 레그 RDL (밸런스)', e:'SL RDL Balance', c:'golf_fit', s:'안정성', f:'후면사슬·균형', u:'rep', ds:3, dr:8, d:2},
+  {n:'싱글 레그 브릿지', e:'SL Bridge', c:'golf_fit', s:'안정성', f:'둔근·골반 안정성', u:'rep', ds:3, dr:10, d:1},
+  {n:'보수볼 스탠스', e:'BOSU Balance', c:'golf_fit', s:'안정성', f:'고유감각·밸런스', u:'sec', ds:3, dr:30, d:2},
+  {n:'밸런스 패드 싱글 레그', e:'Balance Pad SL', c:'golf_fit', s:'안정성', f:'발목·무릎 고유감각', u:'sec', ds:3, dr:30, d:2},
+  {n:'하프 닐링 팔로프 프레스', e:'Half Kneeling Pallof', c:'golf_fit', s:'안정성', f:'힙·코어 항회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'쿼터 닐링 리치', e:'Quarter Kneeling Reach', c:'golf_fit', s:'안정성', f:'고관절·코어 통합', u:'rep', ds:2, dr:8, d:2},
+  {n:'글루트 미드 밴드 워크', e:'Glute Med Band Walk', c:'golf_fit', s:'안정성', f:'중둔근·측면 안정', u:'rep', ds:3, dr:15, d:1},
+  {n:'몬스터 워크', e:'Monster Walk', c:'golf_fit', s:'안정성', f:'중둔근·외전근', u:'rep', ds:3, dr:15, d:1},
+
+  // --- 회전 파워 ---
+  {n:'메디신볼 회전 슬램', e:'MB Rotational Slam', c:'golf_fit', s:'파워', f:'회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'메디신볼 사이드 쓰로우', e:'MB Side Throw', c:'golf_fit', s:'파워', f:'코어 회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'메디신볼 스쿼트 쓰로우', e:'MB Squat Throw', c:'golf_fit', s:'파워', f:'하체 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'메디신볼 체스트 패스', e:'MB Chest Pass', c:'golf_fit', s:'파워', f:'상체 수평 파워', u:'rep', ds:3, dr:10, d:1},
+  {n:'메디신볼 오버헤드 슬램', e:'MB Overhead Slam', c:'golf_fit', s:'파워', f:'전신 수직 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'랜드마인 회전 프레스', e:'Landmine Rot Press', c:'golf_fit', s:'파워', f:'회전 파워·어깨', u:'rep', ds:3, dr:8, d:2},
+  {n:'랜드마인 트위스트', e:'Landmine Twist', c:'golf_fit', s:'파워', f:'코어 회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'케이블 우드 찹 (고→저)', e:'Cable Chop', c:'golf_fit', s:'파워', f:'사선 코어 하강', u:'rep', ds:3, dr:12, d:1},
+  {n:'케이블 리프트 (저→고)', e:'Cable Lift', c:'golf_fit', s:'파워', f:'사선 코어 상승', u:'rep', ds:3, dr:12, d:1},
+  {n:'로테이셔널 점프', e:'Rotational Jump', c:'golf_fit', s:'파워', f:'회전 폭발력', u:'rep', ds:3, dr:6, d:3},
+  {n:'하프 닐링 MB 쓰로우', e:'HK MB Throw', c:'golf_fit', s:'파워', f:'힙 분리 회전 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'메디신볼 리버스 쓰로우', e:'MB Reverse Throw', c:'golf_fit', s:'파워', f:'후방 회전 파워', u:'rep', ds:3, dr:8, d:2},
+
+  // --- 코어 안정·회전 ---
+  {n:'90/90 호흡', e:'90/90 Breathing', c:'golf_fit', s:'호흡', f:'복식호흡·코어 활성', u:'sec', ds:1, dr:120, d:1},
+  {n:'다이아고날 데드버그', e:'Diagonal Dead Bug', c:'golf_fit', s:'코어', f:'대각선 코어 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'RKC 플랭크', e:'RKC Plank', c:'golf_fit', s:'코어', f:'전신 강도 높은 긴장', u:'sec', ds:3, dr:20, d:3},
+  {n:'스털링 케이지 리치', e:'Stir the Pot', c:'golf_fit', s:'코어', f:'코어 다방향 안정성', u:'rep', ds:3, dr:10, d:2},
+  {n:'TRX 파이크', e:'TRX Pike', c:'golf_fit', s:'코어', f:'코어·어깨 안정', u:'rep', ds:3, dr:10, d:3},
+  {n:'슬라이더 마운틴 클라이머', e:'Slider Mountain Climber', c:'golf_fit', s:'코어', f:'코어·어깨 안정', u:'rep', ds:3, dr:20, d:2},
+  {n:'골프 로테이션 플랭크', e:'Golf Rotation Plank', c:'golf_fit', s:'코어', f:'스윙 방향 코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'서서 케이블 로테이션', e:'Standing Cable Rotation', c:'golf_fit', s:'코어', f:'입식 회전 코어', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 하체 근력·패턴 ---
+  {n:'월 힙 힌지', e:'Wall Hip Hinge', c:'golf_fit', s:'패턴', f:'힙 힌지 패턴 학습', u:'rep', ds:2, dr:10, d:1},
+  {n:'박스 힙 힌지', e:'Box Hip Hinge', c:'golf_fit', s:'패턴', f:'힙 힌지 심화', u:'rep', ds:2, dr:10, d:1},
+  {n:'싱글 레그 힙 쓰러스트', e:'SL Hip Thrust', c:'golf_fit', s:'하체', f:'둔근 단측 강화', u:'rep', ds:3, dr:10, d:2},
+  {n:'포스처럴 스쿼트', e:'Postural Squat', c:'golf_fit', s:'패턴', f:'자세 교정형 스쿼트', u:'rep', ds:2, dr:10, d:1},
+  {n:'TPI 스플릿 스탠스 RDL', e:'TPI Split Stance RDL', c:'golf_fit', s:'하체', f:'골프 셋업 자세 강화', u:'rep', ds:3, dr:8, d:2},
+
+  // --- 상체 안정·견갑 ---
+  {n:'밴디드 풀 어파트', e:'Band Pull Apart', c:'golf_fit', s:'상체', f:'후면 삼각·능형근', u:'rep', ds:3, dr:15, d:1},
+  {n:'프론 YTW', e:'Prone YTW', c:'golf_fit', s:'상체', f:'하부 승모근·능형근', u:'rep', ds:3, dr:10, d:1},
+  {n:'씨티드 밴드 로우', e:'Seated Band Row', c:'golf_fit', s:'상체', f:'견갑 후인·광배근', u:'rep', ds:3, dr:15, d:1},
+  {n:'케이블 외회전', e:'Cable External Rotation', c:'golf_fit', s:'상체', f:'회전근개 외회전', u:'rep', ds:3, dr:15, d:1},
+  {n:'케이블 내회전', e:'Cable Internal Rotation', c:'golf_fit', s:'상체', f:'회전근개 내회전', u:'rep', ds:3, dr:15, d:1},
+  {n:'밴드 다이아고날 패턴 (PNF)', e:'Band PNF Diagonal', c:'golf_fit', s:'상체', f:'견갑·코어 대각 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 외회전', e:'DB External Rotation', c:'golf_fit', s:'상체', f:'회전근개 안정', u:'rep', ds:3, dr:15, d:1},
+  {n:'숄더 팩킹 드릴', e:'Shoulder Packing', c:'golf_fit', s:'상체', f:'견갑 하방회전·안정', u:'rep', ds:2, dr:10, d:1},
+
+  // --- 전신·복합 동작 ---
+  {n:'터키시 겟업', e:'Turkish Get Up', c:'golf_fit', s:'전신', f:'전신 안정성·협응', u:'rep', ds:2, dr:5, d:3},
+  {n:'윈드밀', e:'Windmill', c:'golf_fit', s:'전신', f:'흉추·햄스트링 통합', u:'rep', ds:2, dr:8, d:2},
+  {n:'케틀벨 보텀업 프레스', e:'KB Bottoms-Up Press', c:'golf_fit', s:'전신', f:'손목·코어 반사 안정', u:'rep', ds:3, dr:8, d:3},
+  {n:'TRX 스쿼트 로우', e:'TRX Squat Row', c:'golf_fit', s:'전신', f:'전신 패턴 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'스쿼트 투 로우', e:'Squat to Row', c:'golf_fit', s:'전신', f:'하체·당기기 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'데드리프트 투 쉬러그', e:'DL to Shrug', c:'golf_fit', s:'전신', f:'후면사슬·승모근', u:'rep', ds:3, dr:8, d:2},
+
+  // --- 워밍업·활성화 ---
+  {n:'인치웜', e:'Inchworm', c:'golf_fit', s:'워밍업', f:'전신 이완·활성화', u:'rep', ds:1, dr:8, d:1},
+  {n:'레그 스윙 (전후)', e:'Leg Swing F/B', c:'golf_fit', s:'워밍업', f:'힙 굴신 동적 이완', u:'rep', ds:1, dr:15, d:1},
+  {n:'레그 스윙 (좌우)', e:'Leg Swing L/R', c:'golf_fit', s:'워밍업', f:'힙 외전·내전 이완', u:'rep', ds:1, dr:15, d:1},
+  {n:'암 서클', e:'Arm Circle', c:'golf_fit', s:'워밍업', f:'어깨 관절 이완', u:'rep', ds:1, dr:15, d:1},
+  {n:'하이 니', e:'High Knee', c:'golf_fit', s:'워밍업', f:'심폐·하체 활성화', u:'sec', ds:1, dr:30, d:1},
+  {n:'버트 킥', e:'Butt Kick', c:'golf_fit', s:'워밍업', f:'햄스트링 동적 이완', u:'sec', ds:1, dr:30, d:1},
+  {n:'래터럴 밴드 워크', e:'Lateral Band Walk', c:'golf_fit', s:'워밍업', f:'중둔근 사전 활성', u:'rep', ds:2, dr:15, d:1},
+  {n:'글루트 활성화 브릿지', e:'Glute Activation Bridge', c:'golf_fit', s:'워밍업', f:'둔근 신경근 활성', u:'rep', ds:2, dr:15, d:1},
+  {n:'쿼드러페드 힙 익스텐션', e:'Quadruped Hip Ext', c:'golf_fit', s:'워밍업', f:'둔근 활성화', u:'rep', ds:2, dr:12, d:1},
+  {n:'니 허그', e:'Knee Hug Walk', c:'golf_fit', s:'워밍업', f:'힙 굴근 이완·균형', u:'rep', ds:1, dr:10, d:1},
+
+  // --- 쿨다운·유연성 ---
+  {n:'힙 플렉서 스트레치 (서서)', e:'Standing Hip Flexor', c:'golf_fit', s:'쿨다운', f:'장요근 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'햄스트링 스트레치', e:'Hamstring Stretch', c:'golf_fit', s:'쿨다운', f:'햄스트링 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'이상근 스트레치', e:'Piriformis Stretch', c:'golf_fit', s:'쿨다운', f:'이상근·외회전근', u:'sec', ds:2, dr:30, d:1},
+  {n:'흉추 폼롤링', e:'Thoracic Foam Rolling', c:'golf_fit', s:'쿨다운', f:'흉추 근막 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'광배근 스트레치', e:'Lat Stretch', c:'golf_fit', s:'쿨다운', f:'광배근·측면 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'흉근 스트레치', e:'Pectoral Stretch', c:'golf_fit', s:'쿨다운', f:'대흉근·전면 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'목 스트레치', e:'Neck Stretch', c:'golf_fit', s:'쿨다운', f:'경추 측굴·회전', u:'sec', ds:2, dr:20, d:1},
+  {n:'전신 이완 롤링', e:'Full Body Rolling', c:'golf_fit', s:'쿨다운', f:'전신 근막 이완', u:'min', ds:1, dr:5, d:1},
+  {n:'차일드 포즈', e:'Child Pose', c:'golf_fit', s:'쿨다운', f:'척추·힙 전체 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'스핑크스 포즈', e:'Sphinx Pose', c:'golf_fit', s:'쿨다운', f:'요추 전만 회복', u:'sec', ds:1, dr:30, d:1},
+
+  // =========================================================
+  // 골프 스킬 훈련 (100)
+  // =========================================================
+
+  // --- 셋업·어드레스 ---
+  {n:'그립 체크', e:'Grip Check', c:'golf_skill', s:'셋업', f:'그립 일관성', u:'min', ds:1, dr:5, d:1},
+  {n:'포스처 체크', e:'Posture Check', c:'golf_skill', s:'셋업', f:'어드레스 자세', u:'min', ds:1, dr:5, d:1},
+  {n:'볼 포지션 드릴', e:'Ball Position', c:'golf_skill', s:'셋업', f:'볼 위치 일관성', u:'min', ds:1, dr:10, d:1},
+  {n:'알라이먼트 스틱 드릴', e:'Alignment Stick', c:'golf_skill', s:'셋업', f:'조준 정렬', u:'min', ds:1, dr:10, d:1},
+  {n:'스탠스 너비 체크', e:'Stance Width Check', c:'golf_skill', s:'셋업', f:'클럽별 스탠스', u:'min', ds:1, dr:5, d:1},
+  {n:'체중 배분 드릴', e:'Weight Distribution', c:'golf_skill', s:'셋업', f:'발바닥 압력 균형', u:'min', ds:1, dr:5, d:1},
+  {n:'손 위치 드릴', e:'Hand Position', c:'golf_skill', s:'셋업', f:'그립 위치 일관성', u:'min', ds:1, dr:5, d:1},
+  {n:'눈 시선 체크', e:'Eye Line Check', c:'golf_skill', s:'셋업', f:'시선 정렬', u:'min', ds:1, dr:5, d:1},
+
+  // --- 테이크어웨이·백스윙 ---
+  {n:'원피스 테이크어웨이', e:'One-Piece Takeaway', c:'golf_skill', s:'백스윙', f:'시작 동작 통합', u:'rep', ds:3, dr:10, d:1},
+  {n:'하프 백스윙 드릴', e:'Half Backswing', c:'golf_skill', s:'백스윙', f:'백스윙 컨트롤', u:'rep', ds:3, dr:10, d:1},
+  {n:'탑 포지션 홀드', e:'Top Position Hold', c:'golf_skill', s:'백스윙', f:'탑 자세 인지', u:'sec', ds:5, dr:5, d:2},
+  {n:'백스윙 플레인 체크', e:'Backswing Plane', c:'golf_skill', s:'백스윙', f:'스윙 플레인 정렬', u:'rep', ds:3, dr:10, d:2},
+  {n:'리스트 힌지 드릴', e:'Wrist Hinge Drill', c:'golf_skill', s:'백스윙', f:'손목 코킹 타이밍', u:'rep', ds:3, dr:10, d:2},
+  {n:'숄더 턴 드릴', e:'Shoulder Turn Drill', c:'golf_skill', s:'백스윙', f:'어깨 회전량', u:'rep', ds:3, dr:10, d:1},
+  {n:'힙 리스트릭션 턴', e:'Hip Restricted Turn', c:'golf_skill', s:'백스윙', f:'상·하체 분리', u:'rep', ds:3, dr:10, d:2},
+  {n:'클럽 헤드 경로 드릴', e:'Clubhead Path Drill', c:'golf_skill', s:'백스윙', f:'경로 인지', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 다운스윙·전환 ---
+  {n:'다운스윙 슬롯 드릴', e:'Slot Drill', c:'golf_skill', s:'다운스윙', f:'스윙 플레인', u:'rep', ds:3, dr:10, d:2},
+  {n:'범프 드릴', e:'Bump Drill', c:'golf_skill', s:'다운스윙', f:'힙 측면 이동', u:'rep', ds:3, dr:10, d:2},
+  {n:'하체 선행 드릴', e:'Lower Body Lead', c:'golf_skill', s:'다운스윙', f:'하체 주도 전환', u:'rep', ds:3, dr:10, d:2},
+  {n:'스텝 드릴', e:'Step Drill', c:'golf_skill', s:'다운스윙', f:'체중 이동 타이밍', u:'rep', ds:3, dr:10, d:2},
+  {n:'힙 클리어 드릴', e:'Hip Clear Drill', c:'golf_skill', s:'다운스윙', f:'힙 오픈 동작', u:'rep', ds:3, dr:10, d:2},
+  {n:'라그 드릴', e:'Lag Drill', c:'golf_skill', s:'다운스윙', f:'손목 라그 유지', u:'rep', ds:3, dr:10, d:3},
+  {n:'트랜지션 포즈', e:'Transition Pause', c:'golf_skill', s:'다운스윙', f:'전환 타이밍 인지', u:'rep', ds:3, dr:10, d:2},
+  {n:'타월 드릴 (겨드랑이)', e:'Towel Drill', c:'golf_skill', s:'다운스윙', f:'팔·몸통 연결', u:'rep', ds:3, dr:10, d:1},
+
+  // --- 임팩트·릴리스 ---
+  {n:'임팩트 백 드릴', e:'Impact Bag', c:'golf_skill', s:'임팩트', f:'임팩트 포지션', u:'rep', ds:3, dr:10, d:2},
+  {n:'임팩트 포지션 홀드', e:'Impact Hold', c:'golf_skill', s:'임팩트', f:'임팩트 자세 인지', u:'sec', ds:5, dr:5, d:2},
+  {n:'샤프트 린 드릴', e:'Shaft Lean Drill', c:'golf_skill', s:'임팩트', f:'핸드 퍼스트', u:'rep', ds:3, dr:10, d:2},
+  {n:'프레스드 볼 드릴', e:'Pressed Ball Drill', c:'golf_skill', s:'임팩트', f:'디센딩 블로', u:'rep', ds:3, dr:10, d:2},
+  {n:'릴리스 드릴 (교차)', e:'Release Crossover', c:'golf_skill', s:'임팩트', f:'팔뚝 로테이션', u:'rep', ds:3, dr:10, d:2},
+  {n:'9 to 3 드릴', e:'9 to 3 Drill', c:'golf_skill', s:'임팩트', f:'임팩트 존 정확도', u:'rep', ds:3, dr:10, d:1},
+  {n:'하프 스윙 드릴', e:'Half Swing Drill', c:'golf_skill', s:'임팩트', f:'임팩트 구간 반복', u:'rep', ds:3, dr:15, d:1},
+
+  // --- 팔로스루·피니시 ---
+  {n:'피니시 홀드', e:'Finish Hold', c:'golf_skill', s:'피니시', f:'피니시 밸런스', u:'sec', ds:5, dr:5, d:1},
+  {n:'팔로스루 체크', e:'Follow Through Check', c:'golf_skill', s:'피니시', f:'팔로스루 경로', u:'rep', ds:3, dr:10, d:1},
+  {n:'세 박자 피니시', e:'Three Count Finish', c:'golf_skill', s:'피니시', f:'밸런스·안정성', u:'rep', ds:3, dr:10, d:1},
+  {n:'풀 스윙 피니시 밸런스', e:'Full Finish Balance', c:'golf_skill', s:'피니시', f:'완성형 피니시', u:'rep', ds:3, dr:10, d:1},
+
+  // --- 리듬·템포 ---
+  {n:'템포 드릴 (1-2-3)', e:'Tempo 1-2-3', c:'golf_skill', s:'리듬', f:'3:1 스윙 템포', u:'rep', ds:3, dr:10, d:1},
+  {n:'메트로놈 스윙', e:'Metronome Swing', c:'golf_skill', s:'리듬', f:'일정 리듬 유지', u:'rep', ds:3, dr:10, d:1},
+  {n:'슬로우 모션 스윙', e:'Slow Motion Swing', c:'golf_skill', s:'리듬', f:'동작 인지·교정', u:'rep', ds:3, dr:10, d:1},
+  {n:'눈 감고 스윙', e:'Eyes Closed Swing', c:'golf_skill', s:'리듬', f:'신체 감각 집중', u:'rep', ds:3, dr:10, d:2},
+  {n:'연속 스윙 드릴', e:'Continuous Swing', c:'golf_skill', s:'리듬', f:'리듬 연속성', u:'rep', ds:3, dr:10, d:1},
+
+  // --- 드릴·종합 ---
+  {n:'3 to 9 드릴', e:'3 to 9', c:'golf_skill', s:'드릴', f:'스윙 아크 제한', u:'rep', ds:3, dr:10, d:2},
+  {n:'스트레치 코드 드릴', e:'Stretch Cord', c:'golf_skill', s:'드릴', f:'스윙 저항 훈련', u:'rep', ds:3, dr:10, d:2},
+  {n:'스플릿 그립 드릴', e:'Split Grip', c:'golf_skill', s:'드릴', f:'핸드 동작 분리', u:'rep', ds:3, dr:10, d:2},
+  {n:'3 클럽 드릴', e:'3 Club Drill', c:'golf_skill', s:'드릴', f:'스윙 템포·경로', u:'rep', ds:3, dr:10, d:2},
+  {n:'클럽 페이스 컨트롤', e:'Face Control', c:'golf_skill', s:'드릴', f:'페이스 앵글', u:'rep', ds:3, dr:10, d:2},
+  {n:'스윙 플레인 체크', e:'Plane Check', c:'golf_skill', s:'드릴', f:'스윙 플레인', u:'rep', ds:3, dr:10, d:2},
+  {n:'웨이트 시프트 드릴', e:'Weight Shift', c:'golf_skill', s:'드릴', f:'체중 이동', u:'rep', ds:3, dr:10, d:1},
+  {n:'풋워크 드릴', e:'Footwork', c:'golf_skill', s:'드릴', f:'지면반력 활용', u:'rep', ds:3, dr:10, d:2},
+  {n:'원 암 스윙', e:'One Arm Swing', c:'golf_skill', s:'드릴', f:'팔 역할 분리', u:'rep', ds:3, dr:10, d:2},
+  {n:'양손 교차 드릴', e:'Cross Hand Drill', c:'golf_skill', s:'드릴', f:'몸통 주도 인지', u:'rep', ds:3, dr:10, d:2},
+  {n:'헤드커버 드릴', e:'Headcover Drill', c:'golf_skill', s:'드릴', f:'인아웃 경로', u:'rep', ds:3, dr:10, d:2},
+  {n:'글러브 아래 드릴', e:'Glove Under Arm', c:'golf_skill', s:'드릴', f:'팔·몸통 연결 유지', u:'rep', ds:3, dr:10, d:1},
+
+  // --- 숏게임 ---
+  {n:'웨지 거리 컨트롤', e:'Wedge Distance', c:'golf_skill', s:'숏게임', f:'거리 감각', u:'min', ds:1, dr:20, d:2},
+  {n:'피치 샷 드릴', e:'Pitch Shot', c:'golf_skill', s:'숏게임', f:'피치 기술', u:'rep', ds:3, dr:10, d:2},
+  {n:'칩 샷 드릴', e:'Chip Shot', c:'golf_skill', s:'숏게임', f:'칩 기술', u:'rep', ds:3, dr:15, d:1},
+  {n:'벙커 샷 기본', e:'Bunker Basic', c:'golf_skill', s:'숏게임', f:'벙커 익스플로전', u:'rep', ds:3, dr:10, d:2},
+  {n:'페어웨이 벙커 샷', e:'Fairway Bunker', c:'golf_skill', s:'숏게임', f:'클린 컨택', u:'rep', ds:3, dr:10, d:3},
+  {n:'플롭 샷', e:'Flop Shot', c:'golf_skill', s:'숏게임', f:'높은 탄도', u:'rep', ds:3, dr:8, d:3},
+  {n:'러닝 어프로치', e:'Running Approach', c:'golf_skill', s:'숏게임', f:'낮은 탄도', u:'rep', ds:3, dr:10, d:1},
+  {n:'업 & 다운 연습', e:'Up and Down', c:'golf_skill', s:'숏게임', f:'칩+퍼트 조합', u:'rep', ds:1, dr:10, d:2},
+  {n:'클럭 드릴 (웨지)', e:'Clock Drill', c:'golf_skill', s:'숏게임', f:'거리별 백스윙 크기', u:'rep', ds:3, dr:10, d:1},
+  {n:'로브 웨지 터치', e:'Lob Wedge Touch', c:'golf_skill', s:'숏게임', f:'짧은 거리 감각', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 퍼팅 ---
+  {n:'퍼팅 거리 드릴', e:'Putt Distance', c:'golf_skill', s:'퍼팅', f:'거리 감각', u:'min', ds:1, dr:15, d:1},
+  {n:'퍼팅 방향 드릴', e:'Putt Line', c:'golf_skill', s:'퍼팅', f:'방향성', u:'min', ds:1, dr:15, d:1},
+  {n:'게이트 드릴', e:'Gate Drill', c:'golf_skill', s:'퍼팅', f:'임팩트 중앙성', u:'min', ds:1, dr:10, d:2},
+  {n:'퍼팅 루틴 훈련', e:'Putt Routine', c:'golf_skill', s:'퍼팅', f:'루틴 일관성', u:'rep', ds:1, dr:10, d:1},
+  {n:'래더 퍼팅 드릴', e:'Ladder Putting', c:'golf_skill', s:'퍼팅', f:'거리 단계별 감각', u:'min', ds:1, dr:10, d:1},
+  {n:'서클 퍼팅 드릴', e:'Circle Putting', c:'golf_skill', s:'퍼팅', f:'짧은 퍼트 성공률', u:'min', ds:1, dr:10, d:1},
+  {n:'롱 퍼트 드릴', e:'Long Putt Drill', c:'golf_skill', s:'퍼팅', f:'장거리 퍼트 감각', u:'min', ds:1, dr:10, d:2},
+  {n:'브레이크 리딩 연습', e:'Break Reading', c:'golf_skill', s:'퍼팅', f:'그린 경사 읽기', u:'min', ds:1, dr:10, d:2},
+  {n:'눈 감고 퍼팅', e:'Eyes Closed Putt', c:'golf_skill', s:'퍼팅', f:'거리 감각 내재화', u:'rep', ds:1, dr:10, d:2},
+  {n:'원핸드 퍼팅', e:'One Hand Putt', c:'golf_skill', s:'퍼팅', f:'주도 손 감각', u:'rep', ds:1, dr:10, d:2},
+
+  // --- 멘탈·루틴 ---
+  {n:'프리샷 루틴 훈련', e:'Pre-Shot Routine', c:'golf_skill', s:'멘탈', f:'샷 전 일관성', u:'rep', ds:1, dr:20, d:1},
+  {n:'타겟 포커스 드릴', e:'Target Focus', c:'golf_skill', s:'멘탈', f:'목표 집중력', u:'min', ds:1, dr:10, d:1},
+  {n:'호흡 루틴', e:'Breathing Routine', c:'golf_skill', s:'멘탈', f:'긴장 이완·집중', u:'min', ds:1, dr:5, d:1},
+  {n:'샷 시각화 훈련', e:'Shot Visualization', c:'golf_skill', s:'멘탈', f:'탄도 상상·계획', u:'min', ds:1, dr:5, d:1},
+  {n:'코스 매니지먼트', e:'Course Management', c:'golf_skill', s:'멘탈', f:'전략적 클럽 선택', u:'min', ds:1, dr:10, d:2},
+
+  // =========================================================
+  // 웨이트 트레이닝 추가 (170)
+  // =========================================================
+
+  // --- 하체 : 스쿼트 변형 추가 ---
+  {n:'스미스 머신 스쿼트', e:'Smith Machine Squat', c:'weight', s:'하체', f:'대퇴사두·안내궤도', u:'rep', ds:3, dr:10, d:1},
+  {n:'시시 스쿼트', e:'Sissy Squat', c:'weight', s:'하체', f:'대퇴사두 집중', u:'rep', ds:3, dr:12, d:2},
+  {n:'월 싯', e:'Wall Sit', c:'weight', s:'하체', f:'대퇴사두 등척성', u:'sec', ds:3, dr:45, d:1},
+  {n:'벨트 스쿼트', e:'Belt Squat', c:'weight', s:'하체', f:'대퇴사두·척추 부하 감소', u:'rep', ds:3, dr:10, d:2},
+  {n:'펜들레이 스쿼트', e:'Pendulum Squat', c:'weight', s:'하체', f:'대퇴사두·머신 궤도', u:'rep', ds:3, dr:10, d:1},
+  {n:'스플릿 스쿼트', e:'Split Squat', c:'weight', s:'하체', f:'대퇴사두·둔근 단측', u:'rep', ds:3, dr:10, d:1},
+  {n:'리버스 런지 (바벨)', e:'BB Reverse Lunge', c:'weight', s:'하체', f:'둔근·대퇴사두', u:'rep', ds:3, dr:10, d:2},
+  {n:'디피싯 리버스 런지', e:'Deficit Reverse Lunge', c:'weight', s:'하체', f:'둔근 ROM 확대', u:'rep', ds:3, dr:10, d:2},
+  {n:'사이드 런지 (덤벨)', e:'DB Side Lunge', c:'weight', s:'하체', f:'내전근·외측이동', u:'rep', ds:3, dr:10, d:2},
+  {n:'프론트 풋 엘리베이트 스플릿', e:'FFE Split Squat', c:'weight', s:'하체', f:'대퇴사두 깊은 굴곡', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 하체 : 힙힌지·데드리프트 변형 ---
+  {n:'디피싯 데드리프트', e:'Deficit Deadlift', c:'weight', s:'하체', f:'후면사슬 ROM 확대', u:'rep', ds:3, dr:6, d:3},
+  {n:'블록 풀', e:'Block Pull', c:'weight', s:'하체', f:'후면사슬 상단 근력', u:'rep', ds:3, dr:5, d:3},
+  {n:'스티프 레그 데드리프트', e:'Stiff Leg DL', c:'weight', s:'하체', f:'햄스트링 집중', u:'rep', ds:3, dr:8, d:2},
+  {n:'싱글 레그 데드리프트 (덤벨)', e:'DB SL Deadlift', c:'weight', s:'하체', f:'햄스트링·밸런스', u:'rep', ds:3, dr:8, d:2},
+  {n:'케이블 풀스루', e:'Cable Pull Through', c:'weight', s:'하체', f:'둔근·힙힌지', u:'rep', ds:3, dr:12, d:1},
+  {n:'리버스 하이퍼', e:'Reverse Hyper', c:'weight', s:'하체', f:'둔근·요추 신전', u:'rep', ds:3, dr:12, d:2},
+  {n:'45도 백 익스텐션', e:'45° Back Extension', c:'weight', s:'하체', f:'척추기립근·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'GHR (글루트 햄 레이즈)', e:'GHR', c:'weight', s:'하체', f:'햄스트링 편심·구심', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 하체 : 머신·아이솔레이션 추가 ---
+  {n:'프론 레그 컬', e:'Prone Leg Curl', c:'weight', s:'하체', f:'햄스트링', u:'rep', ds:3, dr:12, d:1},
+  {n:'덤벨 스텝업 (높은 박스)', e:'DB High Step Up', c:'weight', s:'하체', f:'둔근·대퇴사두', u:'rep', ds:3, dr:8, d:2},
+  {n:'힙 어덕션 (케이블)', e:'Cable Hip Adduction', c:'weight', s:'하체', f:'내전근', u:'rep', ds:3, dr:12, d:1},
+  {n:'힙 어브덕션 (케이블)', e:'Cable Hip Abduction', c:'weight', s:'하체', f:'중둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'돈키 킥 (머신)', e:'Donkey Kick Machine', c:'weight', s:'하체', f:'대둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'티비아리스 레이즈', e:'Tibialis Raise', c:'weight', s:'하체', f:'전경골근', u:'rep', ds:3, dr:15, d:1},
+  {n:'싱글 레그 카프 레이즈', e:'SL Calf Raise', c:'weight', s:'하체', f:'종아리 단측', u:'rep', ds:3, dr:15, d:1},
+
+  // --- 상체 : 가슴 변형 ---
+  {n:'클로즈그립 벤치프레스', e:'Close Grip Bench', c:'weight', s:'상체', f:'삼두·내측 흉근', u:'rep', ds:3, dr:8, d:2},
+  {n:'플로어 프레스', e:'Floor Press', c:'weight', s:'상체', f:'삼두·흉근 중간 ROM', u:'rep', ds:3, dr:8, d:2},
+  {n:'인클라인 덤벨 플라이', e:'Incline DB Fly', c:'weight', s:'상체', f:'상부 흉근 스트레치', u:'rep', ds:3, dr:12, d:1},
+  {n:'로우 케이블 크로스오버', e:'Low Cable Crossover', c:'weight', s:'상체', f:'상부 흉근', u:'rep', ds:3, dr:12, d:1},
+  {n:'펙 덱 플라이', e:'Pec Deck Fly', c:'weight', s:'상체', f:'대흉근 내측', u:'rep', ds:3, dr:12, d:1},
+  {n:'머신 체스트프레스', e:'Machine Chest Press', c:'weight', s:'상체', f:'대흉근·안내궤도', u:'rep', ds:3, dr:10, d:1},
+  {n:'스파이더맨 푸쉬업', e:'Spiderman Push Up', c:'weight', s:'상체', f:'흉근·코어 회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'클랩 푸쉬업', e:'Clap Push Up', c:'weight', s:'상체', f:'흉근 폭발력', u:'rep', ds:3, dr:8, d:3},
+  {n:'딥스 (체중·가중)', e:'Weighted Dips', c:'weight', s:'상체', f:'삼두·하부 흉근', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 상체 : 등 변형 ---
+  {n:'와이드 그립 풀업', e:'Wide Grip Pull Up', c:'weight', s:'상체', f:'광배근 넓은 자극', u:'rep', ds:3, dr:6, d:3},
+  {n:'머신 풀오버', e:'Machine Pullover', c:'weight', s:'상체', f:'광배근 격리', u:'rep', ds:3, dr:12, d:1},
+  {n:'덤벨 풀오버', e:'DB Pullover', c:'weight', s:'상체', f:'광배근·흉근 보조', u:'rep', ds:3, dr:12, d:2},
+  {n:'시얼 로우', e:'Seal Row', c:'weight', s:'상체', f:'광배근 고립', u:'rep', ds:3, dr:10, d:2},
+  {n:'메도우스 로우', e:'Meadows Row', c:'weight', s:'상체', f:'광배근·후면 삼각', u:'rep', ds:3, dr:10, d:2},
+  {n:'팬들레이 로우', e:'Pendlay Row', c:'weight', s:'상체', f:'광배근 폭발력', u:'rep', ds:3, dr:8, d:3},
+  {n:'원 암 케이블 로우', e:'One Arm Cable Row', c:'weight', s:'상체', f:'광배근 단측', u:'rep', ds:3, dr:12, d:1},
+  {n:'스트레이트 암 풀다운', e:'Straight Arm Pulldown', c:'weight', s:'상체', f:'광배근 격리', u:'rep', ds:3, dr:12, d:1},
+  {n:'클로즈 그립 로우', e:'Close Grip Row', c:'weight', s:'상체', f:'광배근 하부·대원근', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 상체 : 어깨 변형 ---
+  {n:'푸쉬 프레스', e:'Push Press', c:'weight', s:'상체', f:'삼각근·전신 파워', u:'rep', ds:3, dr:6, d:2},
+  {n:'비하인드 넥 프레스', e:'Behind Neck Press', c:'weight', s:'상체', f:'삼각근·유연성 필요', u:'rep', ds:3, dr:8, d:3},
+  {n:'시티드 덤벨 프레스', e:'Seated DB Press', c:'weight', s:'상체', f:'삼각근 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'머신 숄더 프레스', e:'Machine Shoulder Press', c:'weight', s:'상체', f:'삼각근 안내궤도', u:'rep', ds:3, dr:10, d:1},
+  {n:'케이블 리어 델트 플라이', e:'Cable Rear Delt Fly', c:'weight', s:'상체', f:'후면 삼각근', u:'rep', ds:3, dr:15, d:1},
+  {n:'리버스 펙 덱', e:'Reverse Pec Deck', c:'weight', s:'상체', f:'후면 삼각근 머신', u:'rep', ds:3, dr:15, d:1},
+  {n:'루 레이즈', e:'Lu Raise', c:'weight', s:'상체', f:'전·측면 삼각 통합', u:'rep', ds:3, dr:12, d:2},
+  {n:'하이 풀', e:'High Pull', c:'weight', s:'상체', f:'삼각근·승모 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'스캐프션', e:'Scaption', c:'weight', s:'상체', f:'전면 삼각·회전근개', u:'rep', ds:3, dr:12, d:1},
+  {n:'바벨 슈러그', e:'BB Shrug', c:'weight', s:'상체', f:'상부 승모근 중량', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 상체 : 팔 변형 ---
+  {n:'컨센트레이션 컬', e:'Concentration Curl', c:'weight', s:'상체', f:'이두 정점 수축', u:'rep', ds:3, dr:12, d:1},
+  {n:'스파이더 컬', e:'Spider Curl', c:'weight', s:'상체', f:'이두 단축 자극', u:'rep', ds:3, dr:12, d:2},
+  {n:'EZ바 컬', e:'EZ Bar Curl', c:'weight', s:'상체', f:'이두·손목 부담 감소', u:'rep', ds:3, dr:12, d:1},
+  {n:'리스트 컬', e:'Wrist Curl', c:'weight', s:'상체', f:'전완 굴근', u:'rep', ds:3, dr:15, d:1},
+  {n:'리버스 리스트 컬', e:'Reverse Wrist Curl', c:'weight', s:'상체', f:'전완 신근', u:'rep', ds:3, dr:15, d:1},
+  {n:'바벨 리버스 컬', e:'Reverse Curl', c:'weight', s:'상체', f:'상완근·전완', u:'rep', ds:3, dr:12, d:1},
+  {n:'오버헤드 케이블 컬', e:'Overhead Cable Curl', c:'weight', s:'상체', f:'이두 장두 정점', u:'rep', ds:3, dr:12, d:2},
+  {n:'딥 트라이셉 (벤치)', e:'Bench Tricep Dip', c:'weight', s:'상체', f:'삼두·체중', u:'rep', ds:3, dr:12, d:1},
+  {n:'클로즈그립 푸쉬업', e:'Close Grip Push Up', c:'weight', s:'상체', f:'삼두 체중', u:'rep', ds:3, dr:12, d:1},
+  {n:'JM 프레스', e:'JM Press', c:'weight', s:'상체', f:'삼두 내측두', u:'rep', ds:3, dr:10, d:3},
+
+  // --- 코어 추가 ---
+  {n:'토 터치', e:'Toe Touch', c:'weight', s:'코어', f:'상복부', u:'rep', ds:3, dr:15, d:1},
+  {n:'힐 터치', e:'Heel Touch', c:'weight', s:'코어', f:'복사근', u:'rep', ds:3, dr:20, d:1},
+  {n:'바이시클 크런치', e:'Bicycle Crunch', c:'weight', s:'코어', f:'복사근·복직근', u:'rep', ds:3, dr:20, d:1},
+  {n:'레그 레이즈', e:'Leg Raise', c:'weight', s:'코어', f:'하복부', u:'rep', ds:3, dr:12, d:1},
+  {n:'리버스 크런치', e:'Reverse Crunch', c:'weight', s:'코어', f:'하복부', u:'rep', ds:3, dr:15, d:1},
+  {n:'마운틴 클라이머', e:'Mountain Climber', c:'weight', s:'코어', f:'코어·심폐', u:'rep', ds:3, dr:20, d:1},
+  {n:'행잉 니 레이즈', e:'Hanging Knee Raise', c:'weight', s:'코어', f:'하복부·장요근', u:'rep', ds:3, dr:12, d:2},
+  {n:'행잉 윈드쉴드 와이퍼', e:'Hanging Windshield Wiper', c:'weight', s:'코어', f:'복사근·고급', u:'rep', ds:3, dr:8, d:3},
+  {n:'드래곤 플래그', e:'Dragon Flag', c:'weight', s:'코어', f:'전체 복근·고급', u:'rep', ds:3, dr:6, d:3},
+  {n:'웨이티드 플랭크', e:'Weighted Plank', c:'weight', s:'코어', f:'코어 고부하 등척', u:'sec', ds:3, dr:45, d:2},
+  {n:'수트케이스 캐리', e:'Suitcase Carry', c:'weight', s:'코어', f:'복사근 항측굴', u:'min', ds:3, dr:1, d:2},
+  {n:'스터빌리티 볼 크런치', e:'Stability Ball Crunch', c:'weight', s:'코어', f:'복직근·ROM 확대', u:'rep', ds:3, dr:15, d:1},
+  {n:'스터빌리티 볼 파이크', e:'Stability Ball Pike', c:'weight', s:'코어', f:'하복부·어깨 안정', u:'rep', ds:3, dr:10, d:3},
+  {n:'우드 찹 (프리웨이트)', e:'FW Wood Chop', c:'weight', s:'코어', f:'사선 코어 회전', u:'rep', ds:3, dr:12, d:2},
+  {n:'사이드 벤드', e:'Side Bend', c:'weight', s:'코어', f:'복사근', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 전신·파워 추가 ---
+  {n:'클린 앤 저크', e:'Clean & Jerk', c:'weight', s:'전신', f:'전신 올림픽 리프트', u:'rep', ds:4, dr:3, d:3},
+  {n:'행 스내치', e:'Hang Snatch', c:'weight', s:'전신', f:'전신 파워·당기기', u:'rep', ds:4, dr:3, d:3},
+  {n:'스러스터', e:'Thruster', c:'weight', s:'전신', f:'스쿼트+프레스 복합', u:'rep', ds:3, dr:8, d:2},
+  {n:'클러스터', e:'Cluster', c:'weight', s:'전신', f:'클린+스러스터 복합', u:'rep', ds:3, dr:5, d:3},
+  {n:'맨메이커', e:'Man Maker', c:'weight', s:'전신', f:'푸쉬업+로우+스러스터', u:'rep', ds:3, dr:5, d:3},
+  {n:'데빌 프레스', e:'Devil Press', c:'weight', s:'전신', f:'버피+스내치 복합', u:'rep', ds:3, dr:8, d:3},
+  {n:'케틀벨 터키시 겟업', e:'KB Turkish Get Up', c:'weight', s:'전신', f:'전신 안정·협응', u:'rep', ds:2, dr:5, d:3},
+  {n:'케틀벨 고블릿 스쿼트', e:'KB Goblet Squat', c:'weight', s:'전신', f:'대퇴사두·코어', u:'rep', ds:3, dr:12, d:1},
+  {n:'케틀벨 데드리프트', e:'KB Deadlift', c:'weight', s:'전신', f:'후면사슬 입문', u:'rep', ds:3, dr:12, d:1},
+  {n:'케틀벨 오버헤드 프레스', e:'KB OH Press', c:'weight', s:'전신', f:'삼각근·코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'케틀벨 윈드밀', e:'KB Windmill', c:'weight', s:'전신', f:'흉추·코어 통합', u:'rep', ds:2, dr:8, d:2},
+  {n:'케틀벨 루프 스쿼트', e:'KB Racked Squat', c:'weight', s:'전신', f:'코어·대퇴사두', u:'rep', ds:3, dr:10, d:2},
+  {n:'케틀벨 하이 풀', e:'KB High Pull', c:'weight', s:'전신', f:'힙 파워·삼각근', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 플라이오·심폐 ---
+  {n:'박스 점프', e:'Box Jump', c:'weight', s:'플라이오', f:'하체 폭발력', u:'rep', ds:3, dr:6, d:2},
+  {n:'드롭 점프', e:'Drop Jump', c:'weight', s:'플라이오', f:'반사 탄성 활용', u:'rep', ds:3, dr:5, d:3},
+  {n:'브로드 점프', e:'Broad Jump', c:'weight', s:'플라이오', f:'수평 폭발력', u:'rep', ds:3, dr:5, d:2},
+  {n:'래터럴 바운드', e:'Lateral Bound', c:'weight', s:'플라이오', f:'측면 폭발력', u:'rep', ds:3, dr:6, d:2},
+  {n:'턱 점프', e:'Tuck Jump', c:'weight', s:'플라이오', f:'전신 폭발력', u:'rep', ds:3, dr:8, d:2},
+  {n:'메디신볼 슬램', e:'MB Slam', c:'weight', s:'플라이오', f:'전신 수직 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'스키어 점프', e:'Skier Jump', c:'weight', s:'플라이오', f:'좌우 폭발력', u:'rep', ds:3, dr:10, d:2},
+  {n:'싱글 레그 홉', e:'SL Hop', c:'weight', s:'플라이오', f:'단일 다리 폭발력', u:'rep', ds:3, dr:6, d:3},
+  {n:'로잉 머신', e:'Rowing Machine', c:'weight', s:'심폐', f:'전신 유산소', u:'min', ds:1, dr:10, d:1},
+  {n:'에어 바이크', e:'Air Bike', c:'weight', s:'심폐', f:'전신 심폐', u:'min', ds:1, dr:10, d:1},
+  {n:'스키 에르그', e:'Ski Erg', c:'weight', s:'심폐', f:'상체 주도 심폐', u:'min', ds:1, dr:10, d:1},
+  {n:'트레드밀 인클라인 워크', e:'Incline Walk', c:'weight', s:'심폐', f:'저강도 유산소', u:'min', ds:1, dr:15, d:1},
+  {n:'점프 로프', e:'Jump Rope', c:'weight', s:'심폐', f:'전신 심폐·협응', u:'min', ds:3, dr:2, d:1},
+
+  // --- 기능성·교정 ---
+  {n:'밴디드 몬스터 워크', e:'Banded Monster Walk', c:'weight', s:'기능성', f:'중둔근 활성화', u:'rep', ds:3, dr:15, d:1},
+  {n:'밴디드 클램셸', e:'Banded Clamshell', c:'weight', s:'기능성', f:'중둔근 저항 활성', u:'rep', ds:3, dr:15, d:1},
+  {n:'밴드 풀 어파트', e:'Band Pull Apart', c:'weight', s:'기능성', f:'후면삼각·능형근', u:'rep', ds:3, dr:15, d:1},
+  {n:'밴드 페이스 풀', e:'Band Face Pull', c:'weight', s:'기능성', f:'회전근개·후면삼각', u:'rep', ds:3, dr:15, d:1},
+  {n:'밴드 디스로케이트', e:'Band Dislocate', c:'weight', s:'기능성', f:'어깨 가동성', u:'rep', ds:2, dr:10, d:1},
+  {n:'TRX 인버티드 로우', e:'TRX Inverted Row', c:'weight', s:'기능성', f:'광배근·코어·체중', u:'rep', ds:3, dr:12, d:1},
+  {n:'TRX 체스트 프레스', e:'TRX Chest Press', c:'weight', s:'기능성', f:'흉근·코어·체중', u:'rep', ds:3, dr:12, d:1},
+  {n:'TRX 페이스 풀', e:'TRX Face Pull', c:'weight', s:'기능성', f:'후면삼각·체중', u:'rep', ds:3, dr:12, d:1},
+  {n:'TRX 바이셉 컬', e:'TRX Bicep Curl', c:'weight', s:'기능성', f:'이두·체중', u:'rep', ds:3, dr:12, d:1},
+  {n:'TRX Y 레이즈', e:'TRX Y Raise', c:'weight', s:'기능성', f:'하부 승모·체중', u:'rep', ds:3, dr:10, d:2},
+  {n:'TRX 파이크', e:'TRX Pike', c:'weight', s:'기능성', f:'코어·어깨·체중', u:'rep', ds:3, dr:10, d:3},
+  {n:'하이퍼 익스텐션', e:'Hyperextension', c:'weight', s:'기능성', f:'척추기립근', u:'rep', ds:3, dr:12, d:1},
+  {n:'슬레드 풀', e:'Sled Pull', c:'weight', s:'기능성', f:'후면사슬·심폐', u:'min', ds:3, dr:1, d:2},
+  {n:'슬레드 드래그 (후방)', e:'Sled Backward Drag', c:'weight', s:'기능성', f:'대퇴사두·심폐', u:'min', ds:3, dr:1, d:1},
+  {n:'배틀로프 얼터네이팅', e:'Battle Rope Alternating', c:'weight', s:'기능성', f:'어깨·심폐', u:'sec', ds:3, dr:30, d:2},
+  {n:'배틀로프 슬램', e:'Battle Rope Slam', c:'weight', s:'기능성', f:'전신·폭발력', u:'sec', ds:3, dr:30, d:2},
+  {n:'요크 캐리', e:'Yoke Carry', c:'weight', s:'기능성', f:'전신 안정·코어', u:'min', ds:3, dr:1, d:2},
+  {n:'산드백 캐리', e:'Sandbag Carry', c:'weight', s:'기능성', f:'전신 기능성', u:'min', ds:3, dr:1, d:2},
+  {n:'월 볼', e:'Wall Ball', c:'weight', s:'기능성', f:'스쿼트+쓰로우', u:'rep', ds:3, dr:12, d:2},
+  {n:'볼 슬램 (헤비)', e:'Heavy Ball Slam', c:'weight', s:'기능성', f:'전신 파워·감속', u:'rep', ds:3, dr:10, d:2},
+
+  // =========================================================
+  // 골프 피트니스 TPI 추가 (170)
+  // =========================================================
+
+  // --- 모빌리티 : 흉추 심화 ---
+  {n:'사이드라잉 윈드밀', e:'Sidelying Windmill', c:'golf_fit', s:'모빌리티', f:'흉추 회전·측와', u:'rep', ds:2, dr:10, d:1},
+  {n:'쿼드러페드 리치백', e:'Quadruped Reach Back', c:'golf_fit', s:'모빌리티', f:'흉추 회전 후방', u:'rep', ds:2, dr:10, d:1},
+  {n:'하프 닐링 T스파인 로테이션', e:'HK T-Spine Rotation', c:'golf_fit', s:'모빌리티', f:'흉추·힙 분리 회전', u:'rep', ds:2, dr:10, d:2},
+  {n:'스레드 더 니들', e:'Thread the Needle', c:'golf_fit', s:'모빌리티', f:'흉추·어깨 회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'폼롤러 엔젤', e:'Foam Roller Angel', c:'golf_fit', s:'모빌리티', f:'흉추 신전·어깨', u:'rep', ds:2, dr:10, d:1},
+  {n:'벤치 T스파인 익스텐션', e:'Bench T-Spine Ext', c:'golf_fit', s:'모빌리티', f:'흉추 신전 강화', u:'rep', ds:2, dr:8, d:1},
+  {n:'BOX 흉추 신전', e:'Box T-Spine Ext', c:'golf_fit', s:'모빌리티', f:'흉추 과신전', u:'rep', ds:2, dr:8, d:2},
+  {n:'서서 흉추 회전 (클럽)', e:'Standing T-Rot Club', c:'golf_fit', s:'모빌리티', f:'골프자세 흉추 회전', u:'rep', ds:2, dr:10, d:1},
+
+  // --- 모빌리티 : 고관절 심화 ---
+  {n:'프록 스트레치', e:'Frog Stretch', c:'golf_fit', s:'모빌리티', f:'내전근·고관절', u:'sec', ds:2, dr:30, d:1},
+  {n:'힙 플렉서 PAILs/RAILs', e:'Hip Flexor PAILs RAILs', c:'golf_fit', s:'모빌리티', f:'힙 굴근 능동 가동', u:'sec', ds:2, dr:30, d:2},
+  {n:'해피 베이비 포즈', e:'Happy Baby Pose', c:'golf_fit', s:'모빌리티', f:'내전근·골반저', u:'sec', ds:1, dr:60, d:1},
+  {n:'90/90 PAILs/RAILs', e:'90/90 PAILs RAILs', c:'golf_fit', s:'모빌리티', f:'힙 회전 능동 강화', u:'sec', ds:2, dr:30, d:2},
+  {n:'힙 CARs', e:'Hip CARs', c:'golf_fit', s:'모빌리티', f:'고관절 전방위 능동', u:'rep', ds:2, dr:5, d:2},
+  {n:'딥 스쿼트 홀드', e:'Deep Squat Hold', c:'golf_fit', s:'모빌리티', f:'발목·힙·흉추 복합', u:'sec', ds:2, dr:30, d:1},
+  {n:'런지 위드 리치', e:'Lunge With Reach', c:'golf_fit', s:'모빌리티', f:'힙 신전+흉추 회전', u:'rep', ds:2, dr:8, d:1},
+  {n:'캐멀 포즈', e:'Camel Pose', c:'golf_fit', s:'모빌리티', f:'힙 굴근·흉추 신전', u:'sec', ds:2, dr:20, d:2},
+
+  // --- 모빌리티 : 어깨·손목 심화 ---
+  {n:'숄더 CARs', e:'Shoulder CARs', c:'golf_fit', s:'모빌리티', f:'어깨 전방위 능동', u:'rep', ds:2, dr:5, d:2},
+  {n:'어깨 PAILs/RAILs 외회전', e:'Shoulder ER PAILs', c:'golf_fit', s:'모빌리티', f:'어깨 외회전 강화', u:'sec', ds:2, dr:30, d:2},
+  {n:'손목 CARs', e:'Wrist CARs', c:'golf_fit', s:'모빌리티', f:'손목 전방위 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'손목 굴신 스트레치', e:'Wrist Flex/Ext Stretch', c:'golf_fit', s:'모빌리티', f:'손목·전완 이완', u:'sec', ds:2, dr:20, d:1},
+  {n:'래트 행 스트레치', e:'Lat Hang Stretch', c:'golf_fit', s:'모빌리티', f:'광배근·흉추 견인', u:'sec', ds:2, dr:30, d:1},
+  {n:'도어프레임 펙 스트레치', e:'Doorframe Pec Stretch', c:'golf_fit', s:'모빌리티', f:'대흉근·전면 어깨', u:'sec', ds:2, dr:30, d:1},
+
+  // --- 안정성·밸런스 심화 ---
+  {n:'리프트 오프 밸런스', e:'Lift Off Balance', c:'golf_fit', s:'안정성', f:'전이 자세 밸런스', u:'sec', ds:3, dr:20, d:2},
+  {n:'보수볼 스쿼트', e:'BOSU Squat', c:'golf_fit', s:'안정성', f:'불안정면 하체 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'스위스볼 니 터크', e:'Swiss Ball Knee Tuck', c:'golf_fit', s:'안정성', f:'코어·어깨 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'SL 토 터치', e:'SL Toe Touch', c:'golf_fit', s:'안정성', f:'밸런스·후면사슬', u:'rep', ds:3, dr:8, d:2},
+  {n:'Y밸런스 테스트', e:'Y Balance Test', c:'golf_fit', s:'안정성', f:'다방향 밸런스', u:'rep', ds:3, dr:5, d:2},
+  {n:'인라인 런지 (FMS)', e:'Inline Lunge', c:'golf_fit', s:'안정성', f:'좌우 대칭·밸런스', u:'rep', ds:3, dr:8, d:2},
+  {n:'싱글 레그 힙 에어플레인', e:'SL Hip Airplane', c:'golf_fit', s:'안정성', f:'힙 3D 회전 안정', u:'rep', ds:2, dr:8, d:3},
+  {n:'스타 엑서사이즈', e:'Star Excursion', c:'golf_fit', s:'안정성', f:'다방향 리치 안정', u:'rep', ds:2, dr:5, d:2},
+  {n:'터키시 겟업 반동작', e:'TGU Half', c:'golf_fit', s:'안정성', f:'하프 겟업·어깨 안정', u:'rep', ds:2, dr:5, d:2},
+  {n:'서서 밴드 프레스 (싱글 암)', e:'Standing Band Press', c:'golf_fit', s:'안정성', f:'코어 항회전·프레스', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 회전 파워 심화 ---
+  {n:'MB 리버스 쓰로우 (벽)', e:'MB Reverse Wall Throw', c:'golf_fit', s:'파워', f:'역방향 회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'MB 리릭 쓰로우', e:'MB Recoil Throw', c:'golf_fit', s:'파워', f:'반동 회전 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'MB 스텝 쓰로우', e:'MB Step Throw', c:'golf_fit', s:'파워', f:'스텝+회전 통합', u:'rep', ds:3, dr:8, d:2},
+  {n:'MB 숄더 숏풋', e:'MB Shotput Throw', c:'golf_fit', s:'파워', f:'단방향 상체 폭발', u:'rep', ds:3, dr:8, d:2},
+  {n:'밴드 로테이션 프레스', e:'Band Rotation Press', c:'golf_fit', s:'파워', f:'회전+프레스 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'케틀벨 클린', e:'KB Clean', c:'golf_fit', s:'파워', f:'힙 파워·협응', u:'rep', ds:3, dr:8, d:2},
+  {n:'점프 스쿼트 (골프 셋업)', e:'Golf Setup Jump Squat', c:'golf_fit', s:'파워', f:'골프 자세 하체 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'로테이셔널 리버스 런지', e:'Rotational Reverse Lunge', c:'golf_fit', s:'파워', f:'회전+런지 복합', u:'rep', ds:3, dr:8, d:2},
+  {n:'하프 닐링 랜드마인', e:'HK Landmine Rotation', c:'golf_fit', s:'파워', f:'힙 고정 상체 회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'슬레드 로테이션', e:'Sled Rotation', c:'golf_fit', s:'파워', f:'회전 저항 파워', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 코어 심화 ---
+  {n:'스위스볼 스터 더 팟', e:'Swiss Ball Stir the Pot', c:'golf_fit', s:'코어', f:'불안정면 코어', u:'rep', ds:3, dr:10, d:3},
+  {n:'팔로프 프레스 (하프닐링)', e:'HK Pallof Press', c:'golf_fit', s:'코어', f:'힙 고정 항회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'플랭크 숄더 탭', e:'Plank Shoulder Tap', c:'golf_fit', s:'코어', f:'항회전·어깨 안정', u:'rep', ds:3, dr:20, d:2},
+  {n:'사이드 플랭크 로테이션', e:'Side Plank Rotation', c:'golf_fit', s:'코어', f:'복사근 회전 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'비어 크롤', e:'Bear Crawl', c:'golf_fit', s:'코어', f:'코어·사지 협응', u:'min', ds:3, dr:1, d:2},
+  {n:'사이드 크롤', e:'Lateral Bear Crawl', c:'golf_fit', s:'코어', f:'코어 측면 이동', u:'min', ds:3, dr:1, d:2},
+  {n:'바디소우 (슬라이더)', e:'Body Saw', c:'golf_fit', s:'코어', f:'플랭크 동적 강화', u:'rep', ds:3, dr:10, d:3},
+  {n:'데드버그 밴드', e:'Dead Bug Band', c:'golf_fit', s:'코어', f:'저항 코어 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'힙 크로스오버 (양와위)', e:'Hip Crossover', c:'golf_fit', s:'코어', f:'회전 모빌리티+코어', u:'rep', ds:2, dr:10, d:1},
+  {n:'리버스 크런치 (골프 회전)', e:'Golf Reverse Crunch', c:'golf_fit', s:'코어', f:'하복부 회전 강화', u:'rep', ds:3, dr:12, d:2},
+
+  // --- 하체 기능 강화 ---
+  {n:'미니밴드 스쿼트', e:'Mini Band Squat', c:'golf_fit', s:'하체', f:'중둔근 활성 스쿼트', u:'rep', ds:3, dr:12, d:1},
+  {n:'미니밴드 래터럴 워크', e:'Mini Band Lat Walk', c:'golf_fit', s:'하체', f:'중둔근 측면 활성', u:'rep', ds:3, dr:15, d:1},
+  {n:'골프 셋업 스쿼트', e:'Golf Setup Squat', c:'golf_fit', s:'하체', f:'어드레스 자세 강화', u:'rep', ds:3, dr:10, d:1},
+  {n:'라이트 래터럴 스텝업', e:'Lateral Step Up Light', c:'golf_fit', s:'하체', f:'측면 하체 안정', u:'rep', ds:3, dr:10, d:1},
+  {n:'발뒤꿈치 레이즈 (밸런스)', e:'Heel Raise Balance', c:'golf_fit', s:'하체', f:'종아리·발목 안정', u:'rep', ds:3, dr:15, d:1},
+  {n:'미니밴드 글루트 브릿지', e:'Mini Band Bridge', c:'golf_fit', s:'하체', f:'둔근+중둔근 동시', u:'rep', ds:3, dr:15, d:1},
+  {n:'불가리안 SS (TPI)', e:'TPI Bulgarian SS', c:'golf_fit', s:'하체', f:'단측 하체·골프 밸런스', u:'rep', ds:3, dr:10, d:2},
+  {n:'스텝 다운', e:'Step Down', c:'golf_fit', s:'하체', f:'대퇴사두 편심·무릎 안정', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 상체 견갑·회전근개 심화 ---
+  {n:'프론 리프트 오프', e:'Prone Lift Off', c:'golf_fit', s:'상체', f:'후면 삼각·능형근', u:'rep', ds:3, dr:10, d:1},
+  {n:'사이드라잉 외회전', e:'Sidelying ER', c:'golf_fit', s:'상체', f:'회전근개 외회전', u:'rep', ds:3, dr:15, d:1},
+  {n:'로테이터 커프 밴드 4방향', e:'RC Band 4-Way', c:'golf_fit', s:'상체', f:'회전근개 전방위', u:'rep', ds:3, dr:12, d:1},
+  {n:'풀캔 엘리베이션', e:'Full Can Elevation', c:'golf_fit', s:'상체', f:'극상근 활성', u:'rep', ds:3, dr:12, d:1},
+  {n:'프론 I·Y·T·W·L', e:'Prone IYTWL', c:'golf_fit', s:'상체', f:'견갑 안정 복합', u:'rep', ds:3, dr:8, d:1},
+  {n:'리트랙션 프레스', e:'Retraction Press', c:'golf_fit', s:'상체', f:'견갑 후인+프레스', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 외회전 90/90', e:'Band ER 90/90', c:'golf_fit', s:'상체', f:'90도 위치 외회전', u:'rep', ds:3, dr:15, d:1},
+  {n:'숄더 탭 플랭크', e:'Shoulder Tap Plank', c:'golf_fit', s:'상체', f:'견갑 안정·코어', u:'rep', ds:3, dr:20, d:2},
+
+  // --- TPI 평가 관련 교정 ---
+  {n:'오버헤드 딥 스쿼트 교정', e:'OHS Corrective', c:'golf_fit', s:'교정', f:'TPI OHS 결함 대응', u:'rep', ds:2, dr:10, d:1},
+  {n:'토 터치 교정 드릴', e:'Toe Touch Corrective', c:'golf_fit', s:'교정', f:'TPI 토터치 결함 대응', u:'rep', ds:2, dr:10, d:1},
+  {n:'펰빅 틸트 교정', e:'Pelvic Tilt Corrective', c:'golf_fit', s:'교정', f:'골반 전·후방 경사 교정', u:'rep', ds:2, dr:10, d:1},
+  {n:'셋업 포스처 교정', e:'Setup Posture Corrective', c:'golf_fit', s:'교정', f:'C/S 포스처 교정', u:'rep', ds:2, dr:10, d:1},
+  {n:'하부교차증후군 교정', e:'Lower Cross Corrective', c:'golf_fit', s:'교정', f:'장요근·둔근 불균형', u:'rep', ds:2, dr:10, d:2},
+  {n:'상부교차증후군 교정', e:'Upper Cross Corrective', c:'golf_fit', s:'교정', f:'승모·흉근 불균형', u:'rep', ds:2, dr:10, d:2},
+  {n:'스웨이 교정 드릴', e:'Sway Corrective', c:'golf_fit', s:'교정', f:'힙 측면 이동 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'슬라이드 교정 드릴', e:'Slide Corrective', c:'golf_fit', s:'교정', f:'힙 측면 이동 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'리버스 스파인 교정', e:'Reverse Spine Corrective', c:'golf_fit', s:'교정', f:'흉추 측굴 역전 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'얼리 익스텐션 교정', e:'Early Ext Corrective', c:'golf_fit', s:'교정', f:'임팩트 시 힙 돌출 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'캐스팅 교정 드릴', e:'Casting Corrective', c:'golf_fit', s:'교정', f:'라그 소실 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'치킨 윙 교정 드릴', e:'Chicken Wing Corrective', c:'golf_fit', s:'교정', f:'팔꿈치 벌어짐 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'오버 더 탑 교정', e:'Over the Top Corrective', c:'golf_fit', s:'교정', f:'아웃투인 경로 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'헹 백 교정', e:'Hang Back Corrective', c:'golf_fit', s:'교정', f:'체중이동 미완 교정', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 워밍업·활성화 심화 ---
+  {n:'스코피언 스트레치', e:'Scorpion Stretch', c:'golf_fit', s:'워밍업', f:'흉추·힙 동적이완', u:'rep', ds:1, dr:8, d:1},
+  {n:'프론 스콜피언', e:'Prone Scorpion', c:'golf_fit', s:'워밍업', f:'흉추 회전 이완', u:'rep', ds:1, dr:8, d:1},
+  {n:'A스킵', e:'A-Skip', c:'golf_fit', s:'워밍업', f:'고관절 굴곡 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'캐리오카', e:'Carioca', c:'golf_fit', s:'워밍업', f:'회전·측면 이동 활성', u:'min', ds:1, dr:1, d:1},
+  {n:'셔플', e:'Lateral Shuffle', c:'golf_fit', s:'워밍업', f:'측면 이동 활성화', u:'min', ds:1, dr:1, d:1},
+  {n:'암 스윙 (교차)', e:'Arm Swing Cross', c:'golf_fit', s:'워밍업', f:'어깨·흉곽 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'트렁크 로테이션 (클럽)', e:'Club Trunk Rotation', c:'golf_fit', s:'워밍업', f:'골프 전 흉추 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'하프 닐링 힙 써클', e:'HK Hip Circle', c:'golf_fit', s:'워밍업', f:'힙 가동 활성화', u:'rep', ds:1, dr:10, d:1},
+  {n:'밴드 워킹 하이니', e:'Band Walking High Knee', c:'golf_fit', s:'워밍업', f:'하체 저항 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'힙 라커 (전후)', e:'Hip Rocker', c:'golf_fit', s:'워밍업', f:'힙 굴곡 이완', u:'rep', ds:1, dr:10, d:1},
+
+  // --- 쿨다운 심화 ---
+  {n:'크로스 레그 포워드 폴드', e:'Cross Leg Forward Fold', c:'golf_fit', s:'쿨다운', f:'둔근·IT밴드 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'피규어4 스트레치', e:'Figure 4 Stretch', c:'golf_fit', s:'쿨다운', f:'이상근·외회전근', u:'sec', ds:2, dr:30, d:1},
+  {n:'수파인 스파이널 트위스트', e:'Supine Spinal Twist', c:'golf_fit', s:'쿨다운', f:'흉추·요추 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'반 비둘기 포즈', e:'Half Pigeon', c:'golf_fit', s:'쿨다운', f:'힙 외회전근 심층', u:'sec', ds:2, dr:30, d:1},
+  {n:'코브라 포즈', e:'Cobra Pose', c:'golf_fit', s:'쿨다운', f:'복부·흉추 신전', u:'sec', ds:1, dr:30, d:1},
+  {n:'다운독', e:'Downward Dog', c:'golf_fit', s:'쿨다운', f:'햄스트링·종아리·어깨', u:'sec', ds:1, dr:30, d:1},
+  {n:'업독', e:'Upward Dog', c:'golf_fit', s:'쿨다운', f:'흉추 신전·복부 이완', u:'sec', ds:1, dr:30, d:1},
+  {n:'캣-카우 호흡', e:'Cat-Cow Breathing', c:'golf_fit', s:'쿨다운', f:'척추 굴신+호흡', u:'rep', ds:1, dr:10, d:1},
+  {n:'시바사나 호흡', e:'Savasana Breathing', c:'golf_fit', s:'쿨다운', f:'전신 이완·자율신경', u:'min', ds:1, dr:3, d:1},
+  {n:'프레츨 스트레치', e:'Pretzel Stretch', c:'golf_fit', s:'쿨다운', f:'흉추·힙·대퇴 복합', u:'sec', ds:2, dr:30, d:1},
+
+  // --- 호흡·명상 ---
+  {n:'크로코다일 호흡', e:'Crocodile Breathing', c:'golf_fit', s:'호흡', f:'복식호흡 인지', u:'sec', ds:1, dr:120, d:1},
+  {n:'박스 호흡', e:'Box Breathing', c:'golf_fit', s:'호흡', f:'4-4-4-4 호흡 패턴', u:'min', ds:1, dr:3, d:1},
+  {n:'힙 에어플레인 호흡', e:'Hip Airplane Breathing', c:'golf_fit', s:'호흡', f:'밸런스+호흡 통합', u:'rep', ds:2, dr:8, d:2},
+  {n:'하프 닐링 호흡', e:'HK Breathing', c:'golf_fit', s:'호흡', f:'코어 활성+호흡', u:'sec', ds:1, dr:60, d:1},
+
+  // --- 폼롤링·연부조직 ---
+  {n:'IT밴드 폼롤링', e:'IT Band Foam Roll', c:'golf_fit', s:'폼롤링', f:'장경인대 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'대퇴사두 폼롤링', e:'Quad Foam Roll', c:'golf_fit', s:'폼롤링', f:'대퇴사두 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'햄스트링 폼롤링', e:'Hamstring Foam Roll', c:'golf_fit', s:'폼롤링', f:'햄스트링 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'둔근 폼롤링', e:'Glute Foam Roll', c:'golf_fit', s:'폼롤링', f:'둔근 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'내전근 폼롤링', e:'Adductor Foam Roll', c:'golf_fit', s:'폼롤링', f:'내전근 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'흉추 폼롤링 (횡)', e:'T-Spine Cross FR', c:'golf_fit', s:'폼롤링', f:'흉추 분절 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'광배근 폼롤링', e:'Lat Foam Roll', c:'golf_fit', s:'폼롤링', f:'광배근 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'전완 폼롤링', e:'Forearm Foam Roll', c:'golf_fit', s:'폼롤링', f:'전완 이완·골프 엘보', u:'sec', ds:1, dr:60, d:1},
+  {n:'발바닥 라크로스볼', e:'Foot Lacrosse Ball', c:'golf_fit', s:'폼롤링', f:'족저근막 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'견갑 라크로스볼', e:'Scapula Lacrosse Ball', c:'golf_fit', s:'폼롤링', f:'능형근·견갑하근 이완', u:'sec', ds:1, dr:60, d:1},
+
+  // =========================================================
+  // 골프 스킬 훈련 추가 (160)
+  // =========================================================
+
+  // --- 풀 스윙 : 드라이버 ---
+  {n:'드라이버 티 높이 드릴', e:'Driver Tee Height', c:'golf_skill', s:'드라이버', f:'적정 티 높이 세팅', u:'min', ds:1, dr:10, d:1},
+  {n:'드라이버 어퍼 블로 드릴', e:'Driver Upper Blow', c:'golf_skill', s:'드라이버', f:'상향 타격 연습', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 발사각 조절', e:'Driver Launch Angle', c:'golf_skill', s:'드라이버', f:'최적 발사각', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 페이드 연습', e:'Driver Fade', c:'golf_skill', s:'드라이버', f:'페이드 구질', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 드로우 연습', e:'Driver Draw', c:'golf_skill', s:'드라이버', f:'드로우 구질', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 스매시 팩터', e:'Driver Smash Factor', c:'golf_skill', s:'드라이버', f:'중심 타격 정확도', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 거리 도전', e:'Driver Distance', c:'golf_skill', s:'드라이버', f:'최대 비거리', u:'rep', ds:1, dr:20, d:2},
+  {n:'드라이버 페어웨이 안착', e:'Driver Fairway Hit', c:'golf_skill', s:'드라이버', f:'정확도 우선', u:'rep', ds:1, dr:20, d:2},
+
+  // --- 풀 스윙 : 아이언 ---
+  {n:'7번 아이언 기본 스윙', e:'7i Basic Swing', c:'golf_skill', s:'아이언', f:'중간 아이언 기본', u:'rep', ds:3, dr:15, d:1},
+  {n:'숏 아이언 컨트롤', e:'Short Iron Control', c:'golf_skill', s:'아이언', f:'9i-PW 정확도', u:'rep', ds:3, dr:15, d:1},
+  {n:'롱 아이언 연습', e:'Long Iron Practice', c:'golf_skill', s:'아이언', f:'4i-5i 컨택', u:'rep', ds:3, dr:10, d:3},
+  {n:'디센딩 블로 드릴', e:'Descending Blow', c:'golf_skill', s:'아이언', f:'다운블로 타격', u:'rep', ds:3, dr:10, d:2},
+  {n:'디봇 패턴 체크', e:'Divot Pattern Check', c:'golf_skill', s:'아이언', f:'디봇 방향·깊이', u:'rep', ds:3, dr:10, d:2},
+  {n:'아이언 거리 래더', e:'Iron Distance Ladder', c:'golf_skill', s:'아이언', f:'클럽별 거리 확인', u:'min', ds:1, dr:20, d:1},
+  {n:'아이언 페이드', e:'Iron Fade', c:'golf_skill', s:'아이언', f:'아이언 페이드 구질', u:'rep', ds:3, dr:10, d:2},
+  {n:'아이언 드로우', e:'Iron Draw', c:'golf_skill', s:'아이언', f:'아이언 드로우 구질', u:'rep', ds:3, dr:10, d:2},
+  {n:'녹다운 샷', e:'Knockdown Shot', c:'golf_skill', s:'아이언', f:'낮은 탄도 컨트롤', u:'rep', ds:3, dr:10, d:2},
+  {n:'하이 샷', e:'High Shot', c:'golf_skill', s:'아이언', f:'높은 탄도 컨트롤', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 풀 스윙 : 우드·유틸리티 ---
+  {n:'페어웨이 우드 바닥 컨택', e:'FW Wood Ground Contact', c:'golf_skill', s:'우드', f:'바닥 쓸기 타격', u:'rep', ds:3, dr:10, d:2},
+  {n:'3번 우드 티샷', e:'3W Tee Shot', c:'golf_skill', s:'우드', f:'우드 티샷 안정성', u:'rep', ds:3, dr:10, d:2},
+  {n:'유틸리티 스윙', e:'Utility Swing', c:'golf_skill', s:'우드', f:'하이브리드 활용', u:'rep', ds:3, dr:10, d:2},
+  {n:'페어웨이 우드 타겟 연습', e:'FW Wood Target', c:'golf_skill', s:'우드', f:'방향 정확도', u:'rep', ds:1, dr:15, d:2},
+
+  // --- 숏게임 심화 ---
+  {n:'56도 웨지 풀 샷', e:'56° Wedge Full', c:'golf_skill', s:'숏게임', f:'56도 풀샷 거리', u:'rep', ds:3, dr:10, d:1},
+  {n:'52도 웨지 풀 샷', e:'52° Wedge Full', c:'golf_skill', s:'숏게임', f:'52도 풀샷 거리', u:'rep', ds:3, dr:10, d:1},
+  {n:'60도 웨지 30m', e:'60° Wedge 30m', c:'golf_skill', s:'숏게임', f:'60도 단거리', u:'rep', ds:3, dr:10, d:2},
+  {n:'벙커 립 넘기기', e:'Bunker Lip Clear', c:'golf_skill', s:'숏게임', f:'높은 벙커 탈출', u:'rep', ds:3, dr:10, d:3},
+  {n:'하드팬 칩', e:'Hardpan Chip', c:'golf_skill', s:'숏게임', f:'딱딱한 라이 칩', u:'rep', ds:3, dr:10, d:2},
+  {n:'러프 칩', e:'Rough Chip', c:'golf_skill', s:'숏게임', f:'긴 잔디 칩', u:'rep', ds:3, dr:10, d:2},
+  {n:'프린지 칩', e:'Fringe Chip', c:'golf_skill', s:'숏게임', f:'그린 주변 칩', u:'rep', ds:3, dr:15, d:1},
+  {n:'오르막 칩', e:'Uphill Chip', c:'golf_skill', s:'숏게임', f:'오르막 라이 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'내리막 칩', e:'Downhill Chip', c:'golf_skill', s:'숏게임', f:'내리막 라이 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'사이드힐 칩 (볼 위)', e:'Sidehill Chip Above', c:'golf_skill', s:'숏게임', f:'볼 높은 경사 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'사이드힐 칩 (볼 아래)', e:'Sidehill Chip Below', c:'golf_skill', s:'숏게임', f:'볼 낮은 경사 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'스핀 컨트롤 웨지', e:'Spin Control Wedge', c:'golf_skill', s:'숏게임', f:'백스핀량 조절', u:'rep', ds:3, dr:10, d:3},
+  {n:'범프 앤 런', e:'Bump and Run', c:'golf_skill', s:'숏게임', f:'7i-8i 낮은 어프로치', u:'rep', ds:3, dr:15, d:1},
+  {n:'텍사스 웨지', e:'Texas Wedge', c:'golf_skill', s:'숏게임', f:'퍼터 그린 밖 활용', u:'rep', ds:3, dr:10, d:1},
+  {n:'벙커 거리 조절', e:'Bunker Distance Control', c:'golf_skill', s:'숏게임', f:'벙커 내 거리 감각', u:'rep', ds:3, dr:10, d:2},
+  {n:'프라이드 에그 벙커', e:'Fried Egg Bunker', c:'golf_skill', s:'숏게임', f:'묻힌 라이 벙커', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 퍼팅 심화 ---
+  {n:'클록 퍼팅 드릴', e:'Clock Putting', c:'golf_skill', s:'퍼팅', f:'4방향 짧은 퍼트', u:'min', ds:1, dr:15, d:1},
+  {n:'3-6-9 퍼팅', e:'3-6-9 Putting', c:'golf_skill', s:'퍼팅', f:'단계별 거리 연습', u:'min', ds:1, dr:15, d:1},
+  {n:'코인 퍼팅', e:'Coin Putting', c:'golf_skill', s:'퍼팅', f:'작은 타겟 집중', u:'min', ds:1, dr:10, d:2},
+  {n:'퍼터 페이스 컨트롤', e:'Putter Face Control', c:'golf_skill', s:'퍼팅', f:'직각 임팩트 정밀도', u:'min', ds:1, dr:10, d:1},
+  {n:'퍼팅 스트로크 길이', e:'Stroke Length Control', c:'golf_skill', s:'퍼팅', f:'거리별 스트로크 크기', u:'min', ds:1, dr:10, d:1},
+  {n:'AimPoint 기본', e:'AimPoint Basic', c:'golf_skill', s:'퍼팅', f:'경사 기반 에임', u:'min', ds:1, dr:10, d:2},
+  {n:'더블 브레이크 퍼팅', e:'Double Break Putt', c:'golf_skill', s:'퍼팅', f:'S자 라인 읽기', u:'min', ds:1, dr:10, d:3},
+  {n:'다운힐 퍼팅', e:'Downhill Putt', c:'golf_skill', s:'퍼팅', f:'내리막 속도 조절', u:'min', ds:1, dr:10, d:2},
+  {n:'업힐 퍼팅', e:'Uphill Putt', c:'golf_skill', s:'퍼팅', f:'오르막 거리 감각', u:'min', ds:1, dr:10, d:1},
+  {n:'퍼팅 프레셔 게임', e:'Putting Pressure Game', c:'golf_skill', s:'퍼팅', f:'압박 상황 퍼팅', u:'min', ds:1, dr:10, d:2},
+
+  // --- 구질·탄도 컨트롤 ---
+  {n:'스트레이트 샷 연습', e:'Straight Shot', c:'golf_skill', s:'구질', f:'직구 반복', u:'rep', ds:3, dr:15, d:1},
+  {n:'인텐셔널 페이드', e:'Intentional Fade', c:'golf_skill', s:'구질', f:'의도적 페이드', u:'rep', ds:3, dr:10, d:2},
+  {n:'인텐셔널 드로우', e:'Intentional Draw', c:'golf_skill', s:'구질', f:'의도적 드로우', u:'rep', ds:3, dr:10, d:2},
+  {n:'슬라이스 교정 드릴', e:'Slice Fix Drill', c:'golf_skill', s:'구질', f:'아웃투인 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'훅 교정 드릴', e:'Hook Fix Drill', c:'golf_skill', s:'구질', f:'인투아웃 과다 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'펀치 샷', e:'Punch Shot', c:'golf_skill', s:'구질', f:'바람 대응 낮은 탄도', u:'rep', ds:3, dr:10, d:2},
+  {n:'스팅어 샷', e:'Stinger Shot', c:'golf_skill', s:'구질', f:'극도 낮은 탄도', u:'rep', ds:3, dr:10, d:3},
+  {n:'탄도 높이 변화', e:'Trajectory Change', c:'golf_skill', s:'구질', f:'고·중·저 탄도 전환', u:'rep', ds:3, dr:10, d:2},
+  {n:'9 샷 드릴', e:'9 Shot Drill', c:'golf_skill', s:'구질', f:'9가지 구질 통합', u:'min', ds:1, dr:30, d:3},
+
+  // --- 경사 라이 ---
+  {n:'오르막 라이 연습', e:'Uphill Lie', c:'golf_skill', s:'경사', f:'오르막 어드레스·스윙', u:'rep', ds:3, dr:10, d:2},
+  {n:'내리막 라이 연습', e:'Downhill Lie', c:'golf_skill', s:'경사', f:'내리막 어드레스·스윙', u:'rep', ds:3, dr:10, d:2},
+  {n:'볼 위 사이드힐', e:'Sidehill Above Feet', c:'golf_skill', s:'경사', f:'볼 높은 경사', u:'rep', ds:3, dr:10, d:2},
+  {n:'볼 아래 사이드힐', e:'Sidehill Below Feet', c:'golf_skill', s:'경사', f:'볼 낮은 경사', u:'rep', ds:3, dr:10, d:2},
+  {n:'복합 경사 대응', e:'Combined Slope', c:'golf_skill', s:'경사', f:'경사 복합 대응', u:'rep', ds:3, dr:10, d:3},
+
+  // --- 트러블 샷 ---
+  {n:'나무 아래 탈출', e:'Under Tree Escape', c:'golf_skill', s:'트러블', f:'낮은 탄도 탈출', u:'rep', ds:3, dr:8, d:2},
+  {n:'러프 탈출', e:'Rough Escape', c:'golf_skill', s:'트러블', f:'긴 잔디 탈출', u:'rep', ds:3, dr:10, d:2},
+  {n:'딥 러프 탈출', e:'Deep Rough Escape', c:'golf_skill', s:'트러블', f:'깊은 러프 힘조절', u:'rep', ds:3, dr:8, d:3},
+  {n:'페어웨이 벙커 샷', e:'FW Bunker Shot', c:'golf_skill', s:'트러블', f:'페어웨이 벙커 클린컨택', u:'rep', ds:3, dr:10, d:3},
+  {n:'워터 해저드 옆 샷', e:'Water Hazard Shot', c:'golf_skill', s:'트러블', f:'물 근처 안전 탈출', u:'rep', ds:3, dr:8, d:2},
+  {n:'베어 라이 샷', e:'Bare Lie Shot', c:'golf_skill', s:'트러블', f:'맨 흙 컨택', u:'rep', ds:3, dr:10, d:2},
+  {n:'디봇 홀 샷', e:'Divot Hole Shot', c:'golf_skill', s:'트러블', f:'디봇 자국 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'나무 뒤 회피 샷', e:'Tree Recovery Shot', c:'golf_skill', s:'트러블', f:'장애물 회피 구질', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 코스 매니지먼트·실전 ---
+  {n:'타겟 에어리어 연습', e:'Target Area Practice', c:'golf_skill', s:'실전', f:'영역 타겟팅', u:'min', ds:1, dr:15, d:1},
+  {n:'코스 시뮬레이션', e:'Course Simulation', c:'golf_skill', s:'실전', f:'가상 홀 라운드', u:'min', ds:1, dr:30, d:2},
+  {n:'레이업 전략 연습', e:'Layup Strategy', c:'golf_skill', s:'실전', f:'안전 레이업 판단', u:'min', ds:1, dr:10, d:1},
+  {n:'클럽 선택 판단', e:'Club Selection', c:'golf_skill', s:'실전', f:'상황별 클럽 판단', u:'min', ds:1, dr:10, d:1},
+  {n:'바람 읽기 연습', e:'Wind Reading', c:'golf_skill', s:'실전', f:'풍향·풍속 대응', u:'min', ds:1, dr:10, d:2},
+  {n:'디스턴스 매칭 게임', e:'Distance Matching', c:'golf_skill', s:'실전', f:'호출 거리 맞추기', u:'min', ds:1, dr:15, d:2},
+  {n:'1번홀 루틴 시뮬레이션', e:'1st Hole Routine', c:'golf_skill', s:'실전', f:'첫 티샷 압박 대응', u:'rep', ds:1, dr:5, d:2},
+  {n:'파5 전략 연습', e:'Par 5 Strategy', c:'golf_skill', s:'실전', f:'파5 공략 판단', u:'min', ds:1, dr:10, d:2},
+  {n:'파3 전략 연습', e:'Par 3 Strategy', c:'golf_skill', s:'실전', f:'파3 클럽선택·조준', u:'min', ds:1, dr:10, d:1},
+  {n:'3퍼트 방지 드릴', e:'3-Putt Prevention', c:'golf_skill', s:'실전', f:'장거리 퍼트 잔여 줄이기', u:'min', ds:1, dr:15, d:1},
+
+  // --- 연습장·루틴 ---
+  {n:'블록 연습 루틴', e:'Block Practice', c:'golf_skill', s:'연습루틴', f:'반복 연습 구성', u:'min', ds:1, dr:30, d:1},
+  {n:'랜덤 연습 루틴', e:'Random Practice', c:'golf_skill', s:'연습루틴', f:'무작위 클럽·타겟', u:'min', ds:1, dr:30, d:2},
+  {n:'인터리빙 연습', e:'Interleaved Practice', c:'golf_skill', s:'연습루틴', f:'클럽 교차 연습', u:'min', ds:1, dr:30, d:2},
+  {n:'숏게임 30분 루틴', e:'Short Game 30min', c:'golf_skill', s:'연습루틴', f:'숏게임 종합 루틴', u:'min', ds:1, dr:30, d:1},
+  {n:'풀 스윙 30분 루틴', e:'Full Swing 30min', c:'golf_skill', s:'연습루틴', f:'풀스윙 종합 루틴', u:'min', ds:1, dr:30, d:1},
+  {n:'퍼팅 20분 루틴', e:'Putting 20min', c:'golf_skill', s:'연습루틴', f:'퍼팅 종합 루틴', u:'min', ds:1, dr:20, d:1},
+  {n:'60분 종합 연습', e:'60min Full Practice', c:'golf_skill', s:'연습루틴', f:'풀·숏·퍼팅 종합', u:'min', ds:1, dr:60, d:1},
+  {n:'라운드 전 워밍업', e:'Pre-Round Warmup', c:'golf_skill', s:'연습루틴', f:'라운드 전 10분 루틴', u:'min', ds:1, dr:10, d:1},
+
+  // --- 멘탈·심리 심화 ---
+  {n:'루틴 타이머 훈련', e:'Routine Timer', c:'golf_skill', s:'멘탈', f:'루틴 시간 일관성', u:'rep', ds:1, dr:10, d:1},
+  {n:'미스 샷 리커버리', e:'Miss Recovery', c:'golf_skill', s:'멘탈', f:'실수 후 감정 전환', u:'rep', ds:1, dr:5, d:2},
+  {n:'프레셔 샷 시뮬레이션', e:'Pressure Simulation', c:'golf_skill', s:'멘탈', f:'압박 상황 샷', u:'rep', ds:1, dr:10, d:2},
+  {n:'커밋먼트 드릴', e:'Commitment Drill', c:'golf_skill', s:'멘탈', f:'샷 결정 후 실행', u:'rep', ds:1, dr:10, d:1},
+  {n:'포스트 샷 루틴', e:'Post-Shot Routine', c:'golf_skill', s:'멘탈', f:'샷 후 평가·전환', u:'rep', ds:1, dr:10, d:1},
+  {n:'온코스 마인드셋', e:'On-Course Mindset', c:'golf_skill', s:'멘탈', f:'라운드 중 심리 관리', u:'min', ds:1, dr:10, d:2},
+  {n:'퍼포먼스 저널링', e:'Performance Journaling', c:'golf_skill', s:'멘탈', f:'훈련 기록·반성', u:'min', ds:1, dr:10, d:1},
+
+  // =========================================================
+  // 웨이트 트레이닝 추가 2차 (130)
+  // =========================================================
+
+  // --- 하체 변형 ---
+  {n:'바벨 힙 쓰러스트', e:'BB Hip Thrust', c:'weight', s:'하체', f:'둔근 고중량', u:'rep', ds:3, dr:10, d:2},
+  {n:'프로그 펌프', e:'Frog Pump', c:'weight', s:'하체', f:'둔근 활성화 고반복', u:'rep', ds:3, dr:20, d:1},
+  {n:'덤벨 런지 (제자리)', e:'DB Stationary Lunge', c:'weight', s:'하체', f:'대퇴사두·둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'바벨 커튼시 런지', e:'BB Curtsy Lunge', c:'weight', s:'하체', f:'내전근·둔근 중량', u:'rep', ds:3, dr:10, d:2},
+  {n:'싱글 레그 스쿼트 (박스)', e:'SL Squat to Box', c:'weight', s:'하체', f:'단일다리 근력 보조', u:'rep', ds:3, dr:8, d:2},
+  {n:'스미스 머신 런지', e:'Smith Lunge', c:'weight', s:'하체', f:'안내궤도 런지', u:'rep', ds:3, dr:10, d:1},
+  {n:'펜들럼 스쿼트 머신', e:'Pendulum Squat Machine', c:'weight', s:'하체', f:'대퇴사두 집중 머신', u:'rep', ds:3, dr:12, d:1},
+  {n:'V스쿼트 머신', e:'V Squat Machine', c:'weight', s:'하체', f:'대퇴사두·둔근 머신', u:'rep', ds:3, dr:10, d:1},
+  {n:'시저 런지', e:'Scissor Lunge', c:'weight', s:'하체', f:'런지 점프 교차', u:'rep', ds:3, dr:10, d:2},
+  {n:'스케이터 점프', e:'Skater Jump', c:'weight', s:'하체', f:'측면 하체 폭발력', u:'rep', ds:3, dr:10, d:2},
+  {n:'덕 워크', e:'Duck Walk', c:'weight', s:'하체', f:'대퇴사두 저자세', u:'min', ds:3, dr:1, d:2},
+  {n:'케이블 킥백', e:'Cable Kickback', c:'weight', s:'하체', f:'대둔근 격리', u:'rep', ds:3, dr:12, d:1},
+  {n:'리버스 하이퍼 머신', e:'Reverse Hyper Machine', c:'weight', s:'하체', f:'둔근·요추 감압', u:'rep', ds:3, dr:12, d:2},
+  {n:'스탠딩 레그 컬', e:'Standing Leg Curl', c:'weight', s:'하체', f:'햄스트링 단측', u:'rep', ds:3, dr:12, d:1},
+  {n:'스미스 카프 레이즈', e:'Smith Calf Raise', c:'weight', s:'하체', f:'종아리 고중량', u:'rep', ds:3, dr:15, d:1},
+
+  // --- 상체 : 가슴·등 추가 ---
+  {n:'스미스 인클라인 벤치', e:'Smith Incline Bench', c:'weight', s:'상체', f:'상부 흉근 안내', u:'rep', ds:3, dr:10, d:1},
+  {n:'체스트 프레스 머신', e:'Chest Press Machine', c:'weight', s:'상체', f:'대흉근 머신 안전', u:'rep', ds:3, dr:10, d:1},
+  {n:'리버스 그립 벤치', e:'Reverse Grip Bench', c:'weight', s:'상체', f:'상부 흉근·삼두', u:'rep', ds:3, dr:8, d:2},
+  {n:'케이블 플라이 (하이)', e:'Cable Fly High', c:'weight', s:'상체', f:'하부 흉근 케이블', u:'rep', ds:3, dr:12, d:1},
+  {n:'케이블 플라이 (미들)', e:'Cable Fly Mid', c:'weight', s:'상체', f:'중부 흉근 케이블', u:'rep', ds:3, dr:12, d:1},
+  {n:'디클라인 푸쉬업', e:'Decline Push Up', c:'weight', s:'상체', f:'상부 흉근 체중', u:'rep', ds:3, dr:12, d:2},
+  {n:'파이크 푸쉬업', e:'Pike Push Up', c:'weight', s:'상체', f:'삼각근 체중', u:'rep', ds:3, dr:10, d:2},
+  {n:'핸드스탠드 푸쉬업', e:'Handstand Push Up', c:'weight', s:'상체', f:'삼각근 고급 체중', u:'rep', ds:3, dr:5, d:3},
+  {n:'와이드 그립 랫풀다운', e:'Wide Lat Pulldown', c:'weight', s:'상체', f:'광배근 넓은 그립', u:'rep', ds:3, dr:12, d:1},
+  {n:'V바 풀다운', e:'V-Bar Pulldown', c:'weight', s:'상체', f:'광배근 하부 중립', u:'rep', ds:3, dr:12, d:1},
+  {n:'머신 로우', e:'Machine Row', c:'weight', s:'상체', f:'광배근 머신 안전', u:'rep', ds:3, dr:12, d:1},
+  {n:'원 암 덤벨 로우', e:'One Arm DB Row', c:'weight', s:'상체', f:'광배근 단측 집중', u:'rep', ds:3, dr:10, d:1},
+  {n:'크로스 케이블 로우', e:'Cross Cable Row', c:'weight', s:'상체', f:'광배근 교차 케이블', u:'rep', ds:3, dr:12, d:1},
+  {n:'리어 랫풀다운', e:'Behind Neck Pulldown', c:'weight', s:'상체', f:'광배근·대원근', u:'rep', ds:3, dr:10, d:2},
+  {n:'래버 로우', e:'Lever Row', c:'weight', s:'상체', f:'단측 광배 머신', u:'rep', ds:3, dr:10, d:1},
+
+  // --- 상체 : 어깨·팔 추가 ---
+  {n:'랜드마인 프레스 (싱글)', e:'SL Landmine Press', c:'weight', s:'상체', f:'삼각근 단측', u:'rep', ds:3, dr:10, d:2},
+  {n:'시티드 머신 프레스', e:'Seated Machine Press', c:'weight', s:'상체', f:'삼각근 머신 안전', u:'rep', ds:3, dr:10, d:1},
+  {n:'벤트오버 래터럴 레이즈', e:'Bent Over Lateral Raise', c:'weight', s:'상체', f:'후면 삼각근', u:'rep', ds:3, dr:15, d:1},
+  {n:'케이블 프론트 레이즈', e:'Cable Front Raise', c:'weight', s:'상체', f:'전면 삼각근 케이블', u:'rep', ds:3, dr:12, d:1},
+  {n:'머신 리어 델트', e:'Machine Rear Delt', c:'weight', s:'상체', f:'후면 삼각근 머신', u:'rep', ds:3, dr:15, d:1},
+  {n:'케이블 숄더 프레스', e:'Cable Shoulder Press', c:'weight', s:'상체', f:'삼각근 케이블', u:'rep', ds:3, dr:10, d:2},
+  {n:'원 암 덤벨 프레스', e:'One Arm DB Press', c:'weight', s:'상체', f:'삼각근·코어 단측', u:'rep', ds:3, dr:10, d:2},
+  {n:'제이블 컬 (21s)', e:'Cable Curl 21s', c:'weight', s:'상체', f:'이두 부분범위 통합', u:'rep', ds:3, dr:21, d:2},
+  {n:'바이셉 21 컬', e:'21 Curl', c:'weight', s:'상체', f:'이두 부분범위 반복', u:'rep', ds:3, dr:21, d:2},
+  {n:'크로스바디 해머 컬', e:'Cross Body Hammer Curl', c:'weight', s:'상체', f:'상완근·이두', u:'rep', ds:3, dr:12, d:1},
+  {n:'오버헤드 덤벨 익스텐션', e:'OH DB Extension', c:'weight', s:'상체', f:'삼두 장두 덤벨', u:'rep', ds:3, dr:12, d:1},
+  {n:'다이아몬드 딥', e:'Diamond Dip', c:'weight', s:'상체', f:'삼두 집중 딥', u:'rep', ds:3, dr:10, d:2},
+  {n:'케이블 오버헤드 익스텐션', e:'Cable OH Extension', c:'weight', s:'상체', f:'삼두 장두 케이블', u:'rep', ds:3, dr:12, d:1},
+  {n:'리버스 그립 푸쉬다운', e:'Reverse Grip Pushdown', c:'weight', s:'상체', f:'삼두 내측두', u:'rep', ds:3, dr:12, d:1},
+  {n:'핑거 익스텐션 (밴드)', e:'Band Finger Extension', c:'weight', s:'상체', f:'전완 신근 균형', u:'rep', ds:3, dr:15, d:1},
+
+  // --- 코어 추가 ---
+  {n:'행잉 와이퍼 (엘보우)', e:'Hanging Wiper Elbow', c:'weight', s:'코어', f:'복사근 매달림', u:'rep', ds:3, dr:8, d:3},
+  {n:'와이퍼 (바닥)', e:'Floor Wiper', c:'weight', s:'코어', f:'복사근 바닥', u:'rep', ds:3, dr:12, d:2},
+  {n:'롤링 패턴', e:'Rolling Pattern', c:'weight', s:'코어', f:'신경근 기본 패턴', u:'rep', ds:3, dr:10, d:1},
+  {n:'캐리 콤보 (오버헤드+수트케이스)', e:'Carry Combo', c:'weight', s:'코어', f:'비대칭 코어 부하', u:'min', ds:3, dr:1, d:2},
+  {n:'오버헤드 캐리', e:'Overhead Carry', c:'weight', s:'코어', f:'어깨 안정·코어', u:'min', ds:3, dr:1, d:2},
+  {n:'보텀업 캐리', e:'Bottoms Up Carry', c:'weight', s:'코어', f:'손목·코어 반사', u:'min', ds:2, dr:1, d:3},
+  {n:'오블리크 크런치 (머신)', e:'Oblique Crunch Machine', c:'weight', s:'코어', f:'복사근 머신', u:'rep', ds:3, dr:12, d:1},
+  {n:'로만 체어 사이드벤드', e:'Roman Chair Side Bend', c:'weight', s:'코어', f:'복사근 체중', u:'rep', ds:3, dr:12, d:2},
+  {n:'GHD 싯업', e:'GHD Sit Up', c:'weight', s:'코어', f:'복직근 확장 ROM', u:'rep', ds:3, dr:12, d:2},
+  {n:'덤벨 사이드 벤드', e:'DB Side Bend', c:'weight', s:'코어', f:'복사근 중량', u:'rep', ds:3, dr:12, d:1},
+
+  // --- 전신·기능성 추가 ---
+  {n:'클린 풀', e:'Clean Pull', c:'weight', s:'전신', f:'클린 당기기 단계', u:'rep', ds:4, dr:4, d:2},
+  {n:'스내치 풀', e:'Snatch Pull', c:'weight', s:'전신', f:'스내치 당기기 단계', u:'rep', ds:4, dr:4, d:2},
+  {n:'클린 하이풀', e:'Clean High Pull', c:'weight', s:'전신', f:'클린 상단 당김', u:'rep', ds:4, dr:4, d:2},
+  {n:'머슬업', e:'Muscle Up', c:'weight', s:'전신', f:'풀업→딥 전환', u:'rep', ds:3, dr:3, d:3},
+  {n:'로프 클라임', e:'Rope Climb', c:'weight', s:'전신', f:'악력·당기기·등반', u:'rep', ds:3, dr:3, d:3},
+  {n:'타이어 플립', e:'Tire Flip', c:'weight', s:'전신', f:'전신 폭발력·기능', u:'rep', ds:3, dr:6, d:3},
+  {n:'산드백 클린', e:'Sandbag Clean', c:'weight', s:'전신', f:'비정형 전신 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'산드백 스쿼트', e:'Sandbag Squat', c:'weight', s:'전신', f:'비정형 하체 근력', u:'rep', ds:3, dr:10, d:2},
+  {n:'산드백 숄더링', e:'Sandbag Shouldering', c:'weight', s:'전신', f:'비정형 어깨 안정', u:'rep', ds:3, dr:6, d:2},
+  {n:'D볼 클린', e:'D-Ball Clean', c:'weight', s:'전신', f:'비정형 그립 파워', u:'rep', ds:3, dr:8, d:2},
+
+  // --- 플라이오 추가 ---
+  {n:'뎁스 드롭', e:'Depth Drop', c:'weight', s:'플라이오', f:'착지 흡수력', u:'rep', ds:3, dr:5, d:2},
+  {n:'뎁스 점프', e:'Depth Jump', c:'weight', s:'플라이오', f:'반사 점프 극대', u:'rep', ds:3, dr:5, d:3},
+  {n:'싱글 레그 박스 점프', e:'SL Box Jump', c:'weight', s:'플라이오', f:'단일 다리 폭발', u:'rep', ds:3, dr:4, d:3},
+  {n:'앵클 홉', e:'Ankle Hop', c:'weight', s:'플라이오', f:'족부 탄성 반응', u:'rep', ds:3, dr:15, d:1},
+  {n:'허들 점프', e:'Hurdle Jump', c:'weight', s:'플라이오', f:'연속 수직 폭발', u:'rep', ds:3, dr:5, d:3},
+  {n:'메디신볼 사이드 쓰로우', e:'MB Side Throw', c:'weight', s:'플라이오', f:'측면 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'클랩 풀업', e:'Clap Pull Up', c:'weight', s:'플라이오', f:'상체 당기기 폭발', u:'rep', ds:3, dr:5, d:3},
+  {n:'플라이오 푸쉬업', e:'Plyo Push Up', c:'weight', s:'플라이오', f:'상체 밀기 폭발', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 심폐·컨디셔닝 추가 ---
+  {n:'케틀벨 복합 세트', e:'KB Complex', c:'weight', s:'심폐', f:'케틀벨 연속 동작', u:'min', ds:3, dr:3, d:2},
+  {n:'바벨 복합 세트', e:'BB Complex', c:'weight', s:'심폐', f:'바벨 연속 동작', u:'min', ds:3, dr:3, d:2},
+  {n:'덤벨 복합 세트', e:'DB Complex', c:'weight', s:'심폐', f:'덤벨 연속 동작', u:'min', ds:3, dr:3, d:2},
+  {n:'EMOM 트레이닝', e:'EMOM Training', c:'weight', s:'심폐', f:'매분 수행 컨디션', u:'min', ds:1, dr:10, d:2},
+  {n:'타바타 프로토콜', e:'Tabata Protocol', c:'weight', s:'심폐', f:'20:10 고강도 인터벌', u:'min', ds:1, dr:4, d:3},
+  {n:'AMRAP 트레이닝', e:'AMRAP Training', c:'weight', s:'심폐', f:'시간 내 최대 라운드', u:'min', ds:1, dr:10, d:2},
+  {n:'인터벌 스프린트', e:'Interval Sprint', c:'weight', s:'심폐', f:'달리기 인터벌', u:'min', ds:1, dr:10, d:2},
+  {n:'애슬릿 서킷', e:'Athletic Circuit', c:'weight', s:'심폐', f:'체력 서킷 구성', u:'min', ds:1, dr:15, d:2},
+  {n:'스텝퍼', e:'Stepper', c:'weight', s:'심폐', f:'하체 저강도 유산소', u:'min', ds:1, dr:15, d:1},
+  {n:'엘립티컬', e:'Elliptical', c:'weight', s:'심폐', f:'전신 저충격 유산소', u:'min', ds:1, dr:15, d:1},
+  {n:'어썰트 바이크 인터벌', e:'Assault Bike Interval', c:'weight', s:'심폐', f:'전신 고강도 인터벌', u:'min', ds:1, dr:8, d:3},
+  {n:'스프린트 로우', e:'Sprint Row', c:'weight', s:'심폐', f:'로잉 인터벌 고강도', u:'min', ds:1, dr:8, d:2},
+
+  // =========================================================
+  // 골프 피트니스 TPI 추가 2차 (130)
+  // =========================================================
+
+  // --- 모빌리티 심화 ---
+  {n:'쿼드러페드 록백', e:'Quadruped Rock Back', c:'golf_fit', s:'모빌리티', f:'힙 굴곡·요추 중립', u:'rep', ds:2, dr:10, d:1},
+  {n:'쿼드러페드 힙 CARs', e:'Quadruped Hip CARs', c:'golf_fit', s:'모빌리티', f:'4점 자세 고관절', u:'rep', ds:2, dr:5, d:2},
+  {n:'프론 프레스업', e:'Prone Press Up', c:'golf_fit', s:'모빌리티', f:'요추 신전·맥켄지', u:'rep', ds:2, dr:10, d:1},
+  {n:'사이드라잉 리브 롤', e:'Sidelying Rib Roll', c:'golf_fit', s:'모빌리티', f:'흉곽 분절 회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'오버헤드 런지 스트레치', e:'OH Lunge Stretch', c:'golf_fit', s:'모빌리티', f:'힙+어깨 복합 가동', u:'rep', ds:2, dr:8, d:2},
+  {n:'크로스 오버 스트레치', e:'Cross Over Stretch', c:'golf_fit', s:'모빌리티', f:'IT밴드·흉추 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'스탠딩 힙 서클', e:'Standing Hip Circle', c:'golf_fit', s:'모빌리티', f:'입식 고관절 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'하프 닐링 사이드벤드', e:'HK Side Bend', c:'golf_fit', s:'모빌리티', f:'측면 사슬 이완', u:'rep', ds:2, dr:10, d:1},
+  {n:'발목 밴드 디스트랙션', e:'Ankle Band Distraction', c:'golf_fit', s:'모빌리티', f:'발목 관절 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'경추 가동성 드릴', e:'Cervical Mobility', c:'golf_fit', s:'모빌리티', f:'목 회전·측굴', u:'rep', ds:2, dr:10, d:1},
+
+  // --- 안정성 심화 ---
+  {n:'RNT 스쿼트', e:'RNT Squat', c:'golf_fit', s:'안정성', f:'반응 신경근 훈련', u:'rep', ds:3, dr:10, d:2},
+  {n:'RNT 런지', e:'RNT Lunge', c:'golf_fit', s:'안정성', f:'무릎 발가락 정렬', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 프레스 항회전', e:'Band Press Anti-Rotation', c:'golf_fit', s:'안정성', f:'프레스 시 항회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'하프 닐링 리프트', e:'HK Lift', c:'golf_fit', s:'안정성', f:'하프닐링 리프트 패턴', u:'rep', ds:3, dr:10, d:2},
+  {n:'하프 닐링 찹', e:'HK Chop', c:'golf_fit', s:'안정성', f:'하프닐링 찹 패턴', u:'rep', ds:3, dr:10, d:2},
+  {n:'톨 닐링 프레스', e:'Tall Kneeling Press', c:'golf_fit', s:'안정성', f:'고관절 신전 프레스', u:'rep', ds:3, dr:10, d:2},
+  {n:'톨 닐링 팔로프', e:'Tall Kneeling Pallof', c:'golf_fit', s:'안정성', f:'둔근 활성 항회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 핸드 워크', e:'Band Hand Walk', c:'golf_fit', s:'안정성', f:'어깨·코어 플랭크 이동', u:'rep', ds:3, dr:8, d:2},
+  {n:'서서 밴드 로우 (싱글)', e:'Standing Band Row SL', c:'golf_fit', s:'안정성', f:'단측 당기기+안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'리버스 플랭크', e:'Reverse Plank', c:'golf_fit', s:'안정성', f:'후면사슬 등척 안정', u:'sec', ds:3, dr:30, d:2},
+
+  // --- 파워 심화 ---
+  {n:'사이드 토스 (무릎 높이)', e:'Side Toss Knee Height', c:'golf_fit', s:'파워', f:'낮은 위치 회전 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'오버헤드 MB 백 쓰로우', e:'OH MB Back Throw', c:'golf_fit', s:'파워', f:'후방 전신 신전 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'MB 스쿱 쓰로우', e:'MB Scoop Throw', c:'golf_fit', s:'파워', f:'하체→상체 전달 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'밴드 로테이셔널 로우', e:'Band Rotational Row', c:'golf_fit', s:'파워', f:'회전+당기기 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'케이블 리프트 하프닐링', e:'Cable Lift HK', c:'golf_fit', s:'파워', f:'저→고 힙분리 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'케이블 찹 하프닐링', e:'Cable Chop HK', c:'golf_fit', s:'파워', f:'고→저 힙분리 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'래터럴 점프 + 스틱', e:'Lateral Jump Stick', c:'golf_fit', s:'파워', f:'측면 착지 흡수·안정', u:'rep', ds:3, dr:6, d:2},
+  {n:'로테이셔널 메디신볼 드롭', e:'Rot MB Drop', c:'golf_fit', s:'파워', f:'빠른 회전 반사 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'스쿼트 점프 (앤클 웨이트)', e:'Squat Jump Ankle Wt', c:'golf_fit', s:'파워', f:'저항 수직 폭발', u:'rep', ds:3, dr:8, d:2},
+  {n:'밴드 어시스트 스윙', e:'Band Assist Swing', c:'golf_fit', s:'파워', f:'과속도 스윙 훈련', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 코어 심화 ---
+  {n:'항굴곡 플랭크 풀', e:'Anti-Flexion Plank Pull', c:'golf_fit', s:'코어', f:'당기기 시 코어 유지', u:'rep', ds:3, dr:10, d:2},
+  {n:'항신전 롤아웃', e:'Anti-Extension Rollout', c:'golf_fit', s:'코어', f:'휠 롤아웃 코어', u:'rep', ds:3, dr:10, d:3},
+  {n:'항회전 밴드 홀드', e:'Anti-Rot Band Hold', c:'golf_fit', s:'코어', f:'정적 항회전 유지', u:'sec', ds:3, dr:20, d:2},
+  {n:'하프닐링 케이블 리프트 홀드', e:'HK Cable Lift Hold', c:'golf_fit', s:'코어', f:'등척성 회전 유지', u:'sec', ds:3, dr:15, d:2},
+  {n:'슬라이더 보디소우 (사선)', e:'Slider Diagonal Saw', c:'golf_fit', s:'코어', f:'사선 플랭크 가동', u:'rep', ds:3, dr:8, d:3},
+  {n:'폼롤러 데드버그', e:'FR Dead Bug', c:'golf_fit', s:'코어', f:'불안정 데드버그', u:'rep', ds:3, dr:10, d:2},
+  {n:'케틀벨 보텀업 워크', e:'KB BU Walk', c:'golf_fit', s:'코어', f:'불안정 캐리·코어', u:'min', ds:2, dr:1, d:3},
+  {n:'골퍼 데드버그', e:'Golfer Dead Bug', c:'golf_fit', s:'코어', f:'스윙 패턴 코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'하프닐링 밴드 초프 이소홀드', e:'HK Band Chop Iso', c:'golf_fit', s:'코어', f:'등척성 찹 유지', u:'sec', ds:3, dr:15, d:2},
+  {n:'플랭크 니 투 엘보', e:'Plank Knee to Elbow', c:'golf_fit', s:'코어', f:'코어 회전+굴곡', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 교정 심화 ---
+  {n:'S 포스처 교정', e:'S Posture Corrective', c:'golf_fit', s:'교정', f:'요추 과전만 교정', u:'rep', ds:2, dr:10, d:2},
+  {n:'C 포스처 교정', e:'C Posture Corrective', c:'golf_fit', s:'교정', f:'흉추 과후만 교정', u:'rep', ds:2, dr:10, d:2},
+  {n:'플랫 숄더 턴 교정', e:'Flat Shoulder Corrective', c:'golf_fit', s:'교정', f:'어깨 회전 평면 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'로스 오브 포스처 교정', e:'Loss of Posture Corr', c:'golf_fit', s:'교정', f:'스윙 중 자세 유지', u:'rep', ds:3, dr:10, d:2},
+  {n:'힙 스웨이 밴드 교정', e:'Hip Sway Band Corr', c:'golf_fit', s:'교정', f:'밴드 피드백 힙 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'힙 슬라이드 벽 교정', e:'Hip Slide Wall Corr', c:'golf_fit', s:'교정', f:'벽 피드백 슬라이드', u:'rep', ds:3, dr:10, d:2},
+  {n:'오버톱 밴드 교정', e:'Over Top Band Corr', c:'golf_fit', s:'교정', f:'밴드 피드백 인사이드', u:'rep', ds:3, dr:10, d:2},
+  {n:'캐스팅 밴드 교정', e:'Casting Band Corr', c:'golf_fit', s:'교정', f:'밴드 피드백 라그 유지', u:'rep', ds:3, dr:10, d:2},
+  {n:'얼리 익스텐션 스쿼트', e:'EE Squat Corrective', c:'golf_fit', s:'교정', f:'스쿼트 패턴 교정', u:'rep', ds:3, dr:10, d:1},
+  {n:'리버스 스파인 리칭', e:'Rev Spine Reaching', c:'golf_fit', s:'교정', f:'흉추 좌측굴 교정', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 상체 기능 추가 ---
+  {n:'밴드 페이스 풀 (외회전)', e:'Band Face Pull ER', c:'golf_fit', s:'상체', f:'페이스 풀+외회전', u:'rep', ds:3, dr:15, d:1},
+  {n:'바텀업 숄더 프레스', e:'BU Shoulder Press', c:'golf_fit', s:'상체', f:'어깨 반사 안정', u:'rep', ds:3, dr:8, d:3},
+  {n:'앉아 밴드 로우', e:'Seated Band Row', c:'golf_fit', s:'상체', f:'견갑 후인·광배', u:'rep', ds:3, dr:15, d:1},
+  {n:'플렉스바 쉐이크', e:'FlexBar Shake', c:'golf_fit', s:'상체', f:'전완·회전근개 내구', u:'sec', ds:3, dr:30, d:1},
+  {n:'밴드 풀 다운 (하프닐링)', e:'HK Band Pulldown', c:'golf_fit', s:'상체', f:'광배+코어 통합', u:'rep', ds:3, dr:12, d:1},
+  {n:'원암 밴드 체스트 프레스', e:'One Arm Band CP', c:'golf_fit', s:'상체', f:'단측 밀기+항회전', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 하체 기능 추가 ---
+  {n:'밴드 힌지 페이스 풀', e:'Band Hinge Face Pull', c:'golf_fit', s:'하체', f:'힙힌지+당기기 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 래터럴 스텝 힌지', e:'Band Lat Step Hinge', c:'golf_fit', s:'하체', f:'측면 이동+힙힌지', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 백스텝 RDL', e:'Band Backstep RDL', c:'golf_fit', s:'하체', f:'후방 이동+RDL', u:'rep', ds:3, dr:10, d:2},
+  {n:'오프셋 로드 스쿼트', e:'Offset Load Squat', c:'golf_fit', s:'하체', f:'비대칭 하체 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'골프 스탠스 RDL', e:'Golf Stance RDL', c:'golf_fit', s:'하체', f:'어드레스 자세 후면사슬', u:'rep', ds:3, dr:10, d:2},
+  {n:'싱글 레그 카프 레이즈 (밸런스)', e:'SL Calf Balance', c:'golf_fit', s:'하체', f:'발목·밸런스·종아리', u:'rep', ds:3, dr:15, d:1},
+
+  // --- 워밍업·활성화 추가 ---
+  {n:'월 스쿼트 홀드', e:'Wall Squat Hold', c:'golf_fit', s:'워밍업', f:'하체 등척성 활성', u:'sec', ds:1, dr:30, d:1},
+  {n:'밴드 사이드 스텝', e:'Band Side Step', c:'golf_fit', s:'워밍업', f:'중둔근 사전 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'그라운드 투 스탠딩', e:'Ground to Standing', c:'golf_fit', s:'워밍업', f:'전신 이동 패턴', u:'rep', ds:1, dr:8, d:1},
+  {n:'팔 교차 회전', e:'Arm Cross Rotation', c:'golf_fit', s:'워밍업', f:'흉추 활성 동적', u:'rep', ds:1, dr:15, d:1},
+  {n:'멀티디렉셔널 런지', e:'Multi-Directional Lunge', c:'golf_fit', s:'워밍업', f:'힙 다방향 활성', u:'rep', ds:1, dr:8, d:1},
+  {n:'락킹 패턴', e:'Rocking Pattern', c:'golf_fit', s:'워밍업', f:'DNS 발달 패턴', u:'rep', ds:1, dr:10, d:1},
+  {n:'밴드 글루트 시퀀스', e:'Band Glute Sequence', c:'golf_fit', s:'워밍업', f:'둔근 3세트 활성', u:'rep', ds:1, dr:10, d:1},
+  {n:'밴드 풀 어파트 시퀀스', e:'Band PA Sequence', c:'golf_fit', s:'워밍업', f:'상체 후면 활성', u:'rep', ds:1, dr:10, d:1},
+
+  // --- 쿨다운 추가 ---
+  {n:'구름다리 포즈', e:'Bridge Pose', c:'golf_fit', s:'쿨다운', f:'흉추 신전 이완', u:'sec', ds:1, dr:30, d:1},
+  {n:'스타피쉬 스트레치', e:'Starfish Stretch', c:'golf_fit', s:'쿨다운', f:'전신 사선 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'바나나 스트레치', e:'Banana Stretch', c:'golf_fit', s:'쿨다운', f:'측면 전신 신장', u:'sec', ds:2, dr:30, d:1},
+  {n:'니 오버 사이드 트위스트', e:'Knee Over Side Twist', c:'golf_fit', s:'쿨다운', f:'요추·둔근 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'워리어 1 포즈', e:'Warrior 1 Pose', c:'golf_fit', s:'쿨다운', f:'힙 굴근·어깨 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'워리어 2 포즈', e:'Warrior 2 Pose', c:'golf_fit', s:'쿨다운', f:'내전근·힙 오픈', u:'sec', ds:2, dr:30, d:1},
+  {n:'트라이앵글 포즈', e:'Triangle Pose', c:'golf_fit', s:'쿨다운', f:'측면 사슬·내전근', u:'sec', ds:2, dr:30, d:1},
+  {n:'해피 베이비 호흡', e:'Happy Baby Breathing', c:'golf_fit', s:'쿨다운', f:'골반저 이완+호흡', u:'sec', ds:1, dr:60, d:1},
+
+  // --- 호흡·자율신경 추가 ---
+  {n:'4-7-8 호흡', e:'4-7-8 Breathing', c:'golf_fit', s:'호흡', f:'부교감 활성 호흡', u:'min', ds:1, dr:3, d:1},
+  {n:'내쉬기 강조 호흡', e:'Extended Exhale', c:'golf_fit', s:'호흡', f:'날숨 연장 이완', u:'min', ds:1, dr:3, d:1},
+  {n:'코 호흡 (나디 쇼다나)', e:'Nadi Shodhana', c:'golf_fit', s:'호흡', f:'좌우 코 교대 호흡', u:'min', ds:1, dr:3, d:1},
+  {n:'파워 호흡', e:'Power Breathing', c:'golf_fit', s:'호흡', f:'교감 활성 호흡', u:'min', ds:1, dr:2, d:1},
+
+  // --- 폼롤링 추가 ---
+  {n:'상완 폼롤링', e:'Upper Arm Foam Roll', c:'golf_fit', s:'폼롤링', f:'이두·삼두 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'TFL 폼롤링', e:'TFL Foam Roll', c:'golf_fit', s:'폼롤링', f:'대퇴근막장근 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'승모근 라크로스볼', e:'Trap Lacrosse Ball', c:'golf_fit', s:'폼롤링', f:'승모근 트리거포인트', u:'sec', ds:1, dr:60, d:1},
+  {n:'대흉근 라크로스볼', e:'Pec Lacrosse Ball', c:'golf_fit', s:'폼롤링', f:'대흉근 트리거포인트', u:'sec', ds:1, dr:60, d:1},
+  {n:'둔근 라크로스볼 심층', e:'Glute Deep Lacrosse', c:'golf_fit', s:'폼롤링', f:'심층 둔근 이완', u:'sec', ds:1, dr:60, d:1},
+  {n:'경추 서브옥시피탈 릴리스', e:'Suboccipital Release', c:'golf_fit', s:'폼롤링', f:'후두하근 이완', u:'sec', ds:1, dr:60, d:1},
+
+  // =========================================================
+  // 골프 스킬 훈련 추가 2차 (135)
+  // =========================================================
+
+  // --- 드라이버 심화 ---
+  {n:'드라이버 스매시 팩터 게임', e:'Driver Smash Game', c:'golf_skill', s:'드라이버', f:'중심타격 게임화', u:'rep', ds:1, dr:20, d:2},
+  {n:'드라이버 스핀 줄이기', e:'Driver Low Spin', c:'golf_skill', s:'드라이버', f:'저스핀 최적화', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 스윙 스피드 훈련', e:'Driver Speed Training', c:'golf_skill', s:'드라이버', f:'클럽 스피드 극대화', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 오프센터 대응', e:'Driver Off-Center', c:'golf_skill', s:'드라이버', f:'미스히트 인지 교정', u:'rep', ds:3, dr:10, d:2},
+  {n:'드라이버 티샷 루틴', e:'Driver Tee Routine', c:'golf_skill', s:'드라이버', f:'티샷 전 루틴 통합', u:'rep', ds:1, dr:10, d:1},
+
+  // --- 아이언 심화 ---
+  {n:'아이언 컨택 포인트 드릴', e:'Iron Contact Point', c:'golf_skill', s:'아이언', f:'볼 먼저 치기', u:'rep', ds:3, dr:10, d:2},
+  {n:'아이언 투어 템포', e:'Iron Tour Tempo', c:'golf_skill', s:'아이언', f:'프로 템포 3:1 반복', u:'rep', ds:3, dr:10, d:2},
+  {n:'아이언 핀 시커', e:'Iron Pin Seeker', c:'golf_skill', s:'아이언', f:'핀 방향 정확도', u:'rep', ds:1, dr:20, d:2},
+  {n:'숏 아이언 높은 탄도', e:'Short Iron High', c:'golf_skill', s:'아이언', f:'웨지계 높은 탄도', u:'rep', ds:3, dr:10, d:2},
+  {n:'미드 아이언 거리 일관성', e:'Mid Iron Consistency', c:'golf_skill', s:'아이언', f:'6-7번 거리 편차 줄이기', u:'rep', ds:1, dr:20, d:2},
+
+  // --- 우드·하이브리드 심화 ---
+  {n:'3우드 페어웨이 연습', e:'3W Fairway Practice', c:'golf_skill', s:'우드', f:'바닥 우드 컨택', u:'rep', ds:3, dr:10, d:2},
+  {n:'5우드 안정성', e:'5W Stability', c:'golf_skill', s:'우드', f:'5번 우드 반복', u:'rep', ds:3, dr:10, d:2},
+  {n:'하이브리드 다목적 활용', e:'Hybrid Multi-Use', c:'golf_skill', s:'우드', f:'러프·페어웨이 다용도', u:'rep', ds:3, dr:10, d:2},
+  {n:'우드 런 아웃 샷', e:'Wood Run Out', c:'golf_skill', s:'우드', f:'낮은 탄도 굴림 활용', u:'rep', ds:3, dr:10, d:2},
+  {n:'레이업 우드 거리 맞춤', e:'Layup Wood Distance', c:'golf_skill', s:'우드', f:'레이업 거리 정확도', u:'rep', ds:1, dr:10, d:2},
+
+  // --- 숏게임 심화 ---
+  {n:'50야드 웨지 컨트롤', e:'50yd Wedge Control', c:'golf_skill', s:'숏게임', f:'50야드 정확도', u:'rep', ds:3, dr:10, d:2},
+  {n:'30야드 피치', e:'30yd Pitch', c:'golf_skill', s:'숏게임', f:'30야드 감각', u:'rep', ds:3, dr:10, d:2},
+  {n:'15야드 칩', e:'15yd Chip', c:'golf_skill', s:'숏게임', f:'15야드 그린 세이브', u:'rep', ds:3, dr:15, d:1},
+  {n:'풀 웨지 거리 매핑', e:'Full Wedge Mapping', c:'golf_skill', s:'숏게임', f:'웨지별 풀샷 거리 확인', u:'min', ds:1, dr:20, d:1},
+  {n:'쿼터-하프-쓰리쿼터 웨지', e:'Quarter Half 3Q Wedge', c:'golf_skill', s:'숏게임', f:'3단계 웨지 크기', u:'rep', ds:3, dr:10, d:1},
+  {n:'웨지 런딩 스팟 연습', e:'Wedge Landing Spot', c:'golf_skill', s:'숏게임', f:'착지 지점 타겟팅', u:'rep', ds:3, dr:10, d:1},
+  {n:'그린 사이드 벙커 리딩', e:'Greenside Bunker Read', c:'golf_skill', s:'숏게임', f:'모래 상태별 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'오픈 페이스 벙커', e:'Open Face Bunker', c:'golf_skill', s:'숏게임', f:'페이스 오픈 벙커 탈출', u:'rep', ds:3, dr:10, d:2},
+  {n:'숏게임 업앤다운 챌린지', e:'Up Down Challenge', c:'golf_skill', s:'숏게임', f:'다양한 라이 세이브율', u:'min', ds:1, dr:20, d:2},
+  {n:'토핑 교정 칩', e:'Top Fix Chip', c:'golf_skill', s:'숏게임', f:'칩 토핑 교정', u:'rep', ds:3, dr:15, d:1},
+  {n:'쳥킹 교정 칩', e:'Chunk Fix Chip', c:'golf_skill', s:'숏게임', f:'칩 뒤땅 교정', u:'rep', ds:3, dr:15, d:1},
+  {n:'사이드스핀 웨지', e:'Side Spin Wedge', c:'golf_skill', s:'숏게임', f:'웨지 좌우 스핀', u:'rep', ds:3, dr:10, d:3},
+
+  // --- 퍼팅 심화 ---
+  {n:'퍼팅 스피드 매칭', e:'Putt Speed Match', c:'golf_skill', s:'퍼팅', f:'페이스 투 백 거리 일치', u:'min', ds:1, dr:10, d:1},
+  {n:'퍼팅 그린 매핑', e:'Green Mapping', c:'golf_skill', s:'퍼팅', f:'그린 경사 전체 파악', u:'min', ds:1, dr:10, d:2},
+  {n:'에임포인트 심화', e:'AimPoint Advanced', c:'golf_skill', s:'퍼팅', f:'경사 %별 에임 조정', u:'min', ds:1, dr:10, d:3},
+  {n:'플럼밍 연습', e:'Plumb Bob Practice', c:'golf_skill', s:'퍼팅', f:'플럼밥 라인 읽기', u:'min', ds:1, dr:10, d:2},
+  {n:'퍼팅 스트로크 페이스 체크', e:'Stroke Face Check', c:'golf_skill', s:'퍼팅', f:'정면 임팩트 일관성', u:'min', ds:1, dr:10, d:1},
+  {n:'퍼팅 체중 배분 드릴', e:'Putt Weight Drill', c:'golf_skill', s:'퍼팅', f:'전방 체중 유지', u:'rep', ds:1, dr:10, d:1},
+  {n:'퍼팅 슬로프 매칭', e:'Putt Slope Match', c:'golf_skill', s:'퍼팅', f:'경사별 속도 조절', u:'min', ds:1, dr:10, d:2},
+  {n:'21 퍼팅 게임', e:'21 Putting Game', c:'golf_skill', s:'퍼팅', f:'점수 기반 퍼팅', u:'min', ds:1, dr:15, d:1},
+  {n:'사우스포 퍼팅 드릴', e:'Southpaw Putt Drill', c:'golf_skill', s:'퍼팅', f:'반대손 퍼팅 감각', u:'rep', ds:1, dr:10, d:2},
+  {n:'퍼팅 미러 드릴', e:'Putt Mirror Drill', c:'golf_skill', s:'퍼팅', f:'눈 위치·정렬 확인', u:'min', ds:1, dr:10, d:1},
+
+  // --- 구질 심화 ---
+  {n:'파워 페이드', e:'Power Fade', c:'golf_skill', s:'구질', f:'비거리+페이드', u:'rep', ds:3, dr:10, d:3},
+  {n:'소프트 드로우', e:'Soft Draw', c:'golf_skill', s:'구질', f:'컨트롤+드로우', u:'rep', ds:3, dr:10, d:2},
+  {n:'클럽별 구질 일관성', e:'Club-by-Club Shape', c:'golf_skill', s:'구질', f:'각 클럽 고유 구질', u:'min', ds:1, dr:20, d:2},
+  {n:'윈드 샷 (맞바람)', e:'Into Wind Shot', c:'golf_skill', s:'구질', f:'맞바람 저탄도', u:'rep', ds:3, dr:10, d:2},
+  {n:'윈드 샷 (뒷바람)', e:'Downwind Shot', c:'golf_skill', s:'구질', f:'뒷바람 활용', u:'rep', ds:3, dr:10, d:2},
+  {n:'크로스윈드 대응', e:'Crosswind Shot', c:'golf_skill', s:'구질', f:'옆바람 에임 조정', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 경사 라이 심화 ---
+  {n:'급경사 오르막 풀스윙', e:'Steep Uphill Full', c:'golf_skill', s:'경사', f:'급경사 오르막 대응', u:'rep', ds:3, dr:8, d:3},
+  {n:'급경사 내리막 풀스윙', e:'Steep Downhill Full', c:'golf_skill', s:'경사', f:'급경사 내리막 대응', u:'rep', ds:3, dr:8, d:3},
+  {n:'사이드힐 (발 위) 우드', e:'Sidehill Above Wood', c:'golf_skill', s:'경사', f:'볼 높은 경사 우드', u:'rep', ds:3, dr:8, d:3},
+  {n:'사이드힐 (발 아래) 아이언', e:'Sidehill Below Iron', c:'golf_skill', s:'경사', f:'볼 낮은 경사 아이언', u:'rep', ds:3, dr:8, d:2},
+  {n:'경사 벙커 샷', e:'Slope Bunker Shot', c:'golf_skill', s:'경사', f:'경사진 벙커 대응', u:'rep', ds:3, dr:8, d:3},
+
+  // --- 트러블 샷 심화 ---
+  {n:'펀치 아웃 (나무 사이)', e:'Punch Out Trees', c:'golf_skill', s:'트러블', f:'숲 사이 저탄도 탈출', u:'rep', ds:3, dr:8, d:2},
+  {n:'나무 위 탈출', e:'Over Tree Shot', c:'golf_skill', s:'트러블', f:'높은 탄도 장애물 넘기기', u:'rep', ds:3, dr:8, d:2},
+  {n:'좌곡·우곡 장애물 회피', e:'Curve Around Tree', c:'golf_skill', s:'트러블', f:'의도적 곡구 탈출', u:'rep', ds:3, dr:8, d:3},
+  {n:'깊은 벙커 (높은 턱)', e:'Deep Bunker High Lip', c:'golf_skill', s:'트러블', f:'수직 탈출', u:'rep', ds:3, dr:8, d:3},
+  {n:'벙커 플러그 라이', e:'Plugged Bunker Lie', c:'golf_skill', s:'트러블', f:'파묻힌 라이 탈출', u:'rep', ds:3, dr:8, d:3},
+  {n:'습한 잔디 대응', e:'Wet Grass Shot', c:'golf_skill', s:'트러블', f:'플라이어 라이 대응', u:'rep', ds:3, dr:10, d:2},
+  {n:'솔 넓은 바운스 활용', e:'Bounce Utilization', c:'golf_skill', s:'트러블', f:'바운스 활용 숏게임', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 실전·코스 매니지먼트 심화 ---
+  {n:'파4 공략 시뮬레이션', e:'Par 4 Simulation', c:'golf_skill', s:'실전', f:'파4 전략 연습', u:'min', ds:1, dr:15, d:2},
+  {n:'도그렉 홀 전략', e:'Dogleg Strategy', c:'golf_skill', s:'실전', f:'도그렉 코너 공략', u:'min', ds:1, dr:10, d:2},
+  {n:'OB 회피 전략', e:'OB Avoidance', c:'golf_skill', s:'실전', f:'OB 방향 반대 에임', u:'min', ds:1, dr:10, d:2},
+  {n:'핀 위치별 공략', e:'Pin Position Attack', c:'golf_skill', s:'실전', f:'핀 위치에 따른 전략', u:'min', ds:1, dr:10, d:2},
+  {n:'그린 미스 방향 관리', e:'Green Miss Management', c:'golf_skill', s:'실전', f:'안전한 미스 방향 설정', u:'min', ds:1, dr:10, d:2},
+  {n:'벙커 회피 전략', e:'Bunker Avoidance', c:'golf_skill', s:'실전', f:'벙커 방향 회피 에임', u:'min', ds:1, dr:10, d:1},
+  {n:'워터 해저드 전략', e:'Water Hazard Strategy', c:'golf_skill', s:'실전', f:'물 주변 안전 공략', u:'min', ds:1, dr:10, d:2},
+  {n:'스코어카드 분석', e:'Scorecard Analysis', c:'golf_skill', s:'실전', f:'라운드 후 데이터 분석', u:'min', ds:1, dr:15, d:1},
+  {n:'SG (Strokes Gained) 분석', e:'Strokes Gained Analysis', c:'golf_skill', s:'실전', f:'영역별 득실 분석', u:'min', ds:1, dr:10, d:2},
+  {n:'18홀 가상 라운드', e:'Virtual 18 Hole Round', c:'golf_skill', s:'실전', f:'연습장 18홀 시뮬', u:'min', ds:1, dr:60, d:2},
+
+  // --- 연습루틴 심화 ---
+  {n:'피라미드 연습', e:'Pyramid Practice', c:'golf_skill', s:'연습루틴', f:'점진적 난이도 상승', u:'min', ds:1, dr:30, d:2},
+  {n:'9홀 가상 라운드', e:'Virtual 9 Hole', c:'golf_skill', s:'연습루틴', f:'연습장 9홀 시뮬', u:'min', ds:1, dr:30, d:2},
+  {n:'5분 칩 챌린지', e:'5min Chip Challenge', c:'golf_skill', s:'연습루틴', f:'짧은 칩 집중', u:'min', ds:1, dr:5, d:1},
+  {n:'5분 퍼트 챌린지', e:'5min Putt Challenge', c:'golf_skill', s:'연습루틴', f:'짧은 퍼팅 집중', u:'min', ds:1, dr:5, d:1},
+  {n:'게임화 연습 (포인트)', e:'Gamified Practice', c:'golf_skill', s:'연습루틴', f:'포인트 기반 연습', u:'min', ds:1, dr:30, d:1},
+  {n:'약점 집중 30분', e:'Weakness Focus 30min', c:'golf_skill', s:'연습루틴', f:'약점 영역 집중 훈련', u:'min', ds:1, dr:30, d:2},
+  {n:'라운드 전 풀 워밍업', e:'Pre-Round Full Warmup', c:'golf_skill', s:'연습루틴', f:'스윙+숏+퍼팅 워밍업', u:'min', ds:1, dr:20, d:1},
+  {n:'경쟁 연습 (동반자)', e:'Competitive Practice', c:'golf_skill', s:'연습루틴', f:'상대와 경쟁 연습', u:'min', ds:1, dr:30, d:2},
+
+  // --- 멘탈·심리 심화 ---
+  {n:'긍정 자기대화 훈련', e:'Positive Self Talk', c:'golf_skill', s:'멘탈', f:'긍정적 내면 대화', u:'min', ds:1, dr:5, d:1},
+  {n:'앵커링 기법', e:'Anchoring Technique', c:'golf_skill', s:'멘탈', f:'좋은 샷 감각 저장', u:'rep', ds:1, dr:5, d:2},
+  {n:'프로세스 골 설정', e:'Process Goal Setting', c:'golf_skill', s:'멘탈', f:'결과→과정 목표 전환', u:'min', ds:1, dr:10, d:1},
+  {n:'분노 관리 루틴', e:'Anger Management Routine', c:'golf_skill', s:'멘탈', f:'미스 후 감정 관리', u:'min', ds:1, dr:5, d:2},
+  {n:'포커스 리셋 드릴', e:'Focus Reset Drill', c:'golf_skill', s:'멘탈', f:'집중력 재설정', u:'rep', ds:1, dr:5, d:1},
+  {n:'코스 위 명상', e:'On-Course Meditation', c:'golf_skill', s:'멘탈', f:'이동 중 마음 정리', u:'min', ds:1, dr:3, d:1},
+  {n:'라운드 후 리뷰', e:'Post-Round Review', c:'golf_skill', s:'멘탈', f:'라운드 복기·교훈', u:'min', ds:1, dr:10, d:1},
+  {n:'이미지 트레이닝', e:'Image Training', c:'golf_skill', s:'멘탈', f:'이상적 스윙 심상화', u:'min', ds:1, dr:5, d:1},
+
+  // --- 스피드 트레이닝 ---
+  {n:'스피드 스틱 훈련 (경량)', e:'Speed Stick Light', c:'golf_skill', s:'스피드', f:'경량봉 과속도 스윙', u:'rep', ds:3, dr:10, d:2},
+  {n:'스피드 스틱 훈련 (중량)', e:'Speed Stick Heavy', c:'golf_skill', s:'스피드', f:'중량봉 근력 스윙', u:'rep', ds:3, dr:10, d:2},
+  {n:'스피드 스틱 훈련 (일반)', e:'Speed Stick Normal', c:'golf_skill', s:'스피드', f:'일반봉 전이 스윙', u:'rep', ds:3, dr:10, d:2},
+  {n:'덕 스피드 (역방향 스윙)', e:'Reverse Swing Speed', c:'golf_skill', s:'스피드', f:'반대 방향 과속도', u:'rep', ds:3, dr:10, d:2},
+  {n:'스텝 드릴 스피드', e:'Step Drill Speed', c:'golf_skill', s:'스피드', f:'스텝+스피드 통합', u:'rep', ds:3, dr:10, d:2},
+  {n:'오버스피드 드라이버', e:'Overspeed Driver', c:'golf_skill', s:'스피드', f:'드라이버 최대 스피드', u:'rep', ds:3, dr:8, d:2},
+
+  // =========================================================
+  // 최종 추가 — 웨이트 (42) + 골프 피트니스 (52) + 골프 스킬 (41) = 135
+  // =========================================================
+
+  // --- 웨이트 : 하체 보충 ---
+  {n:'바벨 프론트 런지', e:'BB Front Lunge', c:'weight', s:'하체', f:'대퇴사두·코어 중량', u:'rep', ds:3, dr:10, d:2},
+  {n:'트랩바 런지', e:'Trap Bar Lunge', c:'weight', s:'하체', f:'악력 부담↓ 런지', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 스쿼트', e:'DB Squat', c:'weight', s:'하체', f:'대퇴사두 덤벨', u:'rep', ds:3, dr:12, d:1},
+  {n:'스미스 힙 쓰러스트', e:'Smith Hip Thrust', c:'weight', s:'하체', f:'둔근 머신 안전', u:'rep', ds:3, dr:12, d:1},
+  {n:'케이블 스쿼트', e:'Cable Squat', c:'weight', s:'하체', f:'케이블 보조 하체', u:'rep', ds:3, dr:12, d:1},
+  {n:'바벨 스텝업', e:'BB Step Up', c:'weight', s:'하체', f:'중량 스텝업', u:'rep', ds:3, dr:8, d:2},
+  {n:'점프 런지', e:'Jump Lunge', c:'weight', s:'하체', f:'런지 폭발력', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴디드 레그프레스', e:'Banded Leg Press', c:'weight', s:'하체', f:'정점 저항 추가', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 웨이트 : 상체 보충 ---
+  {n:'스미스 클로즈그립 벤치', e:'Smith Close Grip Bench', c:'weight', s:'상체', f:'삼두 머신 안전', u:'rep', ds:3, dr:10, d:1},
+  {n:'인클라인 해머 컬', e:'Incline Hammer Curl', c:'weight', s:'상체', f:'상완근 장두 스트레치', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 프레스 (뉴트럴)', e:'DB Neutral Press', c:'weight', s:'상체', f:'어깨 우호적 프레스', u:'rep', ds:3, dr:10, d:1},
+  {n:'밴디드 벤치프레스', e:'Banded Bench Press', c:'weight', s:'상체', f:'정점 저항 흉근', u:'rep', ds:3, dr:8, d:2},
+  {n:'체스트 서포티드 래터럴', e:'Chest Supported Lateral', c:'weight', s:'상체', f:'측면 삼각근 고립', u:'rep', ds:3, dr:12, d:1},
+  {n:'원 암 랫풀다운', e:'One Arm Lat Pulldown', c:'weight', s:'상체', f:'광배근 단측', u:'rep', ds:3, dr:10, d:2},
+  {n:'와이드 그립 로우', e:'Wide Grip Row', c:'weight', s:'상체', f:'능형근·후면삼각', u:'rep', ds:3, dr:10, d:2},
+  {n:'리버스 그립 로우', e:'Reverse Grip Row', c:'weight', s:'상체', f:'광배근 하부·이두', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 웨이트 : 코어·전신 보충 ---
+  {n:'웨이티드 사이드 플랭크', e:'Weighted Side Plank', c:'weight', s:'코어', f:'복사근 고부하', u:'sec', ds:3, dr:30, d:2},
+  {n:'바벨 롤아웃', e:'BB Rollout', c:'weight', s:'코어', f:'복직근 바벨 롤', u:'rep', ds:3, dr:8, d:3},
+  {n:'케이블 리버스 크런치', e:'Cable Reverse Crunch', c:'weight', s:'코어', f:'하복부 케이블', u:'rep', ds:3, dr:12, d:2},
+  {n:'헥스바 데드리프트', e:'Hex Bar Deadlift', c:'weight', s:'전신', f:'무릎 우호적 전신', u:'rep', ds:3, dr:8, d:2},
+  {n:'스내치 그립 데드리프트', e:'Snatch Grip DL', c:'weight', s:'전신', f:'넓은 그립 후면사슬', u:'rep', ds:3, dr:6, d:3},
+  {n:'케틀벨 더블 스윙', e:'KB Double Swing', c:'weight', s:'전신', f:'양손 케틀벨 힙파워', u:'rep', ds:3, dr:12, d:2},
+  {n:'케틀벨 더블 클린', e:'KB Double Clean', c:'weight', s:'전신', f:'양손 케틀벨 협응', u:'rep', ds:3, dr:8, d:2},
+  {n:'덤벨 스러스터', e:'DB Thruster', c:'weight', s:'전신', f:'덤벨 스쿼트+프레스', u:'rep', ds:3, dr:10, d:2},
+
+  // --- 웨이트 : 플라이오·심폐 보충 ---
+  {n:'래터럴 박스 점프', e:'Lateral Box Jump', c:'weight', s:'플라이오', f:'측면 박스 폭발', u:'rep', ds:3, dr:5, d:2},
+  {n:'리버스 런지 점프', e:'Reverse Lunge Jump', c:'weight', s:'플라이오', f:'후방 런지 폭발', u:'rep', ds:3, dr:8, d:2},
+  {n:'메디신볼 풋워크 패스', e:'MB Footwork Pass', c:'weight', s:'플라이오', f:'풋워크+상체 파워', u:'rep', ds:3, dr:10, d:2},
+  {n:'킨드링 스프린트', e:'Kindling Sprint', c:'weight', s:'심폐', f:'짧은 전력 스프린트', u:'rep', ds:6, dr:6, d:2},
+  {n:'파밍 인터벌', e:'Fartlek Interval', c:'weight', s:'심폐', f:'속도 변화 러닝', u:'min', ds:1, dr:15, d:2},
+  {n:'로프 웨이브 클린', e:'Rope Wave Clean', c:'weight', s:'심폐', f:'배틀로프+클린 복합', u:'sec', ds:3, dr:30, d:2},
+  {n:'에르그 500m 맥스', e:'Erg 500m Max', c:'weight', s:'심폐', f:'로잉 500m 전력', u:'rep', ds:3, dr:1, d:3},
+  {n:'바이크 30/30 인터벌', e:'Bike 30/30 Interval', c:'weight', s:'심폐', f:'30초 전력/30초 휴식', u:'min', ds:1, dr:10, d:2},
+
+  // --- 골프 피트니스 보충 ---
+  {n:'슈퍼맨 홀드', e:'Superman Hold', c:'golf_fit', s:'코어', f:'척추기립근 등척', u:'sec', ds:3, dr:20, d:1},
+  {n:'힙 마치 (브릿지)', e:'Hip March Bridge', c:'golf_fit', s:'안정성', f:'브릿지+행진 안정', u:'rep', ds:3, dr:10, d:1},
+  {n:'버드독 + 크런치', e:'Bird Dog Crunch', c:'golf_fit', s:'코어', f:'버드독 동적 변형', u:'rep', ds:3, dr:10, d:2},
+  {n:'코브라 리프트', e:'Cobra Lift', c:'golf_fit', s:'코어', f:'후면 신전 강화', u:'rep', ds:3, dr:10, d:1},
+  {n:'핸드 워크 아웃', e:'Hand Walk Out', c:'golf_fit', s:'전신', f:'인치웜 코어 강화판', u:'rep', ds:2, dr:8, d:2},
+  {n:'닐링 힙 플렉서 + 로테이션', e:'Kneeling HF Rotation', c:'golf_fit', s:'모빌리티', f:'힙굴근 이완+회전', u:'rep', ds:2, dr:8, d:1},
+  {n:'앉아 흉추 사이드벤드', e:'Seated T-Spine SB', c:'golf_fit', s:'모빌리티', f:'흉추 측굴 가동', u:'rep', ds:2, dr:10, d:1},
+  {n:'앉아 힙 IR/ER', e:'Seated Hip IR ER', c:'golf_fit', s:'모빌리티', f:'앉아서 힙 내외회전', u:'rep', ds:2, dr:10, d:1},
+  {n:'스탠딩 흉추 회전 (밴드)', e:'Standing T-Rot Band', c:'golf_fit', s:'모빌리티', f:'밴드 저항 흉추 회전', u:'rep', ds:2, dr:10, d:2},
+  {n:'하프닐링 윈드밀', e:'HK Windmill', c:'golf_fit', s:'모빌리티', f:'흉추+힙 복합 가동', u:'rep', ds:2, dr:8, d:2},
+  {n:'밴드 오버헤드 스쿼트', e:'Band OH Squat', c:'golf_fit', s:'안정성', f:'밴드 오버헤드 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'플랭크 위드 로우', e:'Plank With Row', c:'golf_fit', s:'코어', f:'항회전+당기기', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 데드버그', e:'Band Dead Bug', c:'golf_fit', s:'코어', f:'밴드 저항 데드버그', u:'rep', ds:3, dr:10, d:2},
+  {n:'사이드라잉 힙 어브덕션', e:'Sidelying Hip Abd', c:'golf_fit', s:'안정성', f:'중둔근 중력 저항', u:'rep', ds:3, dr:15, d:1},
+  {n:'프론 엘보 플랭크 리치', e:'Prone Plank Reach', c:'golf_fit', s:'코어', f:'플랭크+리치 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'톨 닐링 힙 힌지', e:'Tall Kneeling Hinge', c:'golf_fit', s:'패턴', f:'힙 힌지 둔근 활성', u:'rep', ds:2, dr:10, d:1},
+  {n:'폼롤러 밸런스 스탠스', e:'FR Balance Stance', c:'golf_fit', s:'안정성', f:'폼롤러 위 서기', u:'sec', ds:3, dr:30, d:2},
+  {n:'TRX 런지', e:'TRX Lunge', c:'golf_fit', s:'하체', f:'서스펜션 런지', u:'rep', ds:3, dr:10, d:2},
+  {n:'TRX 힙 드롭', e:'TRX Hip Drop', c:'golf_fit', s:'하체', f:'서스펜션 힙 굴곡', u:'rep', ds:3, dr:10, d:2},
+  {n:'TRX 로테이션', e:'TRX Rotation', c:'golf_fit', s:'파워', f:'서스펜션 코어 회전', u:'rep', ds:3, dr:10, d:2},
+  {n:'케이블 리프트 (톨 닐링)', e:'Cable Lift TK', c:'golf_fit', s:'파워', f:'톨닐링 리프트 패턴', u:'rep', ds:3, dr:10, d:2},
+  {n:'MB 리버스 런지 로테이션', e:'MB Rev Lunge Rot', c:'golf_fit', s:'파워', f:'런지+회전 복합 파워', u:'rep', ds:3, dr:8, d:2},
+  {n:'밴디드 힙 쓰러스트', e:'Banded Hip Thrust', c:'golf_fit', s:'하체', f:'밴드 저항 둔근', u:'rep', ds:3, dr:15, d:1},
+  {n:'골프 스윙 밴드 페턴', e:'Golf Swing Band Pattern', c:'golf_fit', s:'파워', f:'밴드 저항 스윙 패턴', u:'rep', ds:3, dr:10, d:2},
+  {n:'리액티브 스텝 드릴', e:'Reactive Step Drill', c:'golf_fit', s:'안정성', f:'반응 스텝 밸런스', u:'rep', ds:3, dr:10, d:2},
+  {n:'밴드 풀업 어시스트', e:'Band Assist Pull Up', c:'golf_fit', s:'상체', f:'보조 풀업·광배', u:'rep', ds:3, dr:10, d:1},
+  {n:'밴드 오버헤드 프레스', e:'Band OH Press', c:'golf_fit', s:'상체', f:'밴드 어깨 안정', u:'rep', ds:3, dr:10, d:1},
+  {n:'리버스 테이블 탑', e:'Reverse Table Top', c:'golf_fit', s:'코어', f:'후면 사슬 등척', u:'sec', ds:3, dr:20, d:1},
+  {n:'스파이더맨 플랭크', e:'Spiderman Plank', c:'golf_fit', s:'코어', f:'힙 가동+코어 안정', u:'rep', ds:3, dr:10, d:2},
+  {n:'쏘라식 브릿지', e:'Thoracic Bridge', c:'golf_fit', s:'모빌리티', f:'흉추 신전 브릿지', u:'rep', ds:2, dr:8, d:2},
+  {n:'폼롤러 힙 플렉서', e:'FR Hip Flexor', c:'golf_fit', s:'폼롤링', f:'장요근 폼롤링', u:'sec', ds:1, dr:60, d:1},
+  {n:'싱글 레그 글루트 브릿지 (벤치)', e:'SL Glute Bridge Bench', c:'golf_fit', s:'하체', f:'벤치 높이 둔근', u:'rep', ds:3, dr:10, d:2},
+  {n:'와이드 스탠스 스쿼트 홀드', e:'Wide Squat Hold', c:'golf_fit', s:'모빌리티', f:'내전근·힙 심화', u:'sec', ds:2, dr:30, d:1},
+  {n:'밴드 워크 (전진)', e:'Band Walk Forward', c:'golf_fit', s:'워밍업', f:'전방 이동 둔근 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'밴드 워크 (후진)', e:'Band Walk Backward', c:'golf_fit', s:'워밍업', f:'후방 이동 둔근 활성', u:'rep', ds:1, dr:15, d:1},
+  {n:'아이언 크로스 스트레치', e:'Iron Cross Stretch', c:'golf_fit', s:'쿨다운', f:'흉추·힙 복합 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'힙 크래들 워크', e:'Hip Cradle Walk', c:'golf_fit', s:'워밍업', f:'힙 외회전 동적 이완', u:'rep', ds:1, dr:10, d:1},
+
+  // --- 골프 스킬 보충 ---
+  {n:'드라이버 컨시스턴시 게임', e:'Driver Consistency', c:'golf_skill', s:'드라이버', f:'10구 페어웨이 안착률', u:'rep', ds:1, dr:10, d:2},
+  {n:'드라이버 쉐이프 교대', e:'Driver Shape Alternate', c:'golf_skill', s:'드라이버', f:'페이드-드로우 교대', u:'rep', ds:3, dr:10, d:3},
+  {n:'아이언 3가지 거리', e:'Iron 3 Distances', c:'golf_skill', s:'아이언', f:'풀-3/4-1/2 거리', u:'rep', ds:3, dr:10, d:2},
+  {n:'아이언 볼 퍼스트 컨택', e:'Iron Ball First', c:'golf_skill', s:'아이언', f:'볼 먼저 치기 반복', u:'rep', ds:3, dr:15, d:2},
+  {n:'하이브리드 티샷', e:'Hybrid Tee Shot', c:'golf_skill', s:'우드', f:'파3 하이브리드 활용', u:'rep', ds:3, dr:10, d:1},
+  {n:'우드 바닥 스위핑', e:'Wood Sweeping', c:'golf_skill', s:'우드', f:'바닥 쓸기 감각', u:'rep', ds:3, dr:10, d:2},
+  {n:'40야드 피치', e:'40yd Pitch', c:'golf_skill', s:'숏게임', f:'40야드 정확도', u:'rep', ds:3, dr:10, d:2},
+  {n:'60야드 웨지', e:'60yd Wedge', c:'golf_skill', s:'숏게임', f:'60야드 웨지 컨트롤', u:'rep', ds:3, dr:10, d:2},
+  {n:'80야드 웨지', e:'80yd Wedge', c:'golf_skill', s:'숏게임', f:'80야드 웨지 컨트롤', u:'rep', ds:3, dr:10, d:2},
+  {n:'100야드 웨지', e:'100yd Wedge', c:'golf_skill', s:'숏게임', f:'100야드 정밀도', u:'rep', ds:3, dr:10, d:2},
+  {n:'벙커 탈출 성공률 게임', e:'Bunker Escape Game', c:'golf_skill', s:'숏게임', f:'벙커 10구 탈출률', u:'rep', ds:1, dr:10, d:2},
+  {n:'업앤다운 확률 게임', e:'Up Down Rate Game', c:'golf_skill', s:'숏게임', f:'세이브 확률 측정', u:'rep', ds:1, dr:10, d:2},
+  {n:'퍼팅 5피트 100%', e:'5ft 100% Drill', c:'golf_skill', s:'퍼팅', f:'5피트 연속 성공', u:'rep', ds:1, dr:10, d:1},
+  {n:'퍼팅 10피트 50%', e:'10ft 50% Drill', c:'golf_skill', s:'퍼팅', f:'10피트 성공률 목표', u:'rep', ds:1, dr:10, d:2},
+  {n:'퍼팅 30피트 래그', e:'30ft Lag Drill', c:'golf_skill', s:'퍼팅', f:'30피트 잔여 3피트 이내', u:'rep', ds:1, dr:10, d:2},
+  {n:'오르막 브레이크 퍼팅', e:'Uphill Break Putt', c:'golf_skill', s:'퍼팅', f:'오르막 경사 퍼팅', u:'min', ds:1, dr:10, d:2},
+  {n:'내리막 브레이크 퍼팅', e:'Downhill Break Putt', c:'golf_skill', s:'퍼팅', f:'내리막 경사 퍼팅', u:'min', ds:1, dr:10, d:2},
+  {n:'인텐셔널 펀치 아이언', e:'Intentional Punch Iron', c:'golf_skill', s:'구질', f:'아이언 의도적 저탄도', u:'rep', ds:3, dr:10, d:2},
+  {n:'경사 칩 앤 런', e:'Slope Chip & Run', c:'golf_skill', s:'경사', f:'경사면 칩 앤 런', u:'rep', ds:3, dr:10, d:2},
+  {n:'경사 퍼팅 종합', e:'Slope Putting Combo', c:'golf_skill', s:'경사', f:'다양한 경사 퍼팅', u:'min', ds:1, dr:15, d:2},
+  {n:'비 올 때 대응 연습', e:'Rain Condition Practice', c:'golf_skill', s:'트러블', f:'우천 시 샷 조절', u:'rep', ds:3, dr:10, d:2},
+  {n:'아침 이슬 그린 퍼팅', e:'Morning Dew Putt', c:'golf_skill', s:'트러블', f:'젖은 그린 퍼팅', u:'min', ds:1, dr:10, d:2},
+  {n:'파4 드라이브-어프로치 콤보', e:'Par4 Drive Approach', c:'golf_skill', s:'실전', f:'드라이버+아이언 연속', u:'rep', ds:1, dr:10, d:2},
+  {n:'파3 원온 챌린지', e:'Par3 GIR Challenge', c:'golf_skill', s:'실전', f:'파3 그린 적중률', u:'rep', ds:1, dr:10, d:2},
+  {n:'파5 이글 기회 연습', e:'Par5 Eagle Chance', c:'golf_skill', s:'실전', f:'파5 투온 전략', u:'rep', ds:1, dr:10, d:3},
+  {n:'마지막 홀 압박 시뮬', e:'Last Hole Pressure', c:'golf_skill', s:'실전', f:'클로징 홀 멘탈', u:'rep', ds:1, dr:5, d:2},
+  {n:'샷 클럽 교대 연습', e:'Shot Club Alternate', c:'golf_skill', s:'연습루틴', f:'랜덤 클럽 교대', u:'min', ds:1, dr:20, d:2},
+  {n:'숏게임 21점 게임', e:'Short Game 21 Points', c:'golf_skill', s:'연습루틴', f:'21점 도달 숏게임', u:'min', ds:1, dr:20, d:1},
+  {n:'셀프 비디오 분석', e:'Self Video Analysis', c:'golf_skill', s:'멘탈', f:'본인 스윙 촬영 분석', u:'min', ds:1, dr:10, d:1},
+  {n:'스코어 목표 설정', e:'Score Goal Setting', c:'golf_skill', s:'멘탈', f:'구체적 스코어 목표', u:'min', ds:1, dr:5, d:1},
+  {n:'루틴 내재화 반복', e:'Routine Internalization', c:'golf_skill', s:'멘탈', f:'프리샷 무의식화', u:'rep', ds:1, dr:20, d:1},
+  {n:'스피드 스틱 프로토콜', e:'Speed Stick Protocol', c:'golf_skill', s:'스피드', f:'6-4-6 스피드 프로토콜', u:'rep', ds:3, dr:6, d:2},
+  {n:'알루미늄 배트 스윙', e:'Aluminum Bat Swing', c:'golf_skill', s:'스피드', f:'중량 배트 근력 스윙', u:'rep', ds:3, dr:10, d:2},
+  {n:'셔플보드 퍼팅 감각', e:'Shuffleboard Putting', c:'golf_skill', s:'퍼팅', f:'게임화 거리 감각', u:'min', ds:1, dr:10, d:1},
+  {n:'타겟 서클 칩', e:'Target Circle Chip', c:'golf_skill', s:'숏게임', f:'원형 타겟 안 넣기', u:'rep', ds:3, dr:15, d:1},
+  {n:'PGA 스탯 기반 연습', e:'PGA Stat Practice', c:'golf_skill', s:'연습루틴', f:'GIR·FIR 기반 루틴', u:'min', ds:1, dr:30, d:2},
+  {n:'웨지 바운스 테스트', e:'Wedge Bounce Test', c:'golf_skill', s:'숏게임', f:'바운스별 차이 체험', u:'rep', ds:3, dr:10, d:2},
+  {n:'스윙 녹화 비교', e:'Swing Recording Compare', c:'golf_skill', s:'멘탈', f:'과거 대비 변화 확인', u:'min', ds:1, dr:10, d:1},
+  {n:'드라이버 론치 모니터', e:'Driver Launch Monitor', c:'golf_skill', s:'드라이버', f:'론치 데이터 분석', u:'min', ds:1, dr:15, d:2},
+  {n:'아이언 론치 모니터', e:'Iron Launch Monitor', c:'golf_skill', s:'아이언', f:'아이언 데이터 분석', u:'min', ds:1, dr:15, d:2},
+
+  // --- 최종 26개 보충 ---
+  {n:'트랩바 캐리', e:'Trap Bar Carry', c:'weight', s:'전신', f:'악력·코어·전신 안정', u:'min', ds:3, dr:1, d:2},
+  {n:'덤벨 폴오버 투 프레스', e:'DB Pullover to Press', c:'weight', s:'상체', f:'광배→흉근 복합', u:'rep', ds:3, dr:10, d:2},
+  {n:'바벨 컬 투 프레스', e:'BB Curl to Press', c:'weight', s:'상체', f:'이두→삼각 복합', u:'rep', ds:3, dr:10, d:2},
+  {n:'덤벨 스내치', e:'DB Snatch', c:'weight', s:'전신', f:'단측 전신 파워', u:'rep', ds:3, dr:6, d:2},
+  {n:'싱글 암 케이블 프레스', e:'SA Cable Press', c:'weight', s:'상체', f:'단측 밀기·코어', u:'rep', ds:3, dr:10, d:2},
+  {n:'머신 리어 델트 플라이', e:'Machine Rear Fly', c:'weight', s:'상체', f:'후면 삼각 머신', u:'rep', ds:3, dr:15, d:1},
+  {n:'시티드 카프 레이즈 (머신)', e:'Seated Calf Machine', c:'weight', s:'하체', f:'가자미근 머신', u:'rep', ds:3, dr:15, d:1},
+  {n:'인클라인 해머 프레스', e:'Incline Hammer Press', c:'weight', s:'상체', f:'상부 흉근 뉴트럴', u:'rep', ds:3, dr:10, d:2},
+  {n:'머신 AB 크런치', e:'Machine Ab Crunch', c:'weight', s:'코어', f:'복직근 머신', u:'rep', ds:3, dr:15, d:1},
+  {n:'밴디드 페이스 풀 (높은)', e:'Band Face Pull High', c:'weight', s:'상체', f:'높은 앵커 페이스풀', u:'rep', ds:3, dr:15, d:1},
+  {n:'롤링 패턴 (하지 주도)', e:'LE Rolling', c:'golf_fit', s:'패턴', f:'하지 주도 뒤집기', u:'rep', ds:2, dr:10, d:1},
+  {n:'롤링 패턴 (상지 주도)', e:'UE Rolling', c:'golf_fit', s:'패턴', f:'상지 주도 뒤집기', u:'rep', ds:2, dr:10, d:1},
+  {n:'닐링 투 하프닐링', e:'Kneeling to HK', c:'golf_fit', s:'패턴', f:'자세 전환 안정', u:'rep', ds:2, dr:10, d:1},
+  {n:'하프닐링 투 스탠딩', e:'HK to Standing', c:'golf_fit', s:'패턴', f:'기립 패턴 통합', u:'rep', ds:2, dr:10, d:1},
+  {n:'스쿼트 투 스탠드', e:'Squat to Stand', c:'golf_fit', s:'모빌리티', f:'힙 굴곡+햄스트링', u:'rep', ds:2, dr:8, d:1},
+  {n:'폼롤러 플랭크', e:'FR Plank', c:'golf_fit', s:'코어', f:'불안정 플랭크', u:'sec', ds:3, dr:30, d:2},
+  {n:'슈퍼밴드 힙 플렉서', e:'Super Band Hip Flexor', c:'golf_fit', s:'모빌리티', f:'밴드 견인 힙 이완', u:'sec', ds:2, dr:30, d:1},
+  {n:'밴드 스쿼트 프레스', e:'Band Squat Press', c:'golf_fit', s:'전신', f:'스쿼트+프레스 밴드', u:'rep', ds:3, dr:10, d:1},
+  {n:'밴드 쓰루 (힙힌지)', e:'Band Pull Through', c:'golf_fit', s:'하체', f:'밴드 힙힌지 둔근', u:'rep', ds:3, dr:12, d:1},
+  {n:'밴드 러시안 트위스트', e:'Band Russian Twist', c:'golf_fit', s:'코어', f:'밴드 저항 회전', u:'rep', ds:3, dr:20, d:1},
+  {n:'숏게임 느낌 찾기', e:'Short Game Feel', c:'golf_skill', s:'숏게임', f:'터치감 집중 연습', u:'min', ds:1, dr:15, d:1},
+  {n:'퍼팅 리듬 드릴', e:'Putt Rhythm Drill', c:'golf_skill', s:'퍼팅', f:'퍼팅 리듬 일관성', u:'min', ds:1, dr:10, d:1},
+  {n:'풀 스윙 비디오 체크', e:'Full Swing Video', c:'golf_skill', s:'드릴', f:'촬영+즉시 확인 반복', u:'min', ds:1, dr:15, d:1},
+  {n:'코스 인 마이 마인드', e:'Course In Mind', c:'golf_skill', s:'멘탈', f:'코스 레이아웃 기억', u:'min', ds:1, dr:10, d:1},
+  {n:'40피트 래그 퍼팅', e:'40ft Lag Putting', c:'golf_skill', s:'퍼팅', f:'초장거리 래그 감각', u:'min', ds:1, dr:10, d:2},
+  {n:'에코 스윙 (연속 소형)', e:'Echo Swing', c:'golf_skill', s:'드릴', f:'소형 스윙 감각 반복', u:'rep', ds:3, dr:15, d:1},
+
+];
