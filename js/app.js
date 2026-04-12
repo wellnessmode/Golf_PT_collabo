@@ -510,7 +510,7 @@ let S = {
   showReport:false,
   memberSearch:'',
   showDashboard:false,
-  sidebarTab:'collab',
+  sidebarTab:'pt_lesson',
   showQuickNote:false,
   showGoalEdit:false,
   showImageCard:false
@@ -958,17 +958,26 @@ function render(){
         <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()">🏠</button>
       </div>
     </div>
+    ${isInfo ? `
+    <div class="sidebar-section-label">전체 회원 관리</div>
+    <div class="infodesk-tools">
+      <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>
+      <div class="infodesk-summary">PT+레슨 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 레슨 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
+    </div>
+    ` : `
     <div class="sidebar-tabs">
-      <div class="sidebar-tab${S.sidebarTab==='collab'?' active':''}" onclick="S.sidebarTab='collab';render()">협업</div>
+      <div class="sidebar-tab${S.sidebarTab==='pt_lesson'?' active':''}" onclick="S.sidebarTab='pt_lesson';render()">PT+레슨</div>
       <div class="sidebar-tab${S.sidebarTab==='lesson'?' active':''}" onclick="S.sidebarTab='lesson';render()">레슨</div>
     </div>
+    `}
     <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
     <div class="member-list">
       ${S.members.filter(function(m){
-        var mType = m.memberType||'collab';
-        if(mType!==S.sidebarTab) return false;
-        if(S.sidebarTab==='collab' && !isInfo && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
-        if(S.sidebarTab==='lesson' && !isInfo && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
+        var mType = m.memberType||'pt_lesson';
+        if(!isInfo){
+          if(mType!==S.sidebarTab) return false;
+          if(!(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
+        }
         if(S.memberSearch){
           var q=S.memberSearch.trim().toLowerCase();
           if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
@@ -977,7 +986,7 @@ function render(){
       }).map(m => `
         <div class="member-item${m.id===mid?' active':''}" onclick="selectMember('${m.id}')">
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
-          <div class="member-name">${m.name}${expiryBadge(m.expiry)}</div>
+          <div class="member-name">${m.name}${expiryBadge(m.expiry)}${(m.memberType||'pt_lesson')==='lesson'?'<span class="type-tag lesson-tag">레슨</span>':''}</div>
           <div class="session-badge">${(S.sessions[m.id]||[]).length}</div>
           <div class="member-actions">
             ${(isInfo&&!isAdmin)?'<button class="member-edit-btn" onclick="event.stopPropagation();openEditMember(\''+m.id+'\')">수정</button>':''}
@@ -988,7 +997,7 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
-      <button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>
+      ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
       ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">🔑 비밀번호 변경</button>':''}
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">🔍 전체 감사 로그</button>':''}
@@ -1004,21 +1013,21 @@ function render(){
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
         <div>
           <div class="member-title">${member.name} 회원님</div>
-          <div class="member-subtitle">${(member.memberType||'collab')==='lesson'
+          <div class="member-subtitle">${(member.memberType||'pt_lesson')==='lesson'
             ?'레슨 '+(st?st.pro+st.trainer:0)+'/'+(member.golfLessonCount||'0')+'회'+(member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):'')
             :'레슨 '+(st?st.pro:0)+'/'+(member.golfLessonCount||'0')+'회 · PT '+(st?st.trainer:0)+'/'+(member.golfPTCount||'0')+'회'+(member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):'')
           }</div>
           ${(member.phone||member.email||member.registeredDate)?`<div class="member-detail-line">${member.phone?'📞 '+member.phone:''}${member.email?' · ✉ '+member.email:''}${member.registeredDate?' · 가입일 '+member.registeredDate:''}</div>`:''}
-          ${(member.memberType||'collab')==='lesson'&&(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+member.handicap:''}${member.avgScore?' · 평균 '+member.avgScore+'타':''}${member.focusPoints?' · 🎯 '+member.focusPoints:''}</div>`:''}
-          ${(member.memberType||'collab')==='lesson'&&member.goal?`<div class="member-detail-line goal-line">🏁 목표: ${member.goal}</div>`:''}
+          ${(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+member.handicap:''}${member.avgScore?' · 평균 '+member.avgScore+'타':''}${member.focusPoints?' · 🎯 '+member.focusPoints:''}</div>`:''}
+          ${member.goal?`<div class="member-detail-line goal-line">🏁 목표: ${member.goal}</div>`:''}
         </div>
       </div>
       <div class="topbar-actions">
-        ${(member.memberType||'collab')==='lesson'?'<button class="btn" onclick="openImageCard()" title="이미지 카드">🖼️ 카드</button>':''}
+        <button class="btn" onclick="openImageCard()" title="이미지 카드">🖼️ 카드</button>
         <button class="btn" onclick="openReport()" title="회원 리포트">📄 리포트</button>
-        ${(member.memberType||'collab')==='collab'&&(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
-        ${!isInfo&&(member.memberType||'collab')==='lesson'?'<button class="btn primary" onclick="openQuickNote()">+ 레슨 노트</button>':''}
-        ${!isInfo&&(member.memberType||'collab')==='collab'?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
+        ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
+        ${!isInfo?'<button class="btn" onclick="openQuickNote()">📝 레슨 노트</button>':''}
+        ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">거절</button>':''}
       </div>
     </div>
@@ -1205,8 +1214,8 @@ function render(){
       <div class="form-group">
         <label class="form-label">회원 유형</label>
         <div class="radio-group">
-          <div class="radio-opt${S.newMember.memberType==='collab'?' sel-pro':''}" onclick="S.newMember.memberType='collab';render()">🤝 협업 회원</div>
-          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">🏌️ 레슨 전용</div>
+          <div class="radio-opt${S.newMember.memberType==='pt_lesson'?' sel-pro':''}" onclick="S.newMember.memberType='pt_lesson';render()">💪 PT + 레슨</div>
+          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">🏌️ 레슨</div>
         </div>
       </div>
       <div class="form-group">
@@ -1244,7 +1253,7 @@ function render(){
           <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfLessonAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfLessonAmount=this.value">
         </div>
       </div>
-      ${S.newMember.memberType!=='lesson'?`<div class="form-section-label">골프 PT</div>
+      ${S.newMember.memberType==='pt_lesson'?`<div class="form-section-label">골프 PT</div>
       <div class="member-info-row">
         <div class="form-group">
           <label class="form-label">등록 횟수</label>
@@ -1255,7 +1264,7 @@ function render(){
           <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfPTAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfPTAmount=this.value">
         </div>
       </div>`:``}
-      ${S.newMember.memberType==='lesson'?`<div class="form-section-label">골프 프로필</div>
+      <div class="form-section-label">골프 프로필</div>
       <div class="member-info-row">
         <div class="form-group">
           <label class="form-label">핸디캡</label>
@@ -1273,7 +1282,7 @@ function render(){
       <div class="form-group">
         <label class="form-label">주력 교정 포인트</label>
         <input class="form-input" placeholder="예: 슬라이스, 힙 슬라이드" value="${(S.newMember.focusPoints||'').replace(/"/g,'&quot;')}" oninput="S.newMember.focusPoints=this.value">
-      </div>`:``}
+      </div>
       <div class="form-group">
         <label class="form-label">담당 지도자 배정</label>
         <div class="assign-grid">${INSTRUCTORS.map(function(inst){
@@ -1525,7 +1534,7 @@ function renderExercisePicker(){
     '</div>'+
   '</div>';
 }
-function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[],memberType:S.sidebarTab||'collab',handicap:'',avgScore:'',goal:'',focusPoints:''}; S.editMemberId=null; S.showAddMember=true; render();}
+function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[],memberType:S.sidebarTab||'pt_lesson',handicap:'',avgScore:'',goal:'',focusPoints:''}; S.editMemberId=null; S.showAddMember=true; render();}
 function toggleAssign(name){
   var arr=S.newMember.assignedTo||[];
   var idx=arr.indexOf(name);
@@ -1541,7 +1550,7 @@ function openEditMember(id){
     golfLessonCount:m.golfLessonCount||'', golfPTCount:m.golfPTCount||'',
     golfLessonAmount:m.golfLessonAmount||'', golfPTAmount:m.golfPTAmount||'',
     expiry:m.expiry||'', assignedTo:(m.assignedTo||[]).slice(),
-    memberType:m.memberType||'collab',
+    memberType:m.memberType||'pt_lesson',
     handicap:m.handicap||'', avgScore:m.avgScore||'',
     goal:m.goal||'', focusPoints:m.focusPoints||''
   };
@@ -1558,7 +1567,7 @@ function saveMemberEdit(){
   m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;
   m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;
   m.expiry=S.newMember.expiry;m.assignedTo=S.newMember.assignedTo||[];
-  m.memberType=S.newMember.memberType||'collab';
+  m.memberType=S.newMember.memberType||'pt_lesson';
   m.handicap=S.newMember.handicap;m.avgScore=S.newMember.avgScore;
   m.goal=S.newMember.goal;m.focusPoints=S.newMember.focusPoints;
   // 담당자 변경 감지 → 인수인계 자동 생성
@@ -2158,7 +2167,7 @@ function addMember(){
     golfPTAmount:S.newMember.golfPTAmount,
     expiry:S.newMember.expiry,
     assignedTo:S.newMember.assignedTo||[],
-    memberType:S.newMember.memberType||'collab',
+    memberType:S.newMember.memberType||'pt_lesson',
     handicap:S.newMember.handicap||'',
     avgScore:S.newMember.avgScore||'',
     goal:S.newMember.goal||'',

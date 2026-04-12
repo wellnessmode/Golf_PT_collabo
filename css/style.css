@@ -655,3 +655,10 @@ body.sp-fs-lock{overflow:hidden}
 .qtag{display:inline-block;padding:5px 12px;font-size:12px;border:1px solid #d4cfc4;border-radius:14px;cursor:pointer;color:#666;background:#fff;transition:all .15s}
 .qtag.sel{background:#2d5016;color:#fff;border-color:#2d5016}
 .qtag:hover{border-color:#4a7c59}
+
+/* ============ 인포데스크 ============ */
+.infodesk-tools{padding:0 10px 6px}
+.infodesk-tools .mp-btn{width:100%;margin-bottom:6px}
+.infodesk-summary{font-size:11px;color:#8b9a8e;text-align:center;padding:4px 0 8px;border-bottom:1px solid #e8e4da}
+.type-tag{font-size:9px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:600;vertical-align:middle}
+.lesson-tag{background:#e3f2fd;color:#1565c0}
