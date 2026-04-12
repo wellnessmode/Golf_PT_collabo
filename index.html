@@ -3,7 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Golf PT Collaboration — 내셔널짐</title>
+<title>Golf PT — 내셔널짐</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a3d2b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Golf PT">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -24,5 +33,14 @@
 
 <!-- 앱 로직 -->
 <script src="js/app.js"></script>
+
+<!-- Service Worker 등록 -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function(e) {
+    console.log('SW registration failed:', e);
+  });
+}
+</script>
 </body>
 </html>
