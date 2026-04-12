@@ -509,7 +509,11 @@ let S = {
   showHandover:null, // memberId to show handover card
   showReport:false,
   memberSearch:'',
-  showDashboard:false
+  showDashboard:false,
+  sidebarTab:'collab',
+  showQuickNote:false,
+  showGoalEdit:false,
+  showImageCard:false
 };
 
 // ============ Audit Log (관리자용 상세 감사 로그) ============
@@ -954,11 +958,17 @@ function render(){
         <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()">🏠</button>
       </div>
     </div>
-    <div class="sidebar-section-label">회원 목록${!isInfo?' (배정)':''}</div>
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab${S.sidebarTab==='collab'?' active':''}" onclick="S.sidebarTab='collab';render()">협업</div>
+      <div class="sidebar-tab${S.sidebarTab==='lesson'?' active':''}" onclick="S.sidebarTab='lesson';render()">레슨</div>
+    </div>
     <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
     <div class="member-list">
       ${S.members.filter(function(m){
-        if(!isInfo && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
+        var mType = m.memberType||'collab';
+        if(mType!==S.sidebarTab) return false;
+        if(S.sidebarTab==='collab' && !isInfo && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
+        if(S.sidebarTab==='lesson' && !isInfo && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
         if(S.memberSearch){
           var q=S.memberSearch.trim().toLowerCase();
           if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
@@ -994,14 +1004,21 @@ function render(){
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
         <div>
           <div class="member-title">${member.name} 회원님</div>
-          <div class="member-subtitle">레슨 ${st?st.pro:0}/${member.golfLessonCount||'0'}회 · PT ${st?st.trainer:0}/${member.golfPTCount||'0'}회${member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):''}</div>
+          <div class="member-subtitle">${(member.memberType||'collab')==='lesson'
+            ?'레슨 '+(st?st.pro+st.trainer:0)+'/'+(member.golfLessonCount||'0')+'회'+(member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):'')
+            :'레슨 '+(st?st.pro:0)+'/'+(member.golfLessonCount||'0')+'회 · PT '+(st?st.trainer:0)+'/'+(member.golfPTCount||'0')+'회'+(member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):'')
+          }</div>
           ${(member.phone||member.email||member.registeredDate)?`<div class="member-detail-line">${member.phone?'📞 '+member.phone:''}${member.email?' · ✉ '+member.email:''}${member.registeredDate?' · 가입일 '+member.registeredDate:''}</div>`:''}
+          ${(member.memberType||'collab')==='lesson'&&(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+member.handicap:''}${member.avgScore?' · 평균 '+member.avgScore+'타':''}${member.focusPoints?' · 🎯 '+member.focusPoints:''}</div>`:''}
+          ${(member.memberType||'collab')==='lesson'&&member.goal?`<div class="member-detail-line goal-line">🏁 목표: ${member.goal}</div>`:''}
         </div>
       </div>
       <div class="topbar-actions">
+        ${(member.memberType||'collab')==='lesson'?'<button class="btn" onclick="openImageCard()" title="이미지 카드">🖼️ 카드</button>':''}
         <button class="btn" onclick="openReport()" title="회원 리포트">📄 리포트</button>
-        ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
-        ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
+        ${(member.memberType||'collab')==='collab'&&(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
+        ${!isInfo&&(member.memberType||'collab')==='lesson'?'<button class="btn primary" onclick="openQuickNote()">+ 레슨 노트</button>':''}
+        ${!isInfo&&(member.memberType||'collab')==='collab'?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">거절</button>':''}
       </div>
     </div>
@@ -1186,6 +1203,13 @@ function render(){
     <div class="modal">
       <div class="modal-title">${S.editMemberId?'회원 정보 수정':'새 회원 등록'}</div>
       <div class="form-group">
+        <label class="form-label">회원 유형</label>
+        <div class="radio-group">
+          <div class="radio-opt${S.newMember.memberType==='collab'?' sel-pro':''}" onclick="S.newMember.memberType='collab';render()">🤝 협업 회원</div>
+          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">🏌️ 레슨 전용</div>
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-label">회원 이름</label>
         <input class="form-input" placeholder="예: 김민수" value="${(S.newMember.name||'').replace(/"/g,'&quot;')}" oninput="S.newMember.name=this.value" autofocus>
       </div>
@@ -1220,7 +1244,7 @@ function render(){
           <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfLessonAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfLessonAmount=this.value">
         </div>
       </div>
-      <div class="form-section-label">골프 PT</div>
+      ${S.newMember.memberType!=='lesson'?`<div class="form-section-label">골프 PT</div>
       <div class="member-info-row">
         <div class="form-group">
           <label class="form-label">등록 횟수</label>
@@ -1230,7 +1254,26 @@ function render(){
           <label class="form-label">등록 금액 (원)</label>
           <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfPTAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfPTAmount=this.value">
         </div>
+      </div>`:``}
+      ${S.newMember.memberType==='lesson'?`<div class="form-section-label">골프 프로필</div>
+      <div class="member-info-row">
+        <div class="form-group">
+          <label class="form-label">핸디캡</label>
+          <input class="form-input" type="number" placeholder="예: 18" value="${S.newMember.handicap||''}" oninput="S.newMember.handicap=this.value">
+        </div>
+        <div class="form-group">
+          <label class="form-label">평균 타수</label>
+          <input class="form-input" type="number" placeholder="예: 95" value="${S.newMember.avgScore||''}" oninput="S.newMember.avgScore=this.value">
+        </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">목표</label>
+        <input class="form-input" placeholder="예: 3개월 내 100타 깨기" value="${(S.newMember.goal||'').replace(/"/g,'&quot;')}" oninput="S.newMember.goal=this.value">
+      </div>
+      <div class="form-group">
+        <label class="form-label">주력 교정 포인트</label>
+        <input class="form-input" placeholder="예: 슬라이스, 힙 슬라이드" value="${(S.newMember.focusPoints||'').replace(/"/g,'&quot;')}" oninput="S.newMember.focusPoints=this.value">
+      </div>`:``}
       <div class="form-group">
         <label class="form-label">담당 지도자 배정</label>
         <div class="assign-grid">${INSTRUCTORS.map(function(inst){
@@ -1341,6 +1384,8 @@ function render(){
 
   ${renderHandoverModal()}
   ${renderReportModal()}
+  ${renderQuickNoteModal()}
+  ${renderImageCardModal()}
   `;
   // 커스텀 플레이어 초기화 (세션 카드의 영상)
   setTimeout(initSwingPlayers, 0);
@@ -1480,7 +1525,7 @@ function renderExercisePicker(){
     '</div>'+
   '</div>';
 }
-function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]}; S.editMemberId=null; S.showAddMember=true; render();}
+function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[],memberType:S.sidebarTab||'collab',handicap:'',avgScore:'',goal:'',focusPoints:''}; S.editMemberId=null; S.showAddMember=true; render();}
 function toggleAssign(name){
   var arr=S.newMember.assignedTo||[];
   var idx=arr.indexOf(name);
@@ -1495,7 +1540,10 @@ function openEditMember(id){
     registeredDate:m.registeredDate||'',
     golfLessonCount:m.golfLessonCount||'', golfPTCount:m.golfPTCount||'',
     golfLessonAmount:m.golfLessonAmount||'', golfPTAmount:m.golfPTAmount||'',
-    expiry:m.expiry||'', assignedTo:(m.assignedTo||[]).slice()
+    expiry:m.expiry||'', assignedTo:(m.assignedTo||[]).slice(),
+    memberType:m.memberType||'collab',
+    handicap:m.handicap||'', avgScore:m.avgScore||'',
+    goal:m.goal||'', focusPoints:m.focusPoints||''
   };
   S.editMemberId=id; S.showAddMember=true; render();
 }
@@ -1510,6 +1558,9 @@ function saveMemberEdit(){
   m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;
   m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;
   m.expiry=S.newMember.expiry;m.assignedTo=S.newMember.assignedTo||[];
+  m.memberType=S.newMember.memberType||'collab';
+  m.handicap=S.newMember.handicap;m.avgScore=S.newMember.avgScore;
+  m.goal=S.newMember.goal;m.focusPoints=S.newMember.focusPoints;
   // 담당자 변경 감지 → 인수인계 자동 생성
   var newAssigned = m.assignedTo;
   var removed = oldAssigned.filter(function(n){return newAssigned.indexOf(n)===-1;});
@@ -1599,6 +1650,161 @@ function renderHandoverModal(){
 }
 
 // ============ 회원 리포트 (HTML → 인쇄/PDF) ============
+// ============ 간편 레슨 노트 ============
+const LESSON_TAGS = ['드라이버','우드','아이언','웨지','퍼팅','숏게임','벙커','어프로치','그립','셋업','백스윙','다운스윙','임팩트','피니시','템포','멘탈'];
+function openQuickNote(){
+  S.showQuickNote=true;
+  S.quickNote={date:today(),memo:'',tags:[],author:S.currentUser||''};
+  render();
+}
+function closeQuickNote(){S.showQuickNote=false;render();}
+function toggleQTag(tag){
+  var idx=S.quickNote.tags.indexOf(tag);
+  if(idx===-1) S.quickNote.tags.push(tag); else S.quickNote.tags.splice(idx,1);
+  render();
+}
+function saveQuickNote(){
+  if(!S.quickNote.memo.trim()){alert('메모를 입력하세요');return;}
+  var mid=S.selectedMember;
+  if(!S.sessions[mid]) S.sessions[mid]=[];
+  var tagStr=S.quickNote.tags.length>0?' #'+S.quickNote.tags.join(' #'):'';
+  var s={
+    id:suid(), date:S.quickNote.date, author:S.quickNote.author,
+    content:S.quickNote.memo.trim()+tagStr,
+    _addedAt:new Date().toISOString(), _quickNote:true
+  };
+  S.sessions[mid].push(s);
+  logActivity('레슨 노트',mid,s.content.slice(0,40));
+  save(); S.showQuickNote=false; render();
+  cloud.upsertSession(mid,s);
+}
+function renderQuickNoteModal(){
+  if(!S.showQuickNote) return '';
+  var m=S.members.find(function(x){return x.id===S.selectedMember;});
+  return `<div class="modal-overlay" onclick="if(event.target===this)closeQuickNote()">
+    <div class="modal" style="width:440px">
+      <div class="modal-title">📝 레슨 노트 — ${m?m.name+' 회원님':''}</div>
+      <div class="form-group">
+        <label class="form-label">날짜</label>
+        <input type="date" class="form-input" value="${S.quickNote.date}" onchange="S.quickNote.date=this.value">
+      </div>
+      <div class="form-group">
+        <label class="form-label">메모</label>
+        <textarea class="form-textarea" rows="3" placeholder="오늘 레슨 내용을 간단히..." oninput="S.quickNote.memo=this.value" autofocus>${S.quickNote.memo}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">태그</label>
+        <div class="qtag-grid">${LESSON_TAGS.map(function(t){
+          var sel=S.quickNote.tags.indexOf(t)!==-1;
+          return '<span class="qtag'+(sel?' sel':'')+'" onclick="toggleQTag(\''+t+'\')">'+t+'</span>';
+        }).join('')}</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeQuickNote()">취소</button>
+        <button class="btn primary" onclick="saveQuickNote()">저장</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ============ 이미지 카드 (카카오톡 공유용) ============
+function openImageCard(){S.showImageCard=true;render();}
+function closeImageCard(){S.showImageCard=false;render();}
+function generateImageCard(){
+  var mid=S.selectedMember;
+  var m=S.members.find(function(x){return x.id===mid;});
+  if(!m) return;
+  var allSess=(S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var thisMonth=today().slice(0,7);
+  var monthSess=allSess.filter(function(s){return s.date.slice(0,7)===thisMonth;});
+  var canvas=document.createElement('canvas');
+  canvas.width=720; canvas.height=960;
+  var ctx=canvas.getContext('2d');
+  // 배경
+  ctx.fillStyle='#f5f5f0'; ctx.fillRect(0,0,720,960);
+  // 상단 바
+  ctx.fillStyle='#1a3d2b'; ctx.fillRect(0,0,720,120);
+  ctx.fillStyle='#fff'; ctx.font='bold 28px -apple-system,sans-serif';
+  ctx.fillText('내셔널짐 Golf Lesson',40,50);
+  ctx.font='16px -apple-system,sans-serif';
+  ctx.fillText('월간 레슨 리포트 · '+today(),40,85);
+  // 회원 정보
+  var y=160;
+  ctx.fillStyle='#1a3d2b'; ctx.font='bold 32px -apple-system,sans-serif';
+  ctx.fillText(m.name+' 회원님',40,y); y+=45;
+  ctx.fillStyle='#555'; ctx.font='18px -apple-system,sans-serif';
+  if(m.handicap||m.avgScore){
+    ctx.fillText('HC '+(m.handicap||'-')+' · 평균 '+(m.avgScore||'-')+'타',40,y); y+=35;
+  }
+  if(m.goal){
+    ctx.fillText('🏁 목표: '+m.goal,40,y); y+=35;
+  }
+  if(m.focusPoints){
+    ctx.fillText('🎯 교정: '+m.focusPoints,40,y); y+=35;
+  }
+  // 구분선
+  y+=10;
+  ctx.strokeStyle='#d4cfc4'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(680,y); ctx.stroke(); y+=30;
+  // 이번 달 레슨
+  ctx.fillStyle='#1a3d2b'; ctx.font='bold 22px -apple-system,sans-serif';
+  ctx.fillText('이번 달 레슨: '+monthSess.length+'회',40,y); y+=35;
+  ctx.fillStyle='#333'; ctx.font='16px -apple-system,sans-serif';
+  var shownSess=monthSess.slice(0,6);
+  shownSess.forEach(function(s){
+    var line=s.date.slice(5)+' — '+s.content.slice(0,40)+(s.content.length>40?'…':'');
+    ctx.fillText(line,50,y); y+=28;
+  });
+  if(monthSess.length>6){ctx.fillText('... 외 '+(monthSess.length-6)+'건',50,y); y+=28;}
+  // 구분선
+  y+=10;
+  ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(680,y); ctx.stroke(); y+=30;
+  // 전체 레슨 현황
+  var totalUsed=allSess.length;
+  var totalReg=parseInt(m.golfLessonCount)||0;
+  ctx.fillStyle='#1a3d2b'; ctx.font='bold 20px -apple-system,sans-serif';
+  ctx.fillText('전체 진행: '+totalUsed+' / '+totalReg+'회',40,y); y+=30;
+  // 진행률 바
+  var pct=totalReg>0?Math.min(1,totalUsed/totalReg):0;
+  ctx.fillStyle='#e0ddc8'; roundRect(ctx,40,y,640,20,10); ctx.fill();
+  ctx.fillStyle='#2d7a4f'; roundRect(ctx,40,y,Math.max(20,640*pct),20,10); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 12px -apple-system,sans-serif';
+  ctx.fillText(Math.round(pct*100)+'%',40+640*pct/2-10,y+15); y+=45;
+  // 하단
+  ctx.fillStyle='#999'; ctx.font='13px -apple-system,sans-serif';
+  ctx.fillText('내셔널짐 Golf PT Collaboration · '+today(),40,920);
+  // 다운로드
+  canvas.toBlob(function(blob){
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=m.name+'_레슨카드_'+today()+'.png';
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);},200);
+  },'image/png');
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+function renderImageCardModal(){
+  if(!S.showImageCard) return '';
+  var m=S.members.find(function(x){return x.id===S.selectedMember;});
+  if(!m) return '';
+  return `<div class="modal-overlay" onclick="if(event.target===this)closeImageCard()">
+    <div class="modal" style="width:400px">
+      <div class="modal-title">🖼️ 이미지 카드 생성</div>
+      <p style="font-size:13px;color:#555;margin-bottom:16px">${m.name} 회원님의 월간 레슨 리포트를 이미지로 다운로드합니다.<br>길게 눌러 카카오톡으로 공유하세요.</p>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeImageCard()">취소</button>
+        <button class="btn primary" onclick="generateImageCard();closeImageCard()">📥 이미지 다운로드</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function openReport(){S.showReport=true; render();}
 function closeReport(){S.showReport=false; render();}
 function printReport(){
@@ -1951,7 +2157,12 @@ function addMember(){
     golfLessonAmount:S.newMember.golfLessonAmount,
     golfPTAmount:S.newMember.golfPTAmount,
     expiry:S.newMember.expiry,
-    assignedTo:S.newMember.assignedTo||[]
+    assignedTo:S.newMember.assignedTo||[],
+    memberType:S.newMember.memberType||'collab',
+    handicap:S.newMember.handicap||'',
+    avgScore:S.newMember.avgScore||'',
+    goal:S.newMember.goal||'',
+    focusPoints:S.newMember.focusPoints||''
   };
   S.members.push(m);
   S.assessments[id] = {};

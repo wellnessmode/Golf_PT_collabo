@@ -639,3 +639,19 @@ body.sp-fs-lock{overflow:hidden}
   .dash-grid{grid-template-columns:1fr}
   .dbr-name{width:80px}
 }
+
+/* ============ 사이드바 탭 ============ */
+.sidebar-tabs{display:flex;gap:4px;padding:0 10px;margin-bottom:6px}
+.sidebar-tab{flex:1;text-align:center;padding:7px 0;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;color:#8b9a8e;background:transparent;transition:all .15s}
+.sidebar-tab.active{background:#2d5016;color:#fff}
+.sidebar-tab:not(.active):hover{background:rgba(45,80,22,.08)}
+
+/* ============ 골프 프로필 ============ */
+.golf-profile{color:#2d7a4f;font-weight:600}
+.goal-line{color:#e6880e;font-size:11px}
+
+/* ============ 레슨 태그 ============ */
+.qtag-grid{display:flex;flex-wrap:wrap;gap:6px}
+.qtag{display:inline-block;padding:5px 12px;font-size:12px;border:1px solid #d4cfc4;border-radius:14px;cursor:pointer;color:#666;background:#fff;transition:all .15s}
+.qtag.sel{background:#2d5016;color:#fff;border-color:#2d5016}
+.qtag:hover{border-color:#4a7c59}
