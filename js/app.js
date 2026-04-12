@@ -1148,10 +1148,20 @@ function render(){
               })()}
             </div>
           </div>
-          <div class="media-sub-label" style="margin-top:10px">또는 URL 직접 입력 (유튜브/드라이브)</div>
-          <input class="form-input media-url" placeholder="영상 링크 붙여넣기" value="${(S.newSession.mediaUrls[0]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(0,this.value)" style="margin-bottom:6px">
-          <input class="form-input media-url" placeholder="영상 링크 붙여넣기" value="${(S.newSession.mediaUrls[1]||'').replace(/"/g,'&quot;')}" oninput="updateMediaUrl(1,this.value)">
-          <div class="media-hint">파일당 최대 100MB · 영상은 사전 자동 분석 후 스켈레톤이 고정 표시됩니다</div>
+          <div class="media-hint">파일당 최대 100MB</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">🏋️ 운동 영상 첨부</label>
+        <div class="media-input-box">
+          <div class="exercise-video-list">
+            ${(S.newSession.media||[]).filter(function(x){return x.view==='exercise';}).map(function(x,i){
+              var idx = (S.newSession.media||[]).findIndex(function(m){return m===x;});
+              return '<div class="media-file-item"><span>'+(x.name||'운동영상')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
+            }).join('')}
+          </div>
+          <label class="media-upload-btn">+ 운동 영상 추가<input type="file" accept="video/*" multiple onchange="handleExerciseVideoUpload(this)" style="display:none"></label>
+          <div class="media-hint">여러 파일 선택 가능 · 운동 자세 참고 영상을 첨부하세요</div>
         </div>
       </div>
       <div class="modal-actions">
@@ -1976,6 +1986,58 @@ async function handleFileUpload(input, view){
     render();
     if(view) break; // view별 1개만
   }
+}
+async function handleExerciseVideoUpload(input){
+  var files = Array.from(input.files||[]);
+  if(!files.length) return;
+  input.value='';
+  for(var i=0;i<files.length;i++){
+    await handleFileUploadSingle(files[i], 'exercise');
+  }
+}
+async function handleFileUploadSingle(file, view){
+  var MAX_FILE_SIZE = 100*1024*1024;
+  if(file.size > MAX_FILE_SIZE){
+    alert(file.name+' : '+(file.size/1024/1024).toFixed(1)+'MB\n파일당 최대 100MB까지 가능합니다.');
+    return;
+  }
+  if(!mediaDB.db){
+    var ok = await mediaDB.init();
+    if(!ok){alert('브라우저가 IndexedDB를 지원하지 않습니다.');return;}
+  }
+  S.uploading++;
+  S.uploadMsg = '영상 압축 중...';
+  render();
+  var processed = file;
+  if((file.type||'').indexOf('video/')===0 && file.size > 1*1024*1024){
+    try{
+      processed = await compressVideo(file, {maxWidth:1280, bitrate:2500000}, function(p){
+        S.uploadMsg = '영상 압축 중... '+Math.floor(p*100)+'%';
+        render();
+      });
+    }catch(e){ processed = file; }
+  }
+  S.uploadMsg = '저장 중...';
+  render();
+  var mediaId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  var saved = await mediaDB.put(mediaId, processed, {mimeType:processed.type, name:file.name});
+  S.uploading--;
+  S.uploadMsg = '';
+  if(!saved){alert(file.name+' 저장 실패'); render(); return;}
+  try{S.mediaUrls[mediaId] = URL.createObjectURL(processed);}catch(e){}
+  var mediaItem = {type:'file', view:view, name:file.name, mimeType:processed.type, size:processed.size, mediaId:mediaId};
+  if(r2.enabled){
+    mediaItem.r2Key = mediaId;
+    mediaItem.r2Status = 'uploading';
+    (function(item, blob){
+      r2.upload(mediaId, blob).then(function(ok){
+        item.r2Status = ok ? 'synced' : 'failed';
+        render();
+      });
+    })(mediaItem, processed);
+  }
+  S.newSession.media.push(mediaItem);
+  render();
 }
 async function removeMediaFile(idx){
   var m = S.newSession.media[idx];
