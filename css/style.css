@@ -571,3 +571,18 @@ body.sp-fs-lock{overflow:hidden}
   .member-title{font-size:14px}
   .topbar-actions .btn{font-size:11px;padding:6px 10px}
 }
+
+/* ============ 인수인계 카드 ============ */
+.ho-btn{background:#fff8e1;border-color:#f0c040;color:#7a6200}
+.ho-count{display:inline-block;background:#f0c040;color:#fff;font-size:10px;border-radius:8px;padding:0 6px;margin-left:4px;font-weight:700}
+.handover-card{background:#fafaf5;border:1px solid #e0ddc8;border-radius:10px;padding:16px;margin-bottom:12px}
+.handover-card.latest{border-color:#4caf50;box-shadow:0 0 0 2px rgba(76,175,80,.15)}
+.ho-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.ho-date{font-weight:700;font-size:14px;color:#2d5016}
+.ho-badge{background:#e3f2fd;color:#1565c0;font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600}
+.ho-section{margin-bottom:10px;font-size:13px;line-height:1.7}
+.ho-section strong{color:#333}
+.ho-section ul,.ho-section ol{margin:4px 0 0 18px}
+.ho-section li{margin-bottom:2px}
+.ho-warn{background:#fff3e0;border-radius:6px;padding:8px 12px;border-left:3px solid #ff9800}
+.ho-warn li{color:#993c1d}

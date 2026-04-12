@@ -53,9 +53,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.5',
-  date:'2026-04-11',
+  version:'v2.7',
+  date:'2026-04-12',
   changes:[
+    '📋 인수인계 시스템 — 담당 지도자 변경 시 AI 자동 요약 카드 생성 (최근 10세션, 체형평가, Body-Swing 경고, 스윙 영상)',
+    '📄 회원 리포트 — HTML → 인쇄/PDF 출력 (회원정보, 체형평가, 세션기록 최근 20건)',
+    '🏋️ 운동 DB 1000개 — 웨이트 350 + 골프 피트니스(TPI) 345 + 골프 스킬 305, 별도 파일 분리',
     '🏋️ 운동 DB 100여 개 내장 — 웨이트/골프 피트니스(TPI)/골프 스킬 카테고리, 초성 검색 지원 (예: "ㅅㅋㅌ" → 스쿼트)',
     '⚡ 세션 기록 빠른추가 — "+ 운동 빠른추가" 버튼으로 모달에서 다중 선택 + 세트/횟수 입력 → 자동 포맷으로 내용 추가',
     '📊 Trackman 스타일 A→F 변화량 카드 — 좌/우 힙 이동, 힙 센터 스웨이, 어깨/힙 회전, 최대 X-팩터, 헤드 최대 측면/수직 이동을 한눈에',
@@ -501,7 +504,10 @@ let S = {
   editMemberId:null,
   sidebarOpen:false,
   cloudSync:'local',
-  warningBannerCollapsed:false
+  warningBannerCollapsed:false,
+  handovers:{}, // {memberId: [{date, from, to, summary}]}
+  showHandover:null, // memberId to show handover card
+  showReport:false // member report modal
 };
 
 // ============ Audit Log (관리자용 상세 감사 로그) ============
@@ -576,7 +582,8 @@ function save(){
   try{
     localStorage.setItem('golf_pt_v2', JSON.stringify({
       members:S.members, assessments:S.assessments, sessions:S.sessions,
-      deleteRequests:S.deleteRequests, activityLog:S.activityLog, auditLog:S.auditLog, lastSeen:S.lastSeen
+      deleteRequests:S.deleteRequests, activityLog:S.activityLog, auditLog:S.auditLog, lastSeen:S.lastSeen,
+      handovers:S.handovers
     }));
     return true;
   }catch(e){
@@ -604,6 +611,7 @@ function loadLocal(){
       S.activityLog = p.activityLog || [];
       S.auditLog = p.auditLog || [];
       S.lastSeen = p.lastSeen || {};
+      S.handovers = p.handovers || {};
     } else {
       S.members = SAMPLE_DATA.members;
       S.assessments = SAMPLE_DATA.assessments;
@@ -983,6 +991,8 @@ function render(){
         </div>
       </div>
       <div class="topbar-actions">
+        <button class="btn" onclick="openReport()" title="회원 리포트">📄 리포트</button>
+        ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
         ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">거절</button>':''}
       </div>
@@ -1306,6 +1316,9 @@ function render(){
       </div>
     </div>`;
   })() : ''}
+
+  ${renderHandoverModal()}
+  ${renderReportModal()}
   `;
   // 커스텀 플레이어 초기화 (세션 카드의 영상)
   setTimeout(initSwingPlayers, 0);
@@ -1469,17 +1482,175 @@ function saveMemberEdit(){
   var m=S.members.find(function(x){return x.id===S.editMemberId;});
   if(!m)return;
   var before={name:m.name,phone:m.phone,email:m.email,expiry:m.expiry};
+  var oldAssigned = (m.assignedTo||[]).slice();
   m.name=nm;m.phone=S.newMember.phone;m.email=S.newMember.email;
   m.registeredDate=S.newMember.registeredDate;
   m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;
   m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;
   m.expiry=S.newMember.expiry;m.assignedTo=S.newMember.assignedTo||[];
+  // 담당자 변경 감지 → 인수인계 자동 생성
+  var newAssigned = m.assignedTo;
+  var removed = oldAssigned.filter(function(n){return newAssigned.indexOf(n)===-1;});
+  var added = newAssigned.filter(function(n){return oldAssigned.indexOf(n)===-1;});
+  if(removed.length>0 || added.length>0){
+    generateHandover(S.editMemberId, removed.length>0?removed:oldAssigned, added.length>0?added:newAssigned);
+  }
   var editId = S.editMemberId;
   S.editMemberId=null; S.showAddMember=false;
   logActivity('회원 수정', editId, nm);
   logAudit('member','회원 수정',nm,{before:before,after:{name:m.name,phone:m.phone,email:m.email,expiry:m.expiry}});
   save(); render(); cloud.upsertMember(m);
 }
+// ============ 인수인계 시스템 ============
+function generateHandover(memberId, removedInstructors, addedInstructors){
+  var m = S.members.find(function(x){return x.id===memberId;});
+  if(!m) return;
+  var allSess = (S.sessions[memberId]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var assess = S.assessments[memberId]||{};
+  // 최근 10개 세션 요약
+  var recentSessions = allSess.slice(0,10).map(function(s){
+    return s.date+' ('+s.author+'): '+s.content.slice(0,80)+(s.content.length>80?'…':'');
+  });
+  // 체형평가 경고 항목
+  var warnings = ASSESSMENT_ITEMS.filter(function(item){
+    var v = assess[item.key]; return v && (v.result==='제한'||v.result==='주의 필요');
+  }).map(function(item){
+    return item.name+' ['+assess[item.key].result+'] → '+(BODY_SWING_MAP[item.key]||'');
+  });
+  // 체형평가 요약 (비정상 항목만)
+  var assessSummary = ASSESSMENT_ITEMS.filter(function(item){
+    var v = assess[item.key]; return v && v.result && v.result!=='미검사' && v.result!=='정상';
+  }).map(function(item){
+    var v = assess[item.key];
+    return item.name+': '+v.result+(v.note?' ('+v.note+')':'');
+  });
+  // 스윙 영상 링크 (최근 세션에서 영상 포함된 것)
+  var videoSessions = allSess.filter(function(s){return s.media && s.media.length>0;}).slice(0,5);
+  var videoLinks = videoSessions.map(function(s){
+    return s.date+' ('+s.author+') — 영상 '+s.media.length+'개';
+  });
+  var summary = {
+    memberName: m.name,
+    date: today(),
+    from: removedInstructors,
+    to: addedInstructors,
+    totalSessions: allSess.length,
+    proSessions: allSess.filter(function(s){return getRole(s.author)==='pro';}).length,
+    trainerSessions: allSess.filter(function(s){return getRole(s.author)==='trainer';}).length,
+    recentSessions: recentSessions,
+    assessDate: assess._date||'미기록',
+    assessSummary: assessSummary,
+    warnings: warnings,
+    videoLinks: videoLinks
+  };
+  if(!S.handovers[memberId]) S.handovers[memberId] = [];
+  S.handovers[memberId].push(summary);
+  logActivity('인수인계 생성', memberId, removedInstructors.join(',')+' → '+addedInstructors.join(','));
+  save();
+}
+function openHandover(memberId){S.showHandover=memberId; render();}
+function closeHandover(){S.showHandover=null; render();}
+function renderHandoverModal(){
+  var mid = S.showHandover;
+  if(!mid) return '';
+  var list = (S.handovers[mid]||[]).slice().reverse();
+  if(list.length===0) return '';
+  return `<div class="modal-overlay" onclick="if(event.target===this)closeHandover()">
+    <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto">
+      <div class="modal-title">📋 인수인계 기록 — ${list[0].memberName}</div>
+      ${list.map(function(h,i){
+        return '<div class="handover-card'+(i===0?' latest':'')+'">'+
+          '<div class="ho-header">'+
+            '<span class="ho-date">'+h.date+'</span>'+
+            '<span class="ho-badge">'+h.from.join(', ')+' → '+h.to.join(', ')+'</span>'+
+          '</div>'+
+          '<div class="ho-section"><strong>세션 현황:</strong> 총 '+h.totalSessions+'회 (프로 '+h.proSessions+' / PT '+h.trainerSessions+')</div>'+
+          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>⚠ Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul></div>':'')+
+          (h.assessSummary.length>0?'<div class="ho-section"><strong>체형평가 이상 소견 ('+h.assessDate+'):</strong><ul>'+h.assessSummary.map(function(a){return '<li>'+a+'</li>';}).join('')+'</ul></div>':'')+
+          '<div class="ho-section"><strong>최근 세션 (최대 10개):</strong><ol>'+h.recentSessions.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol></div>'+
+          (h.videoLinks.length>0?'<div class="ho-section"><strong>최근 스윙 영상:</strong><ul>'+h.videoLinks.map(function(v){return '<li>'+v+'</li>';}).join('')+'</ul></div>':'')+
+        '</div>';
+      }).join('<hr style="border:none;border-top:1px dashed #ddd;margin:16px 0">')}
+      <div class="modal-actions"><button class="btn" onclick="closeHandover()">닫기</button></div>
+    </div>
+  </div>`;
+}
+
+// ============ 회원 리포트 (HTML → 인쇄/PDF) ============
+function openReport(){S.showReport=true; render();}
+function closeReport(){S.showReport=false; render();}
+function printReport(){
+  var el = document.getElementById('report-print-area');
+  if(!el) return;
+  var win = window.open('','_blank','width=800,height=1100');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>회원 리포트</title>');
+  win.document.write('<style>');
+  win.document.write('*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,sans-serif;padding:30px;color:#222;font-size:13px;line-height:1.6}');
+  win.document.write('.rpt-header{text-align:center;border-bottom:2px solid #2d5016;padding-bottom:15px;margin-bottom:20px}');
+  win.document.write('.rpt-header h1{font-size:20px;color:#2d5016}.rpt-header p{font-size:12px;color:#666}');
+  win.document.write('.rpt-member-info{background:#f5f5f0;padding:14px;border-radius:8px;margin-bottom:18px}');
+  win.document.write('.rpt-member-info td{padding:3px 12px 3px 0;font-size:13px}');
+  win.document.write('.rpt-section{margin-bottom:18px}.rpt-section h2{font-size:15px;color:#2d5016;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:8px}');
+  win.document.write('table.rpt-table{width:100%;border-collapse:collapse;font-size:12px}');
+  win.document.write('table.rpt-table th,table.rpt-table td{border:1px solid #ddd;padding:5px 8px;text-align:left}');
+  win.document.write('table.rpt-table th{background:#eee8d5;font-weight:600}');
+  win.document.write('.warn-row{background:#fff3e0}.rpt-footer{margin-top:30px;text-align:center;font-size:11px;color:#999;border-top:1px solid #ddd;padding-top:10px}');
+  win.document.write('@media print{body{padding:15px}@page{margin:15mm}}');
+  win.document.write('</style></head><body>');
+  win.document.write(el.innerHTML);
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(function(){win.print();},300);
+}
+function renderReportModal(){
+  if(!S.showReport) return '';
+  var mid = S.selectedMember;
+  var m = S.members.find(function(x){return x.id===mid;});
+  if(!m) return '';
+  var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var assess = S.assessments[mid]||{};
+  var st = stats(mid);
+  var recentSess = allSess.slice(0,20);
+  var assessRows = ASSESSMENT_ITEMS.map(function(item){
+    var v = assess[item.key]||{result:'미검사',note:''};
+    var isWarn = v.result!=='정상'&&v.result!=='미검사';
+    return '<tr class="'+(isWarn?'warn-row':'')+'"><td>'+item.name+'</td><td>'+v.result+'</td><td>'+(v.note||'-')+'</td>'+(isWarn&&BODY_SWING_MAP[item.key]?'<td style="font-size:11px;color:#993c1d">'+BODY_SWING_MAP[item.key]+'</td>':'<td>-</td>')+'</tr>';
+  }).join('');
+  var sessionRows = recentSess.map(function(s){
+    return '<tr><td>'+s.date+'</td><td><span style="font-weight:600;color:'+(getRole(s.author)==='pro'?'#3a72c0':'#2d7a4f')+'">'+(getRole(s.author)==='pro'?'프로':'PT')+'</span> '+s.author+'</td><td>'+s.content.replace(/</g,'&lt;').slice(0,120)+(s.content.length>120?'…':'')+'</td></tr>';
+  }).join('');
+
+  return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()">
+    <div class="modal" style="width:720px;max-height:90vh;overflow-y:auto">
+      <div class="modal-title">📄 회원 리포트 미리보기</div>
+      <div id="report-print-area">
+        <div class="rpt-header">
+          <h1>내셔널짐 Golf PT 회원 리포트</h1>
+          <p>출력일: ${today()} | 담당: ${(m.assignedTo||[]).join(', ')||'미배정'}</p>
+        </div>
+        <div class="rpt-member-info">
+          <table><tr><td><strong>회원명</strong></td><td>${m.name}</td><td><strong>연락처</strong></td><td>${m.phone||'-'}</td></tr>
+          <tr><td><strong>등록일</strong></td><td>${m.registeredDate||'-'}</td><td><strong>유효기간</strong></td><td>${m.expiry||'-'}</td></tr>
+          <tr><td><strong>골프 레슨</strong></td><td>${st?st.pro:0}/${m.golfLessonCount||0}회</td><td><strong>골프 PT</strong></td><td>${st?st.trainer:0}/${m.golfPTCount||0}회</td></tr></table>
+        </div>
+        <div class="rpt-section">
+          <h2>체형 기능 평가${assess._date?' ('+assess._date+')':''}</h2>
+          <table class="rpt-table"><thead><tr><th>항목</th><th>결과</th><th>특이사항</th><th>스윙 연관성</th></tr></thead><tbody>${assessRows}</tbody></table>
+        </div>
+        <div class="rpt-section">
+          <h2>세션 기록 (최근 ${recentSess.length}건 / 총 ${allSess.length}건)</h2>
+          <table class="rpt-table"><thead><tr><th style="width:90px">날짜</th><th style="width:130px">담당</th><th>내용</th></tr></thead><tbody>${sessionRows}</tbody></table>
+        </div>
+        <div class="rpt-footer">본 리포트는 내셔널짐 Golf PT Collaboration 시스템에서 자동 생성되었습니다.</div>
+      </div>
+      <div class="modal-actions" style="margin-top:12px">
+        <button class="btn" onclick="closeReport()">닫기</button>
+        <button class="btn primary" onclick="printReport()">🖨️ 인쇄 / PDF 저장</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function requestDelete(id){
   if(!confirm('이 회원의 삭제를 요청하시겠습니까? 운동지도자 승인 후 삭제됩니다.'))return;
   S.deleteRequests[id]={requestedBy:S.currentUser||'인포데스크',requestedAt:today()};
