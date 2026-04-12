@@ -1130,7 +1130,7 @@ function render(){
         <div class="media-input-box">
           <div class="video-slot-grid">
             <div class="video-slot">
-              <div class="vs-label">🎯 정면 영상</div>
+              <div class="vs-label">🏌️ 정면 영상</div>
               ${(function(){
                 var f = (S.newSession.media||[]).find(function(x){return x.view==='front';});
                 var idx = (S.newSession.media||[]).findIndex(function(x){return x.view==='front';});
@@ -1139,7 +1139,7 @@ function render(){
               })()}
             </div>
             <div class="video-slot">
-              <div class="vs-label">📐 측면 영상</div>
+              <div class="vs-label">🏌️‍♂️ 측면 영상</div>
               ${(function(){
                 var f = (S.newSession.media||[]).find(function(x){return x.view==='side';});
                 var idx = (S.newSession.media||[]).findIndex(function(x){return x.view==='side';});
