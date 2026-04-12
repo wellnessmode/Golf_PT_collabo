@@ -962,12 +962,12 @@ function render(){
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
       <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>
-      <div class="infodesk-summary">PT+레슨 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 레슨 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
+      <div class="infodesk-summary">PT+골프 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 골프 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
     </div>
     ` : `
     <div class="sidebar-tabs">
-      <div class="sidebar-tab${S.sidebarTab==='pt_lesson'?' active':''}" onclick="S.sidebarTab='pt_lesson';render()">PT+레슨</div>
-      <div class="sidebar-tab${S.sidebarTab==='lesson'?' active':''}" onclick="S.sidebarTab='lesson';render()">레슨</div>
+      <div class="sidebar-tab${S.sidebarTab==='pt_lesson'?' active':''}" onclick="S.sidebarTab='pt_lesson';render()">PT+골프</div>
+      <div class="sidebar-tab${S.sidebarTab==='lesson'?' active':''}" onclick="S.sidebarTab='lesson';render()">골프</div>
     </div>
     `}
     <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
@@ -1214,8 +1214,8 @@ function render(){
       <div class="form-group">
         <label class="form-label">회원 유형</label>
         <div class="radio-group">
-          <div class="radio-opt${S.newMember.memberType==='pt_lesson'?' sel-pro':''}" onclick="S.newMember.memberType='pt_lesson';render()">💪 PT + 레슨</div>
-          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">🏌️ 레슨</div>
+          <div class="radio-opt${S.newMember.memberType==='pt_lesson'?' sel-pro':''}" onclick="S.newMember.memberType='pt_lesson';render()">💪 PT+골프</div>
+          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">🏌️ 골프</div>
         </div>
       </div>
       <div class="form-group">
