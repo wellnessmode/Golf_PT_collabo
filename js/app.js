@@ -660,6 +660,16 @@ function activateRole(role,user){
   try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}
   location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');
   if(role==='pro'||role==='trainer') S.newSession.author=user;
+  // 접근 불가한 회원이 선택돼있으면 초기화 (pro/trainer는 배정된 회원만)
+  if(role==='pro'||role==='trainer'){
+    var accessible = S.members.filter(function(m){
+      return m.assignedTo && m.assignedTo.indexOf(user)!==-1;
+    });
+    var stillAccessible = S.selectedMember && accessible.some(function(m){return m.id===S.selectedMember;});
+    if(!stillAccessible){
+      S.selectedMember = accessible.length>0 ? accessible[0].id : null;
+    }
+  }
   render();
 }
 function submitPassword(){
@@ -937,6 +947,13 @@ function render(){
   const root = document.getElementById('root');
   const isAdmin = S.currentRole==='admin';
   const isInfo = S.currentRole==='infodesk' || isAdmin; // admin도 읽기전용 (모든 회원 조회)
+  // 프로/트레이너가 배정되지 않은 회원이 선택된 경우 차단
+  if(!isInfo && S.selectedMember){
+    var _sel = S.members.find(function(m){return m.id===S.selectedMember;});
+    if(!_sel || !_sel.assignedTo || _sel.assignedTo.indexOf(S.currentUser)===-1){
+      S.selectedMember = null;
+    }
+  }
   const mid = S.selectedMember;
   const member = mid ? S.members.find(m => m.id===mid) : null;
   const allSess = mid ? (S.sessions[mid]||[]).slice().sort((a,b) => b.date.localeCompare(a.date)) : [];

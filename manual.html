@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>내셔널짐 Golf PT 사용 매뉴얼</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color:#222; line-height:1.7; padding:30px 40px; font-size:13px; background:#fff; }
+.cover { text-align:center; padding:100px 0 80px; page-break-after:always; }
+.cover-logo { font-size:48px; margin-bottom:20px; }
+.cover h1 { font-size:32px; color:#1a3d2b; margin-bottom:10px; letter-spacing:-1px; }
+.cover .sub { font-size:18px; color:#666; margin-bottom:60px; }
+.cover .info { font-size:13px; color:#888; line-height:2; }
+.cover .info strong { color:#444; }
+h1.sec { font-size:22px; color:#1a3d2b; border-bottom:3px solid #2d5016; padding-bottom:8px; margin-top:40px; margin-bottom:20px; page-break-before:always; }
+h1.sec:first-of-type { page-break-before:auto; }
+h2 { font-size:17px; color:#2d5016; margin-top:25px; margin-bottom:10px; padding-left:10px; border-left:4px solid #4a7c59; }
+h3 { font-size:14px; color:#1a3d2b; margin-top:18px; margin-bottom:8px; font-weight:700; }
+p { margin-bottom:10px; }
+ul, ol { margin-left:24px; margin-bottom:12px; }
+li { margin-bottom:4px; }
+.box { background:#f5f5f0; border-left:4px solid #4a7c59; padding:14px 18px; margin:14px 0; border-radius:0 6px 6px 0; }
+.box-warn { background:#fff3e0; border-left-color:#e6880e; }
+.box-info { background:#e3f2fd; border-left-color:#1565c0; }
+.box-tip { background:#f1f8e9; border-left-color:#558b2f; }
+.box strong { color:#1a3d2b; }
+code { background:#eee8d5; padding:2px 6px; border-radius:3px; font-family:'SF Mono', Consolas, monospace; font-size:12px; color:#8b4513; }
+.step { counter-increment:step; background:#fafaf5; border:1px solid #e0ddc8; border-radius:8px; padding:14px 18px; margin:10px 0; position:relative; padding-left:50px; }
+.step::before { content:counter(step); position:absolute; left:14px; top:14px; background:#2d5016; color:#fff; width:26px; height:26px; border-radius:50%; text-align:center; line-height:26px; font-weight:700; font-size:13px; }
+.steps { counter-reset:step; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:12px; }
+th, td { border:1px solid #ddd; padding:7px 10px; text-align:left; }
+th { background:#eee8d5; font-weight:700; color:#1a3d2b; }
+tr:nth-child(even) { background:#fafaf5; }
+.toc { background:#fafaf5; border:1px solid #e0ddc8; padding:20px 30px; border-radius:8px; margin-bottom:30px; }
+.toc h2 { margin-top:0; border:none; padding:0; }
+.toc ol { list-style:none; margin-left:0; margin-top:10px; }
+.toc ol li { padding:4px 0; border-bottom:1px dashed #e0ddc8; }
+.toc ol li:last-child { border-bottom:none; }
+.role-card { display:inline-block; background:#fff; border:2px solid #e0ddc8; border-radius:8px; padding:10px 16px; margin:4px 8px 4px 0; }
+.role-card strong { display:block; font-size:14px; color:#1a3d2b; }
+.role-card .pw { font-family:monospace; color:#8b4513; background:#eee8d5; padding:2px 8px; border-radius:3px; font-size:12px; margin-top:4px; display:inline-block; }
+.btn-label { display:inline-block; background:#2d5016; color:#fff; padding:2px 10px; border-radius:4px; font-size:11px; font-weight:600; }
+.print-note { background:#fff8e1; border:1px solid #f0c040; padding:12px 18px; border-radius:6px; margin:20px 0; font-size:12px; color:#7a6200; }
+.footer { text-align:center; color:#999; font-size:11px; margin-top:40px; padding-top:20px; border-top:1px solid #ddd; }
+@media print {
+  body { padding:15mm; }
+  @page { size:A4; margin:15mm; }
+  h1.sec { page-break-before:always; }
+  h1.sec:first-of-type { page-break-before:auto; }
+  .print-note { display:none; }
+}
+.print-btn { position:fixed; bottom:30px; right:30px; background:#2d5016; color:#fff; border:none; padding:12px 20px; border-radius:30px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.2); }
+.print-btn:hover { background:#1a3d2b; }
+@media print { .print-btn { display:none; } }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">🖨️ PDF로 저장 / 인쇄</button>
+
+<div class="print-note">
+<strong>📌 PDF 변환 방법:</strong> 우측 하단 버튼 또는 <code>Ctrl/Cmd + P</code> → 프린터를 <strong>"PDF로 저장"</strong>으로 선택 → 저장
+</div>
+
+<div class="cover">
+  <div class="cover-logo">⛳</div>
+  <h1>내셔널짐 Golf PT</h1>
+  <div class="sub">직원 사용 매뉴얼</div>
+  <div class="info">
+    <strong>대상</strong>: 정우진 프로 · 홍태양 프로 · 최현승 트레이너 · 이상렬 트레이너 · 인포데스크<br>
+    <strong>버전</strong>: v2.9<br>
+    <strong>URL</strong>: wellnessmode.github.io/Golf_PT_collabo<br>
+    <strong>작성일</strong>: 2026-04-12
+  </div>
+</div>
+
+<div class="toc">
+  <h2>📖 목차</h2>
+  <ol>
+    <li>1. 시작하기 — 접속 & 로그인</li>
+    <li>2. 앱 설치 (홈 화면 추가)</li>
+    <li>3. 회원 등록 & 관리 (인포데스크)</li>
+    <li>4. 세션 기록 (프로 · 트레이너)</li>
+    <li>5. 스윙 영상 분석</li>
+    <li>6. 체형 기능 평가</li>
+    <li>7. 운동 빠른추가 (DB 2000개)</li>
+    <li>8. 회원 리포트 & 이미지 카드</li>
+    <li>9. 대시보드 & 인수인계</li>
+    <li>10. 자주 묻는 질문 (FAQ)</li>
+  </ol>
+</div>
+
+<h1 class="sec">1. 시작하기 — 접속 & 로그인</h1>
+
+<h2>1.1. 웹 접속 주소</h2>
+<p>아래 주소로 브라우저(Safari, Chrome 권장)에서 접속합니다.</p>
+<div class="box box-info">
+<strong>🌐 접속 URL</strong><br>
+<code>https://wellnessmode.github.io/Golf_PT_collabo/</code>
+</div>
+
+<h2>1.2. 역할 선택 & 비밀번호</h2>
+<p>첫 화면에서 본인의 역할을 선택하고 비밀번호를 입력합니다. 각 직원은 아래 계정을 사용합니다.</p>
+
+<h3>🖥️ 센터 관리</h3>
+<div class="role-card">
+  <strong>인포데스크</strong>
+  <span class="pw">ng2026</span>
+</div>
+
+<h3>⛳ 골프 프로</h3>
+<div class="role-card"><strong>정우진 프로</strong><br><span class="pw">jung00</span></div>
+<div class="role-card"><strong>홍태양 프로</strong><br><span class="pw">hong00</span></div>
+
+<h3>💪 골프 PT 트레이너</h3>
+<div class="role-card"><strong>최현승 트레이너</strong><br><span class="pw">choi00</span></div>
+<div class="role-card"><strong>이상렬 트레이너</strong><br><span class="pw">lee000</span></div>
+
+<h3>🔐 시스템 관리</h3>
+<div class="role-card"><strong>관리자</strong><br><span class="pw">admin0000</span></div>
+
+<div class="box box-warn">
+<strong>⚠️ 비밀번호 변경 필수</strong><br>
+최초 로그인 후 반드시 사이드바 → <strong>마이페이지 → 🔑 비밀번호 변경</strong>에서 개인 비밀번호로 변경하세요. 기본 비밀번호는 보안에 취약합니다.
+</div>
+
+<h2>1.3. 역할별 권한 요약</h2>
+<table>
+<thead><tr><th>역할</th><th>회원 등록</th><th>세션 기록</th><th>체형 평가</th><th>세션 삭제</th></tr></thead>
+<tbody>
+<tr><td>인포데스크</td><td>✅ 가능</td><td>❌ 읽기전용</td><td>❌ 읽기전용</td><td>❌ 불가</td></tr>
+<tr><td>골프 프로</td><td>❌ 불가</td><td>✅ 가능</td><td>✅ 가능</td><td>✅ 가능</td></tr>
+<tr><td>트레이너</td><td>❌ 불가</td><td>✅ 가능</td><td>✅ 가능</td><td>✅ 가능</td></tr>
+<tr><td>관리자</td><td>❌ 읽기전용</td><td>❌ 읽기전용</td><td>❌ 읽기전용</td><td>❌ 불가</td></tr>
+</tbody>
+</table>
+
+<p style="color:#666;font-size:12px;margin-top:30px">— 1페이지 계속됩니다 —</p>
+
+<h1 class="sec">2. 앱 설치 (홈 화면 추가)</h1>
+
+<p>매번 브라우저에서 주소를 치는 대신, 홈 화면에 아이콘으로 설치하여 앱처럼 빠르게 실행할 수 있습니다.</p>
+
+<h2>2.1. iPhone / iPad (Safari)</h2>
+<div class="steps">
+  <div class="step">Safari에서 <code>wellnessmode.github.io/Golf_PT_collabo</code>로 접속합니다.</div>
+  <div class="step">하단 <strong>공유 버튼 (□↑)</strong>을 터치합니다.</div>
+  <div class="step">메뉴를 스크롤하여 <strong>"홈 화면에 추가"</strong>를 터치합니다.</div>
+  <div class="step">우측 상단 <strong>"추가"</strong>를 터치합니다.</div>
+  <div class="step">홈 화면에 "Golf PT" 아이콘이 생성됩니다.</div>
+</div>
+
+<h2>2.2. Android (Chrome)</h2>
+<div class="steps">
+  <div class="step">Chrome에서 접속합니다.</div>
+  <div class="step">우측 상단 <strong>⋮</strong> (메뉴) 버튼을 누릅니다.</div>
+  <div class="step"><strong>"앱 설치"</strong> 또는 <strong>"홈 화면에 추가"</strong>를 선택합니다.</div>
+  <div class="step"><strong>"설치"</strong>를 누르면 홈 화면에 아이콘이 추가됩니다.</div>
+</div>
+
+<div class="box box-tip">
+<strong>💡 설치 후 이점</strong>
+<ul>
+<li>주소창 없이 전체화면으로 실행 (앱처럼 동작)</li>
+<li>홈 화면 터치 한 번으로 바로 열림</li>
+<li>오프라인 상태에서도 기본 화면 표시</li>
+<li>iOS 다이나믹 아일랜드/노치 safe-area 자동 대응</li>
+</ul>
+</div>
+
+<h1 class="sec">3. 회원 등록 & 관리 (인포데스크)</h1>
+
+<h2>3.1. 회원 유형 이해</h2>
+<p>내셔널짐 Golf PT는 두 가지 회원 유형을 관리합니다.</p>
+<table>
+<thead><tr><th>유형</th><th>설명</th><th>담당</th></tr></thead>
+<tbody>
+<tr><td><strong>💪 PT+골프</strong></td><td>골프 레슨 + 골프 PT 둘 다 등록한 회원</td><td>프로 + 트레이너 협업</td></tr>
+<tr><td><strong>🏌️ 골프</strong></td><td>골프 레슨만 등록한 회원</td><td>프로 단독 관리</td></tr>
+</tbody>
+</table>
+
+<div class="box box-info">
+<strong>ℹ️ 유형 변경 가능</strong><br>
+나중에 PT+골프 → 골프로(또는 반대) 유형 변경 시 기존 데이터는 그대로 유지됩니다. 회원 정보 수정에서 회원 유형만 변경하면 됩니다.
+</div>
+
+<h2>3.2. 새 회원 등록 절차</h2>
+<div class="steps">
+  <div class="step">인포데스크로 로그인합니다.</div>
+  <div class="step">사이드바 하단의 <span class="btn-label">+ 새 회원 등록</span> 버튼을 누릅니다.</div>
+  <div class="step"><strong>회원 유형</strong>을 먼저 선택합니다. (💪 PT+골프 또는 🏌️ 골프)</div>
+  <div class="step"><strong>회원 이름</strong>을 입력합니다. (필수)</div>
+  <div class="step">연락처, 이메일, 등록일, 유효기간을 입력합니다.</div>
+  <div class="step">골프 레슨 등록 횟수와 금액을 입력합니다.</div>
+  <div class="step">PT+골프 유형이면 <strong>골프 PT 등록 횟수·금액</strong>을 추가로 입력합니다.</div>
+  <div class="step"><strong>골프 프로필</strong> — 핸디캡, 평균 타수, 목표, 주력 교정 포인트를 입력합니다. (선택)</div>
+  <div class="step"><strong>담당 지도자</strong>를 체크로 배정합니다. (여러 명 가능)</div>
+  <div class="step"><strong>등록</strong> 버튼을 눌러 저장합니다.</div>
+</div>
+
+<div class="box box-warn">
+<strong>⚠️ 담당 지도자 배정 필수</strong><br>
+담당 지도자를 배정하지 않으면 해당 프로/트레이너의 사이드바에서 회원이 보이지 않습니다. 반드시 배정해주세요.
+</div>
+
+<h2>3.3. 회원 정보 수정 / 삭제</h2>
+<div class="steps">
+  <div class="step">사이드바에서 해당 회원 옆의 <strong>[수정]</strong> 또는 <strong>[삭제]</strong> 버튼을 누릅니다.</div>
+  <div class="step"><strong>수정</strong> — 정보 변경 후 저장. 담당자 변경 시 <strong>인수인계 카드 자동 생성</strong>.</div>
+  <div class="step"><strong>삭제 요청</strong> — 인포데스크가 삭제 요청 → 프로/트레이너 승인 후 완전 삭제.</div>
+</div>
+
+<div class="box box-tip">
+<strong>💡 담당 지도자 변경 시 인수인계 자동 생성</strong><br>
+회원의 담당자가 바뀌면 최근 10개 세션, 체형평가 주의사항, 스윙 영상 요약이 자동으로 카드로 생성됩니다. 새 담당자가 바로 확인할 수 있습니다.
+</div>
+
+<p style="color:#666;font-size:12px;margin-top:30px">— 계속됩니다 —</p>
+
+<h1 class="sec">4. 세션 기록 (프로 · 트레이너)</h1>
+
+<h2>4.1. 세션 기록 추가</h2>
+<div class="steps">
+  <div class="step">프로 또는 트레이너로 로그인합니다.</div>
+  <div class="step">사이드바에서 오늘 수업한 회원을 선택합니다.</div>
+  <div class="step">우측 상단 <span class="btn-label">+ 세션 기록</span> 버튼을 누릅니다.</div>
+  <div class="step"><strong>날짜</strong>는 자동으로 오늘 날짜가 입력됩니다. 필요시 변경 가능합니다.</div>
+  <div class="step"><strong>담당자</strong>는 <strong>본인만 선택 가능</strong>합니다. (다른 담당자는 회색 처리)</div>
+  <div class="step"><strong>운동 / 레슨 내용</strong>을 자유롭게 입력합니다. 또는 <strong>+ 운동 빠른추가</strong> 버튼을 사용합니다.</div>
+  <div class="step"><strong>스윙 영상</strong> (정면/측면) 및 <strong>운동 영상</strong>을 첨부합니다. (선택)</div>
+  <div class="step"><strong>기록 저장</strong>을 누릅니다.</div>
+</div>
+
+<div class="box box-info">
+<strong>ℹ️ 세션 기록 수정</strong><br>
+저장된 세션 카드에서 <strong>[수정]</strong> 버튼으로 내용·날짜·미디어를 변경할 수 있습니다. 담당자는 변경 불가합니다.
+</div>
+
+<h2>4.2. 세션 카드 구성 요소</h2>
+<p>저장된 세션은 카드 형태로 표시됩니다.</p>
+<ul>
+<li><strong>역할 태그</strong>: <code>GOLF PRO</code> (파란색) 또는 <code>GOLF PT</code> (초록색)</li>
+<li><strong>담당자 이름</strong> + 날짜</li>
+<li><strong>NEW 배지</strong>: 상대 담당자가 기록한 세션이 아직 확인되지 않은 경우 빨간 배지</li>
+<li><strong>수업 내용</strong> 전문</li>
+<li><strong>스윙 플레이어</strong>: 정면/측면 영상 (AI 스켈레톤 분석)</li>
+<li><strong>운동 영상</strong> 썸네일</li>
+<li><strong>수정 / 삭제</strong> 버튼</li>
+</ul>
+
+<h2>4.3. 세션 필터</h2>
+<p>회원 상세 페이지에서 세션을 역할별로 필터링할 수 있습니다.</p>
+<ul>
+<li><strong>전체</strong> — 모든 세션 표시 (기본값)</li>
+<li><strong>프로</strong> — 골프 프로가 기록한 세션만</li>
+<li><strong>트레이너</strong> — PT 트레이너가 기록한 세션만</li>
+</ul>
+
+<h1 class="sec">5. 스윙 영상 분석</h1>
+
+<h2>5.1. 영상 첨부 가이드</h2>
+<div class="box box-tip">
+<strong>💡 영상 촬영 팁</strong>
+<ul>
+<li><strong>정면 영상</strong>: 회원 정면 약 3m 거리, 허리 기준 눈높이</li>
+<li><strong>측면 영상</strong>: 회원 측면 약 3m 거리, 어드레스 라인과 90도</li>
+<li>밝은 환경에서 촬영 (AI가 관절을 인식하려면 충분한 조명 필요)</li>
+<li>배경이 단순할수록 인식 정확도 높음</li>
+<li>파일당 최대 100MB (자동 압축됨 1280px / 2.5Mbps)</li>
+</ul>
+</div>
+
+<h2>5.2. AI 자동 분석</h2>
+<p>영상을 업로드하면 자동으로 다음이 분석됩니다 (약 10~20초 소요).</p>
+<ul>
+<li>🦴 <strong>스켈레톤 오버레이</strong> — 33개 관절 실시간 추적</li>
+<li>📏 <strong>가이드라인</strong> — 척추선, 어깨선, 골반선, 수직 기준선</li>
+<li>📊 <strong>핵심 지표</strong> — X-Factor, 척추각, 리드암, 무릎 굴곡, 머리 이동</li>
+<li>👻 <strong>Address/Finish 유령 기준선</strong> — 어드레스와 피니시 자세 비교</li>
+<li>📈 <strong>Trackman 스타일 A→F 요약 카드</strong> — 좌/우 힙 이동, X-Factor, 헤드 이동 등</li>
+</ul>
+
+<h2>5.3. 플레이어 조작</h2>
+<table>
+<thead><tr><th>아이콘</th><th>기능</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>▶ / ⏸</td><td>재생/정지</td><td>영상 재생 제어</td></tr>
+<tr><td>🦴</td><td>관절</td><td>스켈레톤 오버레이 on/off</td></tr>
+<tr><td>📏</td><td>기준선</td><td>가이드라인 on/off</td></tr>
+<tr><td>📊</td><td>지표</td><td>X-Factor 등 지표 표시 on/off</td></tr>
+<tr><td>♻</td><td>재분석</td><td>캐시 무효화 후 다시 분석</td></tr>
+<tr><td>⛶</td><td>확대</td><td>유사 전체화면 모드 (iOS 호환)</td></tr>
+</tbody>
+</table>
+
+<div class="box box-warn">
+<strong>⚠️ 분석 실패 시</strong>
+<ul>
+<li>"사람 감지 불가" — 조명이 어둡거나 회원이 화면 밖으로 나갔을 때. 재촬영 필요.</li>
+<li>"분석 대기중" — 영상 로딩 중. 잠시 기다리거나 재분석 버튼 클릭.</li>
+</ul>
+</div>
+
+<p style="color:#666;font-size:12px;margin-top:30px">— 계속됩니다 —</p>
+
+</body>
+</html>
