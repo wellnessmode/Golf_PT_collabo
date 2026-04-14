@@ -662,3 +662,8 @@ body.sp-fs-lock{overflow:hidden}
 .infodesk-summary{font-size:11px;color:#8b9a8e;text-align:center;padding:4px 0 8px;border-bottom:1px solid #e8e4da}
 .type-tag{font-size:9px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:600;vertical-align:middle}
 .lesson-tag{background:#e3f2fd;color:#1565c0}
+
+/* ============ 매뉴얼 링크 ============ */
+.manual-link{text-align:center;margin-top:16px;padding:12px}
+.manual-link a{display:inline-block;background:#fff;border:1.5px solid #4a7c59;color:#2d5016;padding:10px 24px;border-radius:24px;text-decoration:none;font-size:13px;font-weight:600;transition:all .15s}
+.manual-link a:hover{background:#2d5016;color:#fff}

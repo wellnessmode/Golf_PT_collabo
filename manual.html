@@ -219,6 +219,8 @@ tr:nth-child(even) { background:#fafaf5; }
 
 <p style="color:#666;font-size:12px;margin-top:30px">— 계속됩니다 —</p>
 
+<!-- moved -->
+
 <h1 class="sec">4. 세션 기록 (프로 · 트레이너)</h1>
 
 <h2>4.1. 세션 기록 추가</h2>
@@ -304,6 +306,256 @@ tr:nth-child(even) { background:#fafaf5; }
 </div>
 
 <p style="color:#666;font-size:12px;margin-top:30px">— 계속됩니다 —</p>
+
+<h1 class="sec">6. 체형 기능 평가</h1>
+
+<h2>6.1. 평가 항목 14종</h2>
+<p>TPI(Titleist Performance Institute) 기반의 14개 평가 항목으로 회원의 신체 상태를 기록합니다.</p>
+<table>
+<thead><tr><th>항목</th><th>평가 내용</th></tr></thead>
+<tbody>
+<tr><td>Static Posture Assessment</td><td>정적 자세 평가 (정면/좌/우/후)</td></tr>
+<tr><td>Overhead Squat</td><td>오버헤드 스쿼트 — 발목 내번/골반 회전</td></tr>
+<tr><td>Pelvic Tilt</td><td>골반 전방/후방 경사</td></tr>
+<tr><td>Pelvic Rotation</td><td>골반 좌/우 회전</td></tr>
+<tr><td>Thoracic Rotation</td><td>흉추 좌/우 회전</td></tr>
+<tr><td>SLR Test</td><td>Straight Leg Raise — 좌/우</td></tr>
+<tr><td>90/90 Test - Standing</td><td>서서 90/90 — 좌/우</td></tr>
+<tr><td>90/90 Test - Address</td><td>어드레스 90/90 — 좌/우</td></tr>
+<tr><td>Patrick Test</td><td>FABER 테스트 — 앞/뒤</td></tr>
+<tr><td>Hip Extension Test</td><td>고관절 신전 테스트</td></tr>
+<tr><td>Q.L Palpation</td><td>요방형근 촉진 — 좌/우</td></tr>
+<tr><td>One Leg Bridge</td><td>싱글 레그 브릿지 — 10초/30초/60초</td></tr>
+<tr><td>Neck Palpation</td><td>경추 촉진 — 경추 곡선/SCM/사각근/상승모근</td></tr>
+<tr><td>Calf Palpation</td><td>종아리 촉진 — 혹/아킬레스/종아리</td></tr>
+</tbody>
+</table>
+
+<h2>6.2. 평가 입력 방법</h2>
+<div class="steps">
+  <div class="step">회원 상세 페이지에서 <strong>체형 기능 평가</strong> 섹션을 클릭하여 펼칩니다.</div>
+  <div class="step">상단 <strong>평가일</strong>을 입력합니다.</div>
+  <div class="step">각 항목마다 드롭다운에서 결과를 선택합니다. (미검사 / 정상 / 경미한 제한 / 주의 필요 / 제한)</div>
+  <div class="step">특이사항이 있으면 하단 입력란에 메모합니다.</div>
+  <div class="step">자동 저장됩니다 (별도 저장 버튼 없음).</div>
+</div>
+
+<div class="box box-info">
+<strong>🦴 Body-Swing Connection 자동 경고</strong><br>
+"주의 필요" 또는 "제한"으로 표시된 항목은 자동으로 스윙 관련 경고 메시지가 표시됩니다. (예: <em>"다운스윙 골반 회전 감소 — X-Factor 감소, 비거리 손실"</em>)
+</div>
+
+<h2>6.3. 애프터 평가 (히스토리)</h2>
+<div class="steps">
+  <div class="step">평가일 옆 <span class="btn-label">📸 애프터 평가 시작</span> 버튼을 누릅니다.</div>
+  <div class="step">현재 평가 상태가 히스토리로 스냅샷 저장됩니다.</div>
+  <div class="step">모든 항목이 '미검사'로 초기화됩니다. 새로운 평가를 진행합니다.</div>
+  <div class="step">섹션 상단에 "히스토리 N회" 배지로 이전 평가 일자들이 표시됩니다.</div>
+</div>
+
+<h1 class="sec">7. 운동 빠른추가 (DB 2000개)</h1>
+
+<h2>7.1. 운동 DB 구성</h2>
+<p>세션 기록 시 자주 쓰는 운동을 DB에서 선택하여 자동으로 내용에 추가할 수 있습니다.</p>
+<table>
+<thead><tr><th>카테고리</th><th>개수</th><th>서브카테고리 예시</th></tr></thead>
+<tbody>
+<tr><td>🏋️ 웨이트 트레이닝</td><td>697</td><td>하체, 상체, 코어, 전신, 플라이오, 심폐</td></tr>
+<tr><td>⛳ 골프 피트니스 (TPI)</td><td>650</td><td>모빌리티, 안정성, 파워, 호흡, 폼롤링, FRC</td></tr>
+<tr><td>🎯 골프 스킬 훈련</td><td>653</td><td>셋업, 백스윙, 임팩트, 숏게임, 퍼팅, 멘탈</td></tr>
+<tr><td><strong>합계</strong></td><td><strong>2,000</strong></td><td></td></tr>
+</tbody>
+</table>
+
+<h2>7.2. 사용 방법</h2>
+<div class="steps">
+  <div class="step">세션 기록 모달에서 <strong>+ 운동 빠른추가</strong> 버튼을 누릅니다.</div>
+  <div class="step">상단 검색창에 운동명을 입력합니다. (<strong>초성 검색 지원</strong>: 예 <code>ㅅㅋㅌ</code> → 스쿼트)</div>
+  <div class="step">카테고리 탭으로 필터링 가능합니다. (전체 / 웨이트 / 골프피트 / 골프스킬)</div>
+  <div class="step">원하는 운동을 터치해서 <strong>선택</strong> 목록에 추가합니다.</div>
+  <div class="step">하단에서 세트·횟수를 조정합니다. (기본값 자동 입력)</div>
+  <div class="step"><strong>선택 N개 추가</strong> 버튼을 누르면 세션 내용 텍스트에 자동 삽입됩니다.</div>
+</div>
+
+<div class="box box-tip">
+<strong>💡 초성 검색 팁</strong><br>
+<code>ㅅㅋㅌ</code> — 스쿼트, 스큅트 등<br>
+<code>ㅋㅋㅈ</code> — 컨벤셔널, 카프 레이즈 등<br>
+<code>ㄷㅁㅂ</code> — 데드리프트, 덤벨 등 (첫 음절 초성)
+</div>
+
+<h1 class="sec">8. 회원 리포트 & 이미지 카드</h1>
+
+<h2>8.1. 회원 리포트 (PDF 인쇄)</h2>
+<p>회원에게 전달할 상세 리포트를 PDF로 출력할 수 있습니다.</p>
+<div class="steps">
+  <div class="step">회원 상세 페이지 우측 상단 <span class="btn-label">📄 리포트</span> 버튼을 누릅니다.</div>
+  <div class="step">미리보기 창에서 리포트 내용을 확인합니다.</div>
+  <div class="step"><span class="btn-label">🖨️ 인쇄 / PDF 저장</span> 버튼을 누르면 새 창이 열립니다.</div>
+  <div class="step">프린터 설정에서 <strong>"PDF로 저장"</strong>을 선택하고 저장합니다.</div>
+</div>
+
+<h3>포함 내용</h3>
+<ul>
+<li>회원 기본 정보 (이름, 연락처, 등록일, 유효기간, 진행 현황)</li>
+<li>체형 기능 평가 14항목 (결과, 특이사항, 스윙 연관성)</li>
+<li>세션 기록 최근 20건 (날짜, 담당, 내용)</li>
+<li>자동 헤더/푸터, 인쇄 최적화</li>
+</ul>
+
+<div class="box box-info">
+<strong>ℹ️ 영상 미포함</strong><br>
+리포트는 인쇄물용이므로 스윙 영상은 포함되지 않습니다. 영상 공유가 필요하면 카카오톡 링크 공유를 이용하세요.
+</div>
+
+<h2>8.2. 이미지 카드 (카카오톡 공유용)</h2>
+<p>회원에게 간단히 월간 레슨 현황을 카카오톡으로 공유할 때 사용합니다.</p>
+<div class="steps">
+  <div class="step">회원 상세 페이지에서 <span class="btn-label">🖼️ 카드</span> 버튼을 누릅니다.</div>
+  <div class="step"><strong>📥 이미지 다운로드</strong> 버튼을 누릅니다.</div>
+  <div class="step">720×960 PNG 이미지가 자동 다운로드됩니다. (예: <code>홍길동_레슨카드_2026-04-12.png</code>)</div>
+  <div class="step">사진 앱에서 해당 이미지를 열어 카카오톡으로 공유합니다.</div>
+</div>
+
+<h3>카드 구성</h3>
+<ul>
+<li>회원 이름, 핸디캡, 평균 타수, 목표, 주력 교정</li>
+<li>이번 달 레슨 횟수 & 최근 6회 내용</li>
+<li>전체 진행률 바 (등록 대비 사용)</li>
+</ul>
+
+<h1 class="sec">9. 대시보드 & 인수인계</h1>
+
+<h2>9.1. 대시보드 (📊 버튼)</h2>
+<p>사이드바 또는 마이페이지에서 대시보드를 열면 전체 운영 현황을 한눈에 볼 수 있습니다.</p>
+
+<h3>상단 통계</h3>
+<ul>
+<li><strong>회원 수</strong> — 접근 가능한 회원 총 수</li>
+<li><strong>총 세션</strong> — 전체 세션 누적</li>
+<li><strong>이번 달</strong> — 당월 세션 수</li>
+<li><strong>프로 / PT 세션</strong> — 역할별 기록 수</li>
+</ul>
+
+<h3>하단 위젯</h3>
+<ul>
+<li><strong>지도자별 세션 바 차트</strong> — 정P, 홍P, 최T, 이T별 세션 비율</li>
+<li><strong>만료 임박 회원</strong> — 30일 이내 유효기간 만료 경고</li>
+<li><strong>회원별 진행률</strong> — 레슨/PT 등록 대비 사용 현황</li>
+<li><strong>최근 활동 15건</strong> — 최근 세션 피드 (클릭 시 해당 회원으로 이동)</li>
+</ul>
+
+<h2>9.2. 인수인계 시스템</h2>
+<p>담당 지도자 교체 시 새 담당자가 회원 히스토리를 빠르게 파악할 수 있도록 자동 요약 카드가 생성됩니다.</p>
+
+<h3>자동 생성 트리거</h3>
+<p>인포데스크가 회원 정보 수정에서 <strong>담당 지도자</strong> 체크를 변경하면 자동으로 인수인계 카드가 생성됩니다.</p>
+
+<h3>카드 내용</h3>
+<ul>
+<li>이전 담당자 → 새 담당자 정보</li>
+<li>총 세션 수 (프로 X회 + PT Y회)</li>
+<li>Body-Swing 주의 항목 (체형평가 제한 항목)</li>
+<li>체형평가 이상 소견 요약</li>
+<li>최근 10개 세션 요약</li>
+<li>최근 스윙 영상 현황</li>
+</ul>
+
+<h3>확인 방법</h3>
+<div class="steps">
+  <div class="step">회원 상세 페이지 우측 상단에 <span class="btn-label">📋 인수인계</span> 버튼이 표시됩니다. (카드가 있을 때만)</div>
+  <div class="step">버튼 옆 숫자 배지는 히스토리 개수입니다.</div>
+  <div class="step">클릭하면 시간순으로 모든 인수인계 카드를 볼 수 있습니다.</div>
+</div>
+
+<p style="color:#666;font-size:12px;margin-top:30px">— 계속됩니다 —</p>
+
+<h1 class="sec">10. 자주 묻는 질문 (FAQ)</h1>
+
+<h2>Q1. 비밀번호를 잊어버렸어요.</h2>
+<div class="box">
+관리자 계정(<code>admin0000</code>)으로 로그인 후 <strong>감사 로그</strong>에서 이전 비밀번호 변경 내역을 확인할 수 있습니다. 또는 개발팀에 문의하여 초기화 요청하세요.
+</div>
+
+<h2>Q2. 회원 목록에 안 보이는데요?</h2>
+<div class="box">
+프로/트레이너 계정은 <strong>배정된 회원</strong>만 표시됩니다. 인포데스크에게 담당 지도자 배정을 요청하세요. 또는 사이드바 <strong>PT+골프 / 골프</strong> 탭을 확인하세요.
+</div>
+
+<h2>Q3. 영상 분석이 안 돼요.</h2>
+<div class="box">
+<ul>
+<li><strong>사람 감지 불가</strong>: 조명이 어둡거나 회원이 화면 밖. 재촬영 필요.</li>
+<li><strong>분석 대기중</strong>: 영상 로딩 지연. 🔄 재분석 버튼 클릭.</li>
+<li><strong>캐시 문제</strong>: 플레이어 툴바 ♻ 버튼으로 캐시 무효화 후 재분석.</li>
+</ul>
+</div>
+
+<h2>Q4. 데이터가 다른 기기에서 안 보여요.</h2>
+<div class="box">
+Supabase 클라우드 동기화가 연동되어 있어 모든 기기에서 같은 데이터를 공유합니다. 네트워크 연결을 확인하고, 사이드바 하단 <strong>동기화 상태 배지</strong>가 "연결됨"인지 확인하세요. 오류 시 🔄 버튼을 누르세요.
+</div>
+
+<h2>Q5. 영상이 업로드되지 않아요.</h2>
+<div class="box">
+<ul>
+<li>파일 크기가 100MB 넘으면 업로드 거부됩니다.</li>
+<li>업로드 중 <strong>저장</strong> 버튼 누르면 차단됩니다. "업로드 중" 표시가 사라진 후 저장하세요.</li>
+<li>브라우저 저장 공간 부족 시 경고가 뜹니다. 오래된 영상 삭제 필요.</li>
+</ul>
+</div>
+
+<h2>Q6. 인수인계 카드는 언제 생성되나요?</h2>
+<div class="box">
+인포데스크가 <strong>회원 수정</strong>에서 담당 지도자 체크박스를 변경하는 순간 자동 생성됩니다. 단순히 이름/연락처 수정 시에는 생성되지 않습니다.
+</div>
+
+<h2>Q7. 세션 기록을 수정하고 싶어요.</h2>
+<div class="box">
+세션 카드의 <strong>[수정]</strong> 버튼을 누르세요. 날짜, 내용, 미디어는 변경 가능하나 <strong>담당자</strong>는 변경 불가합니다. (감사 로그에 변경 기록이 남습니다.)
+</div>
+
+<h2>Q8. 회원을 삭제했는데 복구할 수 있나요?</h2>
+<div class="box box-warn">
+삭제 승인 후에는 <strong>영구 삭제</strong>되어 복구 불가합니다. 삭제 요청 → 운동지도자 승인 2단계로 구성되어 있어 실수 방지됩니다. 승인 전에는 거절로 취소 가능합니다.
+</div>
+
+<h2>Q9. 체형평가를 여러 번 기록하려면?</h2>
+<div class="box">
+<strong>📸 애프터 평가 시작</strong> 버튼을 누르면 현재 평가가 히스토리로 저장되고, 새로 입력 가능한 상태가 됩니다. 히스토리는 누적되어 변화 추적이 가능합니다.
+</div>
+
+<h2>Q10. 오프라인에서도 사용 가능한가요?</h2>
+<div class="box">
+PWA 설치 후 기본 화면 표시는 가능하지만, 데이터 입력/수정은 온라인 상태에서만 가능합니다. Supabase 클라우드 동기화를 위해 네트워크 연결이 필요합니다.
+</div>
+
+<h1 class="sec">📞 지원 & 문의</h1>
+
+<div class="box box-info">
+<strong>개발 · 운영</strong><br>
+내셔널짐 Golf PT Collaboration System<br>
+GitHub: wellnessmode/Golf_PT_collabo<br>
+URL: wellnessmode.github.io/Golf_PT_collabo
+</div>
+
+<div class="box box-tip">
+<strong>💡 업데이트 확인</strong><br>
+역할 선택 화면 하단 <strong>"📋 vX.X 업데이트"</strong>를 누르면 최신 변경사항을 확인할 수 있습니다.
+</div>
+
+<h2>🚀 주요 업데이트 이력</h2>
+<ul>
+<li><strong>v2.9</strong> — 회원 유형 분리 (PT+골프/골프), 대시보드, 인수인계 시스템, 회원 리포트, 이미지 카드, PWA 지원, 운동 DB 2000개</li>
+<li><strong>v2.8</strong> — 세션 수정, 회원 검색, NEW 배지, 골프 프로필 필드</li>
+<li><strong>v2.7</strong> — 인수인계 시스템, 회원 리포트 (PDF)</li>
+<li><strong>v2.6</strong> — 운동 DB 1000개</li>
+<li><strong>v2.5</strong> — Trackman 스타일 A→F 요약, 고정 힙 기준선</li>
+</ul>
+
+<div class="footer">
+© 2026 내셔널짐 · Golf PT Collaboration System · v2.9
+</div>
 
 </body>
 </html>
