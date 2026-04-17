@@ -358,7 +358,14 @@ const cloud = {
       if(mRes.error) throw mRes.error;
       if(aRes.error) throw aRes.error;
       if(sRes.error) throw sRes.error;
-      const members = (mRes.data||[]).map(r=>({id:r.id,name:r.name,color:r.color||'av-green'}));
+      const members = (mRes.data||[]).map(r=>{
+        // data JSONB 컬럼에서 확장 필드 복원. 없으면 기본 필드만.
+        var extra = r.data || {};
+        return Object.assign(
+          {id:r.id, name:r.name, color:r.color||'av-green'},
+          extra
+        );
+      });
       const assessments = {};
       (aRes.data||[]).forEach(r=>{
         if(!assessments[r.member_id]) assessments[r.member_id] = {};
@@ -379,8 +386,32 @@ const cloud = {
   async upsertMember(m){
     if(!this.enabled) return;
     try{
-      const {error} = await this.client.from('members').upsert({id:m.id,name:m.name,color:m.color});
-      if(error) throw error;
+      // 기본 필드 + 확장 필드 전체를 data JSONB 에 저장 (기기간 동기화 보장)
+      var extra = {
+        phone:m.phone||'', email:m.email||'',
+        registeredDate:m.registeredDate||'',
+        golfLessonCount:m.golfLessonCount||'', golfPTCount:m.golfPTCount||'',
+        golfLessonAmount:m.golfLessonAmount||'', golfPTAmount:m.golfPTAmount||'',
+        expiry:m.expiry||'',
+        golfLessonExpiry:m.golfLessonExpiry||'',
+        golfPTExpiry:m.golfPTExpiry||'',
+        assignedTo:m.assignedTo||[],
+        memberType:m.memberType||'pt_lesson',
+        handicap:m.handicap||'', avgScore:m.avgScore||'',
+        goal:m.goal||'', focusPoints:m.focusPoints||''
+      };
+      var payload = {id:m.id, name:m.name, color:m.color, data:extra};
+      var {error} = await this.client.from('members').upsert(payload);
+      if(error){
+        // data 컬럼이 없는 경우 기본 필드만 다시 시도 (하위호환)
+        if(String(error.message||'').toLowerCase().indexOf('data')!==-1){
+          console.warn('[cloud] members.data 컬럼이 없습니다. Supabase에 추가해주세요.');
+          var fallback = await this.client.from('members').upsert({id:m.id,name:m.name,color:m.color});
+          if(fallback.error) throw fallback.error;
+          return;
+        }
+        throw error;
+      }
     }catch(e){console.warn('[cloud] upsertMember 실패:',e);}
   },
   async upsertAssessment(memberId, itemKey, result, note){
@@ -500,7 +531,7 @@ let S = {
   newSession:{date:today(), author:'', content:'', media:[], mediaUrls:['','']},
   uploading:0, uploadMsg:'', // 진행 중인 파일 업로드 수 / 상태 메시지
   exercisePicker:{open:false, query:'', category:'all', selected:[]},
-  newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[]},
+  newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',golfLessonExpiry:'',golfPTExpiry:'',assignedTo:[]},
   editMemberId:null,
   sidebarOpen:false,
   cloudSync:'local',
@@ -567,6 +598,17 @@ function daysUntilExpiry(dateStr){
   var exp=new Date(dateStr+'T23:59:59');
   var now=new Date();
   return Math.ceil((exp-now)/(1000*60*60*24));
+}
+// 회원의 가장 임박한 유효기간을 반환 (레슨/PT 중 더 가까운 쪽, 없으면 통합 expiry)
+function nearestExpiry(m){
+  if(!m) return '';
+  var dates = [];
+  if(m.golfLessonExpiry) dates.push(m.golfLessonExpiry);
+  if(m.golfPTExpiry) dates.push(m.golfPTExpiry);
+  if(dates.length===0 && m.expiry) dates.push(m.expiry);
+  if(dates.length===0) return '';
+  // 가장 가까운(작은) 날짜 반환
+  return dates.reduce(function(a,b){return a<b?a:b;});
 }
 function expiryBadge(dateStr){
   var d=daysUntilExpiry(dateStr);
@@ -1005,7 +1047,7 @@ function render(){
       }).map(m => `
         <div class="member-item${m.id===mid?' active':''}" onclick="selectMember('${m.id}')">
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
-          <div class="member-name">${m.name}${expiryBadge(m.expiry)}${(m.memberType||'pt_lesson')==='lesson'?'<span class="type-tag lesson-tag">레슨</span>':''}</div>
+          <div class="member-name">${m.name}${expiryBadge(nearestExpiry(m))}${(m.memberType||'pt_lesson')==='lesson'?'<span class="type-tag lesson-tag">골프</span>':''}</div>
           <div class="session-badge">${(S.sessions[m.id]||[]).length}</div>
           <div class="member-actions">
             ${(isInfo&&!isAdmin)?'<button class="member-edit-btn" onclick="event.stopPropagation();openEditMember(\''+m.id+'\')">수정</button>':''}
@@ -1033,10 +1075,14 @@ function render(){
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
         <div>
           <div class="member-title">${member.name} 회원님</div>
-          <div class="member-subtitle">${(member.memberType||'pt_lesson')==='lesson'
-            ?'레슨 '+(st?st.pro+st.trainer:0)+'/'+(member.golfLessonCount||'0')+'회'+(member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):'')
-            :'레슨 '+(st?st.pro:0)+'/'+(member.golfLessonCount||'0')+'회 · PT '+(st?st.trainer:0)+'/'+(member.golfPTCount||'0')+'회'+(member.expiry?' · ~'+member.expiry+expiryBadge(member.expiry):'')
-          }</div>
+          <div class="member-subtitle">${(function(){
+            var lessonExp = member.golfLessonExpiry || member.expiry || '';
+            var ptExp = member.golfPTExpiry || '';
+            if((member.memberType||'pt_lesson')==='lesson'){
+              return '레슨 '+(st?st.pro+st.trainer:0)+'/'+(member.golfLessonCount||'0')+'회'+(lessonExp?' · ~'+lessonExp+expiryBadge(lessonExp):'');
+            }
+            return '레슨 '+(st?st.pro:0)+'/'+(member.golfLessonCount||'0')+'회'+(lessonExp?' (~'+lessonExp+expiryBadge(lessonExp)+')':'')+' · PT '+(st?st.trainer:0)+'/'+(member.golfPTCount||'0')+'회'+(ptExp?' (~'+ptExp+expiryBadge(ptExp)+')':'');
+          })()}</div>
           ${(member.phone||member.email||member.registeredDate)?`<div class="member-detail-line">${member.phone?'📞 '+member.phone:''}${member.email?' · ✉ '+member.email:''}${member.registeredDate?' · 가입일 '+member.registeredDate:''}</div>`:''}
           ${(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+member.handicap:''}${member.avgScore?' · 평균 '+member.avgScore+'타':''}${member.focusPoints?' · 🎯 '+member.focusPoints:''}</div>`:''}
           ${member.goal?`<div class="member-detail-line goal-line">🏁 목표: ${member.goal}</div>`:''}
@@ -1251,15 +1297,9 @@ function render(){
           <input class="form-input" type="email" placeholder="example@email.com" value="${(S.newMember.email||'').replace(/"/g,'&quot;')}" oninput="S.newMember.email=this.value">
         </div>
       </div>
-      <div class="member-info-row">
-        <div class="form-group">
-          <label class="form-label">등록일</label>
-          <input type="date" class="form-input" value="${S.newMember.registeredDate||''}" oninput="S.newMember.registeredDate=this.value">
-        </div>
-        <div class="form-group">
-          <label class="form-label">유효기간</label>
-          <input type="date" class="form-input" value="${S.newMember.expiry||''}" oninput="S.newMember.expiry=this.value">
-        </div>
+      <div class="form-group">
+        <label class="form-label">등록일</label>
+        <input type="date" class="form-input" value="${S.newMember.registeredDate||''}" oninput="S.newMember.registeredDate=this.value">
       </div>
       <div class="form-section-label">골프 레슨</div>
       <div class="member-info-row">
@@ -1272,6 +1312,10 @@ function render(){
           <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfLessonAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfLessonAmount=this.value">
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">레슨 유효기간</label>
+        <input type="date" class="form-input" value="${S.newMember.golfLessonExpiry||S.newMember.expiry||''}" oninput="S.newMember.golfLessonExpiry=this.value">
+      </div>
       ${S.newMember.memberType==='pt_lesson'?`<div class="form-section-label">골프 PT</div>
       <div class="member-info-row">
         <div class="form-group">
@@ -1282,6 +1326,10 @@ function render(){
           <label class="form-label">등록 금액 (원)</label>
           <input class="form-input" placeholder="예: 480,000" value="${(S.newMember.golfPTAmount||'').replace(/"/g,'&quot;')}" oninput="S.newMember.golfPTAmount=this.value">
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PT 유효기간</label>
+        <input type="date" class="form-input" value="${S.newMember.golfPTExpiry||''}" oninput="S.newMember.golfPTExpiry=this.value">
       </div>`:``}
       <div class="form-section-label">골프 프로필</div>
       <div class="member-info-row">
@@ -1552,7 +1600,7 @@ function renderExercisePicker(){
     '</div>'+
   '</div>';
 }
-function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',assignedTo:[],memberType:S.sidebarTab||'pt_lesson',handicap:'',avgScore:'',goal:'',focusPoints:''}; S.editMemberId=null; S.showAddMember=true; render();}
+function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',golfLessonExpiry:'',golfPTExpiry:'',assignedTo:[],memberType:S.sidebarTab||'pt_lesson',handicap:'',avgScore:'',goal:'',focusPoints:''}; S.editMemberId=null; S.showAddMember=true; render();}
 function toggleAssign(name){
   var arr=S.newMember.assignedTo||[];
   var idx=arr.indexOf(name);
@@ -1567,7 +1615,10 @@ function openEditMember(id){
     registeredDate:m.registeredDate||'',
     golfLessonCount:m.golfLessonCount||'', golfPTCount:m.golfPTCount||'',
     golfLessonAmount:m.golfLessonAmount||'', golfPTAmount:m.golfPTAmount||'',
-    expiry:m.expiry||'', assignedTo:(m.assignedTo||[]).slice(),
+    expiry:m.expiry||'',
+    golfLessonExpiry:m.golfLessonExpiry||m.expiry||'',
+    golfPTExpiry:m.golfPTExpiry||'',
+    assignedTo:(m.assignedTo||[]).slice(),
     memberType:m.memberType||'pt_lesson',
     handicap:m.handicap||'', avgScore:m.avgScore||'',
     goal:m.goal||'', focusPoints:m.focusPoints||''
@@ -1584,7 +1635,10 @@ function saveMemberEdit(){
   m.registeredDate=S.newMember.registeredDate;
   m.golfLessonCount=S.newMember.golfLessonCount;m.golfPTCount=S.newMember.golfPTCount;
   m.golfLessonAmount=S.newMember.golfLessonAmount;m.golfPTAmount=S.newMember.golfPTAmount;
-  m.expiry=S.newMember.expiry;m.assignedTo=S.newMember.assignedTo||[];
+  m.expiry=S.newMember.expiry;
+  m.golfLessonExpiry=S.newMember.golfLessonExpiry||'';
+  m.golfPTExpiry=S.newMember.golfPTExpiry||'';
+  m.assignedTo=S.newMember.assignedTo||[];
   m.memberType=S.newMember.memberType||'pt_lesson';
   m.handicap=S.newMember.handicap;m.avgScore=S.newMember.avgScore;
   m.goal=S.newMember.goal;m.focusPoints=S.newMember.focusPoints;
@@ -1885,7 +1939,8 @@ function renderReportModal(){
         </div>
         <div class="rpt-member-info">
           <table><tr><td><strong>회원명</strong></td><td>${m.name}</td><td><strong>연락처</strong></td><td>${m.phone||'-'}</td></tr>
-          <tr><td><strong>등록일</strong></td><td>${m.registeredDate||'-'}</td><td><strong>유효기간</strong></td><td>${m.expiry||'-'}</td></tr>
+          <tr><td><strong>등록일</strong></td><td>${m.registeredDate||'-'}</td><td><strong>레슨 유효기간</strong></td><td>${m.golfLessonExpiry||m.expiry||'-'}</td></tr>
+          ${(m.memberType||'pt_lesson')==='pt_lesson'?'<tr><td></td><td></td><td><strong>PT 유효기간</strong></td><td>'+(m.golfPTExpiry||'-')+'</td></tr>':''}
           <tr><td><strong>골프 레슨</strong></td><td>${st?st.pro:0}/${m.golfLessonCount||0}회</td><td><strong>골프 PT</strong></td><td>${st?st.trainer:0}/${m.golfPTCount||0}회</td></tr></table>
         </div>
         <div class="rpt-section">
@@ -2091,8 +2146,18 @@ function renderDashboard(){
       if(s.date.slice(0,7)===thisMonth) thisMonthSessions++;
       recentActivity.push({member:m.name, date:s.date, author:s.author, content:s.content});
     });
-    var d = daysUntilExpiry(m.expiry);
-    if(d!==null && d>=0 && d<=30) expiringMembers.push({name:m.name, days:d, expiry:m.expiry});
+    // 레슨/PT 각각 만료 임박 체크
+    ['golfLessonExpiry','golfPTExpiry','expiry'].forEach(function(key){
+      var val = m[key];
+      if(!val) return;
+      // expiry는 레슨/PT 값이 있으면 건너뜀 (하위호환용)
+      if(key==='expiry' && (m.golfLessonExpiry||m.golfPTExpiry)) return;
+      var d = daysUntilExpiry(val);
+      if(d!==null && d>=0 && d<=30){
+        var label = key==='golfPTExpiry'?'PT':(key==='golfLessonExpiry'?'레슨':'');
+        expiringMembers.push({name:m.name+(label?' ('+label+')':''), days:d, expiry:val});
+      }
+    });
   });
   recentActivity.sort(function(a,b){return b.date.localeCompare(a.date);});
   recentActivity = recentActivity.slice(0,15);
@@ -2183,7 +2248,9 @@ function addMember(){
     golfPTCount:S.newMember.golfPTCount,
     golfLessonAmount:S.newMember.golfLessonAmount,
     golfPTAmount:S.newMember.golfPTAmount,
-    expiry:S.newMember.expiry,
+    expiry:S.newMember.expiry||'',
+    golfLessonExpiry:S.newMember.golfLessonExpiry||'',
+    golfPTExpiry:S.newMember.golfPTExpiry||'',
     assignedTo:S.newMember.assignedTo||[],
     memberType:S.newMember.memberType||'pt_lesson',
     handicap:S.newMember.handicap||'',

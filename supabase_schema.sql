@@ -16,8 +16,11 @@ create table if not exists public.members (
   id          text        primary key,
   name        text        not null,
   color       text        not null default 'av-green',
+  data        jsonb,                              -- 확장 필드 (phone/email/assignedTo/유효기간/memberType 등)
   created_at  timestamptz not null default now()
 );
+-- 기존 테이블에 data 컬럼이 없다면 추가 (재실행 안전)
+alter table public.members add column if not exists data jsonb;
 
 -- ---------- 2) 체형 / 기능 평가 ------------------------------------------
 -- (회원 × 평가 항목) 조합을 primary key 로 사용
