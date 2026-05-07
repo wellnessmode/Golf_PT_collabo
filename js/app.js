@@ -146,14 +146,25 @@ function matchExercise(ex, query){
   if(!query) return true;
   const q = query.trim().toLowerCase();
   if(!q) return true;
+  // 한글 이름 부분 매칭
   if(ex.n.toLowerCase().indexOf(q)!==-1) return true;
+  // 영문 이름 매칭
   if((ex.e||'').toLowerCase().indexOf(q)!==-1) return true;
+  // 타겟 부위 매칭
   if((ex.f||'').toLowerCase().indexOf(q)!==-1) return true;
+  // 서브카테고리 매칭
   if((ex.s||'').toLowerCase().indexOf(q)!==-1) return true;
-  // 초성 매칭
+  // 초성 매칭 (ㅅㅋㅌ → 스쿼트)
   const qCho = getChosung(q);
   const nCho = getChosung(ex.n);
   if(nCho.indexOf(qCho)!==-1) return true;
+  // 타겟·서브에 대해서도 초성 매칭
+  if(getChosung(ex.f||'').indexOf(qCho)!==-1) return true;
+  if(getChosung(ex.s||'').indexOf(qCho)!==-1) return true;
+  // 띄어쓰기 무시 매칭 (스쿼트 vs 스 쿼 트)
+  var qNoSpace = q.replace(/\s/g,'');
+  if(ex.n.replace(/\s/g,'').toLowerCase().indexOf(qNoSpace)!==-1) return true;
+  if((ex.e||'').replace(/\s/g,'').toLowerCase().indexOf(qNoSpace)!==-1) return true;
   return false;
 }
 
@@ -1227,42 +1238,45 @@ function render(){
         <textarea class="form-textarea" placeholder="오늘 진행한 내용을 입력하세요" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">📹 스윙 영상 첨부</label>
+        <label class="form-label">🏌️ 스윙 영상</label>
         <div class="media-input-box">
           <div class="video-slot-grid">
             <div class="video-slot">
-              <div class="vs-label">🏌️ 정면 영상</div>
+              <div class="vs-label">정면</div>
               ${(function(){
                 var f = (S.newSession.media||[]).find(function(x){return x.view==='front';});
                 var idx = (S.newSession.media||[]).findIndex(function(x){return x.view==='front';});
                 if(f) return '<div class="media-file-item"><span>'+(f.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
-                return '<label class="media-upload-btn">+ 정면 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'front\')" style="display:none"></label>';
+                return '<label class="media-upload-btn">+ 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'front\')" style="display:none"></label>';
               })()}
             </div>
             <div class="video-slot">
-              <div class="vs-label">🏌️‍♂️ 측면 영상</div>
+              <div class="vs-label">측면</div>
               ${(function(){
                 var f = (S.newSession.media||[]).find(function(x){return x.view==='side';});
                 var idx = (S.newSession.media||[]).findIndex(function(x){return x.view==='side';});
                 if(f) return '<div class="media-file-item"><span>'+(f.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
-                return '<label class="media-upload-btn">+ 측면 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'side\')" style="display:none"></label>';
+                return '<label class="media-upload-btn">+ 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'side\')" style="display:none"></label>';
               })()}
             </div>
           </div>
-          <div class="media-hint">파일당 최대 100MB</div>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">🏋️ 운동 영상 첨부</label>
+        <label class="form-label">📎 사진 · 영상 첨부</label>
         <div class="media-input-box">
           <div class="exercise-video-list">
-            ${(S.newSession.media||[]).filter(function(x){return x.view==='exercise';}).map(function(x,i){
+            ${(S.newSession.media||[]).filter(function(x){return x.view==='exercise'||x.view==='photo';}).map(function(x,i){
               var idx = (S.newSession.media||[]).findIndex(function(m){return m===x;});
-              return '<div class="media-file-item"><span>'+(x.name||'운동영상')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
+              var icon = (x.mimeType||'').indexOf('image/')!==-1?'🖼':'🎬';
+              return '<div class="media-file-item"><span>'+icon+' '+(x.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
             }).join('')}
           </div>
-          <label class="media-upload-btn">+ 운동 영상 추가<input type="file" accept="video/*" multiple onchange="handleExerciseVideoUpload(this)" style="display:none"></label>
-          <div class="media-hint">여러 파일 선택 가능 · 운동 자세 참고 영상을 첨부하세요</div>
+          <div class="media-upload-row">
+            <label class="media-upload-btn">+ 사진 추가<input type="file" accept="image/*" multiple onchange="handleExerciseVideoUpload(this)" style="display:none"></label>
+            <label class="media-upload-btn">+ 영상 추가<input type="file" accept="video/*" multiple onchange="handleExerciseVideoUpload(this)" style="display:none"></label>
+          </div>
+          <div class="media-hint">여러 장 선택 가능 · 파일당 최대 100MB</div>
         </div>
       </div>
       <div class="modal-actions">
@@ -1464,6 +1478,17 @@ function render(){
   `;
   // 커스텀 플레이어 초기화 (세션 카드의 영상)
   setTimeout(initSwingPlayers, 0);
+  // 검색 입력 중이면 포커스 복원 (키보드 유지)
+  setTimeout(function(){
+    if(S.memberSearch){
+      var el = document.querySelector('.sidebar-search');
+      if(el){el.focus();el.setSelectionRange(S.memberSearch.length,S.memberSearch.length);}
+    }
+    if(S.exercisePicker && S.exercisePicker.open && S.exercisePicker.query){
+      var el2 = document.querySelector('.ex-picker-search input');
+      if(el2){el2.focus();el2.setSelectionRange(S.exercisePicker.query.length,S.exercisePicker.query.length);}
+    }
+  },0);
 }
 
 // ============ 이벤트 핸들러 ============
@@ -1549,7 +1574,7 @@ function renderExercisePicker(){
         '<button class="modal-close" onclick="closeExercisePicker()">×</button>'+
       '</div>'+
       '<div class="ex-picker-search">'+
-        '<input class="form-input" placeholder="운동명 · 초성(ㅅㅋㅌ) · 부위 검색..." value="'+(p.query||'').replace(/"/g,'&quot;')+'" oninput="updateExerciseQuery(this.value)">'+
+        '<input class="form-input" placeholder="이름/부위/영문 검색 (예: 스쿼트, 하체, squat, ㅅㅋㅌ)" value="'+(p.query||'').replace(/"/g,'&quot;')+'" oninput="updateExerciseQuery(this.value)">'+
       '</div>'+
       '<div class="ex-picker-tabs">'+
         '<button class="ex-tab '+(p.category==='all'?'active':'')+'" onclick="setExerciseCategory(\'all\')">전체 <span>'+catCounts.all+'</span></button>'+
