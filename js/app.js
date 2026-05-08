@@ -56,7 +56,7 @@ const APP_VERSION = {
   version:'v2.7',
   date:'2026-04-12',
   changes:[
-    '📋 인수인계 시스템 — 담당 지도자 변경 시 AI 자동 요약 카드 생성 (최근 10세션, 체형평가, Body-Swing 경고, 스윙 영상)',
+    '인수인계 시스템 — 담당 지도자 변경 시 AI 자동 요약 카드 생성 (최근 10세션, 체형평가, Body-Swing 경고, 스윙 영상)',
     '📄 회원 리포트 — HTML → 인쇄/PDF 출력 (회원정보, 체형평가, 세션기록 최근 20건)',
     '🏋️ 운동 DB 1000개 — 웨이트 350 + 골프 피트니스(TPI) 345 + 골프 스킬 305, 별도 파일 분리',
     '🏋️ 운동 DB 100여 개 내장 — 웨이트/골프 피트니스(TPI)/골프 스킬 카테고리, 초성 검색 지원 (예: "ㅅㅋㅌ" → 스쿼트)',
@@ -646,7 +646,7 @@ function save(){
     return true;
   }catch(e){
     console.error('[save] failed:', e);
-    alert('⚠️ 저장 실패 — 브라우저 저장 공간이 부족합니다.\n\n' +
+    alert('저장 실패 — 브라우저 저장 공간이 부족합니다.\n\n' +
           '원인: 영상/사진이 저장 한도(약 5MB)를 초과했습니다.\n' +
           '해결: 용량이 큰 영상은 유튜브/드라이브에 올린 뒤 URL 입력을 사용해주세요.');
     return false;
@@ -954,45 +954,45 @@ function renderRoleSelector(){
   root.innerHTML=`<div class="role-selector">
     <div class="role-header">
       <img class="role-logo-img" src="assets/logo.png" alt="내셔널짐">
-      <p class="role-sub">Golf PT 협업 시스템</p>
+      <p class="role-sub">Collaborative Coaching Platform</p>
     </div>
     <div class="role-section">
       <div class="role-section-label">센터 관리</div>
       <div class="role-row">
         <div class="role-card rc-infodesk" onclick="setRole('infodesk','인포데스크')">
-          <div class="role-icon">🖥️</div><div class="role-card-title">인포데스크</div><div class="role-card-desc">회원 등록 · 관리</div>
+          <div class="role-card-title">인포데스크</div><div class="role-card-desc">회원 등록 · 관리</div>
         </div>
       </div>
     </div>
     <div class="role-section">
       <div class="role-section-label">골프 프로</div>
       <div class="role-row">${pros.map(function(inst){
-        return '<div class="role-card rc-pro" onclick="setRole(\'pro\',\''+inst.name+'\')"><div class="role-icon">⛳</div><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 레슨 기록</div></div>';
+        return '<div class="role-card rc-pro" onclick="setRole(\'pro\',\''+inst.name+'\')"><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 레슨 기록</div></div>';
       }).join('')}</div>
     </div>
     <div class="role-section">
       <div class="role-section-label">골프 PT</div>
       <div class="role-row">${trainers.map(function(inst){
-        return '<div class="role-card rc-trainer" onclick="setRole(\'trainer\',\''+inst.name+'\')"><div class="role-icon">💪</div><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 PT 기록</div></div>';
+        return '<div class="role-card rc-trainer" onclick="setRole(\'trainer\',\''+inst.name+'\')"><div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 PT 기록</div></div>';
       }).join('')}</div>
     </div>
     <div class="role-section">
       <div class="role-section-label">시스템 관리</div>
       <div class="role-row">
         <div class="role-card rc-admin" onclick="setRole('admin','관리자')">
-          <div class="role-icon">🔐</div><div class="role-card-title">관리자</div><div class="role-card-desc">관리자 모드 접속</div>
+          <div class="role-card-title">관리자</div><div class="role-card-desc">관리자 모드</div>
         </div>
       </div>
     </div>
     <div class="update-notice">
       <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
-        <span>📋 ${APP_VERSION.version} 업데이트 · ${APP_VERSION.date}</span>
+        <span>${APP_VERSION.version} 업데이트 · ${APP_VERSION.date}</span>
         <span class="update-chevron">▼</span>
       </div>
       <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
     </div>
     <div class="manual-link">
-      <a href="manual.html" target="_blank">📖 직원 사용 매뉴얼 보기</a>
+      <a href="manual.html" target="_blank">직원 사용 매뉴얼</a>
     </div>
   </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div><div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}`;
 }
@@ -1026,14 +1026,14 @@ function render(){
     <div class="sidebar-logo">
       <img class="sidebar-logo-img" src="assets/logo.png" alt="내셔널짐">
       <div class="sidebar-top-actions">
-        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}🔔</button>
-        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()">🏠</button>
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
       </div>
     </div>
     ${isInfo ? `
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
-      <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>
+      <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
       <div class="infodesk-summary">PT+골프 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 골프 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
     </div>
     ` : `
@@ -1069,11 +1069,11 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
-      ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">📊 대시보드</button>':''}
+      ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
-      ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">🔑 비밀번호 변경</button>':''}
-      ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">🔍 전체 감사 로그</button>':''}
-      <button class="mp-btn" onclick="event.stopPropagation();window.open('manual.html','_blank')">📖 사용 매뉴얼</button>
+      ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>':''}
+      ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">감사 로그</button>':''}
+      <button class="mp-btn" onclick="event.stopPropagation();window.open('manual.html','_blank')">사용 매뉴얼</button>
     </div>
     ${syncBadge()}
   </div>
@@ -1095,14 +1095,14 @@ function render(){
             return '레슨 '+(st?st.pro:0)+'/'+(member.golfLessonCount||'0')+'회'+(lessonExp?' (~'+lessonExp+expiryBadge(lessonExp)+')':'')+' · PT '+(st?st.trainer:0)+'/'+(member.golfPTCount||'0')+'회'+(ptExp?' (~'+ptExp+expiryBadge(ptExp)+')':'');
           })()}</div>
           ${(member.phone||member.email||member.registeredDate)?`<div class="member-detail-line">${member.phone?'📞 '+member.phone:''}${member.email?' · ✉ '+member.email:''}${member.registeredDate?' · 가입일 '+member.registeredDate:''}</div>`:''}
-          ${(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+member.handicap:''}${member.avgScore?' · 평균 '+member.avgScore+'타':''}${member.focusPoints?' · 🎯 '+member.focusPoints:''}</div>`:''}
-          ${member.goal?`<div class="member-detail-line goal-line">🏁 목표: ${member.goal}</div>`:''}
+          ${(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+member.handicap:''}${member.avgScore?' · 평균 '+member.avgScore+'타':''}${member.focusPoints?' · member.focusPoints:''}</div>`:''}
+          ${member.goal?`<div class="member-detail-line goal-line">목표: ${member.goal}</div>`:''}
         </div>
       </div>
       <div class="topbar-actions">
-        <button class="btn" onclick="openImageCard()" title="이미지 카드">🖼️ 카드</button>
-        <button class="btn" onclick="openReport()" title="회원 리포트">📄 리포트</button>
-        ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">📋 인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
+        <button class="btn" onclick="openImageCard()" title="이미지 카드">카드</button>
+        <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
+        ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
         ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">거절</button>':''}
       </div>
@@ -1128,7 +1128,7 @@ function render(){
         <div class="assess-meta">
           <label class="assess-date-label">평가일</label>
           <input type="date" class="assess-date-input" value="${assess._date||''}" ${isInfo?'disabled':''} onchange="updateAssessDate(this.value)">
-          ${!isInfo?'<button class="btn" style="font-size:11px;padding:5px 10px" onclick="snapshotAssessment()">📸 애프터 평가 시작</button>':''}
+          ${!isInfo?'<button class="btn" style="font-size:11px;padding:5px 10px" onclick="snapshotAssessment()">애프터 평가 시작</button>':''}
         </div>
         ${assess._history&&assess._history.length>0?'<div class="assess-history">'+assess._history.map(function(h,i){return '<div class="history-item"><strong>'+h.date+'</strong> <span>('+ASSESSMENT_ITEMS.filter(function(it){var v=h.items[it.key];return v&&v.result&&v.result!=='미검사';}).length+'/'+ASSESSMENT_ITEMS.length+')</span></div>';}).join('')+'</div>':''}
         <div class="assessment-grid">
@@ -1144,7 +1144,7 @@ function render(){
                 </select>
               </div>
               <input class="assess-note-input" placeholder="특이사항" value="${(v.note||'').replace(/"/g,'&quot;')}" ${isInfo?'disabled ':''} onchange="updateAssess('${item.key}','note',this.value)" />
-              ${warn && BODY_SWING_MAP[item.key] ? `<div class="body-swing-alert"><span class="bsa-icon">⚠</span> ${BODY_SWING_MAP[item.key]}</div>` : ''}
+              ${warn && BODY_SWING_MAP[item.key] ? `<div class="body-swing-alert"><span class="bsa-icon">!</span> ${BODY_SWING_MAP[item.key]}</div>` : ''}
             </div>`;
           }).join('')}
         </div>` : ''}
@@ -1164,7 +1164,7 @@ function render(){
           </div>
         </div>
         ${warnings.length>0 ? `<div class="warning-banner${S.warningBannerCollapsed?' collapsed':''}">
-          <div class="wb-head" onclick="toggleWarningBanner()"><span>⚠ 체형 제한 ${warnings.length}개 확인 — 레슨/운동 전 검토 필요</span><span class="wb-chevron">▼</span></div>
+          <div class="wb-head" onclick="toggleWarningBanner()"><span>체형 제한 ${warnings.length}개 확인 — 레슨/운동 전 검토 필요</span><span class="wb-chevron">▼</span></div>
           <div class="wb-body">${warnings.map(function(w){ return '<div class="wb-item"><strong>'+w.name+'</strong> ('+w.result+'): '+w.impact+'</div>'; }).join('')}</div>
         </div>` : ''}
         <div class="sessions-list">
@@ -1192,7 +1192,7 @@ function render(){
                     return '<div class="video-wrap" id="wrap_'+vid+'">'+
                       '<video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous"></video>'+
                       '<div class="video-controls">'+
-                        '<button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">🔁 반복</button>'+
+                        '<button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button>'+
                         '<span class="vc-spacer"></span>'+
                         '<button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button>'+
                         '<button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button>'+
@@ -1202,7 +1202,7 @@ function render(){
                       '</div>'+
                     '</div>';
                   }
-                  if(m.type==='file' && !src) return '<div class="sm-missing">⚠ 미디어 로딩 중...</div>';
+                  if(m.type==='file' && !src) return '<div class="sm-missing">미디어 로딩 중</div>';
                   return '';
                 }).join('')+'</div>':''}
                 <div class="session-actions">
@@ -1216,9 +1216,9 @@ function render(){
     </div>
     ` : `
     ${S.showDashboard ? renderDashboard() : `<div class="no-member">
-      <div class="no-member-icon">⛳</div>
-      <div style="font-size:14px;font-weight:600;color:#6b7a70">회원을 선택하세요</div>
-      <div style="font-size:12px">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div>
+      <div class="no-member-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div style="font-size:14px;font-weight:600;color:var(--tx-3)">회원을 선택하세요</div>
+      <div style="font-size:12px;color:var(--tx-3)">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div>
     </div>`}`}
   </div>
 
@@ -1248,7 +1248,7 @@ function render(){
         <textarea class="form-textarea" placeholder="오늘 진행한 내용을 입력하세요" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">🏌️ 스윙 영상</label>
+        <label class="form-label">스윙 영상</label>
         <div class="media-input-box">
           <div class="video-slot-grid">
             <div class="video-slot">
@@ -1273,12 +1273,12 @@ function render(){
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">📎 사진 · 영상 첨부</label>
+        <label class="form-label">사진 · 영상 첨부</label>
         <div class="media-input-box">
           <div class="exercise-video-list">
             ${(S.newSession.media||[]).filter(function(x){return x.view==='exercise'||x.view==='photo';}).map(function(x,i){
               var idx = (S.newSession.media||[]).findIndex(function(m){return m===x;});
-              var icon = (x.mimeType||'').indexOf('image/')!==-1?'🖼':'🎬';
+              var icon = (x.mimeType||'').indexOf('image/')!==-1?'IMG':'VID';
               return '<div class="media-file-item"><span>'+icon+' '+(x.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';
             }).join('')}
           </div>
@@ -1303,8 +1303,8 @@ function render(){
       <div class="form-group">
         <label class="form-label">회원 유형</label>
         <div class="radio-group">
-          <div class="radio-opt${S.newMember.memberType==='pt_lesson'?' sel-pro':''}" onclick="S.newMember.memberType='pt_lesson';render()">💪 PT+골프</div>
-          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">🏌️ 골프</div>
+          <div class="radio-opt${S.newMember.memberType==='pt_lesson'?' sel-pro':''}" onclick="S.newMember.memberType='pt_lesson';render()">PT + 골프</div>
+          <div class="radio-opt${S.newMember.memberType==='lesson'?' sel-trainer':''}" onclick="S.newMember.memberType='lesson';render()">골프</div>
         </div>
       </div>
       <div class="form-group">
@@ -1394,7 +1394,7 @@ function render(){
   ${S.showActivityLog ? `
   <div class="modal-overlay" onclick="if(event.target===this){S.showActivityLog=false;render()}">
     <div class="modal" style="width:520px">
-      <div class="modal-title">📋 활동 로그</div>
+      <div class="modal-title">활동 로그</div>
       <div class="activity-log-list">
         ${S.activityLog.slice().reverse().slice(0,50).map(function(e){
           var d=new Date(e.time);
@@ -1409,7 +1409,7 @@ function render(){
   ${S.showPwChange ? `
   <div class="modal-overlay" onclick="if(event.target===this){S.showPwChange=false;render()}">
     <div class="modal" style="width:380px">
-      <div class="modal-title">🔑 비밀번호 변경</div>
+      <div class="modal-title">비밀번호 변경</div>
       <div class="form-group">
         <label class="form-label">현재 비밀번호</label>
         <input type="password" class="form-input" oninput="S.pwChange.current=this.value" autofocus>
@@ -1439,11 +1439,11 @@ function render(){
       // 1단계: 계정 선택 화면
       return `<div class="modal-overlay" onclick="if(event.target===this){S.showAuditLog=false;render()}">
         <div class="modal" style="width:520px">
-          <div class="modal-title">🔍 감사 로그 — 계정 선택</div>
+          <div class="modal-title">감사 로그 — 계정 선택</div>
           <div class="audit-user-grid">
             ${allUsers.map(function(u){
               var role = u==='인포데스크'?'infodesk':(INSTRUCTORS.find(function(i){return i.name===u;})||{}).role||'';
-              var icon = u==='인포데스크'?'🖥':(role==='pro'?'⛳':'💪');
+              var icon = u==='인포데스크'?'D':(role==='pro'?'P':'T');
               return '<div class="audit-user-card au-'+role+'" onclick="S.auditUserSelected=\''+u+'\';render()"><div class="auc-icon">'+icon+'</div><div class="auc-name">'+u+'</div><div class="auc-count">'+userCounts[u]+'건</div></div>';
             }).join('')}
           </div>
@@ -1458,7 +1458,7 @@ function render(){
       <div class="modal" style="width:780px;max-width:96vw">
         <div class="modal-title">
           <button class="btn" style="font-size:10px;padding:4px 8px;margin-right:8px" onclick="S.auditUserSelected=null;render()">← 뒤로</button>
-          🔍 ${S.auditUserSelected} 감사 로그
+          ${S.auditUserSelected} 감사 로그
           <span style="font-size:11px;font-weight:400;color:#9ca89e;margin-left:8px">(${filtered.length}건)</span>
         </div>
         <div class="audit-filter">
@@ -1471,7 +1471,7 @@ function render(){
           ${filtered.slice().reverse().slice(0,200).map(function(e){
             var d=new Date(e.time);
             var ts=d.getFullYear().toString().slice(2)+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
-            var catLabel = {auth:'🔐',member:'👤',session:'📝',assess:'📊',system:'⚙'}[e.category]||e.category;
+            var catLabel = {auth:'AUTH',member:'MBR',session:'SES',assess:'ASS',system:'SYS'}[e.category]||e.category;
             var metaStr = '';
             try{metaStr=JSON.stringify(e.meta).slice(0,200);}catch(err){metaStr='';}
             return '<div class="audit-row audit-'+e.category+'"><div class="au-time">'+ts+'</div><div class="au-cat">'+catLabel+'</div><div class="au-action">'+e.action+'</div><div class="au-target">'+(e.target||'')+'</div><div class="au-meta">'+metaStr+'</div></div>';
@@ -1586,9 +1586,9 @@ function renderExercisePicker(){
       '</div>'+
       '<div class="ex-picker-tabs">'+
         '<button class="ex-tab '+(p.category==='all'?'active':'')+'" onclick="setExerciseCategory(\'all\')">전체 <span>'+catCounts.all+'</span></button>'+
-        '<button class="ex-tab '+(p.category==='weight'?'active':'')+'" onclick="setExerciseCategory(\'weight\')">💪 웨이트 <span>'+catCounts.weight+'</span></button>'+
-        '<button class="ex-tab '+(p.category==='golf_fit'?'active':'')+'" onclick="setExerciseCategory(\'golf_fit\')">🏌️ 골프피트 <span>'+catCounts.golf_fit+'</span></button>'+
-        '<button class="ex-tab '+(p.category==='golf_skill'?'active':'')+'" onclick="setExerciseCategory(\'golf_skill\')">⛳ 골프스킬 <span>'+catCounts.golf_skill+'</span></button>'+
+        '<button class="ex-tab '+(p.category==='weight'?'active':'')+'" onclick="setExerciseCategory(\'weight\')">웨이트 <span>'+catCounts.weight+'</span></button>'+
+        '<button class="ex-tab '+(p.category==='golf_fit'?'active':'')+'" onclick="setExerciseCategory(\'golf_fit\')">골프피트 <span>'+catCounts.golf_fit+'</span></button>'+
+        '<button class="ex-tab '+(p.category==='golf_skill'?'active':'')+'" onclick="setExerciseCategory(\'golf_skill\')">골프스킬 <span>'+catCounts.golf_skill+'</span></button>'+
       '</div>'+
       '<div class="ex-picker-list">'+
         (filtered.length===0 ?
@@ -1744,7 +1744,7 @@ function renderHandoverModal(){
   if(list.length===0) return '';
   return `<div class="modal-overlay" onclick="if(event.target===this)closeHandover()">
     <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto">
-      <div class="modal-title">📋 인수인계 기록 — ${list[0].memberName}</div>
+      <div class="modal-title">인수인계 기록 — ${list[0].memberName}</div>
       ${list.map(function(h,i){
         return '<div class="handover-card'+(i===0?' latest':'')+'">'+
           '<div class="ho-header">'+
@@ -1752,7 +1752,7 @@ function renderHandoverModal(){
             '<span class="ho-badge">'+h.from.join(', ')+' → '+h.to.join(', ')+'</span>'+
           '</div>'+
           '<div class="ho-section"><strong>세션 현황:</strong> 총 '+h.totalSessions+'회 (프로 '+h.proSessions+' / PT '+h.trainerSessions+')</div>'+
-          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>⚠ Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul></div>':'')+
+          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul></div>':'')+
           (h.assessSummary.length>0?'<div class="ho-section"><strong>체형평가 이상 소견 ('+h.assessDate+'):</strong><ul>'+h.assessSummary.map(function(a){return '<li>'+a+'</li>';}).join('')+'</ul></div>':'')+
           '<div class="ho-section"><strong>최근 세션 (최대 10개):</strong><ol>'+h.recentSessions.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol></div>'+
           (h.videoLinks.length>0?'<div class="ho-section"><strong>최근 스윙 영상:</strong><ul>'+h.videoLinks.map(function(v){return '<li>'+v+'</li>';}).join('')+'</ul></div>':'')+
@@ -1797,7 +1797,7 @@ function renderQuickNoteModal(){
   var m=S.members.find(function(x){return x.id===S.selectedMember;});
   return `<div class="modal-overlay" onclick="if(event.target===this)closeQuickNote()">
     <div class="modal" style="width:440px">
-      <div class="modal-title">📝 레슨 노트 — ${m?m.name+' 회원님':''}</div>
+      <div class="modal-title">레슨 노트 — ${m?m.name+' 회원님':''}</div>
       <div class="form-group">
         <label class="form-label">날짜</label>
         <input type="date" class="form-input" value="${S.quickNote.date}" onchange="S.quickNote.date=this.value">
@@ -1851,10 +1851,10 @@ function generateImageCard(){
     ctx.fillText('HC '+(m.handicap||'-')+' · 평균 '+(m.avgScore||'-')+'타',40,y); y+=35;
   }
   if(m.goal){
-    ctx.fillText('🏁 목표: '+m.goal,40,y); y+=35;
+    ctx.fillText('목표: '+m.goal,40,y); y+=35;
   }
   if(m.focusPoints){
-    ctx.fillText('🎯 교정: '+m.focusPoints,40,y); y+=35;
+    ctx.fillText('교정: '+m.focusPoints,40,y); y+=35;
   }
   // 구분선
   y+=10;
@@ -1909,7 +1909,7 @@ function renderImageCardModal(){
   if(!m) return '';
   return `<div class="modal-overlay" onclick="if(event.target===this)closeImageCard()">
     <div class="modal" style="width:400px">
-      <div class="modal-title">🖼️ 이미지 카드 생성</div>
+      <div class="modal-title">이미지 카드 생성</div>
       <p style="font-size:13px;color:#555;margin-bottom:16px">${m.name} 회원님의 월간 레슨 리포트를 이미지로 다운로드합니다.<br>길게 눌러 카카오톡으로 공유하세요.</p>
       <div class="modal-actions">
         <button class="btn" onclick="closeImageCard()">취소</button>
@@ -1964,7 +1964,7 @@ function renderReportModal(){
 
   return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()">
     <div class="modal" style="width:720px;max-height:90vh;overflow-y:auto">
-      <div class="modal-title">📄 회원 리포트 미리보기</div>
+      <div class="modal-title">회원 리포트</div>
       <div id="report-print-area">
         <div class="rpt-header">
           <h1>내셔널짐 Golf PT 회원 리포트</h1>
@@ -2217,7 +2217,7 @@ function renderDashboard(){
   return `
   <div class="dashboard">
     <div class="dash-header">
-      <h2>📊 대시보드</h2>
+      <h2>대시보드</h2>
       <button class="btn" onclick="closeDashboard()">닫기</button>
     </div>
     <div class="dash-stats">

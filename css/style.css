@@ -531,8 +531,7 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
   border-color:var(--ac);
 }
 .role-card:active{transform:translateY(0);box-shadow:var(--sh-sm)}
-.role-icon{font-size:28px;margin-bottom:10px}
-.role-card-title{font-size:14px;font-weight:700;color:var(--tx);margin-bottom:4px}
+.role-card-title{font-size:15px;font-weight:700;color:var(--tx);margin-bottom:4px;letter-spacing:-.02em}
 .role-card-desc{font-size:11px;color:var(--tx-3)}
 .rc-infodesk:hover{border-color:var(--warn);box-shadow:0 0 20px rgba(245,166,35,.1),var(--sh-md)}
 .rc-pro:hover{border-color:var(--pro);box-shadow:0 0 20px rgba(91,156,246,.1),var(--sh-md)}
