@@ -700,7 +700,13 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
   .sidebar-backdrop{position:fixed;inset:0;z-index:190;background:rgba(20,30,40,.4);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity var(--t-med)}
   .sidebar-backdrop.show{opacity:1;pointer-events:auto}
   .mobile-toggle{display:flex}
-  .topbar{padding:10px 16px}
+  .topbar{padding:10px 14px;flex-wrap:wrap;gap:8px}
+  .member-title-wrap{width:100%;gap:8px}
+  .topbar-avatar{width:32px;height:32px;border-radius:10px;font-size:11px}
+  .member-title{font-size:15px}
+  .member-subtitle{font-size:10px}
+  .member-detail-line{font-size:10px}
+  .topbar-actions{width:100%;justify-content:flex-start;gap:5px}
   .content{padding:14px 16px}
   .radio-opt{flex:0 0 calc(50% - 4px);font-size:12px;padding:8px}
   .stat-row{grid-template-columns:repeat(2,1fr)}
