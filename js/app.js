@@ -637,19 +637,40 @@ function initials(name){
   return name.slice(0,2);
 }
 function save(){
+  // 저장 전 로그 크기 제한
+  if(S.activityLog && S.activityLog.length>100) S.activityLog=S.activityLog.slice(-100);
+  if(S.auditLog && S.auditLog.length>200) S.auditLog=S.auditLog.slice(-200);
   try{
-    localStorage.setItem('golf_pt_v2', JSON.stringify({
+    var data = {
       members:S.members, assessments:S.assessments, sessions:S.sessions,
       deleteRequests:S.deleteRequests, activityLog:S.activityLog, auditLog:S.auditLog, lastSeen:S.lastSeen,
       handovers:S.handovers
-    }));
+    };
+    // 세션 미디어에서 blob/data URL 제거 (IndexedDB에 저장됨)
+    var cleaned = JSON.parse(JSON.stringify(data));
+    Object.keys(cleaned.sessions||{}).forEach(function(mid){
+      (cleaned.sessions[mid]||[]).forEach(function(s){
+        if(s.media) s.media.forEach(function(m){ delete m.data; });
+      });
+    });
+    localStorage.setItem('golf_pt_v2', JSON.stringify(cleaned));
     return true;
   }catch(e){
     console.error('[save] failed:', e);
-    alert('저장 실패 — 브라우저 저장 공간이 부족합니다.\n\n' +
-          '원인: 영상/사진이 저장 한도(약 5MB)를 초과했습니다.\n' +
-          '해결: 용량이 큰 영상은 유튜브/드라이브에 올린 뒤 URL 입력을 사용해주세요.');
-    return false;
+    // 공간 확보 시도: 오래된 로그 추가 정리
+    try{
+      S.activityLog=S.activityLog?S.activityLog.slice(-30):[];
+      S.auditLog=S.auditLog?S.auditLog.slice(-50):[];
+      localStorage.setItem('golf_pt_v2', JSON.stringify({
+        members:S.members, assessments:S.assessments, sessions:S.sessions,
+        deleteRequests:S.deleteRequests, activityLog:S.activityLog, auditLog:S.auditLog, lastSeen:S.lastSeen,
+        handovers:S.handovers
+      }));
+      return true;
+    }catch(e2){
+      alert('저장 공간 부족 — 오래된 세션 기록을 정리해주세요.');
+      return false;
+    }
   }
 }
 
@@ -1379,7 +1400,8 @@ function render(){
         <div class="assign-grid">${INSTRUCTORS.map(function(inst){
           var checked=(S.newMember.assignedTo||[]).indexOf(inst.name)!==-1;
           var cls=inst.role==='pro'?'assign-pro':'assign-trainer';
-          return '<label class="assign-opt '+cls+(checked?' checked':'')+'">'+'<input type="checkbox" '+(checked?'checked ':'')+' onchange="toggleAssign(\''+inst.name+'\')">'+ ' '+inst.name+'</label>';
+          return '<label class="assign-opt '+cls+(checked?' checked':'')+'">'+
+          '<input type="checkbox" '+(checked?'checked ':'')+' onchange="toggleAssign(\''+inst.name+'\')">'+ ' '+inst.name+'</label>';
         }).join('')}</div>
       </div>
       <div class="modal-actions">
@@ -1956,7 +1978,7 @@ function renderReportModal(){
   var assessRows = ASSESSMENT_ITEMS.map(function(item){
     var v = assess[item.key]||{result:'미검사',note:''};
     var isWarn = v.result!=='정상'&&v.result!=='미검사';
-    return '<tr class="'+(isWarn?'warn-row':'')+'"><td>'+item.name+'</td><td>'+v.result+'</td><td>'+(v.note||'-')+'</td>'+(isWarn&&BODY_SWING_MAP[item.key]?'<td style="font-size:11px;color:#993c1d">'+BODY_SWING_MAP[item.key]+'</td>':'<td>-</td>')+'</tr>';
+    return '<tr class="'+(isWarn?'warn-row':'')+'">'+'<td>'+item.name+'</td><td>'+v.result+'</td><td>'+(v.note||'-')+'</td>'+(isWarn&&BODY_SWING_MAP[item.key]?'<td style="font-size:11px;color:#993c1d">'+BODY_SWING_MAP[item.key]+'</td>':'<td>-</td>')+'</tr>';
   }).join('');
   var sessionRows = recentSess.map(function(s){
     return '<tr><td>'+s.date+'</td><td><span style="font-weight:600;color:'+(getRole(s.author)==='pro'?'#3a72c0':'#2d7a4f')+'">'+(getRole(s.author)==='pro'?'프로':'PT')+'</span> '+s.author+'</td><td>'+s.content.replace(/</g,'&lt;').slice(0,120)+(s.content.length>120?'…':'')+'</td></tr>';
