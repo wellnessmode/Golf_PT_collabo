@@ -1190,7 +1190,7 @@ function render(){
                   if(m.type==='file' && src && isVideo){
                     var vid = 'v_'+s.id+'_'+mi;
                     return '<div class="video-wrap" id="wrap_'+vid+'">'+
-                      '<video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video>'+
+                      '<video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous"></video>'+
                       '<div class="video-controls">'+
                         '<button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">🔁 반복</button>'+
                         '<span class="vc-spacer"></span>'+
@@ -2441,12 +2441,41 @@ function toggleLoop(vid){
   v.loop=!v.loop;
   if(btn){btn.classList.toggle('active',v.loop);}
 }
+// 극저속 재생을 위한 수동 프레임 스테핑
+var _smoothPlayers = {};
 function setSpeed(vid,spd){
   var v=document.getElementById(vid);
   var label=document.getElementById('spd_'+vid);
   if(!v)return;
-  v.playbackRate=spd;
-  if(label) label.textContent=spd>=1?spd+'x':spd+'x';
+  // 이전 수동 재생 중지
+  if(_smoothPlayers[vid]){
+    cancelAnimationFrame(_smoothPlayers[vid].raf);
+    delete _smoothPlayers[vid];
+  }
+  if(spd >= 0.5){
+    // 일반 속도: 브라우저 네이티브 사용
+    v.playbackRate = spd;
+  } else {
+    // 극저속: 수동 프레임 스테핑 (60fps 기반)
+    v.playbackRate = 0;
+    v.pause();
+    var state = {speed:spd, playing:false, raf:0, lastTime:0};
+    _smoothPlayers[vid] = state;
+    // play/pause 이벤트 연결
+    v.onplay = function(){
+      state.playing = true;
+      state.lastTime = performance.now();
+      smoothStep(vid);
+    };
+    v.onpause = function(){state.playing = false;};
+    // 이미 재생 중이었으면 시작
+    if(!v.paused){
+      v.pause();
+      setTimeout(function(){v.play();},50);
+    }
+  }
+  if(label) label.textContent = spd+'x';
+  // 버튼 하이라이트
   var wrap=document.getElementById('wrap_'+vid);
   if(wrap){
     wrap.querySelectorAll('.vc-btn').forEach(function(b){
@@ -2455,6 +2484,27 @@ function setSpeed(vid,spd){
       }
     });
   }
+}
+function smoothStep(vid){
+  var state = _smoothPlayers[vid];
+  if(!state || !state.playing) return;
+  var v = document.getElementById(vid);
+  if(!v) return;
+  var now = performance.now();
+  var dt = (now - state.lastTime) / 1000;
+  state.lastTime = now;
+  var advance = dt * state.speed;
+  v.currentTime = Math.min(v.currentTime + advance, v.duration || 9999);
+  // 끝에 도달 시
+  if(v.currentTime >= (v.duration||0) - 0.01){
+    if(v.loop){
+      v.currentTime = 0;
+    } else {
+      state.playing = false;
+      return;
+    }
+  }
+  state.raf = requestAnimationFrame(function(){smoothStep(vid);});
 }
 function openMediaView(src){
   var d=document.createElement('div');d.className='media-overlay';
