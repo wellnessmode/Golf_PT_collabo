@@ -199,9 +199,17 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 
 
 /* Simple video */
-.sm-video{width:100%;max-width:600px;border-radius:8px;background:#000;margin-bottom:8px}
+.video-wrap{position:relative;width:100%;max-width:720px;margin-bottom:10px;background:#000;border-radius:10px;overflow:hidden;border:1px solid var(--brd)}
+.sm-video{width:100%;display:block;border-radius:0;min-height:300px;max-height:70vh;object-fit:contain;background:#000}
+.video-controls{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--bg2);border-top:1px solid var(--brd)}
+.vc-btn{background:var(--bg4);border:1px solid var(--brd2);color:var(--tx2);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap}
+.vc-btn:hover{border-color:var(--accent);color:var(--accent)}
+.vc-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.vc-speed{font-size:11px;font-weight:700;color:var(--accent);min-width:42px;text-align:center}
+.vc-spacer{flex:1}
 .sm-thumb{max-width:200px;max-height:160px;border-radius:6px;cursor:pointer;object-fit:cover}
 .sm-missing{background:var(--bg3);border:1px dashed var(--brd2);border-radius:8px;padding:20px;text-align:center;color:var(--tx3);font-size:12px;margin-bottom:8px}
+@media(min-width:1024px){.sm-video{min-height:400px}}
 
 /* Video slot grid (front/side) */
 .video-slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}

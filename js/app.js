@@ -1187,7 +1187,21 @@ function render(){
                   var isImg = mime.indexOf('image/')!==-1 || (m.data&&m.data.indexOf('image/')!==-1);
                   var isVideo = mime.indexOf('video/')!==-1 || (m.data&&m.data.indexOf('video/')!==-1);
                   if(m.type==='file' && src && isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';
-                  if(m.type==='file' && src && isVideo) return '<video class="sm-video" src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video>';
+                  if(m.type==='file' && src && isVideo){
+                    var vid = 'v_'+s.id+'_'+mi;
+                    return '<div class="video-wrap" id="wrap_'+vid+'">'+
+                      '<video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video>'+
+                      '<div class="video-controls">'+
+                        '<button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">🔁 반복</button>'+
+                        '<span class="vc-spacer"></span>'+
+                        '<button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button>'+
+                        '<button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button>'+
+                        '<button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button>'+
+                        '<button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button>'+
+                        '<span class="vc-speed" id="spd_'+vid+'">1x</span>'+
+                      '</div>'+
+                    '</div>';
+                  }
                   if(m.type==='file' && !src) return '<div class="sm-missing">⚠ 미디어 로딩 중...</div>';
                   return '';
                 }).join('')+'</div>':''}
@@ -2420,6 +2434,28 @@ async function removeMediaFile(idx){
   render();
 }
 function updateMediaUrl(idx,val){S.newSession.mediaUrls[idx]=val;}
+function toggleLoop(vid){
+  var v=document.getElementById(vid);
+  var btn=document.getElementById('loop_'+vid);
+  if(!v)return;
+  v.loop=!v.loop;
+  if(btn){btn.classList.toggle('active',v.loop);}
+}
+function setSpeed(vid,spd){
+  var v=document.getElementById(vid);
+  var label=document.getElementById('spd_'+vid);
+  if(!v)return;
+  v.playbackRate=spd;
+  if(label) label.textContent=spd>=1?spd+'x':spd+'x';
+  var wrap=document.getElementById('wrap_'+vid);
+  if(wrap){
+    wrap.querySelectorAll('.vc-btn').forEach(function(b){
+      if(b.textContent.indexOf('x')!==-1 && b.textContent.indexOf('반복')===-1){
+        b.classList.toggle('active', parseFloat(b.textContent)===spd);
+      }
+    });
+  }
+}
 function openMediaView(src){
   var d=document.createElement('div');d.className='media-overlay';
   d.onclick=function(){d.remove();};
