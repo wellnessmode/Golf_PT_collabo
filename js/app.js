@@ -1,1 +1,0 @@
-__FILE:/home/user/Golf_PT_collabo/js/app.js
