@@ -1,10 +1,12 @@
-const CACHE_NAME = 'golf-pt-v3.2';
+const CACHE_NAME = 'golf-pt-v3.3';
 const ASSETS = [
   './',
   './index.html',
-  './manual.html',
   './css/style.css',
-  './js/app.js',
+  './js/app_core.js',
+  './js/app_render.js',
+  './js/app_handlers.js',
+  './js/app_ai.js',
   './js/exercises_data.js',
   './config.js',
   './assets/logo.png',
@@ -36,8 +38,7 @@ self.addEventListener('activate', function(e) {
 
 self.addEventListener('fetch', function(e) {
   var url = e.request.url;
-  // API/Supabase/R2 요청은 항상 네트워크
-  if (url.indexOf('supabase') !== -1 || url.indexOf('workers.dev') !== -1 || url.indexOf('mediapipe') !== -1) {
+  if (url.indexOf('supabase') !== -1 || url.indexOf('workers.dev') !== -1 || url.indexOf('anthropic') !== -1) {
     return;
   }
   e.respondWith(
