@@ -336,32 +336,61 @@ function renderImageCardModal(){
   </div>`;
 }
 
-function openReport(){S.showReport=true; S.reportLink=''; render();}
-function closeReport(){S.showReport=false; S.reportLink=''; render();}
+function openReport(){
+  var mid = S.selectedMember;
+  var m = S.members.find(function(x){return x.id===mid;});
+  if(!m) return;
+  var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);}).slice(0,10);
+  var cleaned = allSess.map(function(s){
+    return {
+      id:s.id, date:s.date, author:s.author, role:getRole(s.author),
+      original:s.content,
+      cleaned:cleanupContent(s.content, getRole(s.author)),
+      ai:s._ai||null, approved:false,
+      videos:(s.media||[]).filter(function(mm){return (mm.mimeType||'').indexOf('video/')!==-1 && (mm.r2Key||mm.mediaId);}).map(function(mm){return {key:mm.r2Key||mm.mediaId, view:mm.view||'other'};})
+    };
+  });
+  S.reportDraft = {sessions:cleaned, step:'review', link:''};
+  S.showReport = true; render();
+}
+function closeReport(){S.showReport=false; S.reportDraft=null; render();}
+function cleanupContent(text, role){
+  if(!text) return '';
+  var lines = text.split(/\n/).filter(function(l){return l.trim();});
+  var result = [];
+  lines.forEach(function(line){
+    var l = line.trim();
+    if(l.startsWith('-')||l.startsWith('·')) result.push(l);
+    else if(l.indexOf(',')!==-1) l.split(',').forEach(function(p){p=p.trim();if(p) result.push('- '+p);});
+    else result.push('- '+l);
+  });
+  result = result.map(function(line){
+    if(role==='pro'){
+      line=line.replace(/하체턴/g,'하체 턴 (Hip Rotation)');
+      line=line.replace(/샬로윙/g,'샬로윙 (Shallowing)');
+      line=line.replace(/스쿠핑/g,'스쿠핑 (Scooping)');
+      line=line.replace(/핸드퍼스트/g,'핸드 퍼스트 (Hands First)');
+    } else {
+      line=line.replace(/코어/g,'코어 (Core)');
+      line=line.replace(/모빌리티/g,'모빌리티 (Mobility)');
+    }
+    return line;
+  });
+  return result.join('\n');
+}
+function updateReportSession(idx, val){if(S.reportDraft&&S.reportDraft.sessions[idx]) S.reportDraft.sessions[idx].cleaned=val;}
+function toggleReportApprove(idx){if(S.reportDraft&&S.reportDraft.sessions[idx]){S.reportDraft.sessions[idx].approved=!S.reportDraft.sessions[idx].approved;render();}}
+function approveAllReport(){if(S.reportDraft){S.reportDraft.sessions.forEach(function(s){s.approved=true;});S.reportDraft.step='approved';render();}}
 async function generateShareLink(){
   var mid = S.selectedMember;
   var m = S.members.find(function(x){return x.id===mid;});
-  if(!m || !cloud.enabled) return;
-  var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  if(!m || !cloud.enabled || !S.reportDraft) return;
   var st = stats(mid);
   var reportId = 'rpt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-  var sessions = allSess.slice(0,10).map(function(s){
-    var videos = [];
-    if(s.media){
-      s.media.forEach(function(m){
-        if((m.mimeType||'').indexOf('video/')!==-1 && (m.r2Key||m.mediaId)){
-          videos.push({key:m.r2Key||m.mediaId, view:m.view||'other', name:m.name||''});
-        }
-      });
-    }
-    return {
-      date:s.date, author:s.author,
-      role:getRole(s.author),
-      content:s.content,
-      ai:s._ai||null,
-      videos:videos
-    };
+  var sessions = S.reportDraft.sessions.filter(function(s){return s.approved;}).map(function(s){
+    return {date:s.date, author:s.author, role:s.role, content:s.cleaned, ai:s.ai, videos:s.videos};
   });
+  var allSess = S.sessions[mid]||[];
   var content = {
     member:{name:m.name, phone:m.phone||'', registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
     totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
@@ -374,75 +403,97 @@ async function generateShareLink(){
     });
     if(error) throw error;
     var base = location.origin+location.pathname.replace(/\/[^\/]*$/,'/');
-    S.reportLink = base+'report.html?id='+reportId;
+    S.reportDraft.link = base+'report.html?id='+reportId;
+    S.reportDraft.step = 'shared';
     render();
   }catch(e){
     console.warn('[report] failed:', e);
-    S.reportLink = 'error';
+    S.reportDraft.link = 'error';
     render();
   }
 }
 function copyReportLink(){
-  if(!S.reportLink) return;
-  navigator.clipboard.writeText(S.reportLink).then(function(){
+  if(!S.reportDraft||!S.reportDraft.link) return;
+  navigator.clipboard.writeText(S.reportDraft.link).then(function(){
     var btn = document.getElementById('copy-link-btn');
-    if(btn){btn.textContent='복사 완료';setTimeout(function(){btn.textContent='링크 복사';},2000);}
+    if(btn){btn.textContent='복사됨!';setTimeout(function(){btn.textContent='링크 복사';},2000);}
   });
 }
 function renderReportModal(){
-  if(!S.showReport) return '';
+  if(!S.showReport || !S.reportDraft) return '';
   var mid = S.selectedMember;
   var m = S.members.find(function(x){return x.id===mid;});
   if(!m) return '';
-  var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
-  var recentSess = allSess.slice(0,10);
-
-  return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()">
-    <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto">
-      <div class="modal-title">회원 리포트 공유</div>
-      <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${m.name} 회원님</div>
-        <div style="font-size:11px;color:var(--tx-3)">최근 ${recentSess.length}건 세션 + AI 분석 + 영상 포함</div>
+  var d = S.reportDraft;
+  var approvedCount = d.sessions.filter(function(s){return s.approved;}).length;
+  if(d.step==='review'){
+    return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:680px;max-height:92vh;overflow-y:auto">
+      <div class="modal-title">${m.name} 회원님 리포트 검토</div>
+      <div style="font-size:12px;color:var(--tx-2);margin-bottom:14px;padding:10px 14px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">
+        AI가 세션 기록을 자동 정리했습니다. 각 세션을 <strong>검토 후 수정</strong>하고 승인해주세요.
       </div>
-      <div style="font-size:12px;color:var(--tx-2);margin-bottom:12px;padding:12px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">
-        <strong>포함 내용:</strong><br>
-        - 회원 정보 (핸디캡, 교정 포인트, 목표)<br>
-        - 세션 기록 최근 10건 (원본 + AI 정리)<br>
-        - 골프 훈련 / 웨이트 추천<br>
-        - 스윙 영상 재생 (R2 스토리지)
-      </div>
-      <div style="font-size:12px;color:var(--tx-2);margin-bottom:12px">
-        <strong>미리보기 (세션 ${recentSess.length}건):</strong>
-      </div>
-      <div style="max-height:200px;overflow-y:auto;margin-bottom:16px;padding:8px;background:var(--bg-3);border-radius:var(--r)">
-        ${recentSess.map(function(s){
-          return '<div style="padding:6px 0;border-bottom:1px solid var(--brd);font-size:11px"><span style="color:var(--tx-3)">'
-            +s.date+'</span> <span style="font-weight:600">'+s.author+'</span> — '
-            +s.content.slice(0,60)+(s.content.length>60?'...':'')
-            +(s._ai?'<span style="color:var(--ac);margin-left:4px"> [분석 완료]</span>':'')
-            +'</div>';
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        ${d.sessions.map(function(s,i){
+          return '<div style="border:1px solid '+(s.approved?'rgba(0,184,132,.3)':'var(--brd)')+';border-radius:12px;overflow:hidden;background:'+(s.approved?'var(--ac-glow2)':'var(--card)')+'">'+
+            '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--brd);background:var(--bg-3)">'+
+              '<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;'+(s.role==='pro'?'background:var(--pro-bg);color:var(--pro)':'background:var(--tr-bg);color:var(--ac)')+'">'+
+                (s.role==='pro'?'PRO':'PT')+'</span>'+
+              '<span style="font-size:12px;font-weight:600">'+s.author+'</span>'+
+              '<span style="font-size:11px;color:var(--tx-3);margin-left:auto">'+s.date+'</span>'+
+            '</div>'+
+            '<div style="padding:10px 14px">'+
+              '<div style="font-size:9px;font-weight:700;color:var(--tx-3);margin-bottom:3px">원본</div>'+
+              '<div style="font-size:11px;color:var(--tx-3);margin-bottom:8px;line-height:1.5;white-space:pre-line">'+s.original.slice(0,100)+(s.original.length>100?'...':'')+'</div>'+
+              '<div style="font-size:9px;font-weight:700;color:var(--ac);margin-bottom:3px">AI 정리 (수정 가능)</div>'+
+              '<textarea style="width:100%;min-height:50px;padding:6px 8px;border:1px solid var(--brd-2);border-radius:6px;font-size:11px;font-family:var(--font);color:var(--tx);background:var(--bg-4);resize:vertical;line-height:1.5" onchange="updateReportSession('+i+',this.value)">'+s.cleaned+'</textarea>'+
+            '</div>'+
+            '<div style="padding:6px 14px;border-top:1px solid var(--brd);display:flex;align-items:center;gap:6px">'+
+              '<button class="btn" style="font-size:10px;padding:4px 10px" onclick="toggleReportApprove('+i+')">'+(s.approved?'승인됨':'승인')+'</button>'+
+              (s.videos.length>0?'<span style="font-size:10px;color:var(--tx-3)">영상 '+s.videos.length+'개</span>':'')+
+            '</div>'+
+          '</div>';
         }).join('')}
       </div>
-      ${S.reportLink && S.reportLink!=='error' ? `
-        <div style="padding:12px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);margin-bottom:12px">
-          <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:6px">공유 링크 생성 완료</div>
-          <div style="font-size:11px;color:var(--tx-2);word-break:break-all;margin-bottom:8px">${S.reportLink}</div>
-          <div style="display:flex;gap:6px">
-            <button class="btn primary" id="copy-link-btn" onclick="copyReportLink()" style="font-size:11px;padding:6px 14px">링크 복사</button>
-            <button class="btn" onclick="window.open('${S.reportLink}','_blank')" style="font-size:11px;padding:6px 14px">미리보기</button>
-          </div>
-        </div>
-      ` : S.reportLink==='error' ? `
-        <div style="padding:10px;background:var(--err-bg);border-radius:var(--r);color:var(--err);font-size:12px;margin-bottom:12px">
-          링크 생성 실패. Supabase reports 테이블이 필요합니다.
-        </div>
-      ` : ''}
       <div class="modal-actions">
-        <button class="btn" onclick="closeReport()">닫기</button>
-        ${!S.reportLink || S.reportLink==='error' ? '<button class="btn primary" onclick="generateShareLink()">공유 링크 생성</button>' : ''}
+        <button class="btn" onclick="closeReport()">취소</button>
+        <button class="btn" onclick="approveAllReport()">전체 승인</button>
+        <button class="btn primary" ${approvedCount===0?'disabled':''} onclick="S.reportDraft.step='approved';render()">검토 완료 (${approvedCount}건)</button>
+      </div>
+    </div></div>`;
+  }
+  if(d.step==='approved'){
+    return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:500px">
+      <div class="modal-title">리포트 공유 준비 완료</div>
+      <div style="font-size:12px;color:var(--tx-2);margin-bottom:16px;padding:12px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);line-height:1.6">
+        <strong>${approvedCount}건 세션 승인 완료.</strong><br>
+        공유 링크를 생성하면 회원에게 카카오톡으로 전달할 수 있습니다.<br><br>
+        포함: 회원 정보 · AI 정리 세션 · 훈련 추천 · 스윙 영상
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="S.reportDraft.step='review';render()">뒤로</button>
+        <button class="btn primary" onclick="generateShareLink()">공유 링크 생성</button>
+      </div>
+    </div></div>`;
+  }
+  // shared step
+  return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:500px">
+    <div class="modal-title">공유 링크 생성 완료</div>
+    ${d.link && d.link!=='error' ? `
+    <div style="padding:14px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);margin-bottom:16px">
+      <div style="font-size:12px;color:var(--tx-2);word-break:break-all;margin-bottom:10px;padding:8px;background:var(--bg-4);border-radius:6px;font-family:var(--mono);font-size:11px">${d.link}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn primary" id="copy-link-btn" onclick="copyReportLink()">링크 복사</button>
+        <button class="btn" onclick="window.open('${d.link}','_blank')">미리보기</button>
       </div>
     </div>
-  </div>`;
+    <div style="font-size:11px;color:var(--tx-3);margin-bottom:16px">카카오톡으로 링크를 보내면 회원이 직접 열어볼 수 있습니다.</div>
+    ` : `
+    <div style="padding:10px;background:var(--err-bg);border-radius:var(--r);color:var(--err);font-size:12px;margin-bottom:12px">
+      링크 생성 실패. Supabase reports 테이블을 확인하세요.
+    </div>
+    `}
+    <div class="modal-actions"><button class="btn" onclick="closeReport()">닫기</button></div>
+  </div></div>`;
 }
 
 function requestDelete(id){
