@@ -418,5 +418,24 @@ async function deleteSession(id){
   cloud.deleteSession(id);
 }
 
+// ============ 기존 세션 AI 요약 일괄 처리 ============
+async function analyzeExistingSessions(){
+  var apiKey = (window.APP_CONFIG||{}).ANTHROPIC_API_KEY;
+  if(!apiKey) return;
+  var count = 0;
+  for(var mid in S.sessions){
+    var sessions = S.sessions[mid]||[];
+    for(var i=0;i<sessions.length;i++){
+      if(sessions[i]._ai) continue;
+      if(!sessions[i].content || sessions[i].content.trim().length<5) continue;
+      await generateAISummary(mid, sessions[i]);
+      count++;
+      if(count>=3){ return; } // 한 번에 최대 3개 (API 부담 방지)
+    }
+  }
+}
+
 // ============ 시작 ============
 init();
+// 기존 세션 AI 분석 (백그라운드, 로그인 후 자동 실행)
+setTimeout(function(){ analyzeExistingSessions(); }, 5000);
