@@ -1,56 +1,86 @@
-async function generateAISummary(memberId, session){
-  var apiKey = (window.APP_CONFIG||{}).ANTHROPIC_API_KEY;
-  if(!apiKey) return;
-  var m = S.members.find(function(x){return x.id===memberId;});
-  if(!m) return;
-  var assess = S.assessments[memberId]||{};
-  var warnings = [];
-  ASSESSMENT_ITEMS.forEach(function(item){
-    var v = assess[item.key];
-    if(v && (v.result==='제한'||v.result==='주의 필요')){
-      warnings.push(item.name+': '+v.result+(v.note?' ('+v.note+')':''));
-    }
-  });
-  var recentSessions = (S.sessions[memberId]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);}).slice(0,5);
-  var prompt = '당신은 골프 코칭 AI 어시스턴트입니다. 아래 세션 기록을 분석하고 JSON으로 응답하세요.\n\n'+
-    '회원: '+m.name+'\n'+
-    (m.handicap?'핸디캡: '+m.handicap+'\n':'')+
-    (m.avgScore?'평균 타수: '+m.avgScore+'\n':'')+
-    (m.focusPoints?'주력 교정: '+m.focusPoints+'\n':'')+
-    (warnings.length>0?'체형평가 주의: '+warnings.join(', ')+'\n':'')+
-    '\n오늘 세션:\n'+session.date+' ('+session.author+'): '+session.content+'\n'+
-    (recentSessions.length>1?'\n최근 세션:\n'+recentSessions.slice(1).map(function(s){return s.date+' ('+s.author+'): '+s.content.slice(0,60);}).join('\n')+'\n':'')+
-    '\n다음 JSON 형식으로 응답하세요:\n'+
-    '{"summary":"오늘 세션 2-3줄 요약","golf_drills":["추천 골프 훈련 1","추천 골프 훈련 2","추천 골프 훈련 3"],"weight_training":["추천 웨이트 1","추천 웨이트 2","추천 웨이트 3"],"next_focus":"다음 세션 집중 포인트"}';
-  try{
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:500,
-        messages:[{role:'user',content:prompt}]
-      })
+// ============ 로컬 AI 분석 (키워드 기반, API 불필요) ============
+var GOLF_KEYWORDS = {
+  '셋업': {keywords:['그립','어드레스','포스처','볼 포지션','얼라인먼트','스탠스','셋업'], drills:['그립 체크','포스처 체크','볼 포지션 드릴','알라이먼트 스틱 드릴']},
+  '백스윙': {keywords:['백스윙','테이크어웨이','숄더턴','어깨 회전','코킹','힌지','탑 포지션','오버스윙','플레인'], drills:['원피스 테이크어웨이','숄더 턴 드릴','하프 백스윙 드릴','탑 포지션 홀드']},
+  '다운스윙': {keywords:['다운스윙','전환','트랜지션','하체','힙','골반','샬로윙','라그','슬롯','시퀀스','범프','인사이드','지면반력'], drills:['하체 리드 드릴','샬로윙 연습','라그 유지 드릴','범프 드릴','힙 클리어 드릴']},
+  '임팩트': {keywords:['임팩트','핸드퍼스트','스쿠핑','플리핑','컴프레션','스매시','디센딩'], drills:['임팩트 백 드릴','핸드 퍼스트 연습','스쿠핑 방지 드릴','임팩트 포지션 홀드']},
+  '릴리스': {keywords:['릴리스','손목','팔로스루','피니시','익스텐션','로테이션'], drills:['손목 릴리스 드릴','팔로스루 체크','피니시 밸런스']},
+  '구질': {keywords:['드로우','페이드','슬라이스','훅','푸시','풀','탑핑','뒤땅','생크','탄도','구질'], drills:['인텐셔널 페이드','인텐셔널 드로우','슬라이스 교정 드릴','훅 교정 드릴']},
+  '숏게임': {keywords:['칩','피치','벙커','로브','어프로치','웨지','스핀','업앤다운'], drills:['칩 샷 드릴','피치 컨트롤','벙커 익스플로전','웨지 거리 컨트롤']},
+  '퍼팅': {keywords:['퍼팅','퍼트','스트로크','라인','브레이크','래그','그린'], drills:['퍼팅 거리 드릴','퍼팅 방향 드릴','게이트 드릴','브레이크 리딩']},
+  '드라이버': {keywords:['드라이버','티샷','비거리','어퍼블로','런치'], drills:['드라이버 어퍼 블로','드라이버 페이드','드라이버 드로우']},
+  '템포': {keywords:['템포','리듬','속도','타이밍','메트로놈'], drills:['템포 드릴','메트로놈 스윙','슬로우 모션 스윙']},
+  '스피드': {keywords:['스피드','스윙속도','파워','폭발력'], drills:['스윙 스피드 트레이닝','스피드 스틱','지면반력 드릴']},
+};
+var PT_KEYWORDS = {
+  '하체': {keywords:['스쿼트','런지','데드리프트','힙','둔근','대퇴','햄스트링','카프','레그'], exercises:['스쿼트','루마니안 데드리프트','불가리안 SS','힙 쓰러스트','레그 프레스']},
+  '상체': {keywords:['벤치','프레스','로우','풀업','푸쉬업','숄더','래터럴','컬','삼두','이두','가슴','등','어깨'], exercises:['벤치프레스','덤벨 로우','숄더 프레스','랫풀다운','페이스 풀']},
+  '코어': {keywords:['코어','플랭크','데드버그','크런치','복근','버드독','팔로프','항회전'], exercises:['플랭크','사이드 플랭크','데드버그','팔로프 프레스','행잉 레그 레이즈']},
+  '회전': {keywords:['회전','로테이션','우드찹','메디신볼','MB','랜드마인','사선'], exercises:['메디신볼 회전 슬램','케이블 우드 찹','랜드마인 트위스트','로테이셔널 MB 쓰로우']},
+  '모빌리티': {keywords:['모빌리티','가동성','스트레치','흉추','고관절','CARs','FRC','90/90'], exercises:['T스파인 로테이션','90/90 힙 트위스트','월드 그레이티스트 스트레치','힙 CARs']},
+  '안정성': {keywords:['안정성','밸런스','싱글레그','보수','프리오셉션','고유감각'], exercises:['싱글 레그 RDL','힙 에어플레인','보수볼 스탠스','Y밸런스 테스트']},
+  '파워': {keywords:['파워','폭발력','점프','스윙','케틀벨','클린','스내치'], exercises:['케틀벨 스윙','박스 점프','파워 클린','메디신볼 슬램']},
+};
+
+function generateLocalSummary(memberId, session){
+  if(session._ai) return;
+  if(!session.content || session.content.trim().length<5) return;
+  var content = session.content.toLowerCase();
+  var role = getRole(session.author);
+  var detected = [];
+  var drills = [];
+  var exercises = [];
+
+  if(role==='pro'){
+    Object.keys(GOLF_KEYWORDS).forEach(function(cat){
+      var k = GOLF_KEYWORDS[cat];
+      var matched = k.keywords.filter(function(w){return content.indexOf(w)!==-1;});
+      if(matched.length>0){
+        detected.push(cat);
+        drills = drills.concat(k.drills.slice(0, 2));
+      }
     });
-    if(!resp.ok) throw new Error('API '+resp.status);
-    var data = await resp.json();
-    var text = (data.content&&data.content[0]&&data.content[0].text)||'';
-    var jsonMatch = text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) return;
-    var ai = JSON.parse(jsonMatch[0]);
-    // 세션에 AI 요약 저장
-    session._ai = ai;
-    save();
-    render();
-    cloud.upsertSession(memberId, session);
-  }catch(e){
-    console.warn('[AI] summary failed:', e);
+    // PT 추천도 추가
+    var ptRecs = [];
+    Object.keys(PT_KEYWORDS).forEach(function(cat){
+      var k = PT_KEYWORDS[cat];
+      // 골프 키워드와 연관된 PT 추천
+      if(detected.indexOf('다운스윙')!==-1 && (cat==='하체'||cat==='회전'||cat==='코어')) ptRecs=ptRecs.concat(k.exercises.slice(0,1));
+      if(detected.indexOf('백스윙')!==-1 && (cat==='모빌리티'||cat==='회전')) ptRecs=ptRecs.concat(k.exercises.slice(0,1));
+      if(detected.indexOf('임팩트')!==-1 && (cat==='코어'||cat==='하체')) ptRecs=ptRecs.concat(k.exercises.slice(0,1));
+      if(detected.indexOf('스피드')!==-1 && (cat==='파워'||cat==='하체')) ptRecs=ptRecs.concat(k.exercises.slice(0,1));
+    });
+    if(ptRecs.length===0) ptRecs=['코어 안정화 훈련','흉추 모빌리티','힙 파워 트레이닝'];
+    session._ai = {
+      summary: detected.length>0 ? detected.join(' · ')+' 관련 레슨 진행. '+session.content.slice(0,60)+(session.content.length>60?'...':'') : session.content.slice(0,80)+(session.content.length>80?'...':''),
+      golf_drills: drills.length>0 ? drills.slice(0,3) : ['기본 스윙 드릴','숏게임 연습','퍼팅 루틴'],
+      weight_training: ptRecs.slice(0,3),
+      next_focus: detected.length>0 ? detected[0]+' 심화 연습 권장' : '기본기 반복 훈련'
+    };
+  } else {
+    // 트레이너
+    Object.keys(PT_KEYWORDS).forEach(function(cat){
+      var k = PT_KEYWORDS[cat];
+      var matched = k.keywords.filter(function(w){return content.indexOf(w)!==-1;});
+      if(matched.length>0){
+        detected.push(cat);
+        exercises = exercises.concat(k.exercises.slice(0, 2));
+      }
+    });
+    var golfRecs = [];
+    if(detected.indexOf('회전')!==-1) golfRecs.push('하체턴 드릴','샬로윙 연습');
+    if(detected.indexOf('하체')!==-1) golfRecs.push('지면반력 드릴','웨이트 시프트');
+    if(detected.indexOf('코어')!==-1) golfRecs.push('임팩트 포지션 연습','피니시 밸런스');
+    if(detected.indexOf('모빌리티')!==-1) golfRecs.push('백스윙 플레인 체크','숄더 턴 드릴');
+    if(golfRecs.length===0) golfRecs=['스윙 템포 연습','숏게임 연습','퍼팅 드릴'];
+    session._ai = {
+      summary: detected.length>0 ? detected.join(' · ')+' 훈련 진행. '+session.content.slice(0,60)+(session.content.length>60?'...':'') : session.content.slice(0,80)+(session.content.length>80?'...':''),
+      golf_drills: golfRecs.slice(0,3),
+      weight_training: exercises.length>0 ? exercises.slice(0,3) : ['코어 안정화','하체 근력 훈련','모빌리티 루틴'],
+      next_focus: detected.length>0 ? detected[0]+' 강화 훈련 지속' : '전신 밸런스 훈련'
+    };
   }
+  save();
 }
 
 // ============ 세션 수정 ============
@@ -418,24 +448,21 @@ async function deleteSession(id){
   cloud.deleteSession(id);
 }
 
-// ============ 기존 세션 AI 요약 일괄 처리 ============
-async function analyzeExistingSessions(){
-  var apiKey = (window.APP_CONFIG||{}).ANTHROPIC_API_KEY;
-  if(!apiKey) return;
+// ============ 기존 세션 자동 분석 (로컬) ============
+function analyzeExistingSessions(){
   var count = 0;
   for(var mid in S.sessions){
     var sessions = S.sessions[mid]||[];
     for(var i=0;i<sessions.length;i++){
       if(sessions[i]._ai) continue;
       if(!sessions[i].content || sessions[i].content.trim().length<5) continue;
-      await generateAISummary(mid, sessions[i]);
+      generateLocalSummary(mid, sessions[i]);
       count++;
-      if(count>=3){ return; } // 한 번에 최대 3개 (API 부담 방지)
     }
   }
+  if(count>0) render();
 }
 
 // ============ 시작 ============
 init();
-// 기존 세션 AI 분석 (백그라운드, 로그인 후 자동 실행)
-setTimeout(function(){ analyzeExistingSessions(); }, 5000);
+setTimeout(function(){ analyzeExistingSessions(); }, 3000);
