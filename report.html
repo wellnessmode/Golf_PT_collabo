@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>레슨 리포트 — 내셔널짐</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ac:#00b884;--pro:#3868d6;--tx:#0d0d10;--tx2:#4a4d57;--tx3:#9094a0;--bg:#fafafa;--card:#fff;--brd:rgba(0,0,0,.06)}
+body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx);line-height:1.7;-webkit-font-smoothing:antialiased}
+.report{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+.report-header{text-align:center;padding:40px 20px 30px;border-bottom:1px solid var(--brd);margin-bottom:24px}
+.report-logo{height:36px;margin-bottom:12px;opacity:.7}
+.report-title{font-size:22px;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+.report-sub{font-size:13px;color:var(--tx3)}
+.report-member{background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;margin-bottom:16px}
+.rm-name{font-size:18px;font-weight:700;margin-bottom:4px}
+.rm-meta{font-size:12px;color:var(--tx3);line-height:1.6}
+.rm-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.rm-stat{text-align:center;padding:10px;background:var(--bg);border-radius:10px}
+.rm-stat-val{font-size:20px;font-weight:800}
+.rm-stat-val.green{color:var(--ac)}
+.rm-stat-val.blue{color:var(--pro)}
+.rm-stat-lbl{font-size:10px;color:var(--tx3);margin-top:2px}
+.section{margin-bottom:20px}
+.section-title{font-size:14px;font-weight:700;color:var(--ac);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--brd);letter-spacing:-.01em}
+.session-item{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:10px}
+.si-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.si-role{font-size:9px;font-weight:800;padding:3px 10px;border-radius:6px;letter-spacing:.06em;text-transform:uppercase}
+.si-role.pro{background:rgba(56,104,214,.08);color:var(--pro)}
+.si-role.trainer{background:rgba(0,184,132,.08);color:var(--ac)}
+.si-author{font-size:12px;font-weight:600}.si-date{font-size:11px;color:var(--tx3);margin-left:auto}
+.si-content{font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:8px;white-space:pre-line}
+.si-ai{background:var(--bg);border:1px solid var(--brd);border-radius:10px;padding:12px;margin-top:10px}
+.si-ai-title{font-size:9px;font-weight:800;color:var(--ac);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.si-ai-summary{font-size:12px;color:var(--tx2);margin-bottom:8px;line-height:1.6}
+.si-ai-focus{font-size:11px;font-weight:600;color:var(--ac);padding:5px 10px;background:rgba(0,184,132,.05);border-radius:6px;margin-bottom:8px;display:inline-block}
+.si-ai-recs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.si-ai-col-title{font-size:9px;font-weight:800;color:var(--tx3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.si-ai-rec{font-size:11px;color:var(--tx2);padding:3px 0;border-bottom:1px dashed var(--brd)}
+.si-ai-rec:last-child{border-bottom:none}
+.si-video{margin-top:10px;border-radius:10px;overflow:hidden;background:#000}
+.si-video video{width:100%;display:block;max-height:400px;object-fit:contain}
+.si-video-label{font-size:10px;color:var(--tx3);padding:6px 10px;background:var(--bg)}
+.report-footer{text-align:center;padding:30px 0;color:var(--tx3);font-size:11px;border-top:1px solid var(--brd)}
+.loading{text-align:center;padding:80px 20px;color:var(--tx3)}
+.loading-spinner{width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{text-align:center;padding:80px 20px;color:#dc2626}
+</style>
+</head>
+<body>
+<div class="report" id="report">
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <div>리포트 로딩 중...</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+(async function(){
+  var cfg = window.APP_CONFIG||{};
+  var params = new URLSearchParams(location.search);
+  var id = params.get('id');
+  if(!id){
+    document.getElementById('loading').innerHTML='<div class="error">리포트 ID가 없습니다.</div>';
+    return;
+  }
+  if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY){
+    document.getElementById('loading').innerHTML='<div class="error">설정 오류</div>';
+    return;
+  }
+  try{
+    var client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    var {data,error} = await client.from('reports').select('*').eq('id',id).single();
+    if(error||!data) throw new Error('리포트를 찾을 수 없습니다.');
+    var c = data.content;
+    var r2url = cfg.R2_WORKER_URL||'';
+
+    var html = '<div class="report-header">'+
+      '<img class="report-logo" src="assets/logo.png" alt="내셔널짐">'+
+      '<div class="report-title">'+data.member_name+' 회원님 레슨 리포트</div>'+
+      '<div class="report-sub">작성: '+data.created_by+' · '+(data.created_at||'').slice(0,10)+'</div>'+
+    '</div>';
+
+    if(c.member){
+      var m=c.member;
+      html+='<div class="report-member">'+
+        '<div class="rm-name">'+m.name+'</div>'+
+        '<div class="rm-meta">'+(m.phone||'')+(m.registeredDate?' · 가입 '+m.registeredDate:'')+(m.handicap?' · HC '+m.handicap:'')+(m.avgScore?' · 평균 '+m.avgScore+'타':'')+'</div>'+
+        (m.focusPoints?'<div class="rm-meta" style="color:var(--ac);font-weight:600">교정 포인트: '+m.focusPoints+'</div>':'')+
+        (m.goal?'<div class="rm-meta" style="color:#d97706">목표: '+m.goal+'</div>':'')+
+        '<div class="rm-stats">'+
+          '<div class="rm-stat"><div class="rm-stat-val">'+(c.totalSessions||0)+'</div><div class="rm-stat-lbl">총 세션</div></div>'+
+          '<div class="rm-stat"><div class="rm-stat-val blue">'+(c.proSessions||0)+'</div><div class="rm-stat-lbl">골프 레슨</div></div>'+
+          '<div class="rm-stat"><div class="rm-stat-val green">'+(c.trainerSessions||0)+'</div><div class="rm-stat-lbl">골프 PT</div></div>'+
+        '</div>'+
+      '</div>';
+    }
+
+    if(c.sessions && c.sessions.length>0){
+      html+='<div class="section"><div class="section-title">세션 기록</div>';
+      c.sessions.forEach(function(s){
+        var isPro = (s.role||'').indexOf('pro')!==-1;
+        html+='<div class="session-item">'+
+          '<div class="si-header">'+
+            '<span class="si-role '+(isPro?'pro':'trainer')+'">'+(isPro?'GOLF PRO':'GOLF PT')+'</span>'+
+            '<span class="si-author">'+s.author+'</span>'+
+            '<span class="si-date">'+s.date+'</span>'+
+          '</div>'+
+          '<div class="si-content">'+s.content+'</div>';
+
+        if(s.ai){
+          html+='<div class="si-ai">'+
+            '<div class="si-ai-title">분석</div>'+
+            '<div class="si-ai-summary">'+s.ai.summary+'</div>'+
+            (s.ai.next_focus?'<div class="si-ai-focus">다음 집중: '+s.ai.next_focus+'</div>':'')+
+            '<div class="si-ai-recs">'+
+              '<div><div class="si-ai-col-title">골프 훈련 추천</div>'+(s.ai.golf_drills||[]).map(function(d){return '<div class="si-ai-rec">'+d+'</div>';}).join('')+'</div>'+
+              '<div><div class="si-ai-col-title">웨이트 추천</div>'+(s.ai.weight_training||[]).map(function(d){return '<div class="si-ai-rec">'+d+'</div>';}).join('')+'</div>'+
+            '</div>'+
+          '</div>';
+        }
+
+        if(s.videos && s.videos.length>0){
+          s.videos.forEach(function(v){
+            var src = r2url ? r2url+'/'+encodeURIComponent(v.key) : '';
+            if(src){
+              html+='<div class="si-video">'+
+                '<video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video>'+
+                '<div class="si-video-label">'+(v.view==='front'?'정면':v.view==='side'?'측면':'영상')+'</div>'+
+              '</div>';
+            }
+          });
+        }
+        html+='</div>';
+      });
+      html+='</div>';
+    }
+
+    html+='<div class="report-footer">내셔널짐 Golf PT · Collaborative Coaching Platform</div>';
+    document.getElementById('report').innerHTML=html;
+  }catch(e){
+    document.getElementById('loading').innerHTML='<div class="error">'+e.message+'</div>';
+  }
+})();
+</script>
+</body>
+</html>
