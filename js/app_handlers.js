@@ -533,8 +533,8 @@ function addSession(){
   S.showAddSession = false;
   render();
   cloud.upsertSession(mid, s);
-  // AI 요약 + 운동 추천 (백그라운드)
-  generateAISummary(mid, s);
+  generateLocalSummary(mid, s);
+  render();
 }
 
 // ============ AI 세션 요약 + 운동 추천 ============
