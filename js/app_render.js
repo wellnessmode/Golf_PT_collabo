@@ -195,7 +195,7 @@ function render(){
       <div class="modal-title">${S.editSessionId?'세션 기록 수정':'세션 기록 추가'} — ${member?member.name+' 회원님':''}</div>
       <div class="form-group"><label class="form-label">날짜</label><input type="date" class="form-input" value="${S.newSession.date}" onchange="updateNS('date',this.value)"></div>
       <div class="form-group"><label class="form-label">담당자</label><div class="radio-group">${INSTRUCTORS.map(function(inst){var isMe=inst.name===S.currentUser;var sel=S.newSession.author===inst.name?(inst.role==='pro'?' sel-pro':' sel-trainer'):'';if(!isMe) return '<div class="radio-opt disabled" style="opacity:0.4;pointer-events:none">'+inst.name+'</div>';return '<div class="radio-opt'+sel+'" onclick="updateNS(\'author\',\''+inst.name+'\')">'+ inst.name+'</div>';}).join('')}</div></div>
-      <div class="form-group"><label class="form-label">${getRole(S.newSession.author)==='trainer'?'PT레슨 내용':'골프레슨 내용'} <button type="button" class="ex-add-btn" onclick="openExercisePicker()">+ 운동 빠른추가</button></label><textarea class="form-textarea" placeholder="${getRole(S.newSession.author)==='trainer'?'웨이트 트레이닝, 기능성 훈련, 모빌리티, 코어 안정화 등':'하체턴, 손목 릴리스, 샬로윙, 스쿠핑 방지, 임팩트 포지션 등'}" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea></div>
+      <div class="form-group"><label class="form-label">${getRole(S.newSession.author)==='trainer'?'PT레슨 내용':'골프레슨 내용'} ${getRole(S.newSession.author)==='trainer'?'<button type="button" class="ex-add-btn" onclick="openExercisePicker()">+ 운동 빠른추가</button>':'<button type="button" class="ex-add-btn" onclick="openGolfLessonPicker()">+ 레슨 빠른추가</button>'}</label><textarea class="form-textarea" placeholder="${getRole(S.newSession.author)==='trainer'?'웨이트 트레이닝, 기능성 훈련, 모빌리티, 코어 안정화 등':'오늘 진행한 레슨 내용을 입력하세요'}" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea></div>
       ${getRole(S.newSession.author)==='trainer'?`
       <div class="form-group"><label class="form-label">사진 · 영상 첨부</label><div class="media-input-box"><div class="exercise-video-list">${(S.newSession.media||[]).filter(function(x){return x.view==='exercise'||x.view==='photo';}).map(function(x,i){var idx=(S.newSession.media||[]).findIndex(function(m){return m===x;});var icon=(x.mimeType||'').indexOf('image/')!==-1?'IMG':'VID';return '<div class="media-file-item"><span>'+icon+' '+(x.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';}).join('')}</div><div class="media-upload-row"><label class="media-upload-btn">+ 사진 추가<input type="file" accept="image/*" multiple onchange="handleExerciseVideoUpload(this)" style="display:none"></label><label class="media-upload-btn">+ 영상 추가<input type="file" accept="video/*" multiple onchange="handleExerciseVideoUpload(this)" style="display:none"></label></div><div class="media-hint">여러 장 선택 가능 · 파일당 최대 100MB</div></div></div>
       <div class="form-group"><label class="form-label">스윙 영상</label><div class="media-input-box"><div class="video-slot-grid"><div class="video-slot"><div class="vs-label">정면</div>${(function(){var f=(S.newSession.media||[]).find(function(x){return x.view==='front';});var idx=(S.newSession.media||[]).findIndex(function(x){return x.view==='front';});if(f) return '<div class="media-file-item"><span>'+(f.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';return '<label class="media-upload-btn">+ 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'front\')" style="display:none"></label>';})()}</div><div class="video-slot"><div class="vs-label">측면</div>${(function(){var f=(S.newSession.media||[]).find(function(x){return x.view==='side';});var idx=(S.newSession.media||[]).findIndex(function(x){return x.view==='side';});if(f) return '<div class="media-file-item"><span>'+(f.name||'파일')+'</span><span class="mf-remove" onclick="removeMediaFile('+idx+')">×</span></div>';return '<label class="media-upload-btn">+ 선택<input type="file" accept="video/*" onchange="handleFileUpload(this,\'side\')" style="display:none"></label>';})()}</div></div></div></div>
@@ -229,6 +229,7 @@ function render(){
   </div>` : ''}
 
   ${renderExercisePicker()}
+  ${renderGolfLessonPicker()}
 
   ${S.showActivityLog ? `<div class="modal-overlay" onclick="if(event.target===this){S.showActivityLog=false;render()}"><div class="modal" style="width:520px"><div class="modal-title">활동 로그</div><div class="activity-log-list">${S.activityLog.slice().reverse().slice(0,50).map(function(e){var d=new Date(e.time);var ts=(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');return '<div class="log-item"><div class="log-time">'+ts+'</div><div class="log-body"><strong>'+e.user+'</strong> — '+(e.memberName||'')+' '+e.action+(e.detail?' : '+e.detail:'')+'</div></div>';}).join('')||'<div class="empty-state">아직 활동 기록이 없습니다</div>'}</div><div class="modal-actions"><button class="btn" onclick="S.showActivityLog=false;render()">닫기</button></div></div></div>` : ''}
 
@@ -258,6 +259,76 @@ function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',co
 // ============ 운동 빠른추가 픽커 ============
 function openExercisePicker(){S.exercisePicker={open:true,query:'',category:'all',selected:[]};render();setTimeout(function(){var inp=document.querySelector('.ex-picker-search input');if(inp) inp.focus();},50);}
 function closeExercisePicker(){S.exercisePicker.open=false;render();}
+
+// ============ 골프레슨 빠른추가 (프로 전용) ============
+function openGolfLessonPicker(){S.golfLessonPicker={open:true,query:'',category:'all',selected:[]};render();setTimeout(function(){var inp=document.querySelector('.gl-picker-search input');if(inp) inp.focus();},50);}
+function closeGolfLessonPicker(){S.golfLessonPicker.open=false;render();}
+function updateGolfLessonQuery(v){S.golfLessonPicker.query=v;render();setTimeout(function(){var inp=document.querySelector('.gl-picker-search input');if(inp){inp.focus();var l=inp.value.length;try{inp.setSelectionRange(l,l);}catch(e){}}},10);}
+function setGolfLessonCategory(c){S.golfLessonPicker.category=c;render();}
+function toggleGolfLessonSelect(idx){
+  var p=S.golfLessonPicker; var item=GOLF_LESSON_ITEMS[idx];
+  var existing=p.selected.findIndex(function(x){return x._idx===idx;});
+  if(existing!==-1) p.selected.splice(existing,1);
+  else p.selected.push({_idx:idx, n:item.n, s:item.s, f:item.f});
+  render();
+}
+function removeGolfLessonSel(i){S.golfLessonPicker.selected.splice(i,1);render();}
+function applyGolfLessonPicker(){
+  var sel=S.golfLessonPicker.selected;
+  if(!sel.length){closeGolfLessonPicker();return;}
+  var lines=sel.map(function(x){return '- '+x.n+(x.f?' ('+x.f+')':'');});
+  var current=S.newSession.content||'';
+  S.newSession.content=(current?(current+'\n'):'')+lines.join('\n');
+  S.golfLessonPicker={open:false,query:'',category:'all',selected:[]};
+  render();
+}
+function matchGolfLesson(item, query){
+  if(!query) return true;
+  var q=query.trim().toLowerCase();
+  if(!q) return true;
+  if(item.n.toLowerCase().indexOf(q)!==-1) return true;
+  if((item.s||'').toLowerCase().indexOf(q)!==-1) return true;
+  if((item.f||'').toLowerCase().indexOf(q)!==-1) return true;
+  var qCho=getChosung(q); var nCho=getChosung(item.n);
+  if(nCho.indexOf(qCho)!==-1) return true;
+  if(getChosung(item.f||'').indexOf(qCho)!==-1) return true;
+  return false;
+}
+function renderGolfLessonPicker(){
+  var p=S.golfLessonPicker;
+  if(!p||!p.open) return '';
+  var cats=['all','셋업','백스윙','다운스윙','임팩트','릴리스','구질','드라이버','아이언','숏게임','퍼팅','전략','멘탈','스피드','경사','트러블','리듬'];
+  var filtered=GOLF_LESSON_ITEMS.filter(function(x){
+    if(p.category!=='all' && x.s!==p.category) return false;
+    return matchGolfLesson(x, p.query);
+  });
+  var catCounts={};
+  cats.forEach(function(c){catCounts[c]=c==='all'?GOLF_LESSON_ITEMS.length:GOLF_LESSON_ITEMS.filter(function(x){return x.s===c;}).length;});
+  return '<div class="modal-overlay ex-picker-overlay" onclick="if(event.target===this)closeGolfLessonPicker()"><div class="modal ex-picker">'+
+    '<div class="ex-picker-hd"><div class="ex-picker-title">골프레슨 빠른추가</div><button class="modal-close" onclick="closeGolfLessonPicker()">×</button></div>'+
+    '<div class="gl-picker-search ex-picker-search"><input class="form-input" placeholder="레슨 항목 검색 (예: 샬로윙, 하체턴, ㅅㅋㅍ)" value="'+(p.query||'').replace(/"/g,'&quot;')+'" oninput="updateGolfLessonQuery(this.value)"></div>'+
+    '<div class="ex-picker-tabs">'+cats.map(function(c){
+      return '<button class="ex-tab '+(p.category===c?'active':'')+'" onclick="setGolfLessonCategory(\''+c+'\')">'+
+        (c==='all'?'전체':'피니시'===c?c:c)+' <span>'+catCounts[c]+'</span></button>';
+    }).join('')+'</div>'+
+    '<div class="ex-picker-list">'+
+    (filtered.length===0?'<div class="ex-empty">검색 결과가 없습니다</div>':
+    filtered.map(function(x,i){
+      var realIdx=GOLF_LESSON_ITEMS.indexOf(x);
+      var sel=p.selected.some(function(s){return s._idx===realIdx;});
+      return '<div class="ex-item'+(sel?' selected':'')+'" onclick="toggleGolfLessonSelect('+realIdx+')">'+
+        '<div class="ex-col"><div class="ex-name">'+x.n+'</div><div class="ex-meta"><span class="ex-sub">'+x.s+'</span> · '+x.f+'</div></div>'+
+        (sel?'<div class="ex-check">✓</div>':'')+
+      '</div>';
+    }).join(''))+
+    '</div>'+
+    (p.selected.length>0?'<div class="ex-selected-box"><div class="ex-selected-title">선택 '+p.selected.length+'개</div>'+
+    p.selected.map(function(s,i){
+      return '<div class="ex-sel-row"><span class="ex-sel-name">'+s.n+'</span><button class="ex-sel-rm" onclick="event.stopPropagation();removeGolfLessonSel('+i+')">×</button></div>';
+    }).join('')+'</div>':'')+
+    '<div class="ex-picker-ft"><button class="btn" onclick="closeGolfLessonPicker()">취소</button><button class="btn primary"'+(p.selected.length===0?' disabled':'')+' onclick="applyGolfLessonPicker()">선택 '+p.selected.length+'개 추가</button></div>'+
+  '</div></div>';
+}
 function updateExerciseQuery(v){S.exercisePicker.query=v;render();setTimeout(function(){var inp=document.querySelector('.ex-picker-search input');if(inp){inp.focus();var l=inp.value.length;try{inp.setSelectionRange(l,l);}catch(e){}}},10);}
 function setExerciseCategory(c){S.exercisePicker.category=c;render();}
 function toggleExerciseSelect(idx){var ex=EXERCISES[idx];if(!ex) return;var list=S.exercisePicker.selected;var found=list.findIndex(function(x){return x.n===ex.n;});if(found>=0){list.splice(found,1);}else{list.push({n:ex.n,s:ex.s,sets:ex.ds,reps:ex.dr,u:ex.u});}render();}
