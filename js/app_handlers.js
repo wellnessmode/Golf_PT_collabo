@@ -336,30 +336,58 @@ function renderImageCardModal(){
   </div>`;
 }
 
-function openReport(){S.showReport=true; render();}
-function closeReport(){S.showReport=false; render();}
-function printReport(){
-  var el = document.getElementById('report-print-area');
-  if(!el) return;
-  var win = window.open('','_blank','width=800,height=1100');
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>회원 리포트</title>');
-  win.document.write('<style>');
-  win.document.write('*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,sans-serif;padding:30px;color:#222;font-size:13px;line-height:1.6}');
-  win.document.write('.rpt-header{text-align:center;border-bottom:2px solid #2d5016;padding-bottom:15px;margin-bottom:20px}');
-  win.document.write('.rpt-header h1{font-size:20px;color:#2d5016}.rpt-header p{font-size:12px;color:#666}');
-  win.document.write('.rpt-member-info{background:#f5f5f0;padding:14px;border-radius:8px;margin-bottom:18px}');
-  win.document.write('.rpt-member-info td{padding:3px 12px 3px 0;font-size:13px}');
-  win.document.write('.rpt-section{margin-bottom:18px}.rpt-section h2{font-size:15px;color:#2d5016;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:8px}');
-  win.document.write('table.rpt-table{width:100%;border-collapse:collapse;font-size:12px}');
-  win.document.write('table.rpt-table th,table.rpt-table td{border:1px solid #ddd;padding:5px 8px;text-align:left}');
-  win.document.write('table.rpt-table th{background:#eee8d5;font-weight:600}');
-  win.document.write('.warn-row{background:#fff3e0}.rpt-footer{margin-top:30px;text-align:center;font-size:11px;color:#999;border-top:1px solid #ddd;padding-top:10px}');
-  win.document.write('@media print{body{padding:15px}@page{margin:15mm}}');
-  win.document.write('</style></head><body>');
-  win.document.write(el.innerHTML);
-  win.document.write('</body></html>');
-  win.document.close();
-  setTimeout(function(){win.print();},300);
+function openReport(){S.showReport=true; S.reportLink=''; render();}
+function closeReport(){S.showReport=false; S.reportLink=''; render();}
+async function generateShareLink(){
+  var mid = S.selectedMember;
+  var m = S.members.find(function(x){return x.id===mid;});
+  if(!m || !cloud.enabled) return;
+  var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var st = stats(mid);
+  var reportId = 'rpt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  var sessions = allSess.slice(0,10).map(function(s){
+    var videos = [];
+    if(s.media){
+      s.media.forEach(function(m){
+        if((m.mimeType||'').indexOf('video/')!==-1 && (m.r2Key||m.mediaId)){
+          videos.push({key:m.r2Key||m.mediaId, view:m.view||'other', name:m.name||''});
+        }
+      });
+    }
+    return {
+      date:s.date, author:s.author,
+      role:getRole(s.author),
+      content:s.content,
+      ai:s._ai||null,
+      videos:videos
+    };
+  });
+  var content = {
+    member:{name:m.name, phone:m.phone||'', registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
+    totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
+    sessions:sessions
+  };
+  try{
+    var {error} = await cloud.client.from('reports').upsert({
+      id:reportId, member_id:mid, member_name:m.name,
+      created_by:S.currentUser||'', content:content
+    });
+    if(error) throw error;
+    var base = location.origin+location.pathname.replace(/\/[^\/]*$/,'/');
+    S.reportLink = base+'report.html?id='+reportId;
+    render();
+  }catch(e){
+    console.warn('[report] failed:', e);
+    S.reportLink = 'error';
+    render();
+  }
+}
+function copyReportLink(){
+  if(!S.reportLink) return;
+  navigator.clipboard.writeText(S.reportLink).then(function(){
+    var btn = document.getElementById('copy-link-btn');
+    if(btn){btn.textContent='복사 완료';setTimeout(function(){btn.textContent='링크 복사';},2000);}
+  });
 }
 function renderReportModal(){
   if(!S.showReport) return '';
@@ -367,45 +395,51 @@ function renderReportModal(){
   var m = S.members.find(function(x){return x.id===mid;});
   if(!m) return '';
   var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
-  var assess = S.assessments[mid]||{};
-  var st = stats(mid);
-  var recentSess = allSess.slice(0,20);
-  var assessRows = ASSESSMENT_ITEMS.map(function(item){
-    var v = assess[item.key]||{result:'미검사',note:''};
-    var isWarn = v.result!=='정상'&&v.result!=='미검사';
-    return '<tr class="'+(isWarn?'warn-row':'')+'">'+'<td>'+item.name+'</td><td>'+v.result+'</td><td>'+(v.note||'-')+'</td>'+(isWarn&&BODY_SWING_MAP[item.key]?'<td style="font-size:11px;color:#993c1d">'+BODY_SWING_MAP[item.key]+'</td>':'<td>-</td>')+'</tr>';
-  }).join('');
-  var sessionRows = recentSess.map(function(s){
-    return '<tr><td>'+s.date+'</td><td><span style="font-weight:600;color:'+(getRole(s.author)==='pro'?'#3a72c0':'#2d7a4f')+'">'+(getRole(s.author)==='pro'?'프로':'PT')+'</span> '+s.author+'</td><td>'+s.content.replace(/</g,'&lt;').slice(0,120)+(s.content.length>120?'…':'')+'</td></tr>';
-  }).join('');
+  var recentSess = allSess.slice(0,10);
 
   return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()">
-    <div class="modal" style="width:720px;max-height:90vh;overflow-y:auto">
-      <div class="modal-title">회원 리포트</div>
-      <div id="report-print-area">
-        <div class="rpt-header">
-          <h1>내셔널짐 Golf PT 회원 리포트</h1>
-          <p>출력일: ${today()} | 담당: ${(m.assignedTo||[]).join(', ')||'미배정'}</p>
-        </div>
-        <div class="rpt-member-info">
-          <table><tr><td><strong>회원명</strong></td><td>${m.name}</td><td><strong>연락처</strong></td><td>${m.phone||'-'}</td></tr>
-          <tr><td><strong>등록일</strong></td><td>${m.registeredDate||'-'}</td><td><strong>레슨 유효기간</strong></td><td>${m.golfLessonExpiry||m.expiry||'-'}</td></tr>
-          ${(m.memberType||'pt_lesson')==='pt_lesson'?'<tr><td></td><td></td><td><strong>PT 유효기간</strong></td><td>'+(m.golfPTExpiry||'-')+'</td></tr>':''}
-          <tr><td><strong>골프 레슨</strong></td><td>${st?st.pro:0}/${m.golfLessonCount||0}회</td><td><strong>골프 PT</strong></td><td>${st?st.trainer:0}/${m.golfPTCount||0}회</td></tr></table>
-        </div>
-        <div class="rpt-section">
-          <h2>체형 기능 평가${assess._date?' ('+assess._date+')':''}</h2>
-          <table class="rpt-table"><thead><tr><th>항목</th><th>결과</th><th>특이사항</th><th>스윙 연관성</th></tr></thead><tbody>${assessRows}</tbody></table>
-        </div>
-        <div class="rpt-section">
-          <h2>세션 기록 (최근 ${recentSess.length}건 / 총 ${allSess.length}건)</h2>
-          <table class="rpt-table"><thead><tr><th style="width:90px">날짜</th><th style="width:130px">담당</th><th>내용</th></tr></thead><tbody>${sessionRows}</tbody></table>
-        </div>
-        <div class="rpt-footer">본 리포트는 내셔널짐 Golf PT Collaboration 시스템에서 자동 생성되었습니다.</div>
+    <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto">
+      <div class="modal-title">회원 리포트 공유</div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${m.name} 회원님</div>
+        <div style="font-size:11px;color:var(--tx-3)">최근 ${recentSess.length}건 세션 + AI 분석 + 영상 포함</div>
       </div>
-      <div class="modal-actions" style="margin-top:12px">
+      <div style="font-size:12px;color:var(--tx-2);margin-bottom:12px;padding:12px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">
+        <strong>포함 내용:</strong><br>
+        - 회원 정보 (핸디캡, 교정 포인트, 목표)<br>
+        - 세션 기록 최근 10건 (원본 + AI 정리)<br>
+        - 골프 훈련 / 웨이트 추천<br>
+        - 스윙 영상 재생 (R2 스토리지)
+      </div>
+      <div style="font-size:12px;color:var(--tx-2);margin-bottom:12px">
+        <strong>미리보기 (세션 ${recentSess.length}건):</strong>
+      </div>
+      <div style="max-height:200px;overflow-y:auto;margin-bottom:16px;padding:8px;background:var(--bg-3);border-radius:var(--r)">
+        ${recentSess.map(function(s){
+          return '<div style="padding:6px 0;border-bottom:1px solid var(--brd);font-size:11px"><span style="color:var(--tx-3)">'
+            +s.date+'</span> <span style="font-weight:600">'+s.author+'</span> — '
+            +s.content.slice(0,60)+(s.content.length>60?'...':'')
+            +(s._ai?'<span style="color:var(--ac);margin-left:4px"> [분석 완료]</span>':'')
+            +'</div>';
+        }).join('')}
+      </div>
+      ${S.reportLink && S.reportLink!=='error' ? `
+        <div style="padding:12px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:6px">공유 링크 생성 완료</div>
+          <div style="font-size:11px;color:var(--tx-2);word-break:break-all;margin-bottom:8px">${S.reportLink}</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn primary" id="copy-link-btn" onclick="copyReportLink()" style="font-size:11px;padding:6px 14px">링크 복사</button>
+            <button class="btn" onclick="window.open('${S.reportLink}','_blank')" style="font-size:11px;padding:6px 14px">미리보기</button>
+          </div>
+        </div>
+      ` : S.reportLink==='error' ? `
+        <div style="padding:10px;background:var(--err-bg);border-radius:var(--r);color:var(--err);font-size:12px;margin-bottom:12px">
+          링크 생성 실패. Supabase reports 테이블이 필요합니다.
+        </div>
+      ` : ''}
+      <div class="modal-actions">
         <button class="btn" onclick="closeReport()">닫기</button>
-        <button class="btn primary" onclick="printReport()">인쇄 / PDF 저장</button>
+        ${!S.reportLink || S.reportLink==='error' ? '<button class="btn primary" onclick="generateShareLink()">공유 링크 생성</button>' : ''}
       </div>
     </div>
   </div>`;
