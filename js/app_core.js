@@ -280,6 +280,7 @@ let S = {
   newSession:{date:today(), author:'', content:'', media:[], mediaUrls:['','']},
   uploading:0, uploadMsg:'',
   exercisePicker:{open:false, query:'', category:'all', selected:[]},
+  golfLessonPicker:{open:false, query:'', category:'all', selected:[]},
   newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',golfLessonExpiry:'',golfPTExpiry:'',assignedTo:[]},
   editMemberId:null, sidebarOpen:false, cloudSync:'local',
   warningBannerCollapsed:false,
