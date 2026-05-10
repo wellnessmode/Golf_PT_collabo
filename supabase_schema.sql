@@ -78,6 +78,19 @@ create policy "sessions_all_anon"
   using (true)
   with check (true);
 
+-- ---------- 6) 공유 리포트 -------------------------------------------------
+create table if not exists public.reports (
+  id          text        primary key,
+  member_id   text        not null,
+  member_name text        not null,
+  created_by  text        not null,
+  created_at  timestamptz not null default now(),
+  content     jsonb       not null default '{}'
+);
+alter table public.reports enable row level security;
+drop policy if exists "reports_all_anon" on public.reports;
+create policy "reports_all_anon" on public.reports for all using (true) with check (true);
+
 -- =====================================================================
 -- 완료! 이제 config.js 에 Project URL / anon key 를 입력하고
 -- index.html 을 새로고침하면 정P 와 최T 가 동일 데이터를 공유합니다.
