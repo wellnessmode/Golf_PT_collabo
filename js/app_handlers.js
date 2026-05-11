@@ -354,29 +354,64 @@ function openReport(){
   S.showReport = true; render();
 }
 function closeReport(){S.showReport=false; S.reportDraft=null; render();}
+
+// ============ AI 리포트 확장 (1→3~4배) ============
+var EXPAND_GOLF = {
+  '하체턴':{t:'하체 턴 (Hip Rotation)',d:'다운스윙 시 하체 선행 회전을 유도하여 X-Factor를 극대화하고 클럽헤드 스피드 증가를 목표로 반복 훈련을 진행했습니다. 골반 오픈 타이밍과 체중이동 시퀀스를 점검하며, 왼발 힐을 기준으로 한 회전축 설정 및 자연스러운 Transition 동작 패턴을 구축했습니다.'},
+  '샬로윙':{t:'샬로윙 (Shallowing)',d:'다운스윙 초기 클럽을 플래트닝하여 인사이드-아웃 경로를 만드는 샬로윙 동작을 집중 훈련했습니다. 오른팔꿈치를 몸통 가까이 유지하며 클럽이 자연스럽게 슬롯에 떨어지도록 반복하여, 오버더탑(Over the Top) 패턴을 교정했습니다.'},
+  '스쿠핑':{t:'스쿠핑 방지 (Anti-Scooping)',d:'임팩트 시 왼손목이 꺾이면서 클럽이 볼 아래로 파고드는 스쿠핑 동작을 교정했습니다. 핸드 퍼스트 포지션을 유지한 상태에서 디센딩 블로(Descending Blow) 타격감을 익히며, 볼 컴프레션을 향상시키는 훈련을 진행했습니다.'},
+  '핸드퍼스트':{t:'핸드 퍼스트 (Hands First)',d:'임팩트 순간 손이 클럽헤드보다 앞에 위치하는 핸드 퍼스트 포지션을 반복 훈련했습니다. 샤프트 린(Shaft Lean)을 확보하여 일관된 볼 스트라이킹과 적정 발사각을 만들어내는 것을 목표로 했습니다.'},
+  '임팩트':{t:'임팩트 (Impact) 포지션 교정',d:'올바른 임팩트 자세를 만들기 위해 체중 배분(좌 70:우 30), 힙 오픈, 손 위치를 종합적으로 점검했습니다. 임팩트 백 드릴을 활용하여 정확한 타격 감각을 체득하도록 반복 훈련을 진행했습니다.'},
+  '라그':{t:'라그 유지 (Lag Retention)',d:'다운스윙에서 손목 라그를 최대한 늦게까지 유지하여 임팩트 직전에 에너지를 폭발적으로 릴리스하는 훈련을 진행했습니다. 지연 릴리스(Delayed Release)를 통해 클럽헤드 스피드를 극대화하는 감각을 익혔습니다.'},
+  '슬라이스':{t:'슬라이스 교정',d:'아웃투인(Outside-In) 스윙 경로와 오픈 페이스가 복합적으로 작용하는 슬라이스의 근본 원인을 분석하고, 인사이드 어프로치 경로를 만드는 드릴과 임팩트 시 페이스 앵글 컨트롤 훈련을 병행했습니다.'},
+  '훅':{t:'훅 교정',d:'과도한 인투아웃(Inside-Out) 경로와 클로즈 페이스로 인한 훅 구질을 교정했습니다. 적절한 바디 릴리스와 페이스 로테이션 타이밍을 조정하여 볼의 곡률을 컨트롤하는 훈련을 진행했습니다.'},
+  '드로우':{t:'드로우 구질 연습',d:'인투아웃 경로에서 적절한 클로즈 페이스 앵글을 만들어 의도적인 드로우 구질을 구사하는 훈련을 진행했습니다. 타겟 대비 오른쪽 시작 후 왼쪽으로 부드럽게 휘어지는 탄도를 만들기 위한 셋업과 스윙 경로를 반복 연습했습니다.'},
+  '페이드':{t:'페이드 구질 연습',d:'아웃투인 경로에서 살짝 오픈된 페이스 앵글을 활용하여 컨트롤된 페이드 구질을 만드는 훈련을 진행했습니다. 바람이나 핀 위치에 따라 전략적으로 활용할 수 있는 안정적인 페이드 샷을 목표로 했습니다.'},
+  '어드레스':{t:'어드레스 (Address) 자세 교정',d:'척추 앵글, 힙 힌지 각도, 무릎 굴곡 정도를 종합적으로 점검하고, 클럽별 최적의 어드레스 포스처를 설정했습니다. 일관된 셋업이 일관된 샷의 기본임을 강조하며 반복 훈련했습니다.'},
+  '그립':{t:'그립 교정',d:'V자 라인 정렬과 그립 프레셔 균일화를 통해 스윙 전반의 안정성을 향상시켰습니다. 뉴트럴/스트롱/위크 그립 유형별 구질 차이를 이해하고, 회원의 스윙 특성에 맞는 최적 그립을 설정했습니다.'},
+  '백스윙':{t:'백스윙 교정',d:'원피스 테이크어웨이로 시작하여 어깨 90도 회전을 목표로 하는 풀 백스윙을 반복 훈련했습니다. 상하체 분리를 통한 X-Factor 생성과 코킹 타이밍을 점검하며, 일관된 탑 포지션을 만드는 데 집중했습니다.'},
+  '템포':{t:'스윙 템포 교정',d:'백스윙과 다운스윙의 3:1 템포 비율을 목표로 메트로놈 기반 리듬 훈련을 진행했습니다. 일정한 템포 유지가 타이밍과 볼 컨택의 일관성에 직결됨을 체감하도록 반복 연습했습니다.'},
+  '체중이동':{t:'체중이동 (Weight Transfer) 훈련',d:'백스윙 시 오른발로의 체중 로딩과 다운스윙 시 왼발로의 체중 전환 타이밍을 체계적으로 훈련했습니다. 스텝 드릴을 활용하여 자연스러운 체중이동 패턴을 구축했습니다.'},
+  '칩':{t:'칩 샷 훈련',d:'그린 주변에서의 정밀한 칩 샷 기술을 훈련했습니다. 좁은 스탠스, 체중 왼발 배분, 핸드 퍼스트 셋업을 기본으로 하여 볼 위치 변화에 따른 탄도와 런 조절 기술을 연습했습니다.'},
+  '퍼팅':{t:'퍼팅 훈련',d:'펜듈럼 스트로크의 일관성을 높이는 훈련을 진행했습니다. 거리감 재현력 향상을 위한 래그 퍼팅 드릴과 숏 퍼트 자신감 빌딩을 병행하며, 그린 리딩 능력도 함께 향상시켰습니다.'},
+  '벙커':{t:'벙커 샷 훈련',d:'모래를 먼저 치는 익스플로전 샷의 기본 원리를 반복 훈련했습니다. 바운스 활용법, 페이스 오픈 정도에 따른 탄도 변화, 거리 조절 기법을 체계적으로 연습했습니다.'},
+  '숏게임':{t:'숏게임 종합 훈련',d:'그린 주변 50m 이내에서의 다양한 숏게임 기술을 종합적으로 훈련했습니다. 칩, 피치, 벙커, 로브 샷의 기본기를 점검하고 상황별 클럽 선택과 기술 적용 능력을 향상시켰습니다.'},
+};
+var EXPAND_PT = {
+  '스쿼트':{t:'스쿼트 (Squat)',d:'하체 근력과 코어 안정성을 동시에 강화하는 스쿼트 훈련을 진행했습니다. 적절한 깊이(대퇴부 수평)까지 내려가면서 무릎이 발끝 방향을 유지하도록 폼을 교정하고, 골프 스윙에 필요한 하체 파워 베이스를 구축했습니다.'},
+  '데드리프트':{t:'데드리프트 (Deadlift)',d:'후면사슬(Posterior Chain) 전체를 강화하는 데드리프트 훈련을 진행했습니다. 힙 힌지 패턴을 정확히 수행하여 둔근과 햄스트링의 협응력을 높이고, 골프 어드레스 자세의 기반이 되는 척추 중립 유지 능력을 향상시켰습니다.'},
+  '코어':{t:'코어 안정화 (Core Stability) 훈련',d:'골프 스윙의 기초가 되는 코어 안정화 훈련을 진행했습니다. 플랭크, 데드버그, 팔로프 프레스 등을 통해 항회전(Anti-Rotation) 능력을 강화하고, 스윙 시 상하체 분리를 효과적으로 수행할 수 있는 몸통 안정성을 확보했습니다.'},
+  '회전':{t:'회전력 (Rotational Power) 훈련',d:'메디신볼 회전 슬램과 케이블 우드찹을 활용한 회전 파워 훈련을 진행했습니다. 골프 스윙과 동일한 회전 패턴에서 폭발적인 파워를 생성하고 효과적으로 감속하는 능력을 향상시켰습니다.'},
+  '모빌리티':{t:'모빌리티 (Mobility) 향상 훈련',d:'흉추 회전, 고관절 내·외회전, 어깨 가동성을 종합적으로 개선하는 모빌리티 세션을 진행했습니다. FRC(Functional Range Conditioning) 기반의 능동적 가동 범위 확장을 통해 스윙의 제한 요소를 해소했습니다.'},
+  '하체':{t:'하체 강화 훈련',d:'스쿼트, 런지, 힙 쓰러스트 등 다양한 하체 운동을 통해 골프 스윙의 파워 소스인 하체 근력을 체계적으로 강화했습니다. 단측성(Unilateral) 훈련을 병행하여 좌우 밸런스도 함께 개선했습니다.'},
+  '상체':{t:'상체 근력 훈련',d:'푸쉬(벤치프레스, 숄더프레스)와 풀(로우, 랫풀다운) 동작을 균형 있게 수행하여 상체 전반의 근력을 향상시켰습니다. 견갑골 안정화와 회전근개 강화를 통해 스윙 시 안정적인 팔 동작의 기반을 마련했습니다.'},
+  '밸런스':{t:'밸런스 & 안정성 훈련',d:'싱글 레그 운동과 불안정면 훈련을 통해 고유감각(Proprioception)과 동적 밸런스를 향상시켰습니다. 골프 스윙의 피니시에서 3초 이상 안정적으로 유지할 수 있는 밸런스 능력을 구축했습니다.'},
+  '스트레치':{t:'스트레칭 & 유연성 훈련',d:'주요 근육군의 유연성 향상을 위한 정적·동적 스트레칭을 진행했습니다. 특히 고관절 굴근, 흉추, 어깨 관절낭의 가동 범위를 확보하여 스윙의 효율성을 높이는 데 집중했습니다.'},
+  '파워':{t:'파워 (Power) 트레이닝',d:'케틀벨 스윙, 메디신볼 슬램, 점프 스쿼트 등 폭발적인 파워 생성 훈련을 진행했습니다. 근력을 속도로 전환하는 Rate of Force Development(RFD)를 향상시켜 클럽헤드 스피드 증가에 기여하도록 했습니다.'},
+  '기능성':{t:'기능성 (Functional) 트레이닝',d:'골프 동작 패턴에 특화된 기능성 훈련을 진행했습니다. TPI(Titleist Performance Institute) 기반의 움직임 평가 결과를 반영하여 개인별 약점을 보완하는 맞춤형 프로그램으로 수행했습니다.'},
+  '폼롤링':{t:'근막 이완 (Myofascial Release)',d:'폼롤러와 라크로스볼을 활용한 자가 근막 이완(Self-Myofascial Release)을 진행했습니다. IT밴드, 둔근, 흉추, 종아리 등 주요 부위의 트리거 포인트를 해소하여 운동 후 회복을 촉진했습니다.'},
+};
+
 function cleanupContent(text, role){
   if(!text) return '';
-  var lines = text.split(/\n/).filter(function(l){return l.trim();});
-  var result = [];
-  lines.forEach(function(line){
-    var l = line.trim();
-    if(l.startsWith('-')||l.startsWith('·')) result.push(l);
-    else if(l.indexOf(',')!==-1) l.split(',').forEach(function(p){p=p.trim();if(p) result.push('- '+p);});
-    else result.push('- '+l);
-  });
-  result = result.map(function(line){
-    if(role==='pro'){
-      line=line.replace(/하체턴/g,'하체 턴 (Hip Rotation)');
-      line=line.replace(/샬로윙/g,'샬로윙 (Shallowing)');
-      line=line.replace(/스쿠핑/g,'스쿠핑 (Scooping)');
-      line=line.replace(/핸드퍼스트/g,'핸드 퍼스트 (Hands First)');
-    } else {
-      line=line.replace(/코어/g,'코어 (Core)');
-      line=line.replace(/모빌리티/g,'모빌리티 (Mobility)');
+  var content = text.toLowerCase();
+  var output = [];
+  var dict = role==='pro' ? EXPAND_GOLF : EXPAND_PT;
+  var matched = {};
+  Object.keys(dict).forEach(function(key){
+    if(content.indexOf(key)!==-1 && !matched[key]){
+      matched[key] = true;
+      var e = dict[key];
+      output.push('■ '+e.t+'\n'+e.d);
     }
-    return line;
   });
-  return result.join('\n');
+  if(output.length===0){
+    var lines = text.split(/[,\n]/).filter(function(l){return l.trim();});
+    lines.forEach(function(l){
+      output.push('- '+l.trim());
+    });
+  }
+  return output.join('\n\n');
 }
 function updateReportSession(idx, val){if(S.reportDraft&&S.reportDraft.sessions[idx]) S.reportDraft.sessions[idx].cleaned=val;}
 function toggleReportApprove(idx){if(S.reportDraft&&S.reportDraft.sessions[idx]){S.reportDraft.sessions[idx].approved=!S.reportDraft.sessions[idx].approved;render();}}
@@ -448,7 +483,7 @@ function renderReportModal(){
               '<textarea style="width:100%;min-height:50px;padding:6px 8px;border:1px solid var(--brd-2);border-radius:6px;font-size:11px;font-family:var(--font);color:var(--tx);background:var(--bg-4);resize:vertical;line-height:1.5" onchange="updateReportSession('+i+',this.value)">'+s.cleaned+'</textarea>'+
             '</div>'+
             '<div style="padding:6px 14px;border-top:1px solid var(--brd);display:flex;align-items:center;gap:6px">'+
-              '<button class="btn" style="font-size:10px;padding:4px 10px" onclick="toggleReportApprove('+i+')">'+(s.approved?'승인됨':'승인')+'</button>'+
+              '<button class="btn'+(s.approved?' primary':'')+'" style="font-size:10px;padding:5px 12px" onclick="toggleReportApprove('+i+')">'+(s.approved?'승인 ✓':'승인 필요')+'</button>'+
               (s.videos.length>0?'<span style="font-size:10px;color:var(--tx-3)">영상 '+s.videos.length+'개</span>':'')+
             '</div>'+
           '</div>';
