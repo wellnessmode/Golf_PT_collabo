@@ -1,31 +1,50 @@
-// ============ OCR 사진 입력 ============
+// ============ OCR 사진 입력 (Claude Vision via Worker 프록시) ============
 async function handleOCRPhoto(input){
   var file = input.files && input.files[0];
   if(!file) return;
   input.value = '';
+  var cfg = window.APP_CONFIG||{};
+  var workerUrl = cfg.AI_WORKER_URL;
+  var workerPw = cfg.AI_WORKER_PW || localStorage.getItem('ng_app_pw') || '';
+  if(!workerUrl || !workerPw){
+    workerPw = prompt('AI 비밀번호 입력 (최초 1회):');
+    if(!workerPw) return;
+    localStorage.setItem('ng_app_pw', workerPw.trim());
+    workerPw = workerPw.trim();
+  }
   S.ocrLoading = true;
   render();
   try{
     var b64 = await fileToBase64(file);
+    var resp = await fetch(workerUrl+'/v1/messages', {
+      method:'POST',
+      mode:'cors',
+      headers:{
+        'Content-Type':'application/json',
+        'x-app-password': workerPw
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:800,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
+            {type:'text',text:'이 사진에서 텍스트를 읽어서 정확히 추출해주세요. 운동/레슨 기록지입니다. 손글씨도 최대한 읽어주세요. 텍스트만 반환하세요. 다른 설명 없이.'}
+          ]
+        }]
+      })
+    });
+    if(!resp.ok) throw new Error('OCR API '+resp.status);
+    var data = await resp.json();
     var text = '';
-    // 1순위: Upstage Document OCR
-    var upKey = (window.APP_CONFIG||{}).UPSTAGE_API_KEY;
-    if(upKey){
-      text = await ocrUpstage(file, upKey);
-    }
-    // 2순위: GPT-4 Vision
-    if(!text){
-      var oaKey = (window.APP_CONFIG||{}).OPENAI_API_KEY;
-      if(oaKey) text = await ocrGPTVision(b64, oaKey);
-    }
+    if(data.content && data.content[0]) text = data.content[0].text||'';
     if(text){
       var current = (S.newSession.content||'').trim();
       S.newSession.content = current ? (current+'\n'+text) : text;
-    } else {
-      console.warn('[OCR] API 키가 설정되지 않았거나 분석 실패');
     }
   }catch(e){
-    console.warn('[OCR] error:', e);
+    console.warn('[OCR] failed:', e);
   }
   S.ocrLoading = false;
   render();
@@ -36,58 +55,6 @@ function fileToBase64(file){
     reader.onload = function(){resolve(reader.result.split(',')[1]);};
     reader.readAsDataURL(file);
   });
-}
-async function ocrUpstage(file, apiKey){
-  try{
-    var form = new FormData();
-    form.append('document', file);
-    var resp = await fetch('https://api.upstage.ai/v1/document-ai/ocr', {
-      method:'POST',
-      headers:{'Authorization':'Bearer '+apiKey},
-      body:form
-    });
-    if(!resp.ok) throw new Error('Upstage '+resp.status);
-    var data = await resp.json();
-    // Upstage OCR 응답에서 텍스트 추출
-    if(data.text) return data.text;
-    if(data.pages){
-      return data.pages.map(function(p){
-        return (p.words||p.lines||[]).map(function(w){return w.text||w;}).join(' ');
-      }).join('\n');
-    }
-    return '';
-  }catch(e){
-    console.warn('[OCR] Upstage failed:', e);
-    return '';
-  }
-}
-async function ocrGPTVision(base64, apiKey){
-  try{
-    var resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':'Bearer '+apiKey
-      },
-      body:JSON.stringify({
-        model:'gpt-4o-mini',
-        max_tokens:500,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'text',text:'이 사진에서 텍스트를 읽어서 정확히 추출해주세요. 운동/레슨 기록지입니다. 텍스트만 반환하세요.'},
-            {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64}}
-          ]
-        }]
-      })
-    });
-    if(!resp.ok) throw new Error('GPT '+resp.status);
-    var data = await resp.json();
-    return (data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
-  }catch(e){
-    console.warn('[OCR] GPT Vision failed:', e);
-    return '';
-  }
 }
 
 // ============ 로컬 AI 분석 (키워드 기반, API 불필요) ============
