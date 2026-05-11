@@ -281,6 +281,7 @@ let S = {
   uploading:0, uploadMsg:'',
   exercisePicker:{open:false, query:'', category:'all', selected:[]},
   golfLessonPicker:{open:false, query:'', category:'all', selected:[]},
+  ocrLoading:false,
   newMember:{name:'',phone:'',email:'',registeredDate:'',golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',golfLessonExpiry:'',golfPTExpiry:'',assignedTo:[]},
   editMemberId:null, sidebarOpen:false, cloudSync:'local',
   warningBannerCollapsed:false,
