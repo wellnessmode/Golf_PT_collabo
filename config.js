@@ -18,8 +18,7 @@ window.APP_CONFIG = {
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhY3l0a21panR0eWVhc21odmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjAyMjUsImV4cCI6MjA5MTQ5NjIyNX0.ovjMFi4WSB18KeTm7MNd4jmvKEmMamObyclMjgXomNg',
   R2_WORKER_URL: 'https://golf-pt-storage.ceo-fc9.workers.dev',
   R2_API_KEY: 'national_gym-golf-pt-qwpiefjwofjwioefhlkjd',
-  // AI API Keys
-  ANTHROPIC_API_KEY: '',
-  UPSTAGE_API_KEY: '',
-  OPENAI_API_KEY: ''
+  // AI Worker 프록시 (nationalgym bodyscan Worker 공유)
+  AI_WORKER_URL: 'https://national-gym-bodyscan.ceo-fc9.workers.dev',
+  AI_WORKER_PW: ''
 };
