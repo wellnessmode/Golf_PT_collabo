@@ -1,3 +1,95 @@
+// ============ OCR 사진 입력 ============
+async function handleOCRPhoto(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  input.value = '';
+  S.ocrLoading = true;
+  render();
+  try{
+    var b64 = await fileToBase64(file);
+    var text = '';
+    // 1순위: Upstage Document OCR
+    var upKey = (window.APP_CONFIG||{}).UPSTAGE_API_KEY;
+    if(upKey){
+      text = await ocrUpstage(file, upKey);
+    }
+    // 2순위: GPT-4 Vision
+    if(!text){
+      var oaKey = (window.APP_CONFIG||{}).OPENAI_API_KEY;
+      if(oaKey) text = await ocrGPTVision(b64, oaKey);
+    }
+    if(text){
+      var current = (S.newSession.content||'').trim();
+      S.newSession.content = current ? (current+'\n'+text) : text;
+    } else {
+      console.warn('[OCR] API 키가 설정되지 않았거나 분석 실패');
+    }
+  }catch(e){
+    console.warn('[OCR] error:', e);
+  }
+  S.ocrLoading = false;
+  render();
+}
+function fileToBase64(file){
+  return new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = function(){resolve(reader.result.split(',')[1]);};
+    reader.readAsDataURL(file);
+  });
+}
+async function ocrUpstage(file, apiKey){
+  try{
+    var form = new FormData();
+    form.append('document', file);
+    var resp = await fetch('https://api.upstage.ai/v1/document-ai/ocr', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+apiKey},
+      body:form
+    });
+    if(!resp.ok) throw new Error('Upstage '+resp.status);
+    var data = await resp.json();
+    // Upstage OCR 응답에서 텍스트 추출
+    if(data.text) return data.text;
+    if(data.pages){
+      return data.pages.map(function(p){
+        return (p.words||p.lines||[]).map(function(w){return w.text||w;}).join(' ');
+      }).join('\n');
+    }
+    return '';
+  }catch(e){
+    console.warn('[OCR] Upstage failed:', e);
+    return '';
+  }
+}
+async function ocrGPTVision(base64, apiKey){
+  try{
+    var resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+apiKey
+      },
+      body:JSON.stringify({
+        model:'gpt-4o-mini',
+        max_tokens:500,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'text',text:'이 사진에서 텍스트를 읽어서 정확히 추출해주세요. 운동/레슨 기록지입니다. 텍스트만 반환하세요.'},
+            {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64}}
+          ]
+        }]
+      })
+    });
+    if(!resp.ok) throw new Error('GPT '+resp.status);
+    var data = await resp.json();
+    return (data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+  }catch(e){
+    console.warn('[OCR] GPT Vision failed:', e);
+    return '';
+  }
+}
+
 // ============ 로컬 AI 분석 (키워드 기반, API 불필요) ============
 var GOLF_KEYWORDS = {
   '셋업': {keywords:['그립','어드레스','포스처','볼 포지션','얼라인먼트','스탠스','셋업'], drills:['그립 체크','포스처 체크','볼 포지션 드릴','알라이먼트 스틱 드릴']},
