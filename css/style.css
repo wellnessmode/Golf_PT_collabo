@@ -434,6 +434,14 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 .sm-thumb{max-width:200px;max-height:160px;border-radius:var(--r);cursor:pointer;object-fit:cover;transition:transform var(--t-fast)}
 .sm-thumb:hover{transform:scale(1.02)}
 .sm-missing{background:var(--bg-3);border:1px dashed var(--brd-2);border-radius:var(--r);padding:24px;text-align:center;color:var(--tx-3);font-size:12px;margin-bottom:8px}
+.sm-failed{display:flex;align-items:center;gap:12px;background:rgba(220,53,69,.08);border:1px solid rgba(220,53,69,.35);border-radius:var(--r);padding:14px 16px;margin-bottom:8px}
+.sm-failed-icon{font-size:22px;line-height:1}
+.sm-failed-text{flex:1;min-width:0}
+.sm-failed-title{font-size:13px;font-weight:700;color:#dc3545;margin-bottom:2px}
+.sm-failed-name{font-size:11px;color:var(--tx-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sm-retry-btn{background:#dc3545;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap}
+.sm-retry-btn:hover{background:#c12333}
+.sm-failed-hint{font-size:11px;color:var(--tx-3);white-space:nowrap}
 .session-media{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 @media(min-width:1024px){.sm-video{min-height:400px}}
 

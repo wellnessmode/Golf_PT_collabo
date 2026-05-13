@@ -426,6 +426,45 @@ function openMediaView(src){
   document.body.appendChild(d);
 }
 
+async function retryMediaUpload(sessionId, mediaId){
+  if(!r2.enabled){alert('R2 스토리지가 비활성화 상태입니다.');return;}
+  var found=null, foundMid=null, foundMedia=null;
+  Object.keys(S.sessions).forEach(function(mid){
+    (S.sessions[mid]||[]).forEach(function(s){
+      if(s.id===sessionId&&s.media){
+        s.media.forEach(function(m){if(m.mediaId===mediaId){found=s;foundMid=mid;foundMedia=m;}});
+      }
+    });
+  });
+  if(!found||!foundMedia){alert('세션을 찾을 수 없습니다.');return;}
+  var rec=await mediaDB.get(mediaId);
+  if(!rec||!rec.blob){alert('이 기기에 원본 영상이 없습니다.\n최초 업로드한 기기에서 다시 시도하세요.');return;}
+  foundMedia.r2Status='uploading';render();
+  var key=foundMedia.r2Key||mediaId;
+  var ok=await r2.upload(key, rec.blob);
+  foundMedia.r2Status=ok?'synced':'failed';
+  if(ok) foundMedia.r2Key=key;
+  try{await cloud.upsertSession(foundMid, found);}catch(e){}
+  save();render();
+  if(!ok) alert('재업로드 실패. 네트워크를 확인하고 다시 시도하세요.');
+}
+
+function handleVideoLoadError(sessionId, mediaId, vid){
+  if(!mediaId) return;
+  var sess=null, foundMid=null;
+  Object.keys(S.sessions).forEach(function(mid){
+    (S.sessions[mid]||[]).forEach(function(s){if(s.id===sessionId) {sess=s;foundMid=mid;}});
+  });
+  if(!sess||!sess.media) return;
+  var m=sess.media.find(function(x){return x.mediaId===mediaId;});
+  if(!m) return;
+  if(S.mediaUrls[mediaId]) return;
+  if(m.r2Status==='failed') return;
+  m.r2Status='failed';
+  try{cloud.upsertSession(foundMid, sess);}catch(e){}
+  save();render();
+}
+
 
 async function deleteSession(id){
   if(!confirm('이 세션 기록을 삭제하시겠습니까?')) return;
