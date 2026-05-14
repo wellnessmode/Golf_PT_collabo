@@ -1,0 +1,195 @@
+(function () {
+const $ = id => document.getElementById(id);
+const cfg = window.NG_CONTRACT_CONFIG;
+let session = null;
+let activeTemplate = null;
+
+// --- auth ---
+function showLogin() { $('login').style.display='block'; $('app').style.display='none'; }
+function showApp() {
+  $('login').style.display='none'; $('app').style.display='block';
+  $('who').textContent = session?.user?.email || '';
+}
+
+async function refreshTemplate() {
+  const type = $('t-type').value;
+  $('tpl-info').textContent = '약관 정보 조회 중...';
+  const { data, error } = await sb.from('contract_templates')
+    .select('id,version,title,effective_from')
+    .eq('contract_type', type).eq('is_active', true)
+    .order('effective_from', { ascending: false }).limit(1);
+  if (error) { $('tpl-info').textContent = '약관 조회 오류: ' + error.message; activeTemplate = null; return; }
+  if (!data || !data.length) { $('tpl-info').textContent = '활성 약관 없음. supabase_schema.sql 의 시드를 실행하세요.'; activeTemplate = null; return; }
+  activeTemplate = data[0];
+  $('tpl-info').textContent =
+    '활성 약관: ' + activeTemplate.title + ' (v' + activeTemplate.version + ')  · 시행일 '
+    + new Date(activeTemplate.effective_from).toLocaleDateString('ko-KR');
+}
+
+async function init() {
+  // 지점 select 채우기
+  const branches = (cfg.BRANCHES && cfg.BRANCHES.length) ? cfg.BRANCHES : ['본점'];
+  $('branch').innerHTML = branches.map(b => '<option>' + b + '</option>').join('');
+
+  const { data } = await sb.auth.getSession();
+  session = data.session;
+  if (session) { showApp(); await refreshTemplate(); } else { showLogin(); }
+  renderItems();
+}
+
+$('btn-login').onclick = async () => {
+  const email = $('login-email').value.trim();
+  const pw = $('login-pw').value;
+  $('login-err').textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) { $('login-err').textContent = error.message; return; }
+  session = data.session; showApp(); await refreshTemplate();
+};
+$('btn-logout').onclick = async () => { await sb.auth.signOut(); session = null; showLogin(); };
+$('t-type').onchange = refreshTemplate;
+
+// --- items ---
+const items = [];
+function renderItems() {
+  const root = $('items');
+  root.innerHTML = '';
+  items.forEach((it, i) => {
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.innerHTML =
+      '<label>항목명 <input data-k="name" type="text" placeholder="예: PT 30회"></label>' +
+      '<label>횟수/기간 <input data-k="qty" type="text" placeholder="예: 30회 / 4개월"></label>' +
+      '<label>금액(원) <input data-k="price" type="number" min="0"></label>' +
+      '<button class="secondary rm" data-rm="' + i + '">삭제</button>';
+    div.querySelectorAll('input').forEach(inp => {
+      inp.value = it[inp.dataset.k] != null ? it[inp.dataset.k] : '';
+      inp.oninput = () => {
+        items[i][inp.dataset.k] = inp.type === 'number' ? Number(inp.value) : inp.value;
+        recalcTotal();
+      };
+    });
+    div.querySelector('[data-rm]').onclick = () => { items.splice(i, 1); renderItems(); recalcTotal(); };
+    root.appendChild(div);
+  });
+}
+function recalcTotal() {
+  const sum = items.reduce((s, it) => s + (Number(it.price) || 0), 0);
+  if (!$('total').dataset.touched) $('total').value = sum;
+}
+$('total').oninput = () => { $('total').dataset.touched = '1'; };
+$('btn-add-item').onclick = () => { items.push({ name:'', qty:'', price:0 }); renderItems(); };
+
+$('btn-reset').onclick = () => {
+  ['m-name','m-phone','m-birth','m-email','m-address','total','period-start','period-end','locker-no','locker-months','notes'].forEach(id => $(id).value='');
+  delete $('total').dataset.touched;
+  items.length = 0; renderItems();
+  $('result').style.display='none';
+  $('err').textContent='';
+};
+
+// --- token ---
+function rndToken(len) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const arr = new Uint8Array(len || 32);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => chars[b % chars.length]).join('');
+}
+
+// --- create ---
+$('btn-create').onclick = async () => {
+  $('err').textContent = '';
+  if (!session) { $('err').textContent='로그인이 필요합니다.'; showLogin(); return; }
+  if (!activeTemplate) { $('err').textContent='활성 약관이 없습니다. 약관을 먼저 등록하세요.'; return; }
+
+  const name = $('m-name').value.trim();
+  const phone = $('m-phone').value.trim().replace(/[^0-9]/g, '');
+  if (!name || !phone) { $('err').textContent = '이름과 휴대폰은 필수입니다.'; return; }
+  if (!/^01[016789][0-9]{7,8}$/.test(phone)) { $('err').textContent='휴대폰 번호 형식이 올바르지 않습니다.'; return; }
+  if (items.length === 0) { $('err').textContent = '계약 항목을 1개 이상 추가하세요.'; return; }
+  for (const it of items) {
+    if (!it.name || !it.qty || !it.price) { $('err').textContent='항목명·횟수·금액을 모두 입력하세요.'; return; }
+  }
+  const total = Number($('total').value || 0);
+  if (total <= 0) { $('err').textContent = '총 결제금액을 입력하세요.'; return; }
+
+  const token = rndToken(32);
+  const expireDays = Math.max(1, Math.min(60, Number($('expire-days').value || 7)));
+  const expiresAt = new Date(Date.now() + expireDays * 86400000).toISOString();
+
+  const lockerMonths = Number($('locker-months').value) || null;
+
+  const payload = {
+    template_id: activeTemplate.id,
+    branch: $('branch').value,
+    member_name: name, member_phone: phone,
+    member_birth: $('m-birth').value || null,
+    member_address: $('m-address').value || null,
+    member_email: $('m-email').value || null,
+    business_name: cfg.BUSINESS.name,
+    business_owner: cfg.BUSINESS.owner,
+    business_registration: cfg.BUSINESS.registration_no || null,
+    items_json: items,
+    total_amount: total,
+    payment_method: $('pay').value,
+    contract_period_start: $('period-start').value || null,
+    contract_period_end: $('period-end').value || null,
+    locker_no: $('locker-no').value || null,
+    locker_months: lockerMonths,
+    notes: $('notes').value || null,
+    sign_token: token,
+    status: 'sent',
+    expires_at: expiresAt,
+    created_by: session.user.id,
+    sent_at: new Date().toISOString()
+  };
+
+  $('btn-create').disabled = true; $('btn-create').textContent = '생성 중...';
+  const { data: ins, error } = await sb.from('contracts').insert(payload).select().single();
+  $('btn-create').disabled = false; $('btn-create').textContent = '서명 링크 생성';
+  if (error) { $('err').textContent = '저장 실패: ' + error.message; return; }
+
+  await sb.from('contract_audit_log').insert([
+    { contract_id: ins.id, event_type: 'created' },
+    { contract_id: ins.id, event_type: 'sent' }
+  ]);
+
+  const url = (cfg.SIGN_BASE_URL || (location.origin + location.pathname.replace(/admin\.html$/, 'sign.html')))
+    + '?t=' + token;
+  $('sign-url').value = url;
+
+  const itemSummary = items.map(it => '• ' + it.name + ' (' + it.qty + ') ' + Number(it.price).toLocaleString() + '원').join('\n');
+  const msg =
+    '[' + cfg.BUSINESS.name + ' ' + $('branch').value + '] ' + name + ' 회원님, 안녕하세요.\n\n' +
+    '재계약 전자계약서 서명 안내드립니다.\n\n' +
+    '■ 계약 항목\n' + itemSummary + '\n\n' +
+    '■ 총 결제금액\n' + total.toLocaleString() + '원\n\n' +
+    '■ 링크 유효기간: ' + expireDays + '일\n\n' +
+    '▶ 서명하러 가기\n' + url + '\n\n' +
+    '링크 접속 → 약관 확인 → 동의 → 손글씨 서명 부탁드립니다.\n' +
+    '문의: ' + (cfg.BUSINESS.phone || '');
+
+  $('kakao-msg').value = msg;
+  $('result').style.display = 'block';
+  $('result').scrollIntoView({ behavior: 'smooth' });
+};
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) return navigator.clipboard.writeText(text);
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta);
+  return Promise.resolve();
+}
+$('btn-copy-url').onclick = async () => {
+  await copyToClipboard($('sign-url').value);
+  $('btn-copy-url').textContent = '복사됨';
+  setTimeout(() => $('btn-copy-url').textContent = '링크 복사', 1500);
+};
+$('btn-copy-msg').onclick = async () => {
+  await copyToClipboard($('kakao-msg').value);
+  $('btn-copy-msg').textContent = '복사됨';
+  setTimeout(() => $('btn-copy-msg').textContent = '메시지 복사', 1500);
+};
+
+init();
+})();
