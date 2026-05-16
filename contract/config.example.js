@@ -3,7 +3,11 @@
 //   1) 이 파일을 같은 폴더에 'config.js'로 복사
 //   2) 아래 값을 실제 값으로 채워 저장
 //   3) config.js 는 .gitignore 에 등록되어 git 에 올라가지 않음
+//
+// ⚠️ SUPABASE_URL 은 반드시 "전자계약서 전용 신규 프로젝트"의 URL 을 입력하세요.
+//     기존 골프PT콜라보 프로젝트와 절대 같은 URL 을 쓰지 마세요.
 window.NG_CONTRACT_CONFIG = {
+  // 전자계약서 전용 신규 Supabase 프로젝트 (예: nationalgym-contract)
   SUPABASE_URL: 'https://YOUR-PROJECT.supabase.co',
   SUPABASE_ANON_KEY: 'YOUR-ANON-KEY',
 

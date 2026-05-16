@@ -1,7 +1,37 @@
 -- ===========================================================================
 -- 내셔널짐 전자계약서 시스템 스키마
--- Supabase SQL Editor 에 전체 복사하여 실행하세요.
 -- ===========================================================================
+--
+--  ⚠️  중요: 반드시 "별도 신규 Supabase 프로젝트"에 실행하세요.
+--      - 기존 golf_pt_collabo (members/assessments/sessions/reports) 프로젝트
+--        ❌ 에 적용 금지
+--      - 다른 운영 중인 프로젝트 ❌ 에 적용 금지
+--      - 본 시스템 전용 신규 프로젝트만 사용
+--
+--  사용 방법:
+--    1) https://supabase.com → New project
+--       (이름 예: "nationalgym-contract")
+--    2) Project Settings → API 에서 URL / anon key 메모
+--    3) 본 파일을 SQL Editor 에 전체 복사하여 실행
+--    4) Authentication → Users 에서 관리자 계정 추가
+--    5) 같은 폴더의 config.js 에 URL / anon key 입력
+-- ===========================================================================
+
+-- 안전 가드: 기존 골프PT콜라보 프로젝트에 잘못 적용하는 것을 방지
+-- (members 테이블이 존재하는 프로젝트라면 즉시 중단)
+do $guard$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'members'
+  ) then
+    raise exception
+      '이 프로젝트에는 골프PT콜라보 데이터(members 테이블)이 이미 존재합니다. '
+      '전자계약서 시스템은 반드시 별도 신규 Supabase 프로젝트에 적용하세요. '
+      '(만약 의도적으로 같은 프로젝트에 적용하려면 이 가드 블록을 삭제 후 재실행)';
+  end if;
+end;
+$guard$;
 
 -- 0) 확장 (gen_random_uuid)
 create extension if not exists pgcrypto;

@@ -27,13 +27,25 @@ PT · 골프 회원 **재계약 시 약관 변경 고지 누락** 및 서명 누
 | `sign.html?t=TOKEN` | 회원 약관 확인 + 서명 | 토큰 |
 | `view.html?id=ID&t=TOKEN` | 서명 완료본 조회 / PDF 저장 | 토큰 또는 관리자 |
 
+## ⚠️ 중요: Supabase 프로젝트 분리
+
+본 전자계약서 시스템은 **반드시 전용 신규 Supabase 프로젝트**에 적용해야 합니다.
+
+- ❌ 기존 골프PT콜라보(`members / assessments / sessions / reports`) 프로젝트에 절대 합치지 마세요
+- ❌ 다른 운영 중인 프로젝트에도 합치지 마세요
+- ✅ 본 시스템 전용으로 신규 프로젝트를 하나 더 만드세요 (무료 티어로 충분)
+
+`supabase_schema.sql` 에는 안전 가드가 들어 있어 기존 `members` 테이블이 있는 프로젝트에 잘못 실행하면 즉시 중단됩니다.
+
 ## 초기 셋업
 
-### 1. Supabase 프로젝트 생성
-1. https://supabase.com 에서 신규 프로젝트 생성 (무료 티어로 충분)
+### 1. 신규 Supabase 프로젝트 생성
+1. https://supabase.com → **New project** (이름 예: `nationalgym-contract`)
+   - **기존 프로젝트와 별개로 새로 생성**
 2. **Project Settings → API** 에서 `Project URL` 과 `anon public key` 메모
 3. **SQL Editor** 에서 [`supabase_schema.sql`](./supabase_schema.sql) 전체를 복사하여 실행
    - 실행 시 약관 시드(`combo` 2026-04-28 / `pt` 2025-07-25 / `golf` 2026-04-28) 자동 입력
+   - 만약 `이 프로젝트에는 골프PT콜라보 데이터가 이미 존재합니다` 오류가 나면 → 잘못된 프로젝트입니다. 신규 프로젝트를 다시 만들어 주세요.
 4. **Authentication → Users → Add user** 로 관리자 계정 추가 (이메일 / 비밀번호)
 
 ### 2. 설정 파일 작성
