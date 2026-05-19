@@ -4,6 +4,11 @@ const cfg = window.NG_CONTRACT_CONFIG;
 let session = null;
 let activeTemplate = null;
 
+function bizForBranch(branch) {
+  const map = cfg.BUSINESS_BY_BRANCH || {};
+  return map[branch] || cfg.BUSINESS || {};
+}
+
 // --- auth ---
 function showLogin() { $('login').style.display='block'; $('app').style.display='none'; }
 function showApp() {
@@ -118,16 +123,23 @@ $('btn-create').onclick = async () => {
 
   const lockerMonths = Number($('locker-months').value) || null;
 
+  const branch = $('branch').value;
+  const biz = bizForBranch(branch);
+  if (!biz.name || !biz.owner) {
+    $('err').textContent = '선택한 지점의 사업자 정보가 config.js 에 없습니다.';
+    return;
+  }
+
   const payload = {
     template_id: activeTemplate.id,
-    branch: $('branch').value,
+    branch: branch,
     member_name: name, member_phone: phone,
     member_birth: $('m-birth').value || null,
     member_address: $('m-address').value || null,
     member_email: $('m-email').value || null,
-    business_name: cfg.BUSINESS.name,
-    business_owner: cfg.BUSINESS.owner,
-    business_registration: cfg.BUSINESS.registration_no || null,
+    business_name: biz.name,
+    business_owner: biz.owner,
+    business_registration: biz.registration_no || null,
     items_json: items,
     total_amount: total,
     payment_method: $('pay').value,
@@ -159,14 +171,14 @@ $('btn-create').onclick = async () => {
 
   const itemSummary = items.map(it => '• ' + it.name + ' (' + it.qty + ') ' + Number(it.price).toLocaleString() + '원').join('\n');
   const msg =
-    '[' + cfg.BUSINESS.name + ' ' + $('branch').value + '] ' + name + ' 회원님, 안녕하세요.\n\n' +
+    '[' + biz.name + '] ' + name + ' 회원님, 안녕하세요.\n\n' +
     '재계약 전자계약서 서명 안내드립니다.\n\n' +
     '■ 계약 항목\n' + itemSummary + '\n\n' +
     '■ 총 결제금액\n' + total.toLocaleString() + '원\n\n' +
     '■ 링크 유효기간: ' + expireDays + '일\n\n' +
     '▶ 서명하러 가기\n' + url + '\n\n' +
     '링크 접속 → 약관 확인 → 동의 → 손글씨 서명 부탁드립니다.\n' +
-    '문의: ' + (cfg.BUSINESS.phone || '');
+    '문의: ' + (biz.phone || '');
 
   $('kakao-msg').value = msg;
   $('result').style.display = 'block';
