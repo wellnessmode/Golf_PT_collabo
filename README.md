@@ -4,8 +4,8 @@ PT · 골프 회원 **재계약 시 약관 변경 고지 누락** 및 서명 누
 정적 웹 + Supabase 기반 시스템입니다.
 여러 지점에서 동일하게 사용할 수 있고 (지점별 사업자 정보 자동 반영), 카카오톡으로 발송된 링크 한 번에 약관 확인 → 동의 → 손글씨 서명까지 완료됩니다.
 
-> 본 디렉터리는 같은 레포의 다른 코드와 **완전히 분리**되어 동작합니다.
-> 호스팅 시 `/contract/` 경로만 별도로 노출하면 됩니다.
+> 본 레포는 전자계약서 시스템 전용입니다.
+> 골프PT 본 앱(`wellnessmode/Golf_PT_collabo`)과 코드·DB(Supabase 프로젝트) 모두 분리되어 있습니다.
 
 ## 구성
 
@@ -61,18 +61,18 @@ cp config.example.js config.js
   - `name` (상호), `owner` (대표자), `registration_no` (사업자등록번호), `address` (사업장 주소), `phone` (대표 연락처)
 - `BRANCHES`: 지점 키 배열 (BUSINESS_BY_BRANCH 의 키와 일치)
 - `SIGN_BASE_URL`: 배포된 sign.html 의 절대 URL
-  - 예: `https://your-domain.com/contract/sign.html`
-  - GitHub Pages 사용 시: `https://wellnessmode.github.io/Golf_PT_collabo/contract/sign.html`
+  - 예: `https://your-domain.com/sign.html`
+  - GitHub Pages 사용 시: `https://wellnessmode.github.io/Nationalgym-Renew/sign.html`
 
 > 운영 정책에 따라 `config.js` 를 git 에 올릴지 결정하세요.
 > anon key 는 RLS 정책으로 보호되므로 공개돼도 안전하며, 사업자 정보는 계약서에 인쇄되는 공개 정보입니다.
 
 ### 3. 호스팅
 
-- **GitHub Pages**: Repo Settings → Pages → Branch / `main` / Folder `/`
-  접속 URL: `https://wellnessmode.github.io/Golf_PT_collabo/contract/`
+- **GitHub Pages**: Repo Settings → Pages → Source: GitHub Actions (워크플로우가 자동 배포)
+  접속 URL: `https://wellnessmode.github.io/Nationalgym-Renew/`
 - **Vercel / Netlify**: 정적 사이트로 폴더 단위 배포
-- **로컬 테스트**: `python3 -m http.server 8080` → http://localhost:8080/contract/
+- **로컬 테스트**: `python3 -m http.server 8080` → http://localhost:8080/
 
 ## 운영 플로우 (MVP)
 
