@@ -2,7 +2,7 @@
 
 PT · 골프 회원 **재계약 시 약관 변경 고지 누락** 및 서명 누락 문제 해결을 위한
 정적 웹 + Supabase 기반 시스템입니다.
-1 · 2 · 3호점에서 동일하게 사용할 수 있고, 카카오톡으로 발송된 링크 한 번에 약관 확인 → 동의 → 손글씨 서명까지 완료됩니다.
+여러 지점에서 동일하게 사용할 수 있고 (지점별 사업자 정보 자동 반영), 카카오톡으로 발송된 링크 한 번에 약관 확인 → 동의 → 손글씨 서명까지 완료됩니다.
 
 > 본 디렉터리는 같은 레포의 다른 코드와 **완전히 분리**되어 동작합니다.
 > 호스팅 시 `/contract/` 경로만 별도로 노출하면 됩니다.
@@ -56,14 +56,16 @@ cp config.example.js config.js
 
 `config.js` 를 열어 다음 값을 채워 주세요.
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`
-- `BUSINESS.owner` (사업주 성함), `BUSINESS.registration_no` (사업자등록번호), 주소, 대표 연락처
-- `BRANCHES`: `['1호점','2호점','3호점']`
+- `BRAND_NAME`: 브랜드명 (예: `'내셔널짐'`)
+- `BUSINESS_BY_BRANCH`: 지점별 사업자 정보 (지점마다 별도 사업자등록증인 경우 각각 입력)
+  - `name` (상호), `owner` (대표자), `registration_no` (사업자등록번호), `address` (사업장 주소), `phone` (대표 연락처)
+- `BRANCHES`: 지점 키 배열 (BUSINESS_BY_BRANCH 의 키와 일치)
 - `SIGN_BASE_URL`: 배포된 sign.html 의 절대 URL
   - 예: `https://your-domain.com/contract/sign.html`
   - GitHub Pages 사용 시: `https://wellnessmode.github.io/Golf_PT_collabo/contract/sign.html`
 
-> `config.js` 는 `.gitignore` 에 등록되어 있어 git 에 올라가지 않습니다.
-> 안전하게 별도 보관하세요.
+> 운영 정책에 따라 `config.js` 를 git 에 올릴지 결정하세요.
+> anon key 는 RLS 정책으로 보호되므로 공개돼도 안전하며, 사업자 정보는 계약서에 인쇄되는 공개 정보입니다.
 
 ### 3. 호스팅
 
@@ -132,7 +134,7 @@ select public.expire_old_contracts();
 - **전자서명법**: 손글씨 서명은 일반전자서명에 해당. 서명자 User-Agent · 시간 · 약관 스냅샷을 보관.
 - **개인정보보호법**: 수집 항목 · 이용 목적 · 보유 기간을 약관 본문에 명시. 마케팅은 별도 [선택] 동의.
 - **방문판매법 / 할부거래법**: 환불 규정 · 청약철회 안내를 약관 본문에 포함.
-- **개인사업자 표시**: 계약서에 상호 · 대표자명 · 사업자등록번호 표기 (config 의 BUSINESS 정보로 자동 반영).
+- **개인사업자 표시**: 계약서에 상호 · 대표자명 · 사업자등록번호 표기 (config 의 `BUSINESS_BY_BRANCH[지점]` 정보로 자동 반영). 지점이 별도 사업자등록증을 가진 경우 각 지점의 계약서에는 해당 지점 사업자 정보가 들어갑니다.
 
 > 본 시스템은 1차 검토용 MVP 입니다. 실제 운영 전 사내 법무 또는 변호사 검토를 권장합니다.
 
@@ -143,7 +145,7 @@ contract/
 ├── README.md                  ─ 본 문서
 ├── supabase_schema.sql        ─ DB 스키마 + RPC + 시드 약관
 ├── config.example.js          ─ 환경 설정 샘플
-├── .gitignore                 ─ config.js 제외
+├── .gitignore
 ├── index.html                 ─ 진입 안내
 ├── admin.html                 ─ 관리자 발송
 ├── list.html                  ─ 관리자 목록
