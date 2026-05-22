@@ -218,6 +218,18 @@ const SAMPLE_DATA = {
   }
 };
 
+// ============ MIME 추론 (확장자 기반) ============
+// iOS Safari 등에서 .mov, .heic 등은 file.type이 빈 문자열로 오는 경우가 있어
+// 파일명 확장자로 보강한다. 빈 문자열 반환 시 추론 실패.
+function inferMime(nameOrUrl){
+  var s = String(nameOrUrl||'').toLowerCase();
+  var m = s.split('?')[0].split('#')[0].match(/\.([a-z0-9]+)$/);
+  var ext = m ? m[1] : '';
+  var IMG = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',heic:'image/heic',heif:'image/heif',bmp:'image/bmp',svg:'image/svg+xml'};
+  var VID = {mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',qt:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska','3gp':'video/3gpp','3gpp':'video/3gpp',hevc:'video/hevc',avi:'video/x-msvideo'};
+  return IMG[ext] || VID[ext] || '';
+}
+
 // ============ Media DB (IndexedDB) ============
 const mediaDB = {
   db:null, DB_NAME:'golf_pt_media', STORE:'media', ANALYSIS_STORE:'analysis',
@@ -266,6 +278,7 @@ const r2 = {
   url(key){if(!this.enabled||!key) return '';return this.workerUrl+'/'+encodeURIComponent(key);},
   async upload(key,blob){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'PUT',headers:{'X-API-Key':this.apiKey,'Content-Type':(blob&&blob.type)||'application/octet-stream'},body:blob});if(!res.ok){console.warn('[r2] upload http',res.status);return false;}return true;}catch(e){console.warn('[r2] upload fail:',e);return false;}},
   async download(key){if(!this.enabled) return null;try{const res=await fetch(this.url(key));if(!res.ok) return null;return await res.blob();}catch(e){console.warn('[r2] download fail:',e);return null;}},
+  async head(key){if(!this.enabled||!key) return false;try{const res=await fetch(this.url(key),{method:'HEAD'});return res.ok;}catch(e){return false;}},
   async remove(key){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'DELETE',headers:{'X-API-Key':this.apiKey}});return res.ok;}catch(e){console.warn('[r2] delete fail:',e);return false;}}
 };
 
@@ -359,6 +372,49 @@ async function init(){
     } else {S.cloudSync='error';}
     render();
   } else {S.cloudSync='local';}
+  // 마지막 단계: 로컬에 있는 영상이 R2에 누락된 경우 자동 재업로드
+  // (iPad 백그라운드 업로드 중단 등으로 R2 누락 → 다른 디바이스에서 안 보이는 케이스 복구)
+  syncLocalMediaToR2().catch(function(e){console.warn('[r2-sync] fail:',e);});
+}
+
+// 로컬 IndexedDB에 영상은 있지만 R2엔 없는 파일을 찾아 자동 재업로드한다.
+// 업로드 디바이스(예: iPad)에서 페이지 닫힘/네트워크 실패로 R2 업로드가 미완료된 경우,
+// 다음 앱 실행 시 이 함수가 R2와 cloud 메타를 보정해서 다른 디바이스에서도 영상이 표시되게 한다.
+async function syncLocalMediaToR2(){
+  if(!r2.enabled || !mediaDB.db) return;
+  var pending=[];
+  Object.keys(S.sessions).forEach(function(mid){
+    (S.sessions[mid]||[]).forEach(function(s){
+      (s.media||[]).forEach(function(m){
+        if(m.type==='file' && m.mediaId) pending.push({mid:mid, sid:s.id, m:m});
+      });
+    });
+  });
+  if(pending.length===0) return;
+  var fixed=0;
+  for(var i=0;i<pending.length;i++){
+    var p=pending[i];
+    var rec=await mediaDB.get(p.m.mediaId);
+    if(!rec || !rec.blob) continue; // 로컬에 없으면 패스(다른 디바이스가 올린 영상)
+    var key=p.m.r2Key || p.m.mediaId;
+    var exists=await r2.head(key);
+    if(exists){
+      if(p.m.r2Status!=='synced'){p.m.r2Status='synced'; if(!p.m.r2Key) p.m.r2Key=p.m.mediaId; fixed++;}
+      continue;
+    }
+    p.m.r2Status='uploading'; render();
+    var ok=await r2.upload(p.m.mediaId, rec.blob);
+    if(ok){
+      p.m.r2Status='synced';
+      p.m.r2Key=p.m.r2Key || p.m.mediaId;
+      var stored=(S.sessions[p.mid]||[]).find(function(x){return x.id===p.sid;});
+      if(stored) cloud.upsertSession(p.mid, stored);
+      fixed++;
+    } else {
+      p.m.r2Status='failed';
+    }
+  }
+  if(fixed>0){console.log('[r2-sync]', fixed,'개 영상 동기화 완료'); save(); render();}
 }
 
 async function seedRemote(){try{for(const m of S.members) await cloud.upsertMember(m);for(const mid in S.assessments){for(const key in S.assessments[mid]){const v=S.assessments[mid][key];await cloud.upsertAssessment(mid,key,v.result,v.note);}}for(const mid in S.sessions){for(const s of S.sessions[mid]) await cloud.upsertSession(mid,s);}}catch(e){console.warn('[cloud] seedRemote fail:',e);}}
