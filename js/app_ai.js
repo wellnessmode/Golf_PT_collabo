@@ -116,7 +116,7 @@ function saveEditSession(){
 }
 
 // ============ 대시보드 ============
-function openDashboard(){S.showDashboard=true;S.selectedMember=null;render();}
+function openDashboard(){S.showDashboard=true;S.showLiveSession=false;S.selectedMember=null;render();}
 function closeDashboard(){S.showDashboard=false;render();}
 function renderDashboard(){
   if(!S.showDashboard) return '';

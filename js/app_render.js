@@ -101,6 +101,7 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
+      ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'<button class="mp-btn live-btn'+(S.showLiveSession?' active':'')+'" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>':''}
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
       ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
@@ -113,7 +114,7 @@ function render(){
   <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
   <div class="main">
-    ${member ? `
+    ${S.showLiveSession ? renderLiveSession() : (member ? `
     <div class="topbar">
       <div class="member-title-wrap">
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
@@ -188,7 +189,7 @@ function render(){
       </div>
     </div>
     ` : `
-    ${S.showDashboard ? renderDashboard() : `<div class="no-member"><div class="no-member-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:14px;font-weight:600;color:var(--tx-3)">회원을 선택하세요</div><div style="font-size:12px;color:var(--tx-3)">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div></div>`}`}
+    ${S.showDashboard ? renderDashboard() : `<div class="no-member"><div class="no-member-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:14px;font-weight:600;color:var(--tx-3)">회원을 선택하세요</div><div style="font-size:12px;color:var(--tx-3)">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div></div>`}`)}
   </div>
 
   ${S.showAddSession ? `
@@ -249,11 +250,11 @@ function render(){
   ${renderImageCardModal()}
   ${renderPerformance()}
   `;
-  setTimeout(function(){if(S.memberSearch){var el=document.querySelector('.sidebar-search');if(el){el.focus();el.setSelectionRange(S.memberSearch.length,S.memberSearch.length);}}if(S.exercisePicker&&S.exercisePicker.open&&S.exercisePicker.query){var el2=document.querySelector('.ex-picker-search input');if(el2){el2.focus();el2.setSelectionRange(S.exercisePicker.query.length,S.exercisePicker.query.length);}}},0);
+  setTimeout(function(){if(S.memberSearch){var el=document.querySelector('.sidebar-search');if(el){el.focus();el.setSelectionRange(S.memberSearch.length,S.memberSearch.length);}}if(S.exercisePicker&&S.exercisePicker.open&&S.exercisePicker.query){var el2=document.querySelector('.ex-picker-search input');if(el2){el2.focus();el2.setSelectionRange(S.exercisePicker.query.length,S.exercisePicker.query.length);}}if((S.liveStartBay||S.liveReassignShot)&&S.liveStartQuery){var el3=document.querySelector('.live-search-input');if(el3){el3.focus();try{el3.setSelectionRange(S.liveStartQuery.length,S.liveStartQuery.length);}catch(e){}}}},0);
 }
 
 // ============ 이벤트 핸들러 ============
-function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; render();}
+function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; S.showLiveSession=false; render();}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
