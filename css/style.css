@@ -980,3 +980,11 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
   .ts-tile{background:#fff!important;border:1px solid #ddd!important}
   .ts-p{background:#fff!important;color:#444!important}
 }
+
+/* 인쇄 보강 — 긴 성과 리포트 다중 페이지 정상 분할 (절대위치 클리핑 방지) */
+@media print{
+  html,body,#root,.app,.main,.perf-overlay,.perf-shell{position:static!important;height:auto!important;max-height:none!important;overflow:visible!important}
+  .perf-overlay{inset:auto!important}
+  .sidebar,.mobile-toggle,.sidebar-backdrop{display:none!important}
+  .perf-section,.ts-panel,.chart-card,.kpi-card{break-inside:avoid;page-break-inside:avoid}
+}
