@@ -284,7 +284,8 @@ const cloud = {
   async startActiveSession(bayId,sess){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').upsert({bay_id:bayId,member_id:sess.memberId,member_name:sess.memberName,author:sess.author,started_at:sess.startedAt,note:sess.note||''});if(error) throw error;}catch(e){console.warn('[cloud] startActiveSession fail:',e);}},
   async endActiveSession(bayId){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').delete().eq('bay_id',bayId);if(error) throw error;}catch(e){console.warn('[cloud] endActiveSession fail:',e);}},
   async insertShot(shot){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').upsert({id:shot.id,bay_id:shot.bayId,member_id:shot.memberId,member_name:shot.memberName,author:shot.author||'',ts:shot.ts,data:shot.data||{},video_r2_key:shot.videoR2Key||null,source:shot.source||'mock'});if(error) throw error;}catch(e){console.warn('[cloud] insertShot fail:',e);}},
-  async reassignShot(shotId,memberId,memberName){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').update({member_id:memberId,member_name:memberName}).eq('id',shotId);if(error) throw error;}catch(e){console.warn('[cloud] reassignShot fail:',e);}}
+  async reassignShot(shotId,memberId,memberName){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').update({member_id:memberId,member_name:memberName}).eq('id',shotId);if(error) throw error;}catch(e){console.warn('[cloud] reassignShot fail:',e);}},
+  async deleteShot(id){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteShot fail:',e);}}
 };
 
 // ============ Cloudflare R2 미디어 스토리지 ============

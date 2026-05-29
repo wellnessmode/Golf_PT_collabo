@@ -178,6 +178,21 @@ function applyReassign(memberId){
   liveToast('↔ '+prev+' → '+m.name+' 재할당 완료','ok');
 }
 
+// ============ 저장된 샷 삭제 (잘못 저장/연습샷 정리) ============
+function deleteShot(shotId){
+  var shot = S.shotEvents.find(function(s){ return s.id===shotId; });
+  if(!shot) return;
+  if(!confirm(shot.memberName+'님의 저장된 샷을 삭제할까요?\n(영상·데이터가 함께 삭제됩니다)')) return;
+  S.shotEvents = S.shotEvents.filter(function(s){ return s.id!==shotId; });
+  if(S.liveReassignShot===shotId) S.liveReassignShot=null;
+  save();
+  logActivity('저장된 샷 삭제', shot.memberId, getBay(shot.bayId).name);
+  logAudit('session','저장된 샷 삭제', shot.memberName, {shotId:shotId, bay:shot.bayId});
+  cloud.deleteShot(shotId);
+  render();
+  liveToast('🗑 샷 삭제됨','ok');
+}
+
 // ============ 렌더 ============
 function renderLiveSession(){
   if(!S.showLiveSession) return '';
@@ -229,9 +244,9 @@ function renderBayCard(bay, canCoach, isAdmin){
         + '<div class="bay-author '+roleCls+'">'+act.author+' · '+elapsed+' 경과</div></div></div>';
   body += '<div class="bay-shots">'
         + (shots.length>0
-            ? ('굿샷 <strong>'+shots.length+'</strong>개'
+            ? ('저장된 샷 <strong>'+shots.length+'</strong>개'
                + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
-            : '아직 굿샷 없음')
+            : '아직 저장된 샷 없음')
         + '</div>';
   body += '<div class="bay-actions">';
   body += '<button class="btn goodshot-btn'+(stale?' is-disabled':'')+'" '
@@ -242,12 +257,13 @@ function renderBayCard(bay, canCoach, isAdmin){
 }
 
 function renderShotLog(isAdmin){
+  var canCoach = S.currentRole==='pro' || S.currentRole==='trainer' || isAdmin;
   var shots = S.shotEvents.slice().sort(function(a,b){ return b.ts.localeCompare(a.ts); }).slice(0,30);
-  var html = '<div class="shot-log"><div class="shot-log-hd">최근 굿샷 '+S.shotEvents.length+'개'
+  var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+S.shotEvents.length+'개'
            + (isAdmin ? ' <span class="shot-log-admin">관리자: 잘못 들어간 샷은 「이동」으로 다른 회원에게 재할당</span>' : '')
            + '</div>';
   if(shots.length===0){
-    html += '<div class="empty-state">아직 저장된 굿샷이 없습니다</div>';
+    html += '<div class="empty-state">아직 저장된 샷이 없습니다</div>';
   } else {
     html += '<div class="shot-list">' + shots.map(function(s){
       var bay = getBay(s.bayId);
@@ -261,6 +277,7 @@ function renderShotLog(isAdmin){
         + '<span class="shot-time">'+ts+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
         + (isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">이동</button>' : '')
+        + (canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
         + '</div>';
     }).join('') + '</div>';
   }

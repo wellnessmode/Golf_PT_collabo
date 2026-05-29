@@ -7,245 +7,305 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --ink:#0a1310;--ink2:#11201a;--panel:#0e1a15;--line:rgba(255,255,255,.08);
-  --mint:#00b884;--mint2:#34e0aa;--gold:#c8a96a;
-  --tx:#10130f;--tx2:#52564e;--tx3:#9aa09a;--bg:#eef0ec;--card:#fff;--cardline:rgba(0,0,0,.07);
-  --up:#00a070;--down:#c2410c;
-  --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+  --bg:#080a09;--panel:#0e120e;--tile:#12160f;--tile2:#161b13;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);
+  --lime:#b6e352;--lime-dim:#7e9c3a;--blue:#7da0e6;--blue-dim:#4f6fb0;--orange:#e8a04a;
+  --tx:#f4f7f2;--tx2:#aab0a6;--tx3:#6c7268;--up:#b6e352;--down:#e8794a;
+  --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,Consolas,monospace;
 }
-body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx);-webkit-font-smoothing:antialiased;padding:20px 12px 60px;line-height:1.6}
-.note{text-align:center;color:var(--tx3);font-size:12px;margin-bottom:16px}.note b{color:var(--mint)}
-.report{max-width:600px;margin:0 auto;background:var(--card);border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.16)}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000;color:var(--tx);-webkit-font-smoothing:antialiased;padding:18px 10px 50px;line-height:1.55}
+.note{max-width:620px;margin:0 auto 14px;text-align:center;color:#8a908a;font-size:12px;line-height:1.6;padding:0 12px}
+.note b{color:var(--lime)}
+.rep{max-width:620px;margin:0 auto;background:var(--bg);border-radius:20px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6);border:1px solid var(--line)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* ===== 헤더 ===== */
-.hd{background:linear-gradient(160deg,#0a1310,#11201a 60%,#0c2419);color:#fff;padding:26px 26px 22px;position:relative;overflow:hidden}
-.hd::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 88% 0%,rgba(0,184,132,.18),transparent 45%)}
-.hd .row{position:relative;display:flex;justify-content:space-between;align-items:flex-start}
-.brand{font-size:11px;font-weight:800;letter-spacing:3.5px;color:#fff}
-.brand small{display:block;font-size:8px;letter-spacing:2.5px;color:var(--mint2);margin-top:3px;font-weight:700}
-.rep-id{text-align:right;font-size:10px;color:var(--tx3);font-family:var(--mono);line-height:1.7}
-.rtitle{position:relative;font-size:23px;font-weight:900;letter-spacing:.5px;margin-top:18px}
-.rtitle .thin{font-weight:300;opacity:.75}
-.powered{position:relative;font-size:10px;color:var(--tx3);margin-top:4px;letter-spacing:.5px}
-.powered b{color:var(--mint2);font-weight:700}
+.hd{padding:22px 24px 20px;background:linear-gradient(165deg,#0d130d,#0a0f0b 70%);position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.hd::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 92% -10%,rgba(182,227,82,.16),transparent 42%)}
+.hd-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.brand{font-size:11px;font-weight:900;letter-spacing:3px;color:#fff;line-height:1.5}
+.brand small{display:block;font-size:8px;letter-spacing:2px;color:var(--lime);margin-top:2px;font-weight:700}
+.units{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.useg{display:flex;align-items:center;gap:5px}
+.useg .lab{font-size:8.5px;color:var(--tx3);letter-spacing:.5px;font-weight:700;width:30px;text-align:right}
+.seg{display:flex;background:#1a1f17;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+.seg button{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:4px 9px;border:none;background:transparent;color:var(--tx3);cursor:pointer;transition:all .12s}
+.seg button.on{background:var(--lime);color:#0a0f05}
+.rtitle{position:relative;font-size:21px;font-weight:900;letter-spacing:.6px;margin-top:16px}
+.rtitle .t{font-weight:300;color:var(--tx2)}
+.rmeta{position:relative;font-size:10px;color:var(--tx3);margin-top:5px;font-family:var(--mono);letter-spacing:.3px}
+.rmeta b{color:var(--lime)}
 
-/* ===== 선수 밴드 ===== */
-.player{display:flex;align-items:center;gap:16px;padding:18px 26px;background:var(--ink2);color:#fff;border-bottom:1px solid var(--line)}
-.player .pname{font-size:18px;font-weight:800}
-.player .pmeta{font-size:11px;color:var(--tx3);margin-top:2px;font-family:var(--mono)}
-.player .ptags{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:4px}
-.ptag{font-size:10px;color:#cfd6cf}.ptag b{color:var(--mint2)}
+/* 선수 */
+.player{display:flex;align-items:center;gap:14px;padding:15px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+.pname{font-size:17px;font-weight:800}.pname span{font-size:11px;font-weight:500;color:var(--tx3)}
+.pmeta{font-size:10.5px;color:var(--tx3);margin-top:2px;font-family:var(--mono)}
+.ptags{margin-left:auto;text-align:right;font-size:10px;color:var(--tx2);line-height:1.7}
+.ptags .pro{color:var(--lime);font-weight:700}.ptags .tr{color:var(--blue);font-weight:700}
 
-/* ===== 섹션 ===== */
-.body{padding:8px 0}
-.sec{padding:20px 26px;border-bottom:1px solid var(--cardline)}
+.sec{padding:20px 24px;border-bottom:1px solid var(--line)}
 .sec:last-child{border-bottom:none}
 .sec-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
-.sec-t{font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--tx);text-transform:uppercase}
-.sec-t i{color:var(--mint);font-style:normal}
-.sec-x{font-size:10px;color:var(--tx3);font-family:var(--mono)}
+.sec-t{font-size:10.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--tx)}
+.sec-t i{color:var(--lime);font-style:normal;margin-right:6px}
+.sec-x{font-size:9.5px;color:var(--tx3);font-family:var(--mono)}
 
-/* 클럽 평균 테이블 */
-.tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tbl th{font-size:9.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;text-align:right;padding:6px 6px;border-bottom:1px solid var(--cardline)}
-.tbl th:first-child{text-align:left}
-.tbl td{padding:9px 6px;text-align:right;border-bottom:1px solid var(--cardline);font-family:var(--mono);font-weight:600}
-.tbl td:first-child{text-align:left;font-family:inherit;font-weight:700;color:var(--tx)}
-.tbl tr:last-child td{border-bottom:none}
-.tbl .u{font-size:9px;color:var(--tx3);font-weight:500}
+/* HERO 대표샷 타일 */
+.hero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.hero-club{font-size:18px;font-weight:900;letter-spacing:.5px;color:#fff}
+.hero-when{font-size:9.5px;color:var(--tx3);font-family:var(--mono)}
+.hero-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:8px}
+.htile{background:linear-gradient(160deg,var(--tile2),var(--tile));border:1px solid var(--line);border-radius:11px;padding:12px 6px 10px;text-align:center}
+.htile.key{border-color:rgba(182,227,82,.35);box-shadow:0 0 22px rgba(182,227,82,.08)}
+.htile .v{font-family:var(--mono);font-size:25px;font-weight:800;color:#fff;line-height:1;letter-spacing:-1px}
+.htile.key .v{color:var(--lime)}
+.htile .u{font-size:8.5px;color:var(--tx3);font-family:var(--mono);margin-top:3px}
+.htile .l{font-size:8.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;font-weight:700}
+@media(max-width:560px){.hero-tiles{grid-template-columns:repeat(3,1fr)}}
 
-/* 대표 샷 — 다크 트랙맨 패널 */
-.shot-panel{background:linear-gradient(160deg,#0c1813,#0a1310);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
-.sp-top{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line)}
-.sp-club{color:#fff;font-size:14px;font-weight:800;letter-spacing:.3px}
-.sp-when{color:var(--tx3);font-size:10px;font-family:var(--mono)}
-.sp-video{height:150px;background:#060d0a url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="3" fill="%23ffffff" opacity="0.05"/></svg>');display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--line)}
-.sp-play{width:44px;height:44px;border-radius:50%;background:rgba(0,184,132,.92);display:flex;align-items:center;justify-content:center;color:#04130d;font-size:16px}
-.sp-vtag{position:absolute;left:12px;bottom:9px;font-size:9.5px;color:var(--tx3);font-family:var(--mono)}
-.sp-vtag2{position:absolute;right:12px;bottom:9px;font-size:9.5px;color:var(--mint2);font-family:var(--mono)}
+/* 궤도 */
+.traj{display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-top:14px}
+@media(max-width:560px){.traj{grid-template-columns:1fr}}
+.traj-card{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+.traj-h{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--lime);text-transform:uppercase;margin-bottom:8px}
+.traj svg{width:100%;display:block}
+.traj-tags{display:flex;justify-content:space-around;margin-top:6px;font-family:var(--mono);font-size:9.5px;color:var(--tx2)}
+.traj-tags b{color:#fff;font-size:12px}
 
-.param-cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
-.param-col{background:#0a1310;padding:14px 16px}
-.pc-label{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--mint2);text-transform:uppercase;margin-bottom:10px}
-.prm{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+/* 파라미터 그리드 */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.pgrid{grid-template-columns:1fr}}
+.pcol{background:var(--tile);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.pcol-h{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:9px 13px;border-bottom:1px solid var(--line)}
+.pcol.club .pcol-h{color:var(--lime);background:rgba(182,227,82,.05)}
+.pcol.ball .pcol-h{color:var(--blue);background:rgba(125,160,230,.06)}
+.prm{display:flex;justify-content:space-between;align-items:baseline;padding:9px 13px;border-bottom:1px solid rgba(255,255,255,.04)}
 .prm:last-child{border-bottom:none}
-.prm .k{font-size:11px;color:#aeb6ae}
-.prm .v{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff}
-.prm .v .un{font-size:9px;color:var(--tx3);font-weight:400;margin-left:2px}
+.prm .k{font-size:11px;color:var(--tx2)}
+.prm .vv{font-family:var(--mono);font-size:16px;font-weight:800;color:#fff}
+.prm .vv .un{font-size:9px;color:var(--tx3);font-weight:500;margin-left:2px}
 
-/* 클럽 딜리버리 다이어그램 */
-.delivery{padding:16px;border-top:1px solid var(--line);background:#0a1310}
-.dlv-h{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--mint2);text-transform:uppercase;margin-bottom:14px}
-.track{position:relative;height:54px;margin:0 4px}
-.track .axis{position:absolute;top:26px;left:0;right:0;height:2px;background:rgba(255,255,255,.12)}
-.track .zero{position:absolute;top:14px;bottom:14px;left:50%;width:1px;background:rgba(255,255,255,.25)}
-.track .zlabel{position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:8px;color:var(--tx3);font-family:var(--mono)}
-.mk{position:absolute;top:20px;width:14px;height:14px;border-radius:50%;transform:translateX(-50%);border:2px solid #0a1310}
-.mk.path{background:var(--mint)}
-.mk.face{background:var(--gold)}
-.mk .lab{position:absolute;top:16px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-family:var(--mono);font-weight:700}
-.mk.path .lab{color:var(--mint2)}.mk.face .lab{color:var(--gold)}
-.dlv-result{margin-top:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:12px;color:#cfd6cf}
-.dlv-result b{color:#fff}.dlv-shape{font-size:11px;font-weight:800;color:var(--mint2);font-family:var(--mono);background:rgba(0,184,132,.12);padding:4px 12px;border-radius:20px}
+/* 클럽 딜리버리 */
+.delivery{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-top:10px}
+.dlv-h{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--lime);text-transform:uppercase;margin-bottom:16px}
+.track{position:relative;height:46px;margin:0 6px}
+.track .axis{position:absolute;top:22px;left:0;right:0;height:2px;background:rgba(255,255,255,.1)}
+.track .zero{position:absolute;top:10px;bottom:10px;left:50%;width:1px;background:rgba(255,255,255,.22)}
+.track .zlabel{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--tx3);font-family:var(--mono)}
+.mk{position:absolute;top:15px;width:15px;height:15px;border-radius:50%;transform:translateX(-50%);border:2px solid var(--tile)}
+.mk.path{background:var(--lime)}.mk.face{background:var(--orange)}
+.mk .lab{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-family:var(--mono);font-weight:700}
+.mk.path .lab{top:17px;color:var(--lime)}.mk.face .lab{top:-15px;color:var(--orange)}
+.dlv-res{margin-top:14px;text-align:center}
+.dlv-shape{font-size:11px;font-weight:800;color:#0a0f05;font-family:var(--mono);background:var(--lime);padding:5px 14px;border-radius:20px}
 
-/* 진행 비교 */
+/* 테이블 */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{font-size:9px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;text-align:right;padding:7px 5px;border-bottom:1px solid var(--line2)}
+.tbl th:first-child{text-align:left}
+.tbl td{padding:9px 5px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--mono);font-weight:700;color:#fff;font-size:13px}
+.tbl td:first-child{text-align:left;font-family:inherit;font-weight:700;color:var(--tx2);font-size:12px}
+.tbl tr:last-child td{border-bottom:none}
+
+/* 진행 */
 .prog{width:100%;border-collapse:collapse;font-size:12px}
-.prog th{font-size:9.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;padding:7px 4px;border-bottom:2px solid var(--cardline);text-align:right}
+.prog th{font-size:9px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;padding:7px 4px;border-bottom:1px solid var(--line2);text-align:right}
 .prog th:first-child{text-align:left}
-.prog td{padding:9px 4px;text-align:right;border-bottom:1px solid var(--cardline);font-family:var(--mono);font-weight:600}
-.prog td:first-child{text-align:left;font-family:inherit;font-weight:600;color:var(--tx2)}
-.prog .delta{font-weight:800}.prog .delta.up{color:var(--up)}.prog .delta.down{color:var(--down)}
+.prog td{padding:9px 4px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--mono);font-weight:700;color:#fff;font-size:13px}
+.prog td:first-child{text-align:left;font-family:inherit;font-weight:600;color:var(--tx2);font-size:12px}
+.prog .d{font-weight:800;color:var(--up)}
 .prog tr:last-child td{border-bottom:none}
 
-/* 코치 분석 */
-.analysis{border-left:3px solid var(--mint);background:#f7faf8;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:10px}
-.analysis.tr{border-left-color:var(--gold);background:#faf8f3}
+/* 코치 */
+.an{border-left:3px solid var(--lime);background:rgba(182,227,82,.04);border-radius:0 10px 10px 0;padding:13px 15px;margin-bottom:9px}
+.an.tr{border-left-color:var(--blue);background:rgba(125,160,230,.05)}
 .an-h{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.an-role{font-size:9px;font-weight:800;letter-spacing:.6px;padding:3px 9px;border-radius:5px;background:rgba(0,184,132,.12);color:var(--up)}
-.analysis.tr .an-role{background:rgba(200,169,106,.18);color:#9a7b3a}
-.an-who{font-size:12px;font-weight:700}
-.an-txt{font-size:12.5px;color:var(--tx2);line-height:1.75}
-.an-txt b{color:var(--tx);font-family:var(--mono);font-weight:700}
+.an-r{font-size:8.5px;font-weight:800;letter-spacing:.6px;padding:3px 9px;border-radius:5px;background:rgba(182,227,82,.14);color:var(--lime)}
+.an.tr .an-r{background:rgba(125,160,230,.16);color:var(--blue)}
+.an-w{font-size:12px;font-weight:700;color:#fff}
+.an-t{font-size:12px;color:var(--tx2);line-height:1.75}
+.an-t b{color:#fff;font-family:var(--mono);font-weight:700}
 
 /* 목표 */
-.targets{background:linear-gradient(160deg,#0a1310,#11201a);border-radius:12px;padding:18px 20px;color:#fff}
-.tg-h{font-size:10px;font-weight:800;letter-spacing:1.2px;color:var(--mint2);text-transform:uppercase;margin-bottom:14px}
-.tg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.tg{text-align:center}
-.tg .tv{font-family:var(--mono);font-size:20px;font-weight:800;color:#fff}
-.tg .tv .un{font-size:10px;color:var(--tx3)}
-.tg .tl{font-size:9.5px;color:var(--tx3);margin-top:3px}
-.foot{text-align:center;padding:18px 26px;color:var(--tx3);font-size:10px;background:var(--ink2);line-height:1.7}
-.foot b{color:var(--mint2)}
+.tg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.tg{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:13px 6px;text-align:center}
+.tg .v{font-family:var(--mono);font-size:21px;font-weight:800;color:var(--lime)}
+.tg .v .un{font-size:9px;color:var(--tx3)}
+.tg .l{font-size:9px;color:var(--tx3);margin-top:4px}
+.foot{text-align:center;padding:16px 24px;color:var(--tx3);font-size:9.5px;background:var(--panel);line-height:1.7}
+.foot b{color:var(--lime)}
 </style>
 </head>
 <body>
-<div class="note">고객용 리포트 (전문가/트랙맨급) · "굿샷" 용어 제거 · 클럽 딜리버리·볼 데이터 전 지표 · <b>PDF·링크 공유</b></div>
-<div class="report">
+<div class="note">고객용 리포트 v2 · 트랙맨 TPS UI 차용(큰 숫자) · 볼 궤도·Side/Total 추가 · 우측 상단 <b>단위 토글(yd↔m, mph↔m/s)</b> 눌러보세요</div>
+<div class="rep">
 
   <!-- 헤더 -->
   <div class="hd">
-    <div class="row">
-      <div class="brand">NATIONAL GYM<small>PT &amp; GOLF STUDIO</small></div>
-      <div class="rep-id">REPORT&nbsp;#NG-2026-0142<br>2026.04.01 – 05.29</div>
+    <div class="hd-top">
+      <div class="brand">NATIONAL GYM<small>GOLF PT · PERFORMANCE</small></div>
+      <div class="units">
+        <div class="useg"><span class="lab">거리</span><div class="seg"><button data-set-dist="yd" class="on" onclick="setDist('yd')">yd</button><button data-set-dist="m" onclick="setDist('m')">m</button></div></div>
+        <div class="useg"><span class="lab">속도</span><div class="seg"><button data-set-spd="mph" class="on" onclick="setSpd('mph')">mph</button><button data-set-spd="ms" onclick="setSpd('ms')">m/s</button></div></div>
+      </div>
     </div>
-    <div class="rtitle">GOLF PERFORMANCE <span class="thin">REPORT</span></div>
-    <div class="powered">MEASURED BY <b>TRACKMAN</b> · 8-WEEK PERFORMANCE CYCLE</div>
+    <div class="rtitle">PERFORMANCE <span class="t">REPORT</span></div>
+    <div class="rmeta">REPORT #NG-2026-0142 · 2026.04.01–05.29 · MEASURED BY <b>TRACKMAN iO</b></div>
   </div>
 
   <!-- 선수 -->
   <div class="player">
     <div>
-      <div class="pname">김민수 <span style="font-size:12px;font-weight:500;color:#9aa09a">회원님</span></div>
-      <div class="pmeta">HCP 18.4 · AVG 95 · 우타 · 165 sessions</div>
+      <div class="pname">김민수 <span>회원님</span></div>
+      <div class="pmeta">HCP 18.4 · AVG 95 · RH · 165 SESSIONS</div>
     </div>
-    <div class="ptags">
-      <div class="ptag">담당 프로 <b>정우진</b></div>
-      <div class="ptag">담당 트레이너 <b>최현승</b></div>
+    <div class="ptags"><div>담당 프로 <span class="pro">정우진</span></div><div>담당 트레이너 <span class="tr">최현승</span></div></div>
+  </div>
+
+  <!-- HERO -->
+  <div class="sec">
+    <div class="sec-h"><div class="sec-t"><i>01</i>대표 스윙</div><div class="sec-x">DRIVER · 05.29 14:28 · BAY 1</div></div>
+    <div class="hero-tiles">
+      <div class="htile key"><div class="v"><span class="cv" data-mph="152.1">152.1</span></div><div class="u"><span class="u-spd">mph</span></div><div class="l">Ball Speed</div></div>
+      <div class="htile"><div class="v"><span class="cv" data-mph="102.8">102.8</span></div><div class="u"><span class="u-spd">mph</span></div><div class="l">Club Speed</div></div>
+      <div class="htile"><div class="v">1.48</div><div class="u">ratio</div><div class="l">Smash</div></div>
+      <div class="htile key"><div class="v"><span class="cv" data-yd="236">236</span></div><div class="u"><span class="u-dist">yd</span></div><div class="l">Carry</div></div>
+      <div class="htile"><div class="v"><span class="cv" data-yd="251">251</span></div><div class="u"><span class="u-dist">yd</span></div><div class="l">Total</div></div>
+    </div>
+
+    <!-- 궤도 -->
+    <div class="traj">
+      <div class="traj-card">
+        <div class="traj-h">Ball Flight · 측면</div>
+        <svg viewBox="0 0 300 110" preserveAspectRatio="none">
+          <line x1="8" y1="96" x2="292" y2="96" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+          <path d="M14,96 C90,2 170,2 286,90" fill="none" stroke="#b6e352" stroke-width="2.5"/>
+          <circle cx="14" cy="96" r="3.5" fill="#b6e352"/>
+          <circle cx="286" cy="90" r="3.5" fill="#fff"/>
+          <line x1="150" y1="12" x2="150" y2="96" stroke="rgba(182,227,82,.3)" stroke-dasharray="3 3" stroke-width="1"/>
+          <text x="150" y="9" fill="#b6e352" font-size="8" font-family="monospace" text-anchor="middle">APEX</text>
+        </svg>
+        <div class="traj-tags"><div><b><span class="cv" data-yd="31">31</span></b> <span class="u-dist">yd</span> 최고높이</div><div><b>38°</b> 착지각</div><div><b>6.2</b>s 체공</div></div>
+      </div>
+      <div class="traj-card">
+        <div class="traj-h">Dispersion · 상단</div>
+        <svg viewBox="0 0 140 110" preserveAspectRatio="none">
+          <line x1="70" y1="100" x2="70" y2="8" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 3" stroke-width="1"/>
+          <text x="70" y="108" fill="#6c7268" font-size="7.5" font-family="monospace" text-anchor="middle">타겟</text>
+          <path d="M70,100 C66,60 60,34 58,14" fill="none" stroke="#b6e352" stroke-width="2.5"/>
+          <circle cx="70" cy="100" r="3" fill="#b6e352"/>
+          <circle cx="58" cy="14" r="3.5" fill="#fff"/>
+        </svg>
+        <div class="traj-tags"><div><b><span class="cv" data-yd="4">4</span></b> <span class="u-dist">yd</span> L · Side</div><div><b><span class="cv" data-yd="6">6</span></b> L · 좌우토탈</div></div>
+      </div>
     </div>
   </div>
 
-  <div class="body">
-
-    <!-- 클럽 평균 -->
-    <div class="sec">
-      <div class="sec-h"><div class="sec-t"><i>01</i> &nbsp;클럽별 평균 데이터</div><div class="sec-x">최근 4주 · n=312 shots</div></div>
-      <table class="tbl">
-        <thead><tr><th>Club</th><th>Club Spd</th><th>Ball Spd</th><th>Smash</th><th>Launch</th><th>Spin</th><th>Carry</th></tr></thead>
-        <tbody>
-          <tr><td>드라이버</td><td>102.8</td><td>152.1</td><td>1.48</td><td>13.6°</td><td>2,780</td><td>236</td></tr>
-          <tr><td>5번 우드</td><td>96.1</td><td>140.7</td><td>1.46</td><td>14.9°</td><td>3,420</td><td>212</td></tr>
-          <tr><td>7번 아이언</td><td>82.5</td><td>110.3</td><td>1.34</td><td>18.2°</td><td>6,210</td><td>158</td></tr>
-          <tr><td>피칭웨지</td><td>74.0</td><td>92.4</td><td>1.25</td><td>26.4°</td><td>8,540</td><td>112</td></tr>
-        </tbody>
-      </table>
-      <div style="font-size:9px;color:var(--tx3);font-family:var(--mono);margin-top:8px;text-align:right">mph · ° · rpm · yd</div>
-    </div>
-
-    <!-- 대표 샷 -->
-    <div class="sec">
-      <div class="sec-h"><div class="sec-t"><i>02</i> &nbsp;대표 스윙 — 드라이버</div><div class="sec-x">2026.05.29</div></div>
-      <div class="shot-panel">
-        <div class="sp-top"><span class="sp-club">DRIVER</span><span class="sp-when">14:28:06 · BAY 1</span></div>
-        <div class="sp-video"><div class="sp-play">▶</div><span class="sp-vtag">정면 + 측면 · 0.125x 슬로우</span><span class="sp-vtag2">스켈레톤 분석 ✓</span></div>
-        <div class="param-cols">
-          <div class="param-col">
-            <div class="pc-label">Club Delivery</div>
-            <div class="prm"><span class="k">Club Speed</span><span class="v">102.8<span class="un">mph</span></span></div>
-            <div class="prm"><span class="k">Attack Angle</span><span class="v">+1.2<span class="un">°</span></span></div>
-            <div class="prm"><span class="k">Club Path</span><span class="v">+0.9<span class="un">°</span></span></div>
-            <div class="prm"><span class="k">Face Angle</span><span class="v">−0.4<span class="un">°</span></span></div>
-            <div class="prm"><span class="k">Face to Path</span><span class="v">−1.3<span class="un">°</span></span></div>
-            <div class="prm"><span class="k">Dynamic Loft</span><span class="v">14.1<span class="un">°</span></span></div>
-          </div>
-          <div class="param-col">
-            <div class="pc-label">Ball Flight</div>
-            <div class="prm"><span class="k">Ball Speed</span><span class="v">152.1<span class="un">mph</span></span></div>
-            <div class="prm"><span class="k">Smash Factor</span><span class="v">1.48</span></div>
-            <div class="prm"><span class="k">Launch Angle</span><span class="v">13.6<span class="un">°</span></span></div>
-            <div class="prm"><span class="k">Spin Rate</span><span class="v">2,780<span class="un">rpm</span></span></div>
-            <div class="prm"><span class="k">Spin Axis</span><span class="v">−2.1<span class="un">°</span></span></div>
-            <div class="prm"><span class="k">Carry / Total</span><span class="v">236<span class="un">/ 251 yd</span></span></div>
-          </div>
-        </div>
-        <div class="delivery">
-          <div class="dlv-h">Club Path vs Face Angle</div>
-          <div class="track">
-            <div class="axis"></div><div class="zero"></div><div class="zlabel">0°</div>
-            <div class="mk path" style="left:54.5%"><span class="lab">PATH +0.9</span></div>
-            <div class="mk face" style="left:48%"><span class="lab" style="top:-16px">FACE −0.4</span></div>
-          </div>
-          <div class="dlv-result"><span>구질 결과</span><span class="dlv-shape">스트레이트 → 약한 드로우</span></div>
-        </div>
+  <!-- 전체 파라미터 -->
+  <div class="sec">
+    <div class="sec-h"><div class="sec-t"><i>02</i>전체 측정값</div><div class="sec-x">TrackMan 40+ params</div></div>
+    <div class="pgrid">
+      <div class="pcol club">
+        <div class="pcol-h">Club Data</div>
+        <div class="prm"><span class="k">Attack Angle</span><span class="vv">+1.2<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Club Path</span><span class="vv">+0.9<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Face Angle</span><span class="vv">−0.4<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Face to Path</span><span class="vv">−1.3<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Dynamic Loft</span><span class="vv">14.1<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Swing Direction</span><span class="vv">−0.6<span class="un">°</span></span></div>
+      </div>
+      <div class="pcol ball">
+        <div class="pcol-h">Ball Data</div>
+        <div class="prm"><span class="k">Launch Angle</span><span class="vv">13.6<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Launch Direction</span><span class="vv">+0.3<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Spin Rate</span><span class="vv">2,780<span class="un">rpm</span></span></div>
+        <div class="prm"><span class="k">Spin Axis</span><span class="vv">−2.1<span class="un">°</span></span></div>
+        <div class="prm"><span class="k">Curve</span><span class="vv"><span class="cv" data-yd="3">3</span><span class="un"><span class="u-dist">yd</span> L</span></span></div>
+        <div class="prm"><span class="k">Landing Angle</span><span class="vv">38<span class="un">°</span></span></div>
       </div>
     </div>
 
-    <!-- 8주 변화 -->
-    <div class="sec">
-      <div class="sec-h"><div class="sec-t"><i>03</i> &nbsp;8주 변화 (드라이버)</div><div class="sec-x">슬라이스 교정 사이클</div></div>
-      <table class="prog">
-        <thead><tr><th>지표</th><th>시작 (4/1)</th><th>현재 (5/29)</th><th>변화</th></tr></thead>
-        <tbody>
-          <tr><td>Club Speed</td><td>96.4</td><td>102.8</td><td class="delta up">+6.4</td></tr>
-          <tr><td>Smash Factor</td><td>1.44</td><td>1.48</td><td class="delta up">+0.04</td></tr>
-          <tr><td>Club Path</td><td>−3.8°</td><td>+0.9°</td><td class="delta up">아웃→인 교정</td></tr>
-          <tr><td>Face to Path</td><td>+5.9°</td><td>−1.3°</td><td class="delta up">−7.2°</td></tr>
-          <tr><td>Spin Axis</td><td>+8.2°R</td><td>−2.1°</td><td class="delta up">슬라이스 해소</td></tr>
-          <tr><td>Spin Rate</td><td>3,450</td><td>2,780</td><td class="delta up">−670</td></tr>
-          <tr><td>Carry</td><td>198</td><td>236</td><td class="delta up">+38 yd</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 코치 분석 -->
-    <div class="sec">
-      <div class="sec-h"><div class="sec-t"><i>04</i> &nbsp;기술 분석</div></div>
-      <div class="analysis">
-        <div class="an-h"><span class="an-role">GOLF PRO</span><span class="an-who">정우진 프로</span></div>
-        <div class="an-txt">아웃-인 궤도(<b>Club Path −3.8°</b>)와 열린 페이스가 만든 슬라이스가 핵심 과제였습니다. 8주간 다운스윙 하체 리드와 페이스 컨트롤을 교정해 <b>Face to Path</b>를 <b>+5.9° → −1.3°</b>로 줄였고, 그 결과 스핀축이 중립으로 돌아오며 좌우 분산이 <b>22yd → 4yd</b>로 안정됐습니다. 클럽 스피드도 <b>+6.4mph</b> 상승해 캐리가 늘었습니다.</div>
+    <!-- 클럽 딜리버리 -->
+    <div class="delivery">
+      <div class="dlv-h">Club Path vs Face Angle → 구질</div>
+      <div class="track">
+        <div class="axis"></div><div class="zero"></div><div class="zlabel">0°</div>
+        <div class="mk path" style="left:55%"><span class="lab">PATH +0.9</span></div>
+        <div class="mk face" style="left:48%"><span class="lab">FACE −0.4</span></div>
       </div>
-      <div class="analysis tr">
-        <div class="an-h"><span class="an-role">GOLF PT</span><span class="an-who">최현승 트레이너</span></div>
-        <div class="an-txt">흉추 회전 가동성(우측 제한)과 지면반력 활용이 스피드의 제한 요인이었습니다. 흉추 모빌리티·고관절 신전·코어 안정화를 병행해 백스윙 탑 포지션과 임팩트 하체 드라이브를 개선했고, 이는 클럽 스피드 상승의 신체적 기반이 됐습니다.</div>
-      </div>
+      <div class="dlv-res"><span class="dlv-shape">스트레이트 → 약한 드로우</span></div>
     </div>
-
-    <!-- 목표 -->
-    <div class="sec">
-      <div class="targets">
-        <div class="tg-h">다음 사이클 목표 (8주)</div>
-        <div class="tg-grid">
-          <div class="tg"><div class="tv">106<span class="un">mph</span></div><div class="tl">Club Speed</div></div>
-          <div class="tg"><div class="tv">±1.0<span class="un">°</span></div><div class="tl">Face to Path 유지</div></div>
-          <div class="tg"><div class="tv">90<span class="un">타</span></div><div class="tl">평균 스코어 돌파</div></div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <div class="foot">본 리포트의 모든 탄도 데이터는 <b>TRACKMAN</b> 런치모니터로 측정되었으며, 담당 지도자의 분석과 함께 작성되었습니다.<br>NATIONAL GYM · PT &amp; GOLF STUDIO</div>
+  <!-- 클럽 평균 -->
+  <div class="sec">
+    <div class="sec-h"><div class="sec-t"><i>03</i>클럽별 평균</div><div class="sec-x">최근 4주 · n=312</div></div>
+    <table class="tbl">
+      <thead><tr><th>Club</th><th>Club Spd</th><th>Ball Spd</th><th>Smash</th><th>Spin</th><th>Carry</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>드라이버</td><td><span class="cv" data-mph="102.8">102.8</span></td><td><span class="cv" data-mph="152.1">152.1</span></td><td>1.48</td><td>2,780</td><td><span class="cv" data-yd="236">236</span></td><td><span class="cv" data-yd="251">251</span></td></tr>
+        <tr><td>5번 우드</td><td><span class="cv" data-mph="96.1">96.1</span></td><td><span class="cv" data-mph="140.7">140.7</span></td><td>1.46</td><td>3,420</td><td><span class="cv" data-yd="212">212</span></td><td><span class="cv" data-yd="224">224</span></td></tr>
+        <tr><td>7번 아이언</td><td><span class="cv" data-mph="82.5">82.5</span></td><td><span class="cv" data-mph="110.3">110.3</span></td><td>1.34</td><td>6,210</td><td><span class="cv" data-yd="158">158</span></td><td><span class="cv" data-yd="166">166</span></td></tr>
+        <tr><td>피칭웨지</td><td><span class="cv" data-mph="74.0">74.0</span></td><td><span class="cv" data-mph="92.4">92.4</span></td><td>1.25</td><td>8,540</td><td><span class="cv" data-yd="112">112</span></td><td><span class="cv" data-yd="116">116</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 8주 변화 -->
+  <div class="sec">
+    <div class="sec-h"><div class="sec-t"><i>04</i>8주 변화 · 드라이버</div><div class="sec-x">슬라이스 교정</div></div>
+    <table class="prog">
+      <thead><tr><th>지표</th><th>시작</th><th>현재</th><th>변화</th></tr></thead>
+      <tbody>
+        <tr><td>Club Speed</td><td>96.4</td><td>102.8</td><td class="d">+6.4</td></tr>
+        <tr><td>Smash</td><td>1.44</td><td>1.48</td><td class="d">+0.04</td></tr>
+        <tr><td>Club Path</td><td>−3.8°</td><td>+0.9°</td><td class="d">아웃→인</td></tr>
+        <tr><td>Face to Path</td><td>+5.9°</td><td>−1.3°</td><td class="d">−7.2°</td></tr>
+        <tr><td>Spin Axis</td><td>+8.2°</td><td>−2.1°</td><td class="d">중립화</td></tr>
+        <tr><td>Carry</td><td><span class="cv" data-yd="198">198</span></td><td><span class="cv" data-yd="236">236</span></td><td class="d">+<span class="cv" data-yd="38">38</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 코치 -->
+  <div class="sec">
+    <div class="sec-h"><div class="sec-t"><i>05</i>전문가 분석</div></div>
+    <div class="an">
+      <div class="an-h"><span class="an-r">GOLF PRO</span><span class="an-w">정우진 프로</span></div>
+      <div class="an-t">아웃-인 궤도(<b>Path −3.8°</b>)와 열린 페이스가 만든 슬라이스가 과제였습니다. 다운스윙 하체 리드·페이스 컨트롤 교정으로 <b>Face to Path</b>를 <b>+5.9°→−1.3°</b>로 줄여 스핀축이 중립으로 복귀, 좌우 분산이 <b>22→4yd</b>로 안정됐습니다.</div>
+    </div>
+    <div class="an tr">
+      <div class="an-h"><span class="an-r">PT TRAINER</span><span class="an-w">최현승 트레이너</span></div>
+      <div class="an-t">흉추 회전(우측 제한)과 지면반력이 스피드 제한 요인이었습니다. 흉추 모빌리티·고관절 신전·코어 안정화로 임팩트 하체 드라이브를 강화 — <b>Club Speed +6.4mph</b>의 신체적 기반이 됐습니다.</div>
+    </div>
+  </div>
+
+  <!-- 목표 -->
+  <div class="sec">
+    <div class="sec-h"><div class="sec-t"><i>06</i>다음 사이클 목표</div></div>
+    <div class="tg-grid">
+      <div class="tg"><div class="v">106<span class="un">mph</span></div><div class="l">Club Speed</div></div>
+      <div class="tg"><div class="v">±1.0<span class="un">°</span></div><div class="l">Face to Path</div></div>
+      <div class="tg"><div class="v">90<span class="un">타</span></div><div class="l">평균 스코어</div></div>
+    </div>
+  </div>
+
+  <div class="foot">모든 탄도 데이터는 <b>TRACKMAN iO</b> 로 측정되었으며 담당 지도자 분석과 함께 작성되었습니다 · NATIONAL GYM GOLF PT</div>
 </div>
+
+<script>
+var dist='yd', spd='mph';
+function r(v,d){var p=Math.pow(10,d);var n=Math.round(v*p)/p;return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function apply(){
+  document.querySelectorAll('[data-yd]').forEach(function(e){var y=parseFloat(e.dataset.yd);e.textContent=(dist==='yd')?r(y,0):r(y*0.9144,1);});
+  document.querySelectorAll('[data-mph]').forEach(function(e){var m=parseFloat(e.dataset.mph);e.textContent=(spd==='mph')?r(m,1):r(m*0.44704,1);});
+  document.querySelectorAll('.u-dist').forEach(function(e){e.textContent=(dist==='yd')?'yd':'m';});
+  document.querySelectorAll('.u-spd').forEach(function(e){e.textContent=(spd==='mph')?'mph':'m/s';});
+  document.querySelectorAll('[data-set-dist]').forEach(function(b){b.classList.toggle('on',b.dataset.setDist===dist);});
+  document.querySelectorAll('[data-set-spd]').forEach(function(b){b.classList.toggle('on',(b.dataset.setSpd==='ms'?'ms':'mph')===spd);});
+}
+function setDist(u){dist=u;apply();}
+function setSpd(u){spd=(u==='ms')?'ms':'mph';apply();}
+apply();
+</script>
 </body>
 </html>
