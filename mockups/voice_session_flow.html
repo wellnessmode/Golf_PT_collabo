@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음성 → AI 세션카드 자동 작성 흐름</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ac:#00b884;--ac2:#00a070;--pro:#3868d6;--tx:#0d0d10;--tx2:#4a4d57;--tx3:#9094a0;--bg0:#eef0f3;--bg1:#fff;--bg3:#f5f6f8;--bg4:#eef0f3;--brd:rgba(0,0,0,.07);--warn:#d97706;--err:#dc2626;--r:8px;--rl:14px}
+body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(--bg0);color:var(--tx);-webkit-font-smoothing:antialiased;padding:22px 10px 56px}
+.wrap{max-width:900px;margin:0 auto}
+.note{text-align:center;color:#5b616a;font-size:13px;line-height:1.65;margin-bottom:6px;padding:0 12px}
+.note b{color:var(--ac2)}
+/* 흐름 스트립 */
+.flow{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:14px auto 22px;max-width:760px}
+.fstep{display:flex;align-items:center;gap:6px;background:var(--bg1);border:1px solid var(--brd);border-radius:20px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--tx3)}
+.fstep.on{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:none;box-shadow:0 3px 12px rgba(0,184,132,.3)}
+.farrow{color:var(--tx3);font-size:13px}
+.cols{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+.col-cap{text-align:center;font-size:12px;font-weight:800;color:var(--tx2);margin-bottom:9px}
+
+.phone{width:380px;max-width:94vw;background:#0d0d10;border-radius:42px;padding:10px;box-shadow:0 24px 64px rgba(0,0,0,.26)}
+.scr{background:var(--bg0);border-radius:32px;overflow:hidden;min-height:680px}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
+.bar .lg{font-weight:900;font-size:13px;letter-spacing:.5px}.bar .lg small{display:block;font-size:7.5px;letter-spacing:1.5px;color:var(--tx3)}
+.bar .who{font-size:11px;font-weight:600;color:var(--tx2);background:var(--bg1);border:1px solid var(--brd);padding:5px 10px;border-radius:20px}
+.body{padding:4px 14px 18px}
+
+/* 베이 카드 (녹음중) */
+.bay{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--rl);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:12px}
+.bay-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(135deg,#3868d6,#2a4fa8);color:#fff}
+.bay-hd .bn{font-size:15px;font-weight:800}
+.rec{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;background:rgba(255,255,255,.16);padding:4px 10px;border-radius:20px}
+.rec .dot{width:8px;height:8px;border-radius:50%;background:#ff5b5b;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.bay-bd{padding:13px}
+.mem{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.av{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#3868d6,#2a4fa8);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.mn{font-size:16px;font-weight:800}.ma{font-size:11.5px;color:var(--pro);font-weight:600;margin-top:1px}
+
+/* 실시간 자막 */
+.live-cap{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--rl);padding:14px;margin-bottom:12px}
+.lc-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;margin-bottom:10px}
+.lc-h .mic{color:var(--err)}
+.lc-line{font-size:13px;color:var(--tx2);line-height:1.7;padding:3px 0}
+.lc-line.now{color:var(--tx);font-weight:600}
+.lc-line.now::after{content:"▍";color:var(--ac);animation:blink 1s infinite}
+.lc-ai{margin-top:11px;display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ac2);font-weight:600;background:rgba(0,184,132,.07);padding:8px 11px;border-radius:8px}
+.acts{display:flex;gap:8px}
+.btn{border:none;border-radius:8px;font-weight:700;font-family:inherit;cursor:pointer;font-size:14px;padding:13px}
+.b-shot{flex:1;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff}
+.b-end{flex:1.4;background:#1f2430;color:#fff;font-weight:800}
+
+/* AI 정리 세션카드 (검토) */
+.review-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;margin-bottom:4px}
+.review-h .ai{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-size:9px;font-weight:800;padding:3px 8px;border-radius:6px;letter-spacing:.4px}
+.review-sub{font-size:11px;color:var(--tx3);margin-bottom:12px}
+.card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--rl);overflow:hidden;margin-bottom:12px}
+.card-top{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--brd);background:var(--bg3)}
+.tag{font-size:9px;font-weight:800;padding:3px 9px;border-radius:5px;background:rgba(0,184,132,.1);color:var(--ac2);letter-spacing:.4px}
+.card-meta{font-size:11px;color:var(--tx2);font-weight:600}
+.card-bd{padding:14px}
+.fld{margin-bottom:13px}
+.fld-l{font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.fld ul{list-style:none}
+.fld li{font-size:13px;color:var(--tx2);line-height:1.7;padding-left:15px;position:relative}
+.fld li::before{content:"";position:absolute;left:2px;top:9px;width:5px;height:5px;border-radius:50%;background:var(--ac)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11.5px;font-weight:600;color:var(--tx2);background:var(--bg4);border:1px solid var(--brd);padding:5px 10px;border-radius:16px}
+.focus{font-size:12.5px;color:var(--warn);font-weight:600;background:rgba(217,119,6,.07);border-radius:8px;padding:9px 11px}
+.tmsum{display:flex;gap:8px;font-size:11.5px;color:var(--tx2);background:var(--bg3);border-radius:8px;padding:9px 11px;align-items:center}
+.tmsum b{color:var(--tx)}
+.raw{font-size:11px;color:var(--tx3);border:1px dashed var(--brd);border-radius:8px;padding:9px 11px;margin-bottom:12px}
+.raw summary{cursor:pointer;font-weight:600;color:var(--tx2)}
+.raw p{margin-top:7px;line-height:1.6}
+.b-edit{flex:1;background:var(--bg4);color:var(--tx2)}
+.b-save{flex:1.6;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-weight:800}
+.consent{font-size:10.5px;color:var(--tx3);text-align:center;margin-top:11px;line-height:1.6}
+
+.tech{max-width:760px;margin:26px auto 0;background:var(--bg1);border:1px solid var(--brd);border-radius:var(--rl);padding:16px 18px}
+.tech h3{font-size:12px;color:var(--ac2);margin-bottom:10px;letter-spacing:.3px}
+.tech .row{display:flex;gap:9px;font-size:12px;color:var(--tx2);line-height:1.6;padding:7px 0;border-bottom:1px dashed var(--brd)}
+.tech .row:last-child{border:none}
+.tech .row b{color:var(--tx)}
+.tech .k{flex:none;width:80px;font-weight:800;color:var(--tx)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="note">③ <b>실시간 음성 → AI 세션카드 자동 작성</b> · "끝나고 적기"가 아니라 <b>하면서 자동 받아쓰기 → 종료 시 AI가 정리 → 트레이너는 확인만</b></div>
+
+  <div class="flow">
+    <div class="fstep">▶ 시작</div><span class="farrow">→</span>
+    <div class="fstep on">🎙 자동 받아쓰기</div><span class="farrow">→</span>
+    <div class="fstep">⏹ 종료</div><span class="farrow">→</span>
+    <div class="fstep">🤖 AI 정리</div><span class="farrow">→</span>
+    <div class="fstep">✓ 검토·저장</div>
+  </div>
+
+  <div class="cols">
+    <!-- 녹음 중 -->
+    <div>
+      <div class="col-cap">① 세션 진행 중 — 자동 받아쓰기</div>
+      <div class="phone"><div class="scr">
+        <div class="bar"><div class="lg">NATIONAL GYM<small>GOLF PT</small></div><div class="who">최현승 트레이너</div></div>
+        <div class="body">
+          <div class="bay">
+            <div class="bay-hd"><span class="bn">1번타석</span><span class="rec"><span class="dot"></span>녹음 중 28:14</span></div>
+            <div class="bay-bd">
+              <div class="mem"><div class="av">김민</div><div><div class="mn">김민수님</div><div class="ma">최현승 트레이너 · 레슨 중</div></div></div>
+            </div>
+          </div>
+          <div class="live-cap">
+            <div class="lc-h"><span class="mic">🎙</span> 실시간 받아쓰기</div>
+            <div class="lc-line">오늘은 백스윙에서 상체 회전을 좀 더 크게 가져가는 걸 봤고요,</div>
+            <div class="lc-line">7번 아이언으로 하프스윙 서른 개 정도 반복했습니다.</div>
+            <div class="lc-line now">체중 이동이 늦는 편이라 스텝 드릴을 추가로</div>
+            <div class="lc-ai">🤖 AI가 듣고 핵심을 세션카드로 정리하고 있어요</div>
+          </div>
+          <div class="acts">
+            <button class="btn b-shot">🎯 굿샷</button>
+            <button class="btn b-end">⏹ 종료 &amp; 정리</button>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 종료 후 검토 -->
+    <div>
+      <div class="col-cap">② 종료 직후 — AI 정리본 확인</div>
+      <div class="phone"><div class="scr">
+        <div class="bar"><div class="lg">NATIONAL GYM<small>GOLF PT</small></div><div class="who">최현승 트레이너</div></div>
+        <div class="body">
+          <div class="review-h"><span class="ai">AI 정리</span> 세션카드 검토</div>
+          <div class="review-sub">자동 작성됐습니다. 맞는지 확인하고 저장하세요.</div>
+          <div class="card">
+            <div class="card-top"><span class="tag">GOLF PT</span><span class="card-meta">2026.05.29 · 최현승 트레이너 · 1번타석</span></div>
+            <div class="card-bd">
+              <div class="fld"><div class="fld-l">레슨 내용</div><ul>
+                <li>백스윙 상체 회전 가동범위 확대 집중</li>
+                <li>7번 아이언 하프스윙 30회 반복</li>
+                <li>체중 이동 지연 → 스텝 드릴 추가</li>
+              </ul></div>
+              <div class="fld"><div class="fld-l">운동 · 드릴</div><div class="chips"><span class="chip">흉추 회전 모빌리티</span><span class="chip">스텝 드릴</span><span class="chip">하프스윙 반복</span></div></div>
+              <div class="fld"><div class="fld-l">다음 포커스</div><div class="focus">다운스윙 하체 리드 타이밍 — 체중이동 선행</div></div>
+              <div class="fld"><div class="fld-l">트랙맨 요약</div><div class="tmsum">🎯 저장된 샷 <b>5개</b> · 베스트 캐리 <b>251 yd</b> · 평균 스매시 <b>1.47</b></div></div>
+            </div>
+          </div>
+          <details class="raw"><summary>🎙 들은 원문 보기</summary><p>"오늘은 백스윙에서 상체 회전을 좀 더 크게 가져가는 걸 봤고요, 7번 아이언으로 하프스윙 서른 개 정도 반복했습니다. 체중 이동이 늦는 편이라 스텝 드릴을 추가로 진행했어요. 다음엔 하체부터 리드하는 타이밍을…"</p></details>
+          <div class="acts">
+            <button class="btn b-edit">✏ 수정</button>
+            <button class="btn b-save">✓ 확인 저장</button>
+          </div>
+          <div class="consent">🔒 음성 원문은 저장 후 자동 폐기(설정 가능) · 회원 동의 1회 확인</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="tech">
+    <h3>구현 방식 (참고)</h3>
+    <div class="row"><span class="k">받아쓰기</span><div><b>안드로이드/갤럭시·크롬</b>: 브라우저 내장 음성인식으로 실시간 자막 (무료, 끊김 적음). <b>아이폰/사파리</b>: 실시간 API가 불안정 → 세션 중 녹음 후 종료 시 변환(약간 지연). 둘 다 자동 처리.</div></div>
+    <div class="row"><span class="k">AI 정리</span><div>받아쓴 원문을 기존 <b>AI 세션 요약 엔진</b>에 넣어 레슨내용·운동·다음포커스 형식으로 구조화. 트랙맨 샷 요약 자동 결합.</div></div>
+    <div class="row"><span class="k">저장</span><div>정리본은 <b>기존 세션카드 그대로</b> 저장 (별도 시스템 아님). 트레이너가 확인·수정 후 확정.</div></div>
+    <div class="row"><span class="k">프라이버시</span><div>회원 녹음 동의 1회 + 음성 원문 보관/폐기 선택. 텍스트만 남기는 옵션 권장.</div></div>
+  </div>
+</div>
+</body>
+</html>

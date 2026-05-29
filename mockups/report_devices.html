@@ -3,6 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리포트 — 아이폰 / 갤럭시 체크</title>
+<style>
+body{margin:0;background:#d6dade;font-family:-apple-system,'Noto Sans KR',sans-serif;padding:18px 6px 50px;overflow-x:auto}
+.note{max-width:880px;margin:0 auto 16px;text-align:center;color:#4a4f55;font-size:12.5px;line-height:1.6;padding:0 12px}
+.note b{color:#c2410c}
+.rowwrap{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+.dev{text-align:center}
+.dlabel{font-size:12px;font-weight:800;color:#33373c;margin-bottom:9px;letter-spacing:.3px}
+.dlabel small{display:block;font-size:10px;font-weight:600;color:#7a8088;margin-top:2px}
+.phone{background:#0b0b0d;padding:11px;box-shadow:0 24px 60px rgba(0,0,0,.28);border-radius:44px}
+.phone.ga{border-radius:26px;padding:8px}
+.screen{height:770px;overflow:hidden;background:#111;position:relative;border-radius:34px}
+.phone.ga .screen{border-radius:18px}
+.ip .screen{width:390px}
+.ga .screen{width:360px}
+.screen iframe{width:100%;height:100%;border:none;display:block}
+.tip{max-width:880px;margin:16px auto 0;font-size:11.5px;color:#4a4f55;line-height:1.7;padding:0 16px;text-align:center}
+.tip b{color:#222}
+</style>
+</head>
+<body>
+<div class="note">동일 리포트를 <b>아이폰(390pt)</b> · <b>갤럭시(360dp)</b> 폭으로 동시 렌더 — 실제 모바일 레이아웃입니다.<br>각 화면 우측 상단 <b>글씨 가 / 가+ / 가++</b> 버튼으로 어르신용 확대를 눌러보세요.</div>
+<div class="rowwrap">
+  <div class="dev"><div class="dlabel">iPhone 14/15 <small>390 × 844</small></div><div class="phone ip"><div class="screen"><iframe id="fi"></iframe></div></div></div>
+  <div class="dev"><div class="dlabel">Galaxy S <small>360 × 800</small></div><div class="phone ga"><div class="screen"><iframe id="fg"></iframe></div></div></div>
+</div>
+<div class="tip">PC에서 보면 두 기기가 나란히, 폰에서 보면 위아래로 쌓입니다. <b>가++</b> 누르면 본문·숫자가 큼직하게 커집니다 (레이아웃은 유지).</div>
+
+<template id="rep">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GOLF PERFORMANCE REPORT — 내셔널짐</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -320,6 +354,18 @@ function setDist(u){dist=u;apply();}
 function setSpd(u){spd=(u==='ms')?'ms':'mph';apply();}
 function setTS(t){document.querySelector('.rep').style.setProperty('--ts',t);document.querySelectorAll('[data-set-ts]').forEach(function(b){b.classList.toggle('on',parseFloat(b.dataset.setTs)===t);});}
 apply();
+</script>
+</body>
+</html>
+</template>
+
+<script>
+(function(){
+  var inner=document.getElementById('rep').innerHTML;
+  function mk(w){return "<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><meta name='viewport' content='width="+w+", initial-scale=1'></head><body style='margin:0'><style>.note{display:none!important}</style>"+inner+"</body></html>";}
+  document.getElementById('fi').srcdoc=mk(390);
+  document.getElementById('fg').srcdoc=mk(360);
+})();
 </script>
 </body>
 </html>
