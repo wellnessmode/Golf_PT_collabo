@@ -754,3 +754,88 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 /* Media viewer overlay */
 .media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer;backdrop-filter:blur(4px)}
 .media-overlay img{max-width:92%;max-height:92%;object-fit:contain;border-radius:var(--r)}
+
+/* ================================================================
+   성과 대시보드 (Performance Dashboard)
+   ================================================================ */
+.perf-overlay{position:fixed;inset:0;z-index:400;background:linear-gradient(180deg,#0e1b14,#0a0f0c);overflow-y:auto;-webkit-overflow-scrolling:touch;animation:perfIn .25s var(--ease)}
+@keyframes perfIn{from{opacity:0}to{opacity:1}}
+.perf-shell{max-width:1080px;margin:0 auto;padding:0 0 60px}
+.perf-topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:max(16px,env(safe-area-inset-top)) 22px 14px;background:rgba(14,27,20,.82);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.07)}
+.perf-brand{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em}
+.perf-logo{height:22px;filter:brightness(0) invert(1);opacity:.92}
+.perf-demo-tag{font-size:9px;font-weight:800;letter-spacing:.08em;background:var(--ac);color:#04130d;padding:3px 8px;border-radius:6px;margin-left:4px}
+.perf-close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font-size:15px;cursor:pointer;transition:var(--t-fast)}
+.perf-close:hover{background:rgba(255,255,255,.14)}
+
+.perf-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:30px 26px 26px;color:#fff}
+.ph-name{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.ph-goal{font-size:14px;color:var(--ac);font-weight:600;margin-top:10px}
+.ph-meta{font-size:13px;color:rgba(255,255,255,.6);margin-top:8px}
+.ph-focus{font-size:12px;color:rgba(255,255,255,.5);margin-top:8px;padding:6px 12px;background:rgba(255,255,255,.05);border-radius:8px;display:inline-block}
+.ph-right{flex-shrink:0}
+
+.perf-section{margin:8px 16px 26px;padding:22px;background:rgba(255,255,255,.97);border-radius:var(--r-xl);box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.ps-title{font-size:16px;font-weight:800;color:var(--tx);letter-spacing:-.02em;display:flex;align-items:center;gap:9px;margin-bottom:18px}
+.ps-title small{font-size:12px;font-weight:500;color:var(--tx-3)}
+.ps-dot{width:9px;height:9px;border-radius:50%}
+.ps-dot.blue{background:var(--pro)}.ps-dot.green{background:var(--ac)}.ps-dot.amber{background:var(--warn)}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--bg-3);border:1px solid var(--brd);border-radius:var(--r-lg);padding:15px 16px}
+.kpi-card.blue{border-top:3px solid var(--pro)}.kpi-card.green{border-top:3px solid var(--ac)}.kpi-card.amber{border-top:3px solid var(--warn)}
+.kpi-label{font-size:11px;color:var(--tx-3);font-weight:600;margin-bottom:8px}
+.kpi-val{font-size:28px;font-weight:800;color:var(--tx);letter-spacing:-.03em;line-height:1}
+.kpi-unit{font-size:13px;font-weight:600;color:var(--tx-3);margin-left:3px}
+.kpi-delta{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px}
+.kpi-delta.up{color:var(--ac);background:var(--ac-glow)}
+.kpi-delta.down{color:var(--err);background:var(--err-bg)}
+.kpi-delta.flat{color:var(--tx-3);background:var(--bg-4)}
+
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chart-card{background:var(--bg-2);border:1px solid var(--brd);border-radius:var(--r-lg);padding:14px 16px 8px}
+.chart-card.wide{grid-column:1 / -1}
+.cc-title{font-size:12px;font-weight:700;color:var(--tx-2);margin-bottom:6px;display:flex;align-items:baseline;gap:6px}
+.cc-unit{font-size:10px;font-weight:500;color:var(--tx-3)}
+.chart{width:100%;height:auto;display:block}
+.chart-empty{padding:30px;text-align:center;color:var(--tx-3);font-size:12px}
+.cax{font-size:9px;fill:var(--tx-3);font-family:var(--font)}
+.clast{font-size:12px;font-weight:800;font-family:var(--font)}
+.chart-legend{display:flex;gap:14px;justify-content:center;padding:4px 0 8px;flex-wrap:wrap}
+.cl-item{font-size:11px;color:var(--tx-2);display:flex;align-items:center;gap:5px}
+.cl-item i{width:11px;height:3px;border-radius:2px;display:inline-block}
+
+.radar-card{background:var(--bg-2);border:1px solid var(--brd);border-radius:var(--r-lg);padding:14px 16px;margin-top:14px;text-align:center}
+.radar{width:100%;max-width:300px;height:auto;margin:4px auto 0;display:block}
+.radar-lab{font-size:10px;fill:var(--tx-2);font-weight:600;font-family:var(--font)}
+.radar-legend{display:flex;gap:18px;justify-content:center;margin-top:6px;font-size:11px;color:var(--tx-2)}
+.radar-legend span{display:flex;align-items:center;gap:6px}
+.radar-legend i{width:16px;height:0;display:inline-block;border-top:2px solid #00b884}
+.radar-legend i.dash{border-top:2px dashed #9aa3ad}
+
+.ring{display:block}
+.ring-val{font-size:30px;font-weight:800;fill:#fff;font-family:var(--font)}
+.ring-lbl{font-size:11px;fill:rgba(255,255,255,.6);font-family:var(--font)}
+.perf-section .ring-val{fill:var(--tx)}.perf-section .ring-lbl{fill:var(--tx-3)}
+
+.perf-footer{text-align:center;color:rgba(255,255,255,.4);font-size:11px;padding:24px 20px;line-height:1.7}
+.perf-footer span{font-size:10px;color:rgba(255,255,255,.28)}
+
+.perf-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center;color:#fff}
+.pe-icon{font-size:46px;margin-bottom:18px}
+.pe-title{font-size:18px;font-weight:700;margin-bottom:10px}
+.pe-sub{font-size:13px;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:24px}
+.perf-demo-btn{background:var(--ac);color:#04130d;border:none;border-radius:12px;padding:13px 22px;font-size:14px;font-weight:700;cursor:pointer;transition:var(--t-fast)}
+.perf-demo-btn:hover{transform:translateY(-1px);box-shadow:var(--sh-glow)}
+
+.demo-btn{background:linear-gradient(135deg,var(--ac),#00a070)!important;color:#fff!important;font-weight:700!important;border:none!important}
+
+@media(max-width:768px){
+  .perf-hero{flex-direction:column;align-items:flex-start;padding:22px 18px}
+  .ph-right{align-self:center;margin-top:6px}
+  .ph-name{font-size:24px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .chart-grid{grid-template-columns:1fr}
+  .perf-section{margin:8px 10px 18px;padding:16px}
+  .kpi-val{font-size:24px}
+}

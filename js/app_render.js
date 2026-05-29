@@ -101,6 +101,7 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
       ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
       ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>':''}
@@ -125,6 +126,7 @@ function render(){
         </div>
       </div>
       <div class="topbar-actions">
+        <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드">📊 성과</button>
         <button class="btn" onclick="openImageCard()" title="이미지 카드">카드</button>
         <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
@@ -245,6 +247,7 @@ function render(){
   ${renderHandoverModal()}
   ${renderReportModal()}
   ${renderImageCardModal()}
+  ${renderPerformance()}
   `;
   setTimeout(function(){if(S.memberSearch){var el=document.querySelector('.sidebar-search');if(el){el.focus();el.setSelectionRange(S.memberSearch.length,S.memberSearch.length);}}if(S.exercisePicker&&S.exercisePicker.open&&S.exercisePicker.query){var el2=document.querySelector('.ex-picker-search input');if(el2){el2.focus();el2.setSelectionRange(S.exercisePicker.query.length,S.exercisePicker.query.length);}}},0);
 }

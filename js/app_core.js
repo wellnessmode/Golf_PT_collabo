@@ -300,7 +300,8 @@ let S = {
   warningBannerCollapsed:false,
   handovers:{}, showHandover:null, showReport:false,
   memberSearch:'', showDashboard:false, sidebarTab:'pt_lesson',
-  showGoalEdit:false, showImageCard:false
+  showGoalEdit:false, showImageCard:false,
+  showPerformance:false, perfMember:null, perfDemo:false
 };
 
 // ============ Audit Log ============

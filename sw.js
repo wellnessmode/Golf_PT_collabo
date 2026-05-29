@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v3.4';
+const CACHE_NAME = 'golf-pt-v3.5';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   './js/app_render.js',
   './js/app_handlers.js',
   './js/app_ai.js',
+  './js/app_dashboard.js',
   './js/exercises_data.js',
   './config.js',
   './assets/logo.png',
