@@ -930,3 +930,53 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
   .shot-row .small-btn{padding:3px 9px}
   .live-toast{font-size:13px;bottom:20px}
 }
+
+/* ===== 음성 받아쓰기 (라이브 세션) ===== */
+.voice-btn{width:100%;background:var(--bg-3);color:var(--ac-2);border:1px solid var(--ac);font-weight:700;margin-bottom:8px}
+.voice-btn:hover{background:var(--ac-glow2)}
+.voice-note{font-size:11px;color:var(--tx-3);background:var(--bg-3);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-align:center;line-height:1.5}
+.voice-rec{background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.22);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.vr-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--err)}
+.vr-dot{width:9px;height:9px;border-radius:50%;background:var(--err);animation:pulse 1s infinite}
+.vr-stop{margin-left:auto;font-size:11px;font-weight:700;color:var(--tx-2);background:var(--bg-1);border:1px solid var(--brd-2);border-radius:6px;padding:3px 11px;cursor:pointer;font-family:var(--font)}
+.vr-text{font-size:12.5px;color:var(--tx-2);line-height:1.6;margin-top:8px;max-height:58px;overflow:hidden}
+
+/* ===== 성과 리포트 컨트롤 (단위/글씨/인쇄) ===== */
+.perf-topbar{flex-wrap:wrap;gap:8px}
+.perf-ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+.pfc-grp{display:flex;align-items:center;gap:3px}
+.pfc-grp b{font-size:9px;color:var(--tx-3);font-weight:800;margin-right:1px}
+.pfc{font-size:11px;font-weight:700;padding:5px 9px;border:1px solid var(--brd-2);background:var(--bg-2);color:var(--tx-2);border-radius:6px;cursor:pointer;font-family:var(--font)}
+.pfc:hover{background:var(--bg-4)}
+.pfc.on{background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#fff;border-color:transparent}
+.pfc-print{font-weight:700}
+@media(max-width:680px){.perf-ctrls{gap:5px}.pfc-grp b{display:none}.pfc{padding:5px 7px}}
+
+/* ===== 대표 샷 패널 (TPS 다크 데이터 리드아웃) ===== */
+.ts-panel{background:linear-gradient(160deg,#1b1b1e,#101012);border-radius:14px;padding:15px 16px;margin:6px 0 16px}
+.ts-h{font-size:11px;font-weight:800;letter-spacing:.5px;color:#fff;margin-bottom:12px}
+.ts-when{font-size:10px;color:#8a8f96;font-weight:600;margin-left:6px}
+.ts-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:10px}
+.ts-tile{background:#27272c;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:9px 4px;text-align:center}
+.ts-tile:first-child{border-top:2px solid #f47c20}
+.ts-l{font-size:8px;color:#8a8f96;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:5px}
+.ts-v{font-size:18px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+.ts-tile:first-child .ts-v{color:#ff8b33}
+.ts-v .ts-u{font-size:8px;color:#8a8f96;font-weight:500;margin-left:2px}
+.ts-params{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ts-p{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 9px;font-size:11px;color:#aab0b6}
+.ts-p b{color:#fff;font-variant-numeric:tabular-nums;font-weight:700}
+@media(max-width:560px){.ts-tiles{grid-template-columns:repeat(3,1fr)}.ts-params{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== 성과 리포트 인쇄 (PDF) — 리포트만 출력 ===== */
+@media print{
+  body *{visibility:hidden!important}
+  .perf-overlay, .perf-overlay *{visibility:visible!important}
+  .perf-overlay{position:absolute!important;inset:0!important;background:#fff!important;overflow:visible!important;display:block!important;height:auto!important}
+  .perf-shell{box-shadow:none!important;max-width:100%!important;width:100%!important;zoom:1!important;border-radius:0!important}
+  .perf-ctrls,.perf-close{display:none!important}
+  .ts-panel{background:#f4f4f4!important;border:1px solid #ccc!important}
+  .ts-h,.ts-v,.ts-p b{color:#111!important}
+  .ts-tile{background:#fff!important;border:1px solid #ddd!important}
+  .ts-p{background:#fff!important;color:#444!important}
+}

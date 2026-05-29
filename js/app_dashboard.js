@@ -198,14 +198,43 @@ function buildPerfData(memberId){
       pt.push({date:md, sets:s.ptSets});
     }
   });
+  // 라이브 세션에서 저장된 트랙맨 샷 → 날짜별 평균(드라이버 우선)으로 골프 시계열 보강
+  var memberShots=(S.shotEvents||[]).filter(function(s){return s.memberId===memberId;});
+  if(memberShots.length){
+    var existDates={}; golf.forEach(function(g){existDates[g.date]=true;});
+    var byDate={};
+    memberShots.forEach(function(s){ var d=String(s.ts).slice(0,10); if(d) (byDate[d]=byDate[d]||[]).push(s); });
+    Object.keys(byDate).sort().forEach(function(d){
+      var md=d.slice(5); if(existDates[md]) return;
+      var arr=byDate[d];
+      var drv=arr.filter(function(s){return (s.data&&s.data.club)==='드라이버';});
+      var use=drv.length?drv:arr;
+      var avg=function(f){var v=use.map(function(s){return parseFloat(s.data&&s.data[f]);}).filter(function(x){return !isNaN(x);}); return v.length?Math.round((v.reduce(function(a,b){return a+b;},0)/v.length)*100)/100:null;};
+      golf.push({date:md, club:(drv.length?'드라이버':((use[0].data&&use[0].data.club)||'')),
+        clubSpeed:avg('clubSpeed'), ballSpeed:avg('ballSpeed'), smash:avg('smash'),
+        carry:avg('carry'), total:avg('total'), spin:avg('spin'),
+        clubPath:avg('clubPath'), faceAngle:avg('faceAngle'), attack:avg('attack'), _shots:use.length});
+    });
+    golf.sort(function(a,b){return a.date.localeCompare(b.date);});
+  }
   var assess=[];
   var a=S.assessments[memberId]||{};
   if(a._history&&a._history.length){
     a._history.forEach(function(h){assess.push({date:(h.date||'').slice(5), score:_assessScore(h.items)});});
   }
   if(a._date){assess.push({date:(a._date||'').slice(5), score:calcFitness(a).score});}
-  return {member:m, golf:golf, pt:pt, assess:assess};
+  return {member:m, golf:golf, pt:pt, assess:assess, shots:memberShots};
 }
+
+// ---------- 성과 리포트: 단위/글씨/인쇄 ----------
+function pfDist(v){ if(v==null||isNaN(v)) return v; return S.perfUnitDist==='m'? v*0.9144 : v; }
+function pfSpd(v){ if(v==null||isNaN(v)) return v; return S.perfUnitSpd==='ms'? v*0.44704 : v; }
+function pfDistU(){ return S.perfUnitDist==='m'?'m':'yd'; }
+function pfSpdU(){ return S.perfUnitSpd==='ms'?'m/s':'mph'; }
+function setPerfDist(u){ S.perfUnitDist=u; render(); }
+function setPerfSpd(u){ S.perfUnitSpd=u; render(); }
+function setPerfTextScale(t){ S.perfTextScale=t; render(); }
+function printPerf(){ try{ window.print(); }catch(e){} }
 function _assessScore(items){
   try{return calcFitness(items||{}).score;}catch(e){return 0;}
 }
@@ -227,9 +256,17 @@ function renderPerformance(){
       '</div></div>';
   }
   var m=data.member;
-  var html='<div class="perf-overlay"><div class="perf-shell">';
-  // 상단바
-  html+='<div class="perf-topbar"><div class="perf-brand"><img src="assets/logo.png" class="perf-logo" alt="">성과 리포트'+(S.perfDemo?'<span class="perf-demo-tag">DEMO</span>':'')+'</div><button class="perf-close" onclick="closePerformance()">✕</button></div>';
+  var ts=S.perfTextScale||1;
+  var html='<div class="perf-overlay"><div class="perf-shell" style="zoom:'+ts+'">';
+  // 상단바 + 컨트롤 (단위 / 글씨크기 / 인쇄)
+  html+='<div class="perf-topbar"><div class="perf-brand"><img src="assets/logo.png" class="perf-logo" alt="">성과 리포트'+(S.perfDemo?'<span class="perf-demo-tag">DEMO</span>':'')+'</div>'
+    +'<div class="perf-ctrls">'
+    +'<span class="pfc-grp"><b>거리</b><button class="pfc'+(S.perfUnitDist==='yd'?' on':'')+'" onclick="setPerfDist(\'yd\')">yd</button><button class="pfc'+(S.perfUnitDist==='m'?' on':'')+'" onclick="setPerfDist(\'m\')">m</button></span>'
+    +'<span class="pfc-grp"><b>속도</b><button class="pfc'+(S.perfUnitSpd==='mph'?' on':'')+'" onclick="setPerfSpd(\'mph\')">mph</button><button class="pfc'+(S.perfUnitSpd==='ms'?' on':'')+'" onclick="setPerfSpd(\'ms\')">m/s</button></span>'
+    +'<span class="pfc-grp pfc-font"><b>글씨</b><button class="pfc'+(ts===1?' on':'')+'" onclick="setPerfTextScale(1)">가</button><button class="pfc'+(ts>1&&ts<1.3?' on':'')+'" onclick="setPerfTextScale(1.18)">가+</button><button class="pfc'+(ts>=1.3?' on':'')+'" onclick="setPerfTextScale(1.4)">가++</button></span>'
+    +'<button class="pfc pfc-print" onclick="printPerf()">🖨 인쇄</button>'
+    +'<button class="perf-close" onclick="closePerformance()">✕</button>'
+    +'</div></div>';
   // 히어로
   var period=(m.registeredDate?m.registeredDate+' ~ 현재':'');
   html+='<div class="perf-hero">'+
@@ -252,15 +289,20 @@ function renderPerformance(){
     html+='<div class="perf-section"><div class="ps-title"><span class="ps-dot blue"></span>골프 퍼포먼스 <small>(트랙맨 · '+(gL.club||'드라이버')+')</small></div>';
     // KPI
     html+='<div class="kpi-grid">'+
-      _kpi('비거리(캐리)', _fmtNum(gL.carry), 'm', _delta(gL.carry,g0.carry,{unit:'m'}), 'blue')+
-      _kpi('클럽 스피드', _fmtNum(gL.clubSpeed), 'mph', _delta(gL.clubSpeed,g0.clubSpeed,{unit:''}), 'blue')+
-      _kpi('볼 스피드', _fmtNum(gL.ballSpeed), 'mph', _delta(gL.ballSpeed,g0.ballSpeed,{unit:''}), 'blue')+
+      _kpi('비거리(캐리)', _fmtNum(pfDist(gL.carry)), pfDistU(), _delta(pfDist(gL.carry),pfDist(g0.carry),{unit:pfDistU()}), 'blue')+
+      _kpi('클럽 스피드', _fmtNum(pfSpd(gL.clubSpeed)), pfSpdU(), _delta(pfSpd(gL.clubSpeed),pfSpd(g0.clubSpeed),{}), 'blue')+
+      _kpi('볼 스피드', _fmtNum(pfSpd(gL.ballSpeed)), pfSpdU(), _delta(pfSpd(gL.ballSpeed),pfSpd(g0.ballSpeed),{}), 'blue')+
       _kpi('스매시 팩터', _fmtNum(gL.smash), '', _delta(gL.smash,g0.smash,{unit:''}), 'green')+
     '</div>';
+    // 대표 샷 (TPS 전체 측정값) — 최고 캐리
+    if(data.shots && data.shots.length){
+      var _best=data.shots.slice().filter(function(s){return s.data&&s.data.carry!=null;}).sort(function(a,b){return (parseFloat(b.data.carry)||0)-(parseFloat(a.data.carry)||0);})[0];
+      if(_best) html+=_perfShotPanel(_best);
+    }
     // 차트들
     html+='<div class="chart-grid">';
-    html+='<div class="chart-card"><div class="cc-title">비거리(캐리) 추세 <span class="cc-unit">m</span></div>'+svgLine(data.golf.map(function(x){return x.carry;}),labels,{color:'#3868d6',unit:'m'})+'</div>';
-    html+='<div class="chart-card"><div class="cc-title">클럽 스피드 추세 <span class="cc-unit">mph</span></div>'+svgLine(data.golf.map(function(x){return x.clubSpeed;}),labels,{color:'#6366f1',unit:''})+'</div>';
+    html+='<div class="chart-card"><div class="cc-title">비거리(캐리) 추세 <span class="cc-unit">'+pfDistU()+'</span></div>'+svgLine(data.golf.map(function(x){return pfDist(x.carry);}),labels,{color:'#3868d6',unit:pfDistU()})+'</div>';
+    html+='<div class="chart-card"><div class="cc-title">클럽 스피드 추세 <span class="cc-unit">'+pfSpdU()+'</span></div>'+svgLine(data.golf.map(function(x){return pfSpd(x.clubSpeed);}),labels,{color:'#6366f1',unit:''})+'</div>';
     html+='<div class="chart-card"><div class="cc-title">스핀량 최적화 <span class="cc-unit">rpm · 낮을수록 효율↑</span></div>'+svgLine(data.golf.map(function(x){return x.spin;}),labels,{color:'#d97706',unit:''})+'</div>';
     html+='<div class="chart-card"><div class="cc-title">클럽 패스 정렬 <span class="cc-unit">° · 0에 가까울수록 직진성↑</span></div>'+svgLine(data.golf.map(function(x){return x.clubPath;}),labels,{color:'#00b884',unit:'°'})+'</div>';
     html+='</div>';
@@ -318,6 +360,25 @@ function renderPerformance(){
 
 function _kpi(label, val, unit, delta, color){
   return '<div class="kpi-card '+(color||'')+'"><div class="kpi-label">'+label+'</div><div class="kpi-val">'+val+'<span class="kpi-unit">'+(unit||'')+'</span></div>'+(delta||'')+'</div>';
+}
+// 대표 샷 — 전체 측정값 패널 (TPS 스타일 타일, 성과 리포트 라이트 테마에 맞춤)
+function _perfShotPanel(s){
+  var d=s.data||{};
+  function tile(l,v,u){ return '<div class="ts-tile"><div class="ts-l">'+l+'</div><div class="ts-v">'+v+(u?'<span class="ts-u">'+u+'</span>':'')+'</div></div>'; }
+  var when=String(s.ts).slice(0,10);
+  var html='<div class="ts-panel"><div class="ts-h">대표 샷 — '+(d.club||'드라이버')+' <span class="ts-when">'+when+(s.source==='mock'?' · 데모':'')+'</span></div>';
+  html+='<div class="ts-tiles">';
+  html+=tile('Ball', d.ballSpeed!=null?_fmtNum(pfSpd(d.ballSpeed)):'-', pfSpdU());
+  html+=tile('Club', d.clubSpeed!=null?_fmtNum(pfSpd(d.clubSpeed)):'-', pfSpdU());
+  html+=tile('Smash', d.smash!=null?d.smash:'-', '');
+  html+=tile('Carry', d.carry!=null?_fmtNum(pfDist(d.carry)):'-', pfDistU());
+  html+=tile('Total', d.total!=null?_fmtNum(pfDist(d.total)):'-', pfDistU());
+  html+='</div>';
+  var rows=[['Club Path',d.clubPath,'°'],['Face Angle',d.faceAngle,'°'],['Attack',d.attack,'°'],['Launch',d.launch,'°'],['Spin',d.spin,'rpm'],['Side',d.side!=null?_fmtNum(pfDist(d.side)):null,pfDistU()]];
+  var ps=rows.filter(function(p){return p[1]!=null&&p[1]!=='';}).map(function(p){return '<div class="ts-p"><span>'+p[0]+'</span><b>'+p[1]+(p[2]?' '+p[2]:'')+'</b></div>';}).join('');
+  if(ps) html+='<div class="ts-params">'+ps+'</div>';
+  html+='</div>';
+  return html;
 }
 function _volume(sess){ var t=0; (sess.sets||[]).forEach(function(st){ t+=(st.weight||0)*((st.reps||10))*((st.sets||3)); }); return Math.round(t/100)*100; }
 function _norm(v,lo,hi){ if(v==null) return 0; return _clamp01((v-lo)/(hi-lo)*100); }

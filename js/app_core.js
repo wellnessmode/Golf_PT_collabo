@@ -52,9 +52,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.7',
-  date:'2026-04-12',
+  version:'v2.8',
+  date:'2026-05-29',
   changes:[
+    '라이브 세션 — 베이별(1·2번타석/3번룸) 활성세션 + 샷 저장(굿샷 트리거) + 관리자 재할당/삭제',
+    '음성 받아쓰기 → AI 자동 세션카드 — 진행 중 받아쓰고 종료 시 AI가 정리, 트레이너는 확인만',
+    '성과 리포트 — 라이브 세션 트랙맨 샷 자동 연결, 단위 전환(yd↔m · mph↔m/s), 글씨크기 조정, 인쇄(PDF)',
     '인수인계 시스템 — 담당 지도자 변경 시 AI 자동 요약 카드 생성 (최근 10세션, 체형평가, Body-Swing 경고, 스윙 영상)',
     '회원 리포트 — HTML 인쇄/PDF 출력 (회원정보, 체형평가, 세션기록 최근 20건)',
     '운동 DB 1000개 — 웨이트 350 + 골프 피트니스(TPI) 345 + 골프 스킬 305, 별도 파일 분리',
@@ -322,7 +325,8 @@ let S = {
   // 라이브 세션 (트랙맨 i/O 연동 기반)
   bays:[], activeSessions:{}, shotEvents:[],
   showLiveSession:false, liveStartBay:null, liveStartQuery:'',
-  liveConfirm:null, liveReassignShot:null, liveToast:null
+  liveConfirm:null, liveReassignShot:null, liveToast:null, voiceBay:null,
+  perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1
 };
 
 // ============ Audit Log ============

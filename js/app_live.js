@@ -45,21 +45,31 @@ function shotSilenceMin(shots){
   var last = shots[shots.length-1].ts;
   return Math.floor((Date.now() - new Date(last).getTime())/60000);
 }
-// 트랙맨 연동 전 모의 샷 데이터 (연동 시 에이전트가 보내는 실제 값으로 대체)
+// 트랙맨 연동 전 모의 샷 데이터 (연동 시 에이전트가 TPS에서 읽은 실측값으로 대체)
+// 모든 값은 숫자 — 성과 리포트 차트/평균에 바로 집계됨. 거리=yd, 속도=mph 기준.
 function mockShotData(){
-  var clubs=['드라이버','3번 우드','5번 우드','5번 아이언','7번 아이언','9번 아이언','피칭웨지'];
-  var club=clubs[Math.floor(Math.random()*clubs.length)];
-  var ball = 140 + Math.random()*45;
-  var clubSpeed = 90 + Math.random()*35;
-  var carry = Math.round(150 + Math.random()*85);
-  var smash = (ball/clubSpeed);
+  var clubs=[
+    {n:'드라이버', cs:103, bs:150, ca:235, la:13, sp:2800, lo:38},
+    {n:'5번 우드', cs:96,  bs:141, ca:212, la:15, sp:3400, lo:43},
+    {n:'7번 아이언',cs:83,  bs:110, ca:160, la:18, sp:6100, lo:47},
+    {n:'피칭웨지', cs:74,  bs:92,  ca:112, la:26, sp:8500, lo:50}
+  ];
+  var c=clubs[Math.floor(Math.random()*clubs.length)];
+  var rnd=function(base,spread){return base + (Math.random()*spread - spread/2);};
+  var clubSpeed=+rnd(c.cs,5).toFixed(1);
+  var ballSpeed=+rnd(c.bs,6).toFixed(1);
+  var smash=+(ballSpeed/clubSpeed).toFixed(2);
+  var carry=Math.round(rnd(c.ca,16));
+  var total=carry + Math.round(carry*0.06 + Math.random()*8);
+  var side=+rnd(0,10).toFixed(1);
   return {
-    club: club,
-    ballSpeed: ball.toFixed(1)+' mph',
-    clubSpeed: clubSpeed.toFixed(1)+' mph',
-    carry: carry+' yd',
-    smash: smash.toFixed(2),
-    _mock: true
+    club:c.n,
+    clubSpeed:clubSpeed, ballSpeed:ballSpeed, smash:smash,
+    carry:carry, total:total,
+    launch:+rnd(c.la,3).toFixed(1), spin:Math.round(rnd(c.sp,700)),
+    clubPath:+rnd(0,6).toFixed(1), faceAngle:+rnd(0,4).toFixed(1), attack:+rnd(0,6).toFixed(1),
+    side:side, sideTotal:+(side+rnd(0,4)).toFixed(1), landAngle:Math.round(rnd(c.lo,6)),
+    _mock:true
   };
 }
 function liveToast(msg, kind){
@@ -118,14 +128,22 @@ function confirmLiveStart(){
 function endLiveSession(bayId){
   var act = S.activeSessions[bayId]; if(!act) return;
   var bay = getBay(bayId);
-  if(!confirm(bay.name+' · '+act.memberName+'님 세션을 종료할까요?\n(종료해도 저장된 굿샷 기록은 회원에게 남습니다)')) return;
+  var hasVoice = (act._transcript||'').trim().length>0;
+  var msg = bay.name+' · '+act.memberName+'님 세션을 종료할까요?\n'
+    + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리해 드립니다)' : '(저장된 샷 기록은 회원에게 남습니다)');
+  if(!confirm(msg)) return;
+  var transcript = act._transcript||'', memberId = act.memberId, author = act.author;
+  if(S.voiceBay===bayId) stopVoice(bayId);
   delete S.activeSessions[bayId];
   save();
-  logActivity('라이브 세션 종료', act.memberId, bay.name);
-  logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name});
+  logActivity('라이브 세션 종료', memberId, bay.name);
+  logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
   cloud.endActiveSession(bayId);
+  var drafted = false;
+  if(transcript.trim()) drafted = openVoiceDraft(memberId, author, transcript);
   render();
-  liveToast('⏹ '+bay.name+' 세션 종료','ok');
+  if(drafted) liveToast('🤖 AI가 세션카드를 정리했어요 — 확인 후 저장','ok');
+  else liveToast('⏹ '+bay.name+' 세션 종료','ok');
 }
 
 // ============ 굿샷 (현재 데모/목) ============
@@ -193,6 +211,87 @@ function deleteShot(shotId){
   liveToast('🗑 샷 삭제됨','ok');
 }
 
+// ============ 음성 받아쓰기 → AI 세션카드 ============
+// 진행 중 음성을 받아쓰고(브라우저 STT), 종료 시 로컬 AI가 세션카드로 구조화.
+// 미지원 기기(주로 iOS Safari)는 자동으로 수동 입력으로 폴백 — 절대 앱이 멈추지 않음.
+var _voiceRec = null;
+function voiceSupported(){
+  try{ return typeof window!=='undefined' && (('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window)); }
+  catch(e){ return false; }
+}
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function startVoice(bayId){
+  var act = S.activeSessions[bayId]; if(!act) return;
+  if(!voiceSupported()){ liveToast('이 기기는 실시간 받아쓰기를 지원하지 않습니다 — 종료 후 직접 입력하세요','err'); return; }
+  try{
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(_voiceRec){ try{ _voiceRec.onend=null; _voiceRec.stop(); }catch(e){} _voiceRec=null; }
+    var rec = new SR();
+    rec.lang='ko-KR'; rec.continuous=true; rec.interimResults=true;
+    rec.onresult=function(ev){
+      var finalT='', interim='';
+      for(var i=ev.resultIndex; i<ev.results.length; i++){
+        var t=ev.results[i][0].transcript;
+        if(ev.results[i].isFinal) finalT+=t; else interim+=t;
+      }
+      var a=S.activeSessions[bayId]; if(!a) return;
+      if(finalT){ a._transcript=((a._transcript||'')+' '+finalT).replace(/\s+/g,' ').trim(); save(); }
+      if(S.voiceBay===bayId) updateVoicePreview(bayId, interim);
+    };
+    rec.onerror=function(e){ console.warn('[voice] error:', e&&e.error); };
+    // 브라우저가 주기적으로 종료 → 의도적 중지가 아니면 자동 재시작
+    rec.onend=function(){ if(S.voiceBay===bayId && _voiceRec===rec){ try{ rec.start(); }catch(e){ S.voiceBay=null; render(); } } };
+    rec.start();
+    _voiceRec = rec; S.voiceBay = bayId;
+    render();
+  }catch(e){ console.warn('[voice] start fail:', e); liveToast('받아쓰기 시작 실패','err'); S.voiceBay=null; render(); }
+}
+function stopVoice(bayId){
+  S.voiceBay = null;
+  if(_voiceRec){ try{ _voiceRec.onend=null; _voiceRec.stop(); }catch(e){} _voiceRec=null; }
+  save(); render();
+}
+function updateVoicePreview(bayId, interim){
+  var a=S.activeSessions[bayId]; if(!a) return;
+  var el=document.querySelector('.bay-card[data-bay="'+bayId+'"] .vr-text');
+  if(el){ var base=(a._transcript||'').slice(-90); el.textContent=(base+(interim?(' '+interim):'')).trim()||'듣는 중...'; }
+}
+// 받아쓴 원문 → 불릿 세션카드 (로컬 AI 키워드 태깅)
+function structureTranscript(transcript, author){
+  var t=(transcript||'').replace(/\s+/g,' ').trim();
+  if(!t) return '';
+  var parts=t.split(/(?:다\.|요\.|음\.|죠\.|\.|!|\?|\n|,|\s그리고\s|\s그다음\s|\s그\s다음\s|\s이어서\s)/);
+  var lines=[];
+  parts.forEach(function(p){ p=p.trim(); if(p.length>=4 && lines.indexOf(p)===-1) lines.push(p); });
+  if(lines.length===0) lines=[t];
+  var bullets=lines.slice(0,14).map(function(l){ return '- '+l; });
+  var tags=[];
+  try{
+    var dict = getRole(author)==='pro' ? GOLF_KEYWORDS : PT_KEYWORDS;
+    var low=t.toLowerCase();
+    Object.keys(dict).forEach(function(cat){ if((dict[cat].keywords||[]).some(function(w){return low.indexOf(w)!==-1;})) tags.push(cat); });
+  }catch(e){}
+  return '[AI 자동 정리'+(tags.length?' · '+tags.slice(0,4).join('·'):'')+']\n'+bullets.join('\n');
+}
+// 종료 시: 구조화 + 트랙맨 요약 → 기존 세션카드 모달에 프리필 (트레이너 검토 후 저장)
+function openVoiceDraft(memberId, author, transcript){
+  var m=S.members.find(function(x){return x.id===memberId;});
+  if(!m) return false;
+  var accessible=(S.currentRole==='admin'||S.currentRole==='infodesk')||(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1);
+  var authorOk=author===S.currentUser && INSTRUCTORS.some(function(i){return i.name===author;});
+  if(!accessible || !authorOk) return false;
+  var todayShots=S.shotEvents.filter(function(s){return s.memberId===memberId && String(s.ts).slice(0,10)===today();});
+  var summary='';
+  if(todayShots.length){
+    var carries=todayShots.map(function(s){return parseFloat(s.data&&s.data.carry)||0;}).filter(Boolean);
+    summary='\n\n[트랙맨] 저장된 샷 '+todayShots.length+'개'+(carries.length?' · 베스트 캐리 '+Math.max.apply(null,carries)+'yd':'');
+  }
+  S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
+  S.newSession={ date:today(), author:author, content:structureTranscript(transcript,author)+summary, media:[], mediaUrls:['',''] };
+  S.showAddSession=true;
+  return true;
+}
+
 // ============ 렌더 ============
 function renderLiveSession(){
   if(!S.showLiveSession) return '';
@@ -248,12 +347,25 @@ function renderBayCard(bay, canCoach, isAdmin){
                + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
             : '아직 저장된 샷 없음')
         + '</div>';
+  // 음성 받아쓰기 (지원 기기) / 미지원 안내
+  if(!stale){
+    if(voiceSupported()){
+      if(S.voiceBay===bay.id){
+        body += '<div class="voice-rec"><div class="vr-head"><span class="vr-dot"></span>녹음 중 · 받아쓰기<button class="vr-stop" onclick="stopVoice(\''+bay.id+'\')">중지</button></div>'
+              + '<div class="vr-text">'+(esc((act._transcript||'').slice(-90))||'듣는 중...')+'</div></div>';
+      } else {
+        body += '<button class="btn voice-btn" onclick="startVoice(\''+bay.id+'\')">🎙 '+((act._transcript||'').trim()?'받아쓰기 계속':'음성 기록 시작')+'</button>';
+      }
+    } else if((act._transcript||'').trim()){
+      body += '<div class="voice-note">🎙 이 기기는 실시간 받아쓰기 미지원 — 종료 시 직접 입력</div>';
+    }
+  }
   body += '<div class="bay-actions">';
   body += '<button class="btn goodshot-btn'+(stale?' is-disabled':'')+'" '
         + (stale ? 'disabled' : 'onclick="triggerGoodShot(\''+bay.id+'\')"') + '>🎯 굿샷</button>';
   body += '<button class="btn bay-end-btn" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button>';
   body += '</div></div>';
-  return '<div class="bay-card active">'+head+body+'</div>';
+  return '<div class="bay-card active" data-bay="'+bay.id+'">'+head+body+'</div>';
 }
 
 function renderShotLog(isAdmin){
@@ -273,7 +385,7 @@ function renderShotLog(isAdmin){
         + '<span class="shot-bay '+bay.color+'">'+bay.name+'</span>'
         + '<span class="shot-member">'+s.memberName+'</span>'
         + '<span class="shot-club">'+((s.data&&s.data.club)||'')+'</span>'
-        + '<span class="shot-metric">'+((s.data&&s.data.carry)||'')+'</span>'
+        + '<span class="shot-metric">'+(s.data&&s.data.carry!=null&&s.data.carry!==''?Math.round(parseFloat(s.data.carry))+'yd':'')+'</span>'
         + '<span class="shot-time">'+ts+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
         + (isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">이동</button>' : '')
