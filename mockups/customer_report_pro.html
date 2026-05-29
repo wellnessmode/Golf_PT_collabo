@@ -7,139 +7,135 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#080a09;--panel:#0e120e;--tile:#12160f;--tile2:#161b13;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);
-  --lime:#b6e352;--lime-dim:#7e9c3a;--blue:#7da0e6;--blue-dim:#4f6fb0;--orange:#e8a04a;
-  --tx:#f4f7f2;--tx2:#aab0a6;--tx3:#6c7268;--up:#b6e352;--down:#e8794a;
-  --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,Consolas,monospace;
+  /* TPS 다크 테마 매칭 */
+  --page:#0f0f11;--bg:#1a1a1d;--panel:#202024;--tile:#26262b;--tile-hi:#2d2d34;
+  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.14);
+  --orange:#f47c20;--orange-2:#ff8b33;--orange-soft:rgba(244,124,32,.13);
+  --tx:#f4f4f6;--tx2:#a8a8b0;--tx3:#6e6e77;--steel:#8b94a6;--steel-soft:rgba(139,148,166,.16);
+  --up:#5cc88f;
+  --num:-apple-system,'Inter','Helvetica Neue',Arial,sans-serif;
 }
-body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000;color:var(--tx);-webkit-font-smoothing:antialiased;padding:18px 10px 50px;line-height:1.55}
-.note{max-width:620px;margin:0 auto 14px;text-align:center;color:#8a908a;font-size:12px;line-height:1.6;padding:0 12px}
-.note b{color:var(--lime)}
-.rep{max-width:620px;margin:0 auto;background:var(--bg);border-radius:20px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6);border:1px solid var(--line)}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(--page);color:var(--tx);-webkit-font-smoothing:antialiased;padding:18px 10px 50px;line-height:1.55}
+.note{max-width:620px;margin:0 auto 14px;text-align:center;color:#85858d;font-size:12px;line-height:1.6;padding:0 12px}
+.note b{color:var(--orange-2)}
+.rep{max-width:620px;margin:0 auto;background:var(--bg);border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);border:1px solid var(--line)}
+.n{font-family:var(--num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 
-/* ===== 헤더 ===== */
-.hd{padding:22px 24px 20px;background:linear-gradient(165deg,#0d130d,#0a0f0b 70%);position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
-.hd::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 92% -10%,rgba(182,227,82,.16),transparent 42%)}
-.hd-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.brand{font-size:11px;font-weight:900;letter-spacing:3px;color:#fff;line-height:1.5}
-.brand small{display:block;font-size:8px;letter-spacing:2px;color:var(--lime);margin-top:2px;font-weight:700}
+/* 헤더 */
+.hd{padding:22px 24px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+.hd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.brand{font-size:12px;font-weight:800;letter-spacing:2.5px;color:#fff;line-height:1.5}
+.brand small{display:block;font-size:8px;letter-spacing:2px;color:var(--orange);margin-top:3px;font-weight:700}
 .units{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
-.useg{display:flex;align-items:center;gap:5px}
-.useg .lab{font-size:8.5px;color:var(--tx3);letter-spacing:.5px;font-weight:700;width:30px;text-align:right}
-.seg{display:flex;background:#1a1f17;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
-.seg button{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:4px 9px;border:none;background:transparent;color:var(--tx3);cursor:pointer;transition:all .12s}
-.seg button.on{background:var(--lime);color:#0a0f05}
-.rtitle{position:relative;font-size:21px;font-weight:900;letter-spacing:.6px;margin-top:16px}
+.useg{display:flex;align-items:center;gap:6px}
+.useg .lab{font-size:8.5px;color:var(--tx3);letter-spacing:.5px;font-weight:700;width:28px;text-align:right}
+.seg{display:flex;background:#17171a;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+.seg button{font-family:var(--num);font-size:10.5px;font-weight:700;padding:4px 10px;border:none;background:transparent;color:var(--tx3);cursor:pointer;transition:all .12s;letter-spacing:.2px}
+.seg button.on{background:var(--orange);color:#160c03}
+.rtitle{font-size:21px;font-weight:800;letter-spacing:.4px;margin-top:18px}
 .rtitle .t{font-weight:300;color:var(--tx2)}
-.rmeta{position:relative;font-size:10px;color:var(--tx3);margin-top:5px;font-family:var(--mono);letter-spacing:.3px}
-.rmeta b{color:var(--lime)}
+.rmeta{font-size:10px;color:var(--tx3);margin-top:6px;padding-bottom:16px;letter-spacing:.3px;border-bottom:2px solid var(--orange);display:inline-block}
+.rmeta b{color:var(--orange-2);font-weight:700}
 
 /* 선수 */
-.player{display:flex;align-items:center;gap:14px;padding:15px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+.player{display:flex;align-items:center;gap:14px;padding:15px 24px;background:var(--bg);border-bottom:1px solid var(--line)}
 .pname{font-size:17px;font-weight:800}.pname span{font-size:11px;font-weight:500;color:var(--tx3)}
-.pmeta{font-size:10.5px;color:var(--tx3);margin-top:2px;font-family:var(--mono)}
-.ptags{margin-left:auto;text-align:right;font-size:10px;color:var(--tx2);line-height:1.7}
-.ptags .pro{color:var(--lime);font-weight:700}.ptags .tr{color:var(--blue);font-weight:700}
+.pmeta{font-size:10.5px;color:var(--tx3);margin-top:3px;letter-spacing:.2px}
+.ptags{margin-left:auto;text-align:right;font-size:10px;color:var(--tx2);line-height:1.8}
+.ptags .pro{color:var(--orange-2);font-weight:700}.ptags .tr{color:var(--steel);font-weight:700}
 
 .sec{padding:20px 24px;border-bottom:1px solid var(--line)}
 .sec:last-child{border-bottom:none}
 .sec-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
-.sec-t{font-size:10.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--tx)}
-.sec-t i{color:var(--lime);font-style:normal;margin-right:6px}
-.sec-x{font-size:9.5px;color:var(--tx3);font-family:var(--mono)}
+.sec-t{font-size:10.5px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--tx);display:flex;align-items:center;gap:8px}
+.sec-t i{color:var(--orange);font-style:normal;font-size:11px}
+.sec-x{font-size:9.5px;color:var(--tx3);letter-spacing:.3px}
 
-/* HERO 대표샷 타일 */
-.hero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.hero-club{font-size:18px;font-weight:900;letter-spacing:.5px;color:#fff}
-.hero-when{font-size:9.5px;color:var(--tx3);font-family:var(--mono)}
-.hero-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:8px}
-.htile{background:linear-gradient(160deg,var(--tile2),var(--tile));border:1px solid var(--line);border-radius:11px;padding:12px 6px 10px;text-align:center}
-.htile.key{border-color:rgba(182,227,82,.35);box-shadow:0 0 22px rgba(182,227,82,.08)}
-.htile .v{font-family:var(--mono);font-size:25px;font-weight:800;color:#fff;line-height:1;letter-spacing:-1px}
-.htile.key .v{color:var(--lime)}
-.htile .u{font-size:8.5px;color:var(--tx3);font-family:var(--mono);margin-top:3px}
-.htile .l{font-size:8.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;font-weight:700}
+/* HERO 타일 (TPS data tiles 스타일) */
+.hero-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.htile{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:11px 6px 12px;text-align:center;position:relative;overflow:hidden}
+.htile.key::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--orange)}
+.htile .l{font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:7px}
+.htile .v{font-family:var(--num);font-size:26px;font-weight:800;color:#fff;line-height:1}
+.htile .u{font-size:8.5px;color:var(--tx3);margin-top:4px;letter-spacing:.3px}
 @media(max-width:560px){.hero-tiles{grid-template-columns:repeat(3,1fr)}}
 
 /* 궤도 */
-.traj{display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-top:14px}
+.traj{display:grid;grid-template-columns:1.5fr 1fr;gap:9px;margin-top:14px}
 @media(max-width:560px){.traj{grid-template-columns:1fr}}
-.traj-card{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:12px 14px}
-.traj-h{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--lime);text-transform:uppercase;margin-bottom:8px}
+.traj-card{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.traj-h{font-size:8.5px;font-weight:800;letter-spacing:1px;color:var(--tx3);text-transform:uppercase;margin-bottom:10px}
 .traj svg{width:100%;display:block}
-.traj-tags{display:flex;justify-content:space-around;margin-top:6px;font-family:var(--mono);font-size:9.5px;color:var(--tx2)}
-.traj-tags b{color:#fff;font-size:12px}
+.traj-tags{display:flex;justify-content:space-around;margin-top:8px;font-size:9.5px;color:var(--tx3)}
+.traj-tags b{color:#fff;font-size:13px;font-weight:800;font-family:var(--num)}
 
 /* 파라미터 그리드 */
-.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 @media(max-width:560px){.pgrid{grid-template-columns:1fr}}
-.pcol{background:var(--tile);border:1px solid var(--line);border-radius:11px;overflow:hidden}
-.pcol-h{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:9px 13px;border-bottom:1px solid var(--line)}
-.pcol.club .pcol-h{color:var(--lime);background:rgba(182,227,82,.05)}
-.pcol.ball .pcol-h{color:var(--blue);background:rgba(125,160,230,.06)}
-.prm{display:flex;justify-content:space-between;align-items:baseline;padding:9px 13px;border-bottom:1px solid rgba(255,255,255,.04)}
+.pcol{background:var(--tile);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pcol-h{font-size:8.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--line);color:var(--tx2);background:rgba(255,255,255,.02)}
+.pcol-h b{color:var(--orange)}
+.prm{display:flex;justify-content:space-between;align-items:baseline;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
 .prm:last-child{border-bottom:none}
 .prm .k{font-size:11px;color:var(--tx2)}
-.prm .vv{font-family:var(--mono);font-size:16px;font-weight:800;color:#fff}
+.prm .vv{font-family:var(--num);font-size:16px;font-weight:800;color:#fff}
 .prm .vv .un{font-size:9px;color:var(--tx3);font-weight:500;margin-left:2px}
 
 /* 클럽 딜리버리 */
-.delivery{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-top:10px}
-.dlv-h{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--lime);text-transform:uppercase;margin-bottom:16px}
+.delivery{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:15px 16px;margin-top:9px}
+.dlv-h{font-size:8.5px;font-weight:800;letter-spacing:1px;color:var(--tx3);text-transform:uppercase;margin-bottom:18px}
 .track{position:relative;height:46px;margin:0 6px}
 .track .axis{position:absolute;top:22px;left:0;right:0;height:2px;background:rgba(255,255,255,.1)}
 .track .zero{position:absolute;top:10px;bottom:10px;left:50%;width:1px;background:rgba(255,255,255,.22)}
-.track .zlabel{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--tx3);font-family:var(--mono)}
+.track .zlabel{position:absolute;top:-3px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--tx3)}
 .mk{position:absolute;top:15px;width:15px;height:15px;border-radius:50%;transform:translateX(-50%);border:2px solid var(--tile)}
-.mk.path{background:var(--lime)}.mk.face{background:var(--orange)}
-.mk .lab{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-family:var(--mono);font-weight:700}
-.mk.path .lab{top:17px;color:var(--lime)}.mk.face .lab{top:-15px;color:var(--orange)}
+.mk.path{background:var(--orange)}.mk.face{background:#dfe2e8}
+.mk .lab{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:700;font-family:var(--num)}
+.mk.path .lab{top:17px;color:var(--orange-2)}.mk.face .lab{top:-15px;color:#dfe2e8}
 .dlv-res{margin-top:14px;text-align:center}
-.dlv-shape{font-size:11px;font-weight:800;color:#0a0f05;font-family:var(--mono);background:var(--lime);padding:5px 14px;border-radius:20px}
+.dlv-shape{font-size:11px;font-weight:800;color:#160c03;background:var(--orange);padding:5px 14px;border-radius:20px;letter-spacing:.2px}
 
 /* 테이블 */
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tbl th{font-size:9px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;text-align:right;padding:7px 5px;border-bottom:1px solid var(--line2)}
+.tbl th{font-size:9px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;text-align:right;padding:8px 5px;border-bottom:1px solid var(--line2)}
 .tbl th:first-child{text-align:left}
-.tbl td{padding:9px 5px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--mono);font-weight:700;color:#fff;font-size:13px}
-.tbl td:first-child{text-align:left;font-family:inherit;font-weight:700;color:var(--tx2);font-size:12px}
+.tbl td{padding:10px 5px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--num);font-weight:800;color:#fff;font-size:13px}
+.tbl td:first-child{text-align:left;font-family:-apple-system,sans-serif;font-weight:700;color:var(--tx2);font-size:12px}
 .tbl tr:last-child td{border-bottom:none}
 
 /* 진행 */
 .prog{width:100%;border-collapse:collapse;font-size:12px}
-.prog th{font-size:9px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;padding:7px 4px;border-bottom:1px solid var(--line2);text-align:right}
+.prog th{font-size:9px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;padding:8px 4px;border-bottom:1px solid var(--line2);text-align:right}
 .prog th:first-child{text-align:left}
-.prog td{padding:9px 4px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--mono);font-weight:700;color:#fff;font-size:13px}
-.prog td:first-child{text-align:left;font-family:inherit;font-weight:600;color:var(--tx2);font-size:12px}
+.prog td{padding:10px 4px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--num);font-weight:800;color:#fff;font-size:13px}
+.prog td:first-child{text-align:left;font-family:-apple-system,sans-serif;font-weight:600;color:var(--tx2);font-size:12px}
 .prog .d{font-weight:800;color:var(--up)}
 .prog tr:last-child td{border-bottom:none}
 
 /* 코치 */
-.an{border-left:3px solid var(--lime);background:rgba(182,227,82,.04);border-radius:0 10px 10px 0;padding:13px 15px;margin-bottom:9px}
-.an.tr{border-left-color:var(--blue);background:rgba(125,160,230,.05)}
+.an{border-left:3px solid var(--orange);background:var(--orange-soft);border-radius:0 9px 9px 0;padding:13px 15px;margin-bottom:9px}
+.an.tr{border-left-color:var(--steel);background:var(--steel-soft)}
 .an-h{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.an-r{font-size:8.5px;font-weight:800;letter-spacing:.6px;padding:3px 9px;border-radius:5px;background:rgba(182,227,82,.14);color:var(--lime)}
-.an.tr .an-r{background:rgba(125,160,230,.16);color:var(--blue)}
+.an-r{font-size:8.5px;font-weight:800;letter-spacing:.6px;padding:3px 9px;border-radius:5px;background:rgba(244,124,32,.18);color:var(--orange-2)}
+.an.tr .an-r{background:rgba(139,148,166,.2);color:var(--steel)}
 .an-w{font-size:12px;font-weight:700;color:#fff}
 .an-t{font-size:12px;color:var(--tx2);line-height:1.75}
-.an-t b{color:#fff;font-family:var(--mono);font-weight:700}
+.an-t b{color:#fff;font-family:var(--num);font-weight:800}
 
 /* 목표 */
-.tg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.tg{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:13px 6px;text-align:center}
-.tg .v{font-family:var(--mono);font-size:21px;font-weight:800;color:var(--lime)}
-.tg .v .un{font-size:9px;color:var(--tx3)}
-.tg .l{font-size:9px;color:var(--tx3);margin-top:4px}
+.tg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tg{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:14px 6px;text-align:center}
+.tg .v{font-family:var(--num);font-size:21px;font-weight:800;color:#fff}
+.tg .v .un{font-size:9px;color:var(--orange-2)}
+.tg .l{font-size:9px;color:var(--tx3);margin-top:5px;letter-spacing:.2px}
 .foot{text-align:center;padding:16px 24px;color:var(--tx3);font-size:9.5px;background:var(--panel);line-height:1.7}
-.foot b{color:var(--lime)}
+.foot b{color:var(--orange-2)}
 </style>
 </head>
 <body>
-<div class="note">고객용 리포트 v2 · 트랙맨 TPS UI 차용(큰 숫자) · 볼 궤도·Side/Total 추가 · 우측 상단 <b>단위 토글(yd↔m, mph↔m/s)</b> 눌러보세요</div>
+<div class="note">고객용 리포트 · <b>트랙맨 TPS 다크 테마 매칭</b> (오렌지 액센트) · 우측 상단 <b>단위 토글(yd↔m, mph↔m/s)</b> 동작</div>
 <div class="rep">
 
-  <!-- 헤더 -->
   <div class="hd">
     <div class="hd-top">
       <div class="brand">NATIONAL GYM<small>GOLF PT · PERFORMANCE</small></div>
@@ -152,11 +148,10 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000
     <div class="rmeta">REPORT #NG-2026-0142 · 2026.04.01–05.29 · MEASURED BY <b>TRACKMAN iO</b></div>
   </div>
 
-  <!-- 선수 -->
   <div class="player">
     <div>
       <div class="pname">김민수 <span>회원님</span></div>
-      <div class="pmeta">HCP 18.4 · AVG 95 · RH · 165 SESSIONS</div>
+      <div class="pmeta n">HCP 18.4 · AVG 95 · RH · 165 SESSIONS</div>
     </div>
     <div class="ptags"><div>담당 프로 <span class="pro">정우진</span></div><div>담당 트레이너 <span class="tr">최현승</span></div></div>
   </div>
@@ -165,34 +160,33 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000
   <div class="sec">
     <div class="sec-h"><div class="sec-t"><i>01</i>대표 스윙</div><div class="sec-x">DRIVER · 05.29 14:28 · BAY 1</div></div>
     <div class="hero-tiles">
-      <div class="htile key"><div class="v"><span class="cv" data-mph="152.1">152.1</span></div><div class="u"><span class="u-spd">mph</span></div><div class="l">Ball Speed</div></div>
-      <div class="htile"><div class="v"><span class="cv" data-mph="102.8">102.8</span></div><div class="u"><span class="u-spd">mph</span></div><div class="l">Club Speed</div></div>
-      <div class="htile"><div class="v">1.48</div><div class="u">ratio</div><div class="l">Smash</div></div>
-      <div class="htile key"><div class="v"><span class="cv" data-yd="236">236</span></div><div class="u"><span class="u-dist">yd</span></div><div class="l">Carry</div></div>
-      <div class="htile"><div class="v"><span class="cv" data-yd="251">251</span></div><div class="u"><span class="u-dist">yd</span></div><div class="l">Total</div></div>
+      <div class="htile key"><div class="l">Ball Speed</div><div class="v"><span class="cv" data-mph="152.1">152.1</span></div><div class="u"><span class="u-spd">mph</span></div></div>
+      <div class="htile"><div class="l">Club Speed</div><div class="v"><span class="cv" data-mph="102.8">102.8</span></div><div class="u"><span class="u-spd">mph</span></div></div>
+      <div class="htile"><div class="l">Smash</div><div class="v">1.48</div><div class="u">ratio</div></div>
+      <div class="htile key"><div class="l">Carry</div><div class="v"><span class="cv" data-yd="236">236</span></div><div class="u"><span class="u-dist">yd</span></div></div>
+      <div class="htile"><div class="l">Total</div><div class="v"><span class="cv" data-yd="251">251</span></div><div class="u"><span class="u-dist">yd</span></div></div>
     </div>
 
-    <!-- 궤도 -->
     <div class="traj">
       <div class="traj-card">
         <div class="traj-h">Ball Flight · 측면</div>
         <svg viewBox="0 0 300 110" preserveAspectRatio="none">
-          <line x1="8" y1="96" x2="292" y2="96" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
-          <path d="M14,96 C90,2 170,2 286,90" fill="none" stroke="#b6e352" stroke-width="2.5"/>
-          <circle cx="14" cy="96" r="3.5" fill="#b6e352"/>
+          <line x1="8" y1="96" x2="292" y2="96" stroke="rgba(255,255,255,.1)" stroke-width="1"/>
+          <path d="M14,96 C90,2 170,2 286,90" fill="none" stroke="#f47c20" stroke-width="2.5"/>
+          <circle cx="14" cy="96" r="3.5" fill="#f47c20"/>
           <circle cx="286" cy="90" r="3.5" fill="#fff"/>
-          <line x1="150" y1="12" x2="150" y2="96" stroke="rgba(182,227,82,.3)" stroke-dasharray="3 3" stroke-width="1"/>
-          <text x="150" y="9" fill="#b6e352" font-size="8" font-family="monospace" text-anchor="middle">APEX</text>
+          <line x1="150" y1="12" x2="150" y2="96" stroke="rgba(244,124,32,.35)" stroke-dasharray="3 3" stroke-width="1"/>
+          <text x="150" y="9" fill="#ff8b33" font-size="8" font-family="sans-serif" text-anchor="middle" font-weight="bold">APEX</text>
         </svg>
         <div class="traj-tags"><div><b><span class="cv" data-yd="31">31</span></b> <span class="u-dist">yd</span> 최고높이</div><div><b>38°</b> 착지각</div><div><b>6.2</b>s 체공</div></div>
       </div>
       <div class="traj-card">
         <div class="traj-h">Dispersion · 상단</div>
         <svg viewBox="0 0 140 110" preserveAspectRatio="none">
-          <line x1="70" y1="100" x2="70" y2="8" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 3" stroke-width="1"/>
-          <text x="70" y="108" fill="#6c7268" font-size="7.5" font-family="monospace" text-anchor="middle">타겟</text>
-          <path d="M70,100 C66,60 60,34 58,14" fill="none" stroke="#b6e352" stroke-width="2.5"/>
-          <circle cx="70" cy="100" r="3" fill="#b6e352"/>
+          <line x1="70" y1="100" x2="70" y2="8" stroke="rgba(255,255,255,.16)" stroke-dasharray="3 3" stroke-width="1"/>
+          <text x="70" y="108" fill="#6e6e77" font-size="7.5" font-family="sans-serif" text-anchor="middle">타겟</text>
+          <path d="M70,100 C66,60 60,34 58,14" fill="none" stroke="#f47c20" stroke-width="2.5"/>
+          <circle cx="70" cy="100" r="3" fill="#f47c20"/>
           <circle cx="58" cy="14" r="3.5" fill="#fff"/>
         </svg>
         <div class="traj-tags"><div><b><span class="cv" data-yd="4">4</span></b> <span class="u-dist">yd</span> L · Side</div><div><b><span class="cv" data-yd="6">6</span></b> L · 좌우토탈</div></div>
@@ -204,8 +198,8 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000
   <div class="sec">
     <div class="sec-h"><div class="sec-t"><i>02</i>전체 측정값</div><div class="sec-x">TrackMan 40+ params</div></div>
     <div class="pgrid">
-      <div class="pcol club">
-        <div class="pcol-h">Club Data</div>
+      <div class="pcol">
+        <div class="pcol-h"><b>CLUB</b> DATA</div>
         <div class="prm"><span class="k">Attack Angle</span><span class="vv">+1.2<span class="un">°</span></span></div>
         <div class="prm"><span class="k">Club Path</span><span class="vv">+0.9<span class="un">°</span></span></div>
         <div class="prm"><span class="k">Face Angle</span><span class="vv">−0.4<span class="un">°</span></span></div>
@@ -213,8 +207,8 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000
         <div class="prm"><span class="k">Dynamic Loft</span><span class="vv">14.1<span class="un">°</span></span></div>
         <div class="prm"><span class="k">Swing Direction</span><span class="vv">−0.6<span class="un">°</span></span></div>
       </div>
-      <div class="pcol ball">
-        <div class="pcol-h">Ball Data</div>
+      <div class="pcol">
+        <div class="pcol-h"><b>BALL</b> DATA</div>
         <div class="prm"><span class="k">Launch Angle</span><span class="vv">13.6<span class="un">°</span></span></div>
         <div class="prm"><span class="k">Launch Direction</span><span class="vv">+0.3<span class="un">°</span></span></div>
         <div class="prm"><span class="k">Spin Rate</span><span class="vv">2,780<span class="un">rpm</span></span></div>
@@ -224,7 +218,6 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:#000
       </div>
     </div>
 
-    <!-- 클럽 딜리버리 -->
     <div class="delivery">
       <div class="dlv-h">Club Path vs Face Angle → 구질</div>
       <div class="track">
