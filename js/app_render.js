@@ -135,7 +135,7 @@ function render(){
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">'+'삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">'+'거절</button>':''}
       </div>
     </div>
-    <div class="content">
+    <div class="content${S._memberSwitch?' content-switch':''}">
       ${st ? `<div class="stat-row"><div class="stat"><div class="stat-val">${st.total}</div><div class="stat-lbl">총 세션</div></div><div class="stat"><div class="stat-val blue">${st.pro}</div><div class="stat-lbl">골프 프로</div></div><div class="stat"><div class="stat-val green">${st.trainer}</div><div class="stat-lbl">골프 PT</div></div></div>` : ''}
 
       <div class="section-card">
@@ -177,12 +177,13 @@ function render(){
                 <div class="session-author">${s.author}</div>
                 <div class="session-date">${s.date}</div>
                 ${s.author!==S.currentUser&&s._addedAt&&s._addedAt>(S.lastSeen[S.currentUser]||'')?'<span class="new-badge">NEW</span>':''}
+                ${(function(){var mm=s.media||[];var nv=mm.filter(function(x){var t=x.mimeType||inferMime(x.name||'')||(x.data||'');return String(t).indexOf('video')!==-1;}).length;var ni=mm.length-nv;var b='';if(nv>0)b+='<span class="media-chip vid">🎬'+(nv>1?nv:'')+'</span>';if(ni>0)b+='<span class="media-chip img">📷'+(ni>1?ni:'')+'</span>';return b;})()}
                 <div class="session-chevron">▼</div>
               </div>
               <div class="session-collapsed" onclick="toggleSession('${s.id}')">${prev.slice(0,42)}${prev.length>42?'…':''}</div>
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
-                ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){var localSrc=m.mediaId?(S.mediaUrls[m.mediaId]||''):'';var remoteSrc=(r2.enabled&&(m.r2Key||m.mediaId))?r2.url(m.r2Key||m.mediaId):'';var src=localSrc||remoteSrc||(m.data||'');var mime=m.mimeType||(m.data||'').slice(5,30)||inferMime(m.name)||'';var isImg=mime.indexOf('image/')!==-1||(m.data&&m.data.indexOf('image/')!==-1);var isVideo=mime.indexOf('video/')!==-1||(m.data&&m.data.indexOf('video/')!==-1);if(m.type==='file'&&src&&isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';if(m.type==='file'&&src&&isVideo){var vid='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid+'"><video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous" onerror="onVideoError(this,\''+vid+'\')"></video><div class="video-controls"><button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button><span class="vc-spacer"></span><button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button><span class="vc-speed" id="spd_'+vid+'">1x</span></div></div>';}if(m.type==='file'&&src&&!isImg&&!isVideo){var vid2='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid2+'"><video class="sm-video" id="'+vid2+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous" onerror="onVideoError(this,\''+vid2+'\')"></video><div class="sm-hint">미디어 유형 미확인 · 재생 안 되면 <a href="'+src+'" target="_blank" rel="noopener">새 창에서 열기</a></div></div>';}if(m.type==='file'&&!src) return '<div class="sm-missing">미디어 로딩 중 — 다른 기기에서 업로드한 영상은 R2 동기화 후 표시됩니다</div>';return '';}).join('')+'</div>':''}
+                ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){var localSrc=m.mediaId?(S.mediaUrls[m.mediaId]||''):'';var remoteSrc=(r2.enabled&&(m.r2Key||m.mediaId))?r2.url(m.r2Key||m.mediaId):'';var src=localSrc||remoteSrc||(m.data||'');var mime=m.mimeType||(m.data||'').slice(5,30)||inferMime(m.name)||'';var isImg=mime.indexOf('image/')!==-1||(m.data&&m.data.indexOf('image/')!==-1);var isVideo=mime.indexOf('video/')!==-1||(m.data&&m.data.indexOf('video/')!==-1);if(m.type==='file'&&src&&isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';if(m.type==='file'&&src&&isVideo){var vid='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid+'"><video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous" onerror="onVideoError(this,\''+vid+'\')"></video><div class="video-controls"><button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button><span class="vc-spacer"></span><button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button><span class="vc-speed" id="spd_'+vid+'">1x</span></div></div>';}if(m.type==='file'&&src&&!isImg&&!isVideo){var vid2='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid2+'"><video class="sm-video" id="'+vid2+'" src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous" onerror="onVideoError(this,\''+vid2+'\')"></video><div class="sm-hint">미디어 유형 미확인 · 재생 안 되면 <a href="'+src+'" target="_blank" rel="noopener">새 창에서 열기</a></div></div>';}if(m.type==='file'&&!src) return '<div class="sm-missing">미디어 로딩 중 — 다른 기기에서 업로드한 영상은 R2 동기화 후 표시됩니다</div>';return '';}).join('')+'</div>':''}
                 ${s._ai?'<div class="ai-summary"><div class="ai-header">AI 분석</div><div class="ai-body"><p class="ai-text">'+s._ai.summary+'</p>'+(s._ai.next_focus?'<div class="ai-focus">다음 집중: '+s._ai.next_focus+'</div>':'')+'<div class="ai-recs"><div class="ai-rec-col"><div class="ai-rec-title">골프 훈련</div>'+(s._ai.golf_drills||[]).map(function(d){return '<div class="ai-rec-item">'+d+'</div>';}).join('')+'</div><div class="ai-rec-col"><div class="ai-rec-title">웨이트</div>'+(s._ai.weight_training||[]).map(function(d){return '<div class="ai-rec-item">'+d+'</div>';}).join('')+'</div></div></div></div>':''}
                 <div class="session-actions">
                   ${!isInfo?'<button class="small-btn edit" onclick="openEditSession(\''+s.id+'\')">'+'수정</button>':''}
@@ -259,7 +260,13 @@ function render(){
 }
 
 // ============ 이벤트 핸들러 ============
-function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; S.showLiveSession=false; render();}
+function selectMember(id){
+  var ml=document.querySelector('.member-list'); var mtop=ml?ml.scrollTop:0;
+  S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; S.showLiveSession=false;
+  S._memberSwitch=true; render(); S._memberSwitch=false;
+  var ml2=document.querySelector('.member-list'); if(ml2) ml2.scrollTop=mtop; // 목록 스크롤 유지
+  var c=document.querySelector('.content'); if(c) c.scrollTop=0;             // 본문은 위에서 시작
+}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}

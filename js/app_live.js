@@ -456,7 +456,7 @@ function renderLiveSession(){
   var bays = (S.bays && S.bays.length) ? S.bays : BAYS_DEFAULT;
 
   var html = '<div class="live-wrap">';
-  html += '<div class="live-head"><div class="live-title">🎯 라이브 세션</div><button class="btn" onclick="closeLiveSession()">닫기</button></div>';
+  html += '<div class="live-head"><button class="btn live-close-btn" onclick="closeLiveSession()">‹ 닫기</button><div class="live-title">🎯 라이브 세션</div></div>';
   html += '<div class="live-sub">베이를 선택해 회원을 배정하면, <strong>굿샷이 그 회원에게만</strong> 저장됩니다. '
        +  '<span class="live-mock-tag">현재 트랙맨 연동 전 데모(목) 모드</span></div>';
   html += '<div class="bay-grid">';
