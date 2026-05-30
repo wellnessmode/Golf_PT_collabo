@@ -4,8 +4,10 @@ function renderRoleSelector(){
   var trainers=INSTRUCTORS.filter(function(i){return i.role==='trainer';});
   root.innerHTML=`<div class="role-selector">
     <div class="role-header">
-      <img class="role-logo-img" src="assets/logo.png" alt="내셔널짐">
-      <p class="role-sub">Collaborative Coaching Platform</p>
+      <img class="role-app-icon" src="assets/icon-512.png" alt="Golf PT">
+      <h1 class="role-brand">NATIONAL GYM</h1>
+      <div class="role-brand-sub">GOLF &amp; PT</div>
+      <div class="role-tagline">COLLABORATIVE COACHING PLATFORM</div>
     </div>
     <div class="role-section">
       <div class="role-section-label">센터 관리</div>
@@ -69,8 +71,8 @@ function render(){
     <div class="sidebar-logo">
       <img class="sidebar-logo-img" src="assets/logo.png" alt="내셔널짐">
       <div class="sidebar-top-actions">
-        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
-        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
       </div>
     </div>
     ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'':''}
@@ -78,6 +80,7 @@ function render(){
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
       <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 데모 화면</button>
       <div class="infodesk-summary">PT+골프 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 골프 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
     </div>
     ` : `
@@ -102,7 +105,6 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
-      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
       ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
       ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>':''}
