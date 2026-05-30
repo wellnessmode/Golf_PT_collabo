@@ -101,6 +101,8 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
+      ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'<button class="mp-btn live-btn'+(S.showLiveSession?' active':'')+'" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>':''}
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
       ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
       ${S.currentRole!=='admin'?'<button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>':''}
@@ -112,7 +114,7 @@ function render(){
   <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
   <div class="main">
-    ${member ? `
+    ${S.showLiveSession ? renderLiveSession() : (member ? `
     <div class="topbar">
       <div class="member-title-wrap">
         <div class="topbar-avatar ${member.color}">${initials(member.name)}</div>
@@ -125,6 +127,7 @@ function render(){
         </div>
       </div>
       <div class="topbar-actions">
+        <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드">📊 성과</button>
         <button class="btn" onclick="openImageCard()" title="이미지 카드">카드</button>
         <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
@@ -174,7 +177,7 @@ function render(){
               </div>
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
-                ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){var localSrc=m.mediaId?(S.mediaUrls[m.mediaId]||''):'';var remoteSrc=(r2.enabled&&(m.r2Key||m.mediaId))?r2.url(m.r2Key||m.mediaId):'';var src=localSrc||remoteSrc||(m.data||'');var mime=m.mimeType||(m.data||'').slice(5,30)||'';var isImg=mime.indexOf('image/')!==-1||(m.data&&m.data.indexOf('image/')!==-1);var isVideo=mime.indexOf('video/')!==-1||(m.data&&m.data.indexOf('video/')!==-1);if(m.type==='file'&&src&&isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';if(m.type==='file'&&src&&isVideo){var vid='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid+'"><video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous"></video><div class="video-controls"><button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button><span class="vc-spacer"></span><button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button><span class="vc-speed" id="spd_'+vid+'">1x</span></div></div>';}if(m.type==='file'&&!src) return '<div class="sm-missing">미디어 로딩 중</div>';return '';}).join('')+'</div>':''}
+                ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){var localSrc=m.mediaId?(S.mediaUrls[m.mediaId]||''):'';var remoteSrc=(r2.enabled&&(m.r2Key||m.mediaId))?r2.url(m.r2Key||m.mediaId):'';var src=localSrc||remoteSrc||(m.data||'');var mime=m.mimeType||(m.data||'').slice(5,30)||inferMime(m.name)||'';var isImg=mime.indexOf('image/')!==-1||(m.data&&m.data.indexOf('image/')!==-1);var isVideo=mime.indexOf('video/')!==-1||(m.data&&m.data.indexOf('video/')!==-1);if(m.type==='file'&&src&&isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';if(m.type==='file'&&src&&isVideo){var vid='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid+'"><video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous" onerror="onVideoError(this,\''+vid+'\')"></video><div class="video-controls"><button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button><span class="vc-spacer"></span><button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button><span class="vc-speed" id="spd_'+vid+'">1x</span></div></div>';}if(m.type==='file'&&src&&!isImg&&!isVideo){var vid2='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid2+'"><video class="sm-video" id="'+vid2+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous" onerror="onVideoError(this,\''+vid2+'\')"></video><div class="sm-hint">미디어 유형 미확인 · 재생 안 되면 <a href="'+src+'" target="_blank" rel="noopener">새 창에서 열기</a></div></div>';}if(m.type==='file'&&!src) return '<div class="sm-missing">미디어 로딩 중 — 다른 기기에서 업로드한 영상은 R2 동기화 후 표시됩니다</div>';return '';}).join('')+'</div>':''}
                 ${s._ai?'<div class="ai-summary"><div class="ai-header">AI 분석</div><div class="ai-body"><p class="ai-text">'+s._ai.summary+'</p>'+(s._ai.next_focus?'<div class="ai-focus">다음 집중: '+s._ai.next_focus+'</div>':'')+'<div class="ai-recs"><div class="ai-rec-col"><div class="ai-rec-title">골프 훈련</div>'+(s._ai.golf_drills||[]).map(function(d){return '<div class="ai-rec-item">'+d+'</div>';}).join('')+'</div><div class="ai-rec-col"><div class="ai-rec-title">웨이트</div>'+(s._ai.weight_training||[]).map(function(d){return '<div class="ai-rec-item">'+d+'</div>';}).join('')+'</div></div></div></div>':''}
                 <div class="session-actions">
                   ${!isInfo?'<button class="small-btn edit" onclick="openEditSession(\''+s.id+'\')">'+'수정</button>':''}
@@ -186,7 +189,7 @@ function render(){
       </div>
     </div>
     ` : `
-    ${S.showDashboard ? renderDashboard() : `<div class="no-member"><div class="no-member-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:14px;font-weight:600;color:var(--tx-3)">회원을 선택하세요</div><div style="font-size:12px;color:var(--tx-3)">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div></div>`}`}
+    ${S.showDashboard ? renderDashboard() : `<div class="no-member"><div class="no-member-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:14px;font-weight:600;color:var(--tx-3)">회원을 선택하세요</div><div style="font-size:12px;color:var(--tx-3)">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div></div>`}`)}
   </div>
 
   ${S.showAddSession ? `
@@ -245,12 +248,13 @@ function render(){
   ${renderHandoverModal()}
   ${renderReportModal()}
   ${renderImageCardModal()}
+  ${renderPerformance()}
   `;
-  setTimeout(function(){if(S.memberSearch){var el=document.querySelector('.sidebar-search');if(el){el.focus();el.setSelectionRange(S.memberSearch.length,S.memberSearch.length);}}if(S.exercisePicker&&S.exercisePicker.open&&S.exercisePicker.query){var el2=document.querySelector('.ex-picker-search input');if(el2){el2.focus();el2.setSelectionRange(S.exercisePicker.query.length,S.exercisePicker.query.length);}}},0);
+  setTimeout(function(){if(S.memberSearch){var el=document.querySelector('.sidebar-search');if(el){el.focus();el.setSelectionRange(S.memberSearch.length,S.memberSearch.length);}}if(S.exercisePicker&&S.exercisePicker.open&&S.exercisePicker.query){var el2=document.querySelector('.ex-picker-search input');if(el2){el2.focus();el2.setSelectionRange(S.exercisePicker.query.length,S.exercisePicker.query.length);}}if((S.liveStartBay||S.liveReassignShot)&&S.liveStartQuery){var el3=document.querySelector('.live-search-input');if(el3){el3.focus();try{el3.setSelectionRange(S.liveStartQuery.length,S.liveStartQuery.length);}catch(e){}}}},0);
 }
 
 // ============ 이벤트 핸들러 ============
-function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; render();}
+function selectMember(id){S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; S.showLiveSession=false; render();}
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}

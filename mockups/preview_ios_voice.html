@@ -1,4 +1,4 @@
-/* ================================================================
+<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>iOS 받아쓰기 (실제 화면)</title><style>/* ================================================================
    Golf PT — Premium Light UI
    Design System v3.2
    ================================================================ */
@@ -1190,3 +1190,81 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 .vi-head b{color:var(--tx)}
 .vi-area{width:100%;min-height:64px;max-height:160px;resize:vertical;font-family:inherit;font-size:13.5px;line-height:1.65;color:var(--tx);background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;outline:none;-webkit-appearance:none}
 .vi-area:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-glow2)}
+
+body{background:#dee1e6;overflow:auto!important;height:auto!important}.app{height:auto!important;max-height:none!important}
+.__note{position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#0d0d10;color:#fff;font:600 12px -apple-system,sans-serif;padding:8px 14px;text-align:center}</style></head><body><div class='app' id='root' style='display:block;height:auto'>
+  <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img class="sidebar-logo-img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'110'%20height%3D'24'%3E%3Ctext%20x%3D'0'%20y%3D'18'%20font-family%3D'Arial'%20font-weight%3D'900'%20font-size%3D'14'%20fill%3D'%25231a1a1a'%3ENATIONAL%20GYM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="내셔널짐">
+      <div class="sidebar-top-actions">
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+    
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" onclick="S.sidebarTab='pt_lesson';render()">PT+골프</div>
+      <div class="sidebar-tab" onclick="S.sidebarTab='lesson';render()">골프</div>
+    </div>
+    
+    <input class="sidebar-search" placeholder="회원 검색..." value="" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
+    <div class="member-list">
+      
+        <div class="member-item" onclick="selectMember('m1')">
+          <div class="member-avatar av-blue">김민</div>
+          <div class="member-name">김민수</div>
+          <div class="session-badge">0</div>
+          <div class="member-actions">
+            
+            
+            
+          </div>
+        </div>
+        <div class="member-item" onclick="selectMember('m2')">
+          <div class="member-avatar av-coral">박지</div>
+          <div class="member-name">박지훈</div>
+          <div class="session-badge">0</div>
+          <div class="member-actions">
+            
+            
+            
+          </div>
+        </div>
+    </div>
+    
+    <div class="sidebar-mypage">
+      <button class="mp-btn live-btn active" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
+      <button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
+      <div class="mp-label">마이페이지</div>
+      <button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>
+      
+      
+    </div>
+    <div class="sync-indicator local"><div class="sync-dot"></div><div>로컬 모드</div></div>
+  </div>
+  <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+
+  <div class="main">
+    <div class="live-wrap"><div class="live-head"><div class="live-title">🎯 라이브 세션</div><button class="btn" onclick="closeLiveSession()">닫기</button></div><div class="live-sub">베이를 선택해 회원을 배정하면, <strong>굿샷이 그 회원에게만</strong> 저장됩니다. <span class="live-mock-tag">현재 트랙맨 연동 전 데모(목) 모드</span></div><div class="bay-grid"><div class="bay-card active" data-bay="bay1"><div class="bay-card-hd bay-blue"><span class="bay-name">1번타석</span><span class="bay-type">연습 · 레슨</span></div><div class="bay-active"><div class="bay-member"><div class="member-avatar av-blue">김민</div><div class="bay-member-info"><div class="bay-member-name">김민수님</div><div class="bay-author trainer">최현승 트레이너 · 25분 경과</div></div></div><div class="bay-shots">아직 저장된 샷 없음</div><div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div><div class="bay-actions"><button class="btn goodshot-btn" onclick="triggerGoodShot('bay1')">🎯 굿샷</button><button class="btn bay-end-btn" onclick="endLiveSession('bay1')">⏹ 종료</button></div></div></div><div class="bay-card empty"><div class="bay-card-hd bay-amber"><span class="bay-name">2번타석</span><span class="bay-type">연습 · 레슨</span></div><div class="bay-empty"><div class="bay-empty-txt">비어있음</div><button class="btn primary bay-assign-btn" onclick="openLiveStart('bay2')">+ 회원 배정</button></div></div><div class="bay-card empty"><div class="bay-card-hd bay-green"><span class="bay-name">3번룸</span><span class="bay-type">레슨 전용</span></div><div class="bay-empty"><div class="bay-empty-txt">비어있음</div><button class="btn primary bay-assign-btn" onclick="openLiveStart('bay3')">+ 회원 배정</button></div></div></div><div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 0개</div><div class="empty-state">아직 저장된 샷이 없습니다</div></div></div>
+  </div>
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+  
+  
+  
+  </div><div class='__note'>iOS(아이폰/아이패드)에서 보이는 실제 라이브 화면 — Web Speech 대신 <b>키보드 마이크 받아쓰기</b> 영역 노출. 텍스트 입력 = 음성/타이핑 둘 다 됨.</div></body></html>

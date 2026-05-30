@@ -116,7 +116,7 @@ function saveEditSession(){
 }
 
 // ============ 대시보드 ============
-function openDashboard(){S.showDashboard=true;S.selectedMember=null;render();}
+function openDashboard(){S.showDashboard=true;S.showLiveSession=false;S.selectedMember=null;render();}
 function closeDashboard(){S.showDashboard=false;render();}
 function renderDashboard(){
   if(!S.showDashboard) return '';
@@ -304,7 +304,8 @@ async function handleFileUpload(input, view){
     render();
     var file = origFile;
     var mediaId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    var saved = await mediaDB.put(mediaId, file, {mimeType:file.type, name:file.name});
+    var resolvedMime = file.type || inferMime(file.name);
+    var saved = await mediaDB.put(mediaId, file, {mimeType:resolvedMime, name:file.name});
     S.uploading--;
     S.uploadMsg = '';
     if(!saved){
@@ -319,7 +320,7 @@ async function handleFileUpload(input, view){
       continue;
     }
     try{S.mediaUrls[mediaId] = URL.createObjectURL(file);}catch(e){}
-    var mediaItem = {type:'file', view:view||'other', name:file.name, mimeType:file.type, size:file.size, mediaId:mediaId};
+    var mediaItem = {type:'file', view:view||'other', name:file.name, mimeType:resolvedMime, size:file.size, mediaId:mediaId};
     // R2 업로드 (백그라운드) — 성공 시 r2Key 기록
     if(r2.enabled){
       mediaItem.r2Key = mediaId;
@@ -367,12 +368,13 @@ async function handleFileUploadSingle(file, view){
   render();
   var processed = file;
   var mediaId = 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-  var saved = await mediaDB.put(mediaId, processed, {mimeType:processed.type, name:file.name});
+  var resolvedMime = processed.type || inferMime(file.name);
+  var saved = await mediaDB.put(mediaId, processed, {mimeType:resolvedMime, name:file.name});
   S.uploading--;
   S.uploadMsg = '';
   if(!saved){console.warn('file save failed'); render(); return;}
   try{S.mediaUrls[mediaId] = URL.createObjectURL(processed);}catch(e){}
-  var mediaItem = {type:'file', view:view, name:file.name, mimeType:processed.type, size:processed.size, mediaId:mediaId};
+  var mediaItem = {type:'file', view:view, name:file.name, mimeType:resolvedMime, size:processed.size, mediaId:mediaId};
   if(r2.enabled){
     mediaItem.r2Key = mediaId;
     mediaItem.r2Status = 'uploading';
@@ -403,6 +405,26 @@ function toggleLoop(vid){
   if(!v)return;
   v.loop=!v.loop;
   if(btn){btn.classList.toggle('active',v.loop);}
+}
+// 영상 로드 실패 시 사용자 안내 (R2 누락 / CORS / 디코딩 실패 등)
+function onVideoError(videoEl, vid){
+  try{
+    var wrap=document.getElementById('wrap_'+vid);
+    if(!wrap || wrap.querySelector('.sm-error')) return;
+    var reason='영상을 불러올 수 없습니다';
+    var err=videoEl && videoEl.error;
+    if(err){
+      if(err.code===2) reason='네트워크 오류 — R2 연결 확인';
+      else if(err.code===3) reason='영상 디코딩 실패 — 포맷 문제';
+      else if(err.code===4) reason='영상 파일 없음 — 업로드 기기에서 다시 열어 R2 동기화가 완료되면 표시됩니다';
+    }
+    var src=videoEl ? videoEl.currentSrc || videoEl.src : '';
+    var note=document.createElement('div');
+    note.className='sm-error';
+    var safe=String(src||'').replace(/[<>"]/g,'');
+    note.innerHTML=reason+(safe?' · <a href="'+safe+'" target="_blank" rel="noopener">새 창 열기</a>':'');
+    wrap.appendChild(note);
+  }catch(e){}
 }
 function setSpeed(vid,spd){
   var v=document.getElementById(vid);

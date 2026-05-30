@@ -347,7 +347,7 @@ function openReport(){
       original:s.content,
       cleaned:cleanupContent(s.content, getRole(s.author)),
       ai:s._ai||null, approved:false,
-      videos:(s.media||[]).filter(function(mm){return (mm.mimeType||'').indexOf('video/')!==-1 && (mm.r2Key||mm.mediaId);}).map(function(mm){return {key:mm.r2Key||mm.mediaId, view:mm.view||'other'};})
+      videos:(s.media||[]).filter(function(mm){var mt=mm.mimeType||inferMime(mm.name);return mt.indexOf('video/')!==-1 && (mm.r2Key||mm.mediaId);}).map(function(mm){return {key:mm.r2Key||mm.mediaId, view:mm.view||'other'};})
     };
   });
   S.reportDraft = {sessions:cleaned, step:'review', link:''};

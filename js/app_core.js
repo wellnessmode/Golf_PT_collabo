@@ -52,9 +52,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v2.7',
-  date:'2026-04-12',
+  version:'v2.8',
+  date:'2026-05-29',
   changes:[
+    '라이브 세션 — 베이별(1·2번타석/3번룸) 활성세션 + 샷 저장(굿샷 트리거) + 관리자 재할당/삭제',
+    '음성 받아쓰기 → AI 자동 세션카드 — 진행 중 받아쓰고 종료 시 AI가 정리, 트레이너는 확인만',
+    '성과 리포트 — 라이브 세션 트랙맨 샷 자동 연결, 단위 전환(yd↔m · mph↔m/s), 글씨크기 조정, 인쇄(PDF)',
     '인수인계 시스템 — 담당 지도자 변경 시 AI 자동 요약 카드 생성 (최근 10세션, 체형평가, Body-Swing 경고, 스윙 영상)',
     '회원 리포트 — HTML 인쇄/PDF 출력 (회원정보, 체형평가, 세션기록 최근 20건)',
     '운동 DB 1000개 — 웨이트 350 + 골프 피트니스(TPI) 345 + 골프 스킬 305, 별도 파일 분리',
@@ -168,6 +171,15 @@ function getRole(author){
   return (author && author.indexOf('프로')!==-1) ? 'pro' : 'trainer';
 }
 
+// ============ 라이브 세션: 베이(타석) 마스터 ============
+// 1번타석/2번타석 = 연습+레슨 겸용, 3번룸 = 레슨 전용.
+// 각 베이는 트랙맨 유닛/PC와 1:1로 물리 고정되며, 모든 매칭은 bay_id 기준.
+const BAYS_DEFAULT = [
+  {id:'bay1', name:'1번타석', color:'bay-blue',  type:'practice'},
+  {id:'bay2', name:'2번타석', color:'bay-amber', type:'practice'},
+  {id:'bay3', name:'3번룸',   color:'bay-green', type:'lesson_only'}
+];
+
 const BODY_SWING_MAP = {
   static_posture:'정적 자세 불균형 — 어드레스 셋업 일관성 저하',
   overhead_squat:'어드레스 하체 균형 불안정 — 발목/무릎 보상동작 유발',
@@ -218,6 +230,18 @@ const SAMPLE_DATA = {
   }
 };
 
+// ============ MIME 추론 (확장자 기반) ============
+// iOS Safari 등에서 .mov, .heic 등은 file.type이 빈 문자열로 오는 경우가 있어
+// 파일명 확장자로 보강한다. 빈 문자열 반환 시 추론 실패.
+function inferMime(nameOrUrl){
+  var s = String(nameOrUrl||'').toLowerCase();
+  var m = s.split('?')[0].split('#')[0].match(/\.([a-z0-9]+)$/);
+  var ext = m ? m[1] : '';
+  var IMG = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',heic:'image/heic',heif:'image/heif',bmp:'image/bmp',svg:'image/svg+xml'};
+  var VID = {mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',qt:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska','3gp':'video/3gpp','3gpp':'video/3gpp',hevc:'video/hevc',avi:'video/x-msvideo'};
+  return IMG[ext] || VID[ext] || '';
+}
+
 // ============ Media DB (IndexedDB) ============
 const mediaDB = {
   db:null, DB_NAME:'golf_pt_media', STORE:'media', ANALYSIS_STORE:'analysis',
@@ -256,7 +280,15 @@ const cloud = {
   async upsertMember(m){if(!this.enabled) return;try{var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||''};var payload={id:m.id,name:m.name,color:m.color,data:extra};var {error}=await this.client.from('members').upsert(payload);if(error){if(String(error.message||'').toLowerCase().indexOf('data')!==-1){console.warn('[cloud] members.data column missing');var fallback=await this.client.from('members').upsert({id:m.id,name:m.name,color:m.color});if(fallback.error) throw fallback.error;return;}throw error;}}catch(e){console.warn('[cloud] upsertMember fail:',e);}},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return;try{const {error}=await this.client.from('assessments').upsert({member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()});if(error) throw error;}catch(e){console.warn('[cloud] upsertAssessment fail:',e);}},
   async upsertSession(memberId,s){if(!this.enabled) return;try{const mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});const {error}=await this.client.from('sessions').upsert({id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.supplement||'',media:mediaMeta});if(error) throw error;}catch(e){console.warn('[cloud] upsertSession fail:',e);}},
-  async deleteSession(id){if(!this.enabled) return;try{const {error}=await this.client.from('sessions').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteSession fail:',e);}}
+  async deleteSession(id){if(!this.enabled) return;try{const {error}=await this.client.from('sessions').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteSession fail:',e);}},
+  // ----- 라이브 세션 (베이/활성세션/굿샷) -----
+  async loadLive(){if(!this.enabled) return null;try{const [bRes,aRes,sRes]=await Promise.all([this.client.from('bays').select('*'),this.client.from('active_sessions').select('*'),this.client.from('shot_events').select('*').order('ts',{ascending:false}).limit(300)]);if(bRes.error) throw bRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const bays=(bRes.data||[]).map(r=>({id:r.id,name:r.name,color:r.color,type:r.type}));const activeSessions={};(aRes.data||[]).forEach(r=>{activeSessions[r.bay_id]={memberId:r.member_id,memberName:r.member_name,author:r.author,startedAt:r.started_at,note:r.note||''};});const shotEvents=(sRes.data||[]).map(r=>({id:r.id,bayId:r.bay_id,memberId:r.member_id,memberName:r.member_name,author:r.author||'',ts:r.ts,data:r.data||{},videoR2Key:r.video_r2_key||null,source:r.source||'mock'})).reverse();return {bays,activeSessions,shotEvents};}catch(e){console.warn('[cloud] loadLive skip:',e&&e.message);return null;}},
+  async upsertBays(bays){if(!this.enabled||!bays||!bays.length) return;try{const {error}=await this.client.from('bays').upsert(bays.map(b=>({id:b.id,name:b.name,color:b.color,type:b.type})));if(error) throw error;}catch(e){console.warn('[cloud] upsertBays fail:',e);}},
+  async startActiveSession(bayId,sess){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').upsert({bay_id:bayId,member_id:sess.memberId,member_name:sess.memberName,author:sess.author,started_at:sess.startedAt,note:sess.note||''});if(error) throw error;}catch(e){console.warn('[cloud] startActiveSession fail:',e);}},
+  async endActiveSession(bayId){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').delete().eq('bay_id',bayId);if(error) throw error;}catch(e){console.warn('[cloud] endActiveSession fail:',e);}},
+  async insertShot(shot){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').upsert({id:shot.id,bay_id:shot.bayId,member_id:shot.memberId,member_name:shot.memberName,author:shot.author||'',ts:shot.ts,data:shot.data||{},video_r2_key:shot.videoR2Key||null,source:shot.source||'mock'});if(error) throw error;}catch(e){console.warn('[cloud] insertShot fail:',e);}},
+  async reassignShot(shotId,memberId,memberName){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').update({member_id:memberId,member_name:memberName}).eq('id',shotId);if(error) throw error;}catch(e){console.warn('[cloud] reassignShot fail:',e);}},
+  async deleteShot(id){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteShot fail:',e);}}
 };
 
 // ============ Cloudflare R2 미디어 스토리지 ============
@@ -266,6 +298,7 @@ const r2 = {
   url(key){if(!this.enabled||!key) return '';return this.workerUrl+'/'+encodeURIComponent(key);},
   async upload(key,blob){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'PUT',headers:{'X-API-Key':this.apiKey,'Content-Type':(blob&&blob.type)||'application/octet-stream'},body:blob});if(!res.ok){console.warn('[r2] upload http',res.status);return false;}return true;}catch(e){console.warn('[r2] upload fail:',e);return false;}},
   async download(key){if(!this.enabled) return null;try{const res=await fetch(this.url(key));if(!res.ok) return null;return await res.blob();}catch(e){console.warn('[r2] download fail:',e);return null;}},
+  async head(key){if(!this.enabled||!key) return false;try{const res=await fetch(this.url(key),{method:'HEAD'});return res.ok;}catch(e){return false;}},
   async remove(key){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'DELETE',headers:{'X-API-Key':this.apiKey}});return res.ok;}catch(e){console.warn('[r2] delete fail:',e);return false;}}
 };
 
@@ -287,7 +320,13 @@ let S = {
   warningBannerCollapsed:false,
   handovers:{}, showHandover:null, showReport:false,
   memberSearch:'', showDashboard:false, sidebarTab:'pt_lesson',
-  showGoalEdit:false, showImageCard:false
+  showGoalEdit:false, showImageCard:false,
+  showPerformance:false, perfMember:null, perfDemo:false,
+  // 라이브 세션 (트랙맨 i/O 연동 기반)
+  bays:[], activeSessions:{}, shotEvents:[],
+  showLiveSession:false, liveStartBay:null, liveStartQuery:'',
+  liveConfirm:null, liveReassignShot:null, liveToast:null, voiceBay:null,
+  perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1
 };
 
 // ============ Audit Log ============
@@ -319,10 +358,10 @@ function initials(name){if(!name) return '?';const p=name.trim().split(/\s+/);if
 function save(){
   if(S.activityLog&&S.activityLog.length>50) S.activityLog=S.activityLog.slice(-50);
   if(S.auditLog&&S.auditLog.length>100) S.auditLog=S.auditLog.slice(-100);
-  try{var data={members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers};var str=JSON.stringify(data,function(k,v){if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;return v;});localStorage.setItem('golf_pt_v2',str);return true;}catch(e){try{S.activityLog=[];S.auditLog=S.auditLog?S.auditLog.slice(-20):[];S.handovers={};localStorage.setItem('golf_pt_v2',JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers}));return true;}catch(e2){console.warn('[save] localStorage full');return false;}}
+  try{var data={members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents};var str=JSON.stringify(data,function(k,v){if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;return v;});localStorage.setItem('golf_pt_v2',str);return true;}catch(e){try{S.activityLog=[];S.auditLog=S.auditLog?S.auditLog.slice(-20):[];S.handovers={};localStorage.setItem('golf_pt_v2',JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents}));return true;}catch(e2){console.warn('[save] localStorage full');return false;}}
 }
 function estimateStorageSize(){try{return JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,lastSeen:S.lastSeen}).length;}catch(e){return 0;}}
-function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(S.members.length>0&&!S.selectedMember) S.selectedMember=S.members[0].id;}
+function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=(p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice();S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();if(S.members.length>0&&!S.selectedMember) S.selectedMember=S.members[0].id;}
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';render();return;}activateRole(role,user);}
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
@@ -357,8 +396,53 @@ async function init(){
       } else {await seedRemote();}
       save();S.cloudSync='connected';
     } else {S.cloudSync='error';}
+    // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
+    try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;save();}}catch(e){console.warn('[cloud] live load skip:',e);}
     render();
   } else {S.cloudSync='local';}
+  // 마지막 단계: 로컬에 있는 영상이 R2에 누락된 경우 자동 재업로드
+  // (iPad 백그라운드 업로드 중단 등으로 R2 누락 → 다른 디바이스에서 안 보이는 케이스 복구)
+  syncLocalMediaToR2().catch(function(e){console.warn('[r2-sync] fail:',e);});
+}
+
+// 로컬 IndexedDB에 영상은 있지만 R2엔 없는 파일을 찾아 자동 재업로드한다.
+// 업로드 디바이스(예: iPad)에서 페이지 닫힘/네트워크 실패로 R2 업로드가 미완료된 경우,
+// 다음 앱 실행 시 이 함수가 R2와 cloud 메타를 보정해서 다른 디바이스에서도 영상이 표시되게 한다.
+async function syncLocalMediaToR2(){
+  if(!r2.enabled || !mediaDB.db) return;
+  var pending=[];
+  Object.keys(S.sessions).forEach(function(mid){
+    (S.sessions[mid]||[]).forEach(function(s){
+      (s.media||[]).forEach(function(m){
+        if(m.type==='file' && m.mediaId) pending.push({mid:mid, sid:s.id, m:m});
+      });
+    });
+  });
+  if(pending.length===0) return;
+  var fixed=0;
+  for(var i=0;i<pending.length;i++){
+    var p=pending[i];
+    var rec=await mediaDB.get(p.m.mediaId);
+    if(!rec || !rec.blob) continue; // 로컬에 없으면 패스(다른 디바이스가 올린 영상)
+    var key=p.m.r2Key || p.m.mediaId;
+    var exists=await r2.head(key);
+    if(exists){
+      if(p.m.r2Status!=='synced'){p.m.r2Status='synced'; if(!p.m.r2Key) p.m.r2Key=p.m.mediaId; fixed++;}
+      continue;
+    }
+    p.m.r2Status='uploading'; render();
+    var ok=await r2.upload(p.m.mediaId, rec.blob);
+    if(ok){
+      p.m.r2Status='synced';
+      p.m.r2Key=p.m.r2Key || p.m.mediaId;
+      var stored=(S.sessions[p.mid]||[]).find(function(x){return x.id===p.sid;});
+      if(stored) cloud.upsertSession(p.mid, stored);
+      fixed++;
+    } else {
+      p.m.r2Status='failed';
+    }
+  }
+  if(fixed>0){console.log('[r2-sync]', fixed,'개 영상 동기화 완료'); save(); render();}
 }
 
 async function seedRemote(){try{for(const m of S.members) await cloud.upsertMember(m);for(const mid in S.assessments){for(const key in S.assessments[mid]){const v=S.assessments[mid][key];await cloud.upsertAssessment(mid,key,v.result,v.note);}}for(const mid in S.sessions){for(const s of S.sessions[mid]) await cloud.upsertSession(mid,s);}}catch(e){console.warn('[cloud] seedRemote fail:',e);}}
@@ -367,6 +451,7 @@ async function refreshFromCloud(){
   if(!cloud.enabled) return;S.cloudSync='loading';render();
   const remote=await cloud.loadAll();
   if(remote){var localMediaMap={};Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(s.media) localMediaMap[s.id]=s.media;});});S.members=remote.members;S.assessments=remote.assessments;S.sessions=remote.sessions;Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(localMediaMap[s.id]) s.media=localMediaMap[s.id];});});if(S.members.length>0&&!S.members.find(m=>m.id===S.selectedMember)){S.selectedMember=S.members[0].id;}save();S.cloudSync='connected';}else{S.cloudSync='error';}
+  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   render();
 }
 

@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>라이브 세션 — 실제 앱 화면 (style.css 그대로)</title>
+<style>
 /* ================================================================
    Golf PT — Premium Light UI
    Design System v3.2
@@ -917,276 +924,86 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 .live-toast.ok{background:linear-gradient(135deg,var(--ac),var(--ac-2))}
 .live-toast.err{background:linear-gradient(135deg,#dc2626,#b91c1c)}
 @keyframes liveToastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* ===== 목업 전용 오버라이드 (실제 앱 CSS는 위에 그대로) ===== */
+html,body{overflow:auto!important;height:auto!important;background:#dfe3e6}
+.mock-note{max-width:940px;margin:18px auto 10px;text-align:center;color:#6b7280;font-size:12px;font-family:var(--font)}
+.mock-note b{color:var(--ac)}
+.app{max-width:940px;height:720px;margin:0 auto 40px;border:1px solid var(--brd-2);border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.18)}
+.sidebar{transform:none!important}
+.mobile-toggle{display:none!important}
+@media(max-width:768px){.sidebar{position:relative!important;transform:none!important;width:230px!important;min-width:230px!important}.sidebar-backdrop{display:none!important}}
+</style>
+</head>
+<body>
+<div class="mock-note">실제 앱 화면입니다 — <b>현재 가동중인 style.css를 그대로 사용</b>. 사이드바 하단 <b>🎯 라이브 세션</b> 버튼으로 진입하며, 같은 카드·버튼·색·폰트를 그대로 씁니다.</div>
+<div class="app">
+  <div class="sidebar open">
+    <div class="sidebar-logo">
+      <svg class="sidebar-logo-img" viewBox="0 0 400 100" style="height:24px;width:auto"><g fill="#1a1a1a"><rect x="5" y="8" width="5.5" height="52" rx="0.5"/><rect x="15" y="8" width="5.5" height="52" rx="0.5"/><rect x="26" y="8" width="5.5" height="52" rx="0.5"/><polygon points="31.5,8 56,52 56,60 50.5,60 50.5,18 26,60 26,52"/><rect x="50.5" y="8" width="5.5" height="52" rx="0.5"/><circle cx="42" cy="78" r="15" fill="none" stroke="#1a1a1a" stroke-width="4.5"/><path d="M34,75 Q42,69 50,75" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/><path d="M34,81 Q42,87 50,81" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/></g><text x="76" y="36" font-size="30" font-weight="900" fill="#1a1a1a" letter-spacing="3" font-family="-apple-system,Arial">NATIONAL</text><text x="76" y="68" font-size="30" font-weight="900" fill="#1a1a1a" letter-spacing="3" font-family="-apple-system,Arial">GYM</text></svg>
+      <div class="sidebar-top-actions">
+        <button class="sidebar-bell"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active">PT+골프</div>
+      <div class="sidebar-tab">골프</div>
+    </div>
+    <input class="sidebar-search" placeholder="회원 검색...">
+    <div class="member-list">
+      <div class="member-item active"><div class="member-avatar av-blue">김민</div><div class="member-name">김민수</div><div class="session-badge">14</div></div>
+      <div class="member-item"><div class="member-avatar av-coral">박지</div><div class="member-name">박지훈</div><div class="session-badge">9</div></div>
+      <div class="member-item"><div class="member-avatar av-amber">이서</div><div class="member-name">이서연</div><div class="session-badge">22</div></div>
+      <div class="member-item"><div class="member-avatar av-green">정해</div><div class="member-name">정해성</div><div class="session-badge">6</div></div>
+    </div>
+    <div class="sidebar-mypage">
+      <button class="mp-btn live-btn active">🎯 라이브 세션</button>
+      <button class="mp-btn demo-btn">📊 상담용 데모 화면</button>
+      <button class="mp-btn dash-btn">대시보드</button>
+      <div class="mp-label">마이페이지</div>
+      <button class="mp-btn">비밀번호 변경</button>
+    </div>
+    <div class="sync-indicator connected"><div class="sync-dot"></div><div>Supabase 동기화됨</div><button class="sync-refresh">새로고침</button></div>
+  </div>
 
-/* 라이브 세션 — 모바일(아이폰 세로) 보강 */
-@media(max-width:480px){
-  .live-wrap{padding:14px 13px 34px}
-  .live-title{font-size:18px}
-  .bay-actions .goodshot-btn{font-size:16px;padding:14px}
-  .shot-log{padding:13px 14px}
-  .shot-row{flex-wrap:wrap;row-gap:3px;padding:9px 2px}
-  .shot-member{min-width:46px}
-  .shot-time{margin-left:auto}
-  .shot-row .small-btn{padding:3px 9px}
-  .live-toast{font-size:13px;bottom:20px}
-}
-
-/* ===== 음성 받아쓰기 (라이브 세션) ===== */
-.voice-btn{width:100%;background:var(--bg-3);color:var(--ac-2);border:1px solid var(--ac);font-weight:700;margin-bottom:8px}
-.voice-btn:hover{background:var(--ac-glow2)}
-.voice-note{font-size:11px;color:var(--tx-3);background:var(--bg-3);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-align:center;line-height:1.5}
-.voice-rec{background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.22);border-radius:10px;padding:10px 12px;margin-bottom:8px}
-.vr-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--err)}
-.vr-dot{width:9px;height:9px;border-radius:50%;background:var(--err);animation:pulse 1s infinite}
-.vr-stop{margin-left:auto;font-size:11px;font-weight:700;color:var(--tx-2);background:var(--bg-1);border:1px solid var(--brd-2);border-radius:6px;padding:3px 11px;cursor:pointer;font-family:var(--font)}
-.vr-text{font-size:12.5px;color:var(--tx-2);line-height:1.6;margin-top:8px;max-height:58px;overflow:hidden}
-
-/* ===== 성과 리포트 컨트롤 (단위/글씨/인쇄) ===== */
-.perf-topbar{flex-wrap:wrap;gap:8px}
-.perf-ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
-.pfc-grp{display:flex;align-items:center;gap:3px}
-.pfc-grp b{font-size:9px;color:var(--tx-3);font-weight:800;margin-right:1px}
-.pfc{font-size:11px;font-weight:700;padding:5px 9px;border:1px solid var(--brd-2);background:var(--bg-2);color:var(--tx-2);border-radius:6px;cursor:pointer;font-family:var(--font)}
-.pfc:hover{background:var(--bg-4)}
-.pfc.on{background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#fff;border-color:transparent}
-.pfc-print{font-weight:700}
-@media(max-width:680px){.perf-ctrls{gap:5px}.pfc-grp b{display:none}.pfc{padding:5px 7px}}
-
-/* ===== 대표 샷 패널 (TPS 다크 데이터 리드아웃) ===== */
-.ts-panel{background:linear-gradient(160deg,#1b1b1e,#101012);border-radius:14px;padding:15px 16px;margin:6px 0 16px}
-.ts-h{font-size:11px;font-weight:800;letter-spacing:.5px;color:#fff;margin-bottom:12px}
-.ts-when{font-size:10px;color:#8a8f96;font-weight:600;margin-left:6px}
-.ts-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:10px}
-.ts-tile{background:#27272c;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:9px 4px;text-align:center}
-.ts-tile:first-child{border-top:2px solid #f47c20}
-.ts-l{font-size:8px;color:#8a8f96;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:5px}
-.ts-v{font-size:18px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
-.ts-tile:first-child .ts-v{color:#ff8b33}
-.ts-v .ts-u{font-size:8px;color:#8a8f96;font-weight:500;margin-left:2px}
-.ts-params{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.ts-p{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 9px;font-size:11px;color:#aab0b6}
-.ts-p b{color:#fff;font-variant-numeric:tabular-nums;font-weight:700}
-@media(max-width:560px){.ts-tiles{grid-template-columns:repeat(3,1fr)}.ts-params{grid-template-columns:repeat(2,1fr)}}
-
-/* ===== 성과 리포트 인쇄 (PDF) — 리포트만 출력 ===== */
-@media print{
-  body *{visibility:hidden!important}
-  .perf-overlay, .perf-overlay *{visibility:visible!important}
-  .perf-overlay{position:absolute!important;inset:0!important;background:#fff!important;overflow:visible!important;display:block!important;height:auto!important}
-  .perf-shell{box-shadow:none!important;max-width:100%!important;width:100%!important;zoom:1!important;border-radius:0!important}
-  .perf-ctrls,.perf-close{display:none!important}
-  .ts-panel{background:#f4f4f4!important;border:1px solid #ccc!important}
-  .ts-h,.ts-v,.ts-p b{color:#111!important}
-  .ts-tile{background:#fff!important;border:1px solid #ddd!important}
-  .ts-p{background:#fff!important;color:#444!important}
-}
-
-/* 인쇄 보강 — 긴 성과 리포트 다중 페이지 정상 분할 (절대위치 클리핑 방지) */
-@media print{
-  html,body,#root,.app,.main,.perf-overlay,.perf-shell{position:static!important;height:auto!important;max-height:none!important;overflow:visible!important}
-  .perf-overlay{inset:auto!important}
-  .sidebar,.mobile-toggle,.sidebar-backdrop{display:none!important}
-  .perf-section,.ts-panel,.chart-card,.kpi-card{break-inside:avoid;page-break-inside:avoid}
-}
-
-/* 라이브 뷰 자체 스크롤 — .main(overflow:hidden) 안에서 긴 내용(베이 다수+샷로그) 스크롤 보장 */
-.main > .live-wrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
-
-/* =====================================================================
-   성과 리포트 v3 — 흰색 통일 · 클럽/날짜/영상 · Lock-in
-   ===================================================================== */
-.perf-light .perf-shell{background:#fff;color:#0a0c0f}
-.perf-shell.perf-v3{max-width:680px;margin:0 auto;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.18);overflow:hidden;padding:0;background:#fff}
-.perf-shell.perf-v3 .pv-hd,.perf-shell.perf-v3 .pv-player,.perf-shell.perf-v3 .pv-sec,.perf-shell.perf-v3 .pv-foot{border-bottom:1px solid rgba(15,20,28,.07)}
-.perf-shell.perf-v3 .pv-foot{border-bottom:none}
-
-/* 헤더 */
-.pv-hd{padding:22px 26px 16px;background:#fff}
-.pv-hd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.pv-brand{font-size:12px;font-weight:800;letter-spacing:2.6px;color:#0a0c0f;line-height:1.5}
-.pv-brand small{display:block;font-size:8.5px;letter-spacing:2.2px;color:#7a8089;margin-top:3px;font-weight:700}
-.pv-ctrls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.pv-cg{display:flex;align-items:center;gap:5px}
-.pv-cg .pv-l{font-size:9px;color:#7a8089;font-weight:800;letter-spacing:.4px}
-.pv-seg{display:flex;border:1px solid rgba(15,20,28,.12);border-radius:7px;overflow:hidden;background:#fff}
-.pv-seg button{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:10.5px;font-weight:700;padding:5px 10px;border:none;background:transparent;color:#3f454e;cursor:pointer;transition:all .15s}
-.pv-seg button:hover{background:#fafbfc}
-.pv-seg button.on{background:#0a0c0f;color:#fff}
-.pv-icbtn{width:30px;height:28px;border:1px solid rgba(15,20,28,.12);background:#fff;border-radius:7px;cursor:pointer;font-size:13px}
-.pv-icbtn:hover{background:#fafbfc}
-.pv-title{font-size:23px;font-weight:800;letter-spacing:-.5px;margin-top:16px;line-height:1.2}
-.pv-title span{font-weight:300;color:#7a8089}
-.pv-demo{font-size:10px;font-weight:800;color:#fff;background:#0a0c0f;padding:3px 9px;border-radius:5px;margin-left:10px;letter-spacing:1px;vertical-align:middle}
-.pv-meta{font-size:10.5px;color:#7a8089;margin-top:7px;letter-spacing:.3px}
-
-/* 선수 + 매몰 */
-.pv-player{padding:20px 26px;background:#fafbfc}
-.pv-p-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-.pv-pname{font-size:20px;font-weight:800;letter-spacing:-.4px}
-.pv-pname span{font-size:12px;font-weight:500;color:#7a8089;margin-left:2px}
-.pv-pmeta{font-size:11px;color:#7a8089;margin-top:4px;font-variant-numeric:tabular-nums}
-.pv-ptags{font-size:11.5px;color:#3f454e;text-align:right;font-weight:600}
-.pv-invest{background:#fff;border:1px solid rgba(15,20,28,.07);border-radius:14px;padding:14px 16px}
-.pv-iv-label{font-size:9px;font-weight:800;letter-spacing:1.2px;color:#00a070;text-transform:uppercase;margin-bottom:11px}
-.pv-iv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.pv-iv-cell{text-align:center;border-right:1px solid rgba(15,20,28,.07)}
-.pv-iv-cell:last-child{border-right:none}
-.pv-iv-v{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:#0a0c0f;line-height:1;letter-spacing:-.02em}
-.pv-iv-v .u{font-size:11px;color:#7a8089;font-weight:600;margin-left:2px}
-.pv-iv-l{font-size:9.5px;color:#7a8089;margin-top:5px;letter-spacing:.3px}
-@media(max-width:560px){.pv-iv-grid{grid-template-columns:repeat(2,1fr)}.pv-iv-cell:nth-child(2){border-right:none}.pv-iv-cell:nth-child(1),.pv-iv-cell:nth-child(2){border-bottom:1px solid rgba(15,20,28,.07);padding-bottom:11px}}
-
-/* 섹션 공통 */
-.pv-sec{padding:22px 26px}
-.pv-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
-.pv-sec-t{font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#0a0c0f;display:flex;align-items:center;gap:9px}
-.pv-sec-t i{display:inline-block;width:18px;height:18px;border-radius:50%;background:#0a0c0f;color:#fff;font-style:normal;font-size:9px;font-weight:800;text-align:center;line-height:18px}
-.pv-sec-x{font-size:10px;color:#7a8089;letter-spacing:.3px}
-
-/* KPI */
-.pv-kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
-.pv-k{background:#fafbfc;border:1px solid rgba(15,20,28,.07);border-radius:10px;padding:14px 8px 13px;text-align:center}
-.pv-k.hi{background:rgba(0,184,132,.08);border-color:rgba(0,184,132,.18)}
-.pv-k-l{font-size:9px;color:#7a8089;text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:7px}
-.pv-k-v{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:26px;font-weight:800;color:#0a0c0f;line-height:1;letter-spacing:-.02em}
-.pv-k.hi .pv-k-v{color:#00a070}
-.pv-k-u{font-size:10px;color:#7a8089;font-weight:600;margin-left:2px}
-.pv-k .kpi-delta{display:block;font-size:10px;font-weight:700;color:#00a070;margin-top:5px;font-variant-numeric:tabular-nums}
-.pv-k .kpi-delta.down{color:#c2410c}
-@media(max-width:560px){.pv-kgrid{grid-template-columns:repeat(2,1fr)}}
-
-/* 목표 진척 */
-.pv-gl{background:linear-gradient(135deg,#0a0c0f,#1a2027);color:#fff;border-radius:14px;padding:18px 20px}
-.pv-gl-h{font-size:9.5px;font-weight:800;letter-spacing:1.4px;color:#9adcb8;text-transform:uppercase;margin-bottom:14px}
-.pv-gl-row{margin-bottom:14px}
-.pv-gl-row:last-child{margin-bottom:0}
-.pv-gl-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
-.pv-gl-name{font-size:13px;font-weight:700}
-.pv-gl-val{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:13px;font-weight:800}
-.pv-gl-val .un{font-size:10px;color:#9adcb8;margin-left:2px}
-.pv-gl-bar{height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
-.pv-gl-fill{height:100%;background:linear-gradient(90deg,#00b884,#34e0aa);border-radius:4px;position:relative}
-.pv-gl-fill::after{content:"";position:absolute;right:0;top:-3px;width:14px;height:14px;border-radius:50%;background:#34e0aa;box-shadow:0 0 0 3px rgba(52,224,170,.25)}
-.pv-gl-rest{font-size:10px;color:rgba(255,255,255,.55);margin-top:4px;font-variant-numeric:tabular-nums}
-
-/* 클럽 탭 */
-.pv-tabs{display:flex;border-bottom:1px solid rgba(15,20,28,.07);margin-bottom:16px;overflow-x:auto}
-.pv-tab{font-size:12px;font-weight:700;padding:9px 16px;border:none;background:transparent;color:#7a8089;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit;transition:all .15s}
-.pv-tab:hover{color:#3f454e}
-.pv-tab.on{color:#0a0c0f;border-bottom-color:#0a0c0f}
-.pv-tab.dis{opacity:.35;cursor:not-allowed}
-.pv-tab .pv-ct{font-family:-apple-system,'SF Mono',sans-serif;font-variant-numeric:tabular-nums;font-size:10px;color:#a8aeb6;margin-left:5px}
-.pv-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.pv-tbl th{font-size:9px;font-weight:700;color:#7a8089;text-transform:uppercase;letter-spacing:.5px;text-align:right;padding:9px 6px;border-bottom:1px solid rgba(15,20,28,.12)}
-.pv-tbl th:first-child{text-align:left}
-.pv-tbl td{padding:11px 6px;text-align:right;border-bottom:1px solid rgba(15,20,28,.07);font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;color:#0a0c0f;font-size:13.5px}
-.pv-tbl td:first-child{text-align:left;font-family:inherit;font-weight:600;color:#3f454e;font-size:11.5px}
-.pv-tbl tr:last-child td{border-bottom:none}
-.pv-empty{text-align:center;padding:30px;color:#7a8089;font-size:12px;background:#fafbfc;border-radius:10px}
-
-/* 필터 + 영상 그리드 */
-.pv-filt{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.pv-chip{font-size:11px;font-weight:600;padding:6px 12px;background:#fafbfc;border:1px solid rgba(15,20,28,.07);border-radius:20px;color:#3f454e;cursor:pointer;font-family:inherit}
-.pv-chip:hover{border-color:rgba(15,20,28,.12)}
-.pv-chip.on{background:#0a0c0f;color:#fff;border-color:#0a0c0f}
-.pv-vg{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-@media(max-width:560px){.pv-vg{grid-template-columns:repeat(2,1fr);gap:8px}}
-.pv-vcard{background:#fff;border:1px solid rgba(15,20,28,.07);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .18s}
-.pv-vcard:hover{border-color:rgba(15,20,28,.12);transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.06)}
-.pv-vthumb{aspect-ratio:3/4;background:linear-gradient(160deg,#1a2027,#0a0c0f);position:relative;display:flex;align-items:center;justify-content:center}
-.pv-vthumb::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(0,184,132,.12),transparent 60%)}
-.pv-vplay{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:center;color:#0a0c0f;font-size:14px;position:relative}
-.pv-vbest{position:absolute;top:7px;left:7px;background:#00a070;color:#fff;font-size:8.5px;font-weight:800;letter-spacing:.4px;padding:2px 7px;border-radius:10px;z-index:2}
-.pv-vdate{position:absolute;bottom:7px;left:9px;color:rgba(255,255,255,.85);font-size:9.5px;letter-spacing:.2px;font-weight:600;font-variant-numeric:tabular-nums}
-.pv-vdist{position:absolute;bottom:7px;right:9px;color:#fff;font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:800;letter-spacing:-.2px}
-.pv-vdist span{font-size:9px;font-weight:600;opacity:.7;margin-left:1px}
-.pv-vinfo{padding:9px 10px 10px}
-.pv-vclub{font-size:11.5px;font-weight:700;color:#0a0c0f}
-.pv-vdetail{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-size:10px;color:#7a8089;margin-top:2px;font-variant-numeric:tabular-nums}
-
-/* 비포/애프터 */
-.pv-bna-h{font-size:10px;font-weight:800;letter-spacing:1.4px;color:#00a070;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.pv-bna-h::after{content:"";flex:1;height:1px;background:rgba(15,20,28,.07)}
-.pv-bna{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}
-@media(max-width:560px){.pv-bna{grid-template-columns:1fr 1fr;gap:9px}.pv-bna-arr{display:none}}
-.pv-bna-col{background:#fafbfc;border:1px solid rgba(15,20,28,.07);border-radius:10px;overflow:hidden}
-.pv-bna-thumb{aspect-ratio:3/4;background:linear-gradient(160deg,#2a3038,#0a0c0f);position:relative;display:flex;align-items:center;justify-content:center}
-.pv-bna-col.after .pv-bna-thumb{background:linear-gradient(160deg,#0a3a28,#0a0c0f)}
-.pv-bna-tag{position:absolute;top:8px;left:8px;font-size:8.5px;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;z-index:2}
-.pv-bna-col.after .pv-bna-tag{background:#00a070}
-.pv-bna-stats{padding:11px 12px}
-.pv-bna-date{font-size:10px;color:#7a8089;font-variant-numeric:tabular-nums}
-.pv-bna-val{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:18px;font-weight:800;margin-top:4px}
-.pv-bna-val span{font-size:10px;color:#7a8089;font-weight:600}
-.pv-bna-arr{font-size:18px;color:#00a070;font-weight:300}
-.pv-bna-delta{margin-top:14px;background:rgba(0,184,132,.08);border:1px solid rgba(0,184,132,.18);border-radius:10px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
-.pv-bna-delta b{font-size:13px;font-weight:800;color:#00a070;font-variant-numeric:tabular-nums}
-.pv-bna-delta span{font-size:11.5px;color:#3f454e;font-weight:600}
-
-/* 다음 사이클 */
-.pv-next{background:linear-gradient(160deg,#0a0c0f,#1a2027);color:#fff;border-radius:14px;padding:20px 22px}
-.pv-nx-h{font-size:9.5px;font-weight:800;letter-spacing:1.4px;color:#9adcb8;text-transform:uppercase;margin-bottom:14px}
-.pv-nx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:14px}
-.pv-nx{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:13px 8px;text-align:center}
-.pv-nx .v{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:21px;font-weight:800;color:#fff}
-.pv-nx .v .u{font-size:10px;color:#9adcb8;font-weight:600;margin-left:2px}
-.pv-nx .l{font-size:9.5px;color:rgba(255,255,255,.6);margin-top:4px}
-.pv-nx-note{font-size:11px;color:rgba(255,255,255,.65);line-height:1.7;border-top:1px solid rgba(255,255,255,.08);padding-top:13px}
-.pv-nx-note b{color:#9adcb8;font-weight:700}
-
-/* CTA */
-.pv-cta-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(max-width:480px){.pv-cta-wrap{grid-template-columns:1fr}}
-.pv-cta{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid rgba(15,20,28,.07);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .15s}
-.pv-cta:hover{border-color:rgba(15,20,28,.12);box-shadow:0 4px 12px rgba(0,0,0,.04)}
-.pv-cta.primary{background:#0a0c0f;color:#fff;border-color:#0a0c0f}
-.pv-cta-ic{width:36px;height:36px;border-radius:10px;background:#fafbfc;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
-.pv-cta.primary .pv-cta-ic{background:rgba(255,255,255,.1)}
-.pv-cta-t{font-size:12.5px;font-weight:700;line-height:1.35}
-.pv-cta-s{font-size:10.5px;color:#7a8089;margin-top:2px;line-height:1.4}
-.pv-cta.primary .pv-cta-s{color:rgba(255,255,255,.6)}
-
-/* 푸터 */
-.pv-foot{padding:18px 26px;background:#fafbfc;color:#7a8089;font-size:10px;line-height:1.8;text-align:center}
-.pv-foot b{color:#3f454e;font-weight:700}
-.pv-foot span{display:block;font-size:9.5px;color:#a8aeb6;margin-top:6px;letter-spacing:.2px}
-
-/* 영상 모달 */
-.pv-vm{position:fixed;inset:0;background:rgba(10,12,15,.86);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
-.pv-vm-box{background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
-.pv-vm-vid{aspect-ratio:3/4;background:linear-gradient(160deg,#1a2027,#0a0c0f);position:relative;display:flex;align-items:center;justify-content:center;border-radius:14px 14px 0 0}
-.pv-vm-info{padding:18px 20px}
-.pv-vm-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
-.pv-vm-club{font-size:16px;font-weight:800}
-.pv-vm-date{font-size:11px;color:#7a8089;font-variant-numeric:tabular-nums}
-.pv-vm-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
-.pv-vmt{background:#fafbfc;border:1px solid rgba(15,20,28,.07);border-radius:8px;padding:9px 4px;text-align:center}
-.pv-vmt .l{font-size:8px;color:#7a8089;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
-.pv-vmt .v{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:15px;font-weight:800;color:#0a0c0f;margin-top:3px}
-.pv-vmt .v .u{font-size:9px;color:#7a8089;font-weight:500;margin-left:1px}
-.pv-vm-params{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:14px}
-.pv-vmp{display:flex;justify-content:space-between;font-size:11px;color:#3f454e;padding:5px 9px;background:#fafbfc;border-radius:6px}
-.pv-vmp b{color:#0a0c0f;font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-weight:700}
-.pv-vm-close{width:100%;padding:11px;background:#0a0c0f;color:#fff;border:none;border-radius:8px;font-weight:700;font-family:inherit;cursor:pointer;font-size:13px}
-
-/* PT 차트 영역 */
-.pv-chart{background:#fff;border:1px solid rgba(15,20,28,.07);border-radius:10px;padding:14px}
-
-/* 인쇄 — v3 라이트는 그대로 인쇄 (기존 인쇄 룰과 호환) */
-@media print{
-  .perf-shell.perf-v3{box-shadow:none!important;max-width:100%!important;width:100%!important;border-radius:0!important}
-  .pv-ctrls,.pv-icbtn{display:none!important}
-  .pv-vm{display:none!important}
-  .pv-gl,.pv-next{background:#f5f5f5!important;color:#0a0c0f!important;border:1px solid #ddd}
-  .pv-gl-h,.pv-nx-h{color:#00a070!important}
-  .pv-gl-name,.pv-gl-val,.pv-nx .v,.pv-nx .l,.pv-nx-note{color:#0a0c0f!important}
-  .pv-vthumb,.pv-bna-thumb{background:#e8eaed!important}
-  .pv-vplay{background:#0a0c0f!important;color:#fff!important}
-}
-
-/* iOS 음성: 시스템 키보드 받아쓰기용 입력 영역 */
-.voice-ios{background:rgba(0,184,132,.05);border:1px solid rgba(0,184,132,.22);border-radius:10px;padding:11px 12px;margin-bottom:8px}
-.vi-head{font-size:12px;font-weight:700;color:var(--ac-2);margin-bottom:8px;line-height:1.5}
-.vi-head b{color:var(--tx)}
-.vi-area{width:100%;min-height:64px;max-height:160px;resize:vertical;font-family:inherit;font-size:13.5px;line-height:1.65;color:var(--tx);background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;outline:none;-webkit-appearance:none}
-.vi-area:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-glow2)}
+  <div class="main">
+    <div class="live-wrap">
+      <div class="live-head"><div class="live-title">🎯 라이브 세션</div><button class="btn">닫기</button></div>
+      <div class="live-sub">베이를 선택해 회원을 배정하면, <strong>굿샷이 그 회원에게만</strong> 저장됩니다. <span class="live-mock-tag">현재 트랙맨 연동 전 데모(목) 모드</span></div>
+      <div class="bay-grid">
+        <div class="bay-card active">
+          <div class="bay-card-hd bay-blue"><span class="bay-name">1번타석</span><span class="bay-type">연습 · 레슨</span></div>
+          <div class="bay-active">
+            <div class="bay-member"><div class="member-avatar av-blue">김민</div><div class="bay-member-info"><div class="bay-member-name">김민수님</div><div class="bay-author trainer">최현승 트레이너 · 32분 경과</div></div></div>
+            <div class="bay-shots">저장된 샷 <strong>5</strong>개</div>
+            <div class="bay-actions"><button class="btn goodshot-btn">🎯 굿샷</button><button class="btn bay-end-btn">⏹ 종료</button></div>
+          </div>
+        </div>
+        <div class="bay-card active">
+          <div class="bay-card-hd bay-amber"><span class="bay-name">2번타석</span><span class="bay-type">연습 · 레슨</span></div>
+          <div class="bay-active">
+            <div class="bay-member"><div class="member-avatar av-coral">박지</div><div class="bay-member-info"><div class="bay-member-name">박지훈님</div><div class="bay-author pro">정우진 프로 · 14분 경과</div></div></div>
+            <div class="bay-shots">저장된 샷 <strong>2</strong>개</div>
+            <div class="bay-actions"><button class="btn goodshot-btn">🎯 굿샷</button><button class="btn bay-end-btn">⏹ 종료</button></div>
+          </div>
+        </div>
+        <div class="bay-card empty">
+          <div class="bay-card-hd bay-green"><span class="bay-name">3번룸</span><span class="bay-type">레슨 전용</span></div>
+          <div class="bay-empty"><div class="bay-empty-txt">비어있음</div><button class="btn primary bay-assign-btn">+ 회원 배정</button></div>
+        </div>
+      </div>
+      <div class="shot-log">
+        <div class="shot-log-hd">최근 저장된 샷 7개</div>
+        <div class="shot-list">
+          <div class="shot-row"><span class="shot-bay bay-blue">1번타석</span><span class="shot-member">김민수</span><span class="shot-club">드라이버</span><span class="shot-metric">248 yd</span><span class="shot-time">14:32</span><span class="shot-mock">데모</span><button class="small-btn del">삭제</button></div>
+          <div class="shot-row"><span class="shot-bay bay-amber">2번타석</span><span class="shot-member">박지훈</span><span class="shot-club">7번 아이언</span><span class="shot-metric">165 yd</span><span class="shot-time">14:30</span><span class="shot-mock">데모</span><button class="small-btn del">삭제</button></div>
+          <div class="shot-row"><span class="shot-bay bay-blue">1번타석</span><span class="shot-member">김민수</span><span class="shot-club">드라이버</span><span class="shot-metric">251 yd</span><span class="shot-time">14:28</span><span class="shot-mock">데모</span><button class="small-btn del">삭제</button></div>
+          <div class="shot-row"><span class="shot-bay bay-blue">1번타석</span><span class="shot-member">김민수</span><span class="shot-club">5번 우드</span><span class="shot-metric">220 yd</span><span class="shot-time">14:25</span><span class="shot-mock">데모</span><button class="small-btn del">삭제</button></div>
+          <div class="shot-row"><span class="shot-bay bay-amber">2번타석</span><span class="shot-member">박지훈</span><span class="shot-club">피칭웨지</span><span class="shot-metric">110 yd</span><span class="shot-time">14:22</span><span class="shot-mock">데모</span><button class="small-btn del">삭제</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
