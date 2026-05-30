@@ -326,7 +326,7 @@ let S = {
   bays:[], activeSessions:{}, shotEvents:[],
   showLiveSession:false, liveStartBay:null, liveStartQuery:'',
   liveConfirm:null, liveReassignShot:null, liveToast:null, voiceBay:null,
-  perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1
+  perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1, openSessions:{}
 };
 
 // ============ Audit Log ============

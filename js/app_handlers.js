@@ -257,10 +257,8 @@ function renderQuickNoteModal(){
 // ============ 이미지 카드 (카카오톡 공유용) ============
 function openImageCard(){S.showImageCard=true;render();}
 function closeImageCard(){S.showImageCard=false;render();}
-function generateImageCard(){
-  var mid=S.selectedMember;
-  var m=S.members.find(function(x){return x.id===mid;});
-  if(!m) return;
+function _drawImageCard(m){
+  var mid=m.id;
   var allSess=(S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
   var thisMonth=today().slice(0,7);
   var monthSess=allSess.filter(function(s){return s.date.slice(0,7)===thisMonth;});
@@ -305,12 +303,42 @@ function generateImageCard(){
   ctx.fillText(Math.round(pct*100)+'%',40+640*pct/2-10,y+15); y+=45;
   ctx.fillStyle='#999'; ctx.font='13px -apple-system,sans-serif';
   ctx.fillText('내셔널짐 Golf PT Collaboration · '+today(),40,920);
-  canvas.toBlob(function(blob){
+  return canvas;
+}
+function _imageCardFilename(m){ return m.name+'_레슨카드_'+today()+'.png'; }
+// 다운로드
+function generateImageCard(){
+  var m=S.members.find(function(x){return x.id===S.selectedMember;});
+  if(!m) return;
+  _drawImageCard(m).toBlob(function(blob){
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
-    a.href=url; a.download=m.name+'_레슨카드_'+today()+'.png';
+    a.href=url; a.download=_imageCardFilename(m);
     a.click();
     setTimeout(function(){URL.revokeObjectURL(url);},200);
+    if(typeof liveToast==='function') liveToast('📥 이미지 다운로드 완료','ok');
+  },'image/png');
+}
+// 공유 (Web Share API → 카카오톡 등 OS 공유시트, 미지원 시 다운로드 폴백)
+function shareImageCard(){
+  var m=S.members.find(function(x){return x.id===S.selectedMember;});
+  if(!m) return;
+  _drawImageCard(m).toBlob(function(blob){
+    var fname=_imageCardFilename(m);
+    try{
+      var file=new File([blob], fname, {type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:m.name+' 레슨카드', text:m.name+' 회원님 레슨 리포트'})
+          .catch(function(){});
+        return;
+      }
+    }catch(e){}
+    // 폴백: 다운로드 + 안내
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=fname; a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);},200);
+    alert('이 기기는 직접 공유를 지원하지 않습니다.\n이미지를 다운로드했어요 — 카카오톡에서 사진 첨부로 보내세요.');
   },'image/png');
 }
 function roundRect(ctx,x,y,w,h,r){
@@ -325,12 +353,13 @@ function renderImageCardModal(){
   var m=S.members.find(function(x){return x.id===S.selectedMember;});
   if(!m) return '';
   return `<div class="modal-overlay" onclick="if(event.target===this)closeImageCard()">
-    <div class="modal" style="width:400px">
-      <div class="modal-title">이미지 카드 생성</div>
-      <p style="font-size:13px;color:#555;margin-bottom:16px">${m.name} 회원님의 월간 레슨 리포트를 이미지로 다운로드합니다.<br>길게 눌러 카카오톡으로 공유하세요.</p>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeImageCard()">취소</button>
-        <button class="btn primary" onclick="generateImageCard();closeImageCard()">📥 이미지 다운로드</button>
+    <div class="modal" style="width:380px">
+      <div class="modal-title">레슨 카드</div>
+      <p style="font-size:13.5px;color:var(--tx-2);margin-bottom:18px;line-height:1.6">${m.name} 회원님의 월간 레슨 리포트 카드입니다.<br>다운로드하거나 바로 공유하세요.</p>
+      <div class="modal-actions card-actions">
+        <button class="btn" onclick="closeImageCard()">닫기</button>
+        <button class="btn" onclick="generateImageCard()">📥 다운로드</button>
+        <button class="btn primary" onclick="shareImageCard()">📤 공유</button>
       </div>
     </div>
   </div>`;
@@ -619,6 +648,30 @@ function snapshotAssessment(){
   save(); render();
 }
 
+function updateAssessAuthor(val){
+  const mid = S.selectedMember;
+  if(!S.assessments[mid]) S.assessments[mid] = {};
+  S.assessments[mid]._author = val;
+  if(!S.assessments[mid]._date) S.assessments[mid]._date = today();
+  logActivity('평가자 지정', mid, val);
+  save();
+}
+function toggleSession(id){
+  if(!S.openSessions) S.openSessions = {};
+  var mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]);
+  var cur = (S.openSessions[id]!==undefined) ? S.openSessions[id] : (sess.length>0 && sess.slice().sort(function(a,b){return b.date.localeCompare(a.date);})[0].id===id);
+  S.openSessions[id] = !cur;
+  render();
+}
+function toggleAllSessions(){
+  if(!S.openSessions) S.openSessions = {};
+  var mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]);
+  var allOpen = sess.length>0 && sess.every(function(s){return S.openSessions[s.id];});
+  sess.forEach(function(s){ S.openSessions[s.id] = !allOpen; });
+  render();
+}
 function updateAssessDate(val){
   const mid = S.selectedMember;
   if(!S.assessments[mid]) S.assessments[mid] = {};

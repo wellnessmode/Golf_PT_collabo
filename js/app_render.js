@@ -73,6 +73,7 @@ function render(){
         <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
       </div>
     </div>
+    ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?`<button class="live-cta${S.showLiveSession?' active':''}" onclick="event.stopPropagation();openLiveSession()"><span class="live-cta-ic">🎯</span><span class="live-cta-tx">라이브 세션</span></button>`:''}
     ${isInfo ? `
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
@@ -101,8 +102,6 @@ function render(){
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
-      ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'<button class="mp-btn live-btn'+(S.showLiveSession?' active':'')+'" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>':''}
-      ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'<button class="mp-btn'+((typeof aiEnabled==='function'&&aiEnabled())?' ai-on':'')+'" onclick="event.stopPropagation();setAnthropicKey()">🤖 AI 정리 '+((typeof aiEnabled==='function'&&aiEnabled())?'켜짐':'설정')+'</button>':''}
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
       ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>
@@ -141,13 +140,15 @@ function render(){
 
       <div class="section-card">
         <div class="section-header${S.assessOpen?' open':''}" onclick="toggleAssess()">
-          <div class="section-label"><div class="dot dot-green"></div>체형 기능 평가<span class="sec-count">(${ASSESSMENT_ITEMS.filter(i=>{const v=assess[i.key];return v&&v.result&&v.result!=='미검사'}).length}/${ASSESSMENT_ITEMS.length})${assess._date?' · '+assess._date:''}${assess._history&&assess._history.length>0?' · 히스토리 '+assess._history.length+'회':''}</span></div>
+          <div class="section-label"><div class="dot dot-green"></div>체형 기능 평가<span class="sec-count">(${ASSESSMENT_ITEMS.filter(i=>{const v=assess[i.key];return v&&v.result&&v.result!=='미검사'}).length}/${ASSESSMENT_ITEMS.length})${assess._date?' · '+assess._date:''}${assess._author?' · '+assess._author:''}${assess._history&&assess._history.length>0?' · 히스토리 '+assess._history.length+'회':''}</span></div>
           <div class="chevron">▼</div>
         </div>
         ${S.assessOpen ? `
         <div class="assess-meta">
           <label class="assess-date-label">평가일</label>
           <input type="date" class="assess-date-input" value="${assess._date||''}" ${isInfo?'disabled':''} onchange="updateAssessDate(this.value)">
+          <label class="assess-date-label">평가자</label>
+          <select class="assess-author-select" ${isInfo?'disabled':''} onchange="updateAssessAuthor(this.value)"><option value="">선택</option>${INSTRUCTORS.map(function(i){return '<option value="'+i.name+'"'+(assess._author===i.name?' selected':'')+'>'+i.name+'</option>';}).join('')}</select>
           ${!isInfo?'<button class="btn" style="font-size:11px;padding:5px 10px" onclick="snapshotAssessment()">애프터 평가 시작</button>':''}
         </div>
         ${assess._history&&assess._history.length>0?'<div class="assess-history">'+assess._history.map(function(h,i){return '<div class="history-item"><strong>'+h.date+'</strong> <span>('+ASSESSMENT_ITEMS.filter(function(it){var v=h.items[it.key];return v&&v.result&&v.result!=='미검사';}).length+'/'+ASSESSMENT_ITEMS.length+')</span></div>';}).join('')+'</div>':''}
@@ -160,6 +161,7 @@ function render(){
         <div class="section-header open" style="cursor:default">
           <div class="section-label"><div class="dot dot-amber"></div>세션 기록<span class="sec-count">(${sessions.length}건)</span></div>
           <div class="section-right">
+            ${sessions.length>1?'<div class="filter-btn expand-btn" onclick="toggleAllSessions()">'+(sessions.every(function(s){return S.openSessions&&S.openSessions[s.id];})?'모두 접기':'모두 펼치기')+'</div>':''}
             <div class="filter-btn${S.filterAuthor==='all'?' active':''}" onclick="setFilter('all')">전체</div>
             <div class="filter-btn${S.filterAuthor==='pro'?' pro-active':''}" onclick="setFilter('pro')">프로</div>
             <div class="filter-btn${S.filterAuthor==='trainer'?' trainer-active':''}" onclick="setFilter('trainer')">트레이너</div>
@@ -168,14 +170,16 @@ function render(){
         ${warnings.length>0 ? `<div class="warning-banner${S.warningBannerCollapsed?' collapsed':''}"><div class="wb-head" onclick="toggleWarningBanner()"><span>체형 제한 ${warnings.length}개 확인 — 레슨/운동 전 검토 필요</span><span class="wb-chevron">▼</span></div><div class="wb-body">${warnings.map(function(w){return '<div class="wb-item"><strong>'+w.name+'</strong> ('+w.result+'): '+w.impact+'</div>';}).join('')}</div></div>` : ''}
         <div class="sessions-list">
           ${sessions.length===0 ? `<div class="empty-state">기록된 세션이 없습니다<br><span style="font-size:11px">상단 '+ 세션 기록' 버튼으로 추가하세요</span></div>` :
-          sessions.map(s => `
-            <div class="session-card">
-              <div class="session-hd ${getRole(s.author)==='pro'?'pro':'trainer'}">
+          sessions.map((s,si) => { var so=(S.openSessions&&S.openSessions[s.id]!==undefined)?S.openSessions[s.id]:(si===0); var prev=(s.content||'').replace(/\s+/g,' ').trim(); return `
+            <div class="session-card${so?' open':''}">
+              <div class="session-hd ${getRole(s.author)==='pro'?'pro':'trainer'}" onclick="toggleSession('${s.id}')">
                 <div class="role-tag ${getRole(s.author)==='pro'?'pro':'trainer'}">${getRole(s.author)==='pro'?'GOLF PRO':'GOLF PT'}</div>
                 <div class="session-author">${s.author}</div>
                 <div class="session-date">${s.date}</div>
                 ${s.author!==S.currentUser&&s._addedAt&&s._addedAt>(S.lastSeen[S.currentUser]||'')?'<span class="new-badge">NEW</span>':''}
+                <div class="session-chevron">▼</div>
               </div>
+              <div class="session-collapsed" onclick="toggleSession('${s.id}')">${prev.slice(0,42)}${prev.length>42?'…':''}</div>
               <div class="session-bd">
                 <div class="session-content">${s.content}</div>
                 ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){var localSrc=m.mediaId?(S.mediaUrls[m.mediaId]||''):'';var remoteSrc=(r2.enabled&&(m.r2Key||m.mediaId))?r2.url(m.r2Key||m.mediaId):'';var src=localSrc||remoteSrc||(m.data||'');var mime=m.mimeType||(m.data||'').slice(5,30)||inferMime(m.name)||'';var isImg=mime.indexOf('image/')!==-1||(m.data&&m.data.indexOf('image/')!==-1);var isVideo=mime.indexOf('video/')!==-1||(m.data&&m.data.indexOf('video/')!==-1);if(m.type==='file'&&src&&isImg) return '<img class="sm-thumb" src="'+src+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">';if(m.type==='file'&&src&&isVideo){var vid='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid+'"><video class="sm-video" id="'+vid+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous" onerror="onVideoError(this,\''+vid+'\')"></video><div class="video-controls"><button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button><span class="vc-spacer"></span><button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button><span class="vc-speed" id="spd_'+vid+'">1x</span></div></div>';}if(m.type==='file'&&src&&!isImg&&!isVideo){var vid2='v_'+s.id+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid2+'"><video class="sm-video" id="'+vid2+'" src="'+src+'" controls playsinline preload="auto" crossorigin="anonymous" onerror="onVideoError(this,\''+vid2+'\')"></video><div class="sm-hint">미디어 유형 미확인 · 재생 안 되면 <a href="'+src+'" target="_blank" rel="noopener">새 창에서 열기</a></div></div>';}if(m.type==='file'&&!src) return '<div class="sm-missing">미디어 로딩 중 — 다른 기기에서 업로드한 영상은 R2 동기화 후 표시됩니다</div>';return '';}).join('')+'</div>':''}
@@ -185,7 +189,7 @@ function render(){
                   ${!isInfo?'<button class="small-btn del" onclick="deleteSession(\''+s.id+'\')">'+'삭제</button>':''}
                 </div>
               </div>
-            </div>`).join('')}
+            </div>`; }).join('')}
         </div>
       </div>
     </div>

@@ -191,14 +191,14 @@ function renderDashboard(){
       <div class="dash-stat"><div class="ds-val amber">${trainerSessions}</div><div class="ds-lbl">PT 세션</div></div>
     </div>
     <div class="dash-grid">
-      <div class="dash-card">
+      ${isInfo?`<div class="dash-card">
         <h3>지도자별 세션</h3>
         <div class="dash-bar-list">${Object.keys(instructorStats).map(function(name){
           var cnt = instructorStats[name];
           var pct = totalSessions>0?Math.round(cnt/totalSessions*100):0;
           return '<div class="dash-bar-row"><span class="dbr-name">'+name+'</span><div class="dbr-bar-wrap"><div class="dbr-bar '+(name.indexOf('프로')!==-1?'pro':'trainer')+'" style="width:'+pct+'%"></div></div><span class="dbr-cnt">'+cnt+'</span></div>';
         }).join('')}</div>
-      </div>
+      </div>`:''}
       <div class="dash-card">
         <h3>만료 임박 회원</h3>
         ${expiringMembers.length>0?'<div class="dash-expire-list">'+expiringMembers.map(function(e){

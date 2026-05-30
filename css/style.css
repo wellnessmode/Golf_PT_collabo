@@ -1193,3 +1193,82 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 
 /* AI 정리 키 설정 버튼 — 켜짐 상태 */
 .mp-btn.ai-on{background:var(--ac-glow2);color:var(--ac-2);border-color:var(--ac);font-weight:700}
+
+/* ===================================================================
+   UI 개선 — 사이드바·세션 접기·평가자·모바일 가독성 (2026-05)
+   =================================================================== */
+
+/* 라이브 세션 — 상단 큰 버튼 */
+.live-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 24px);margin:12px 12px 6px;padding:15px 14px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#fff;font-weight:800;font-size:15.5px;cursor:pointer;box-shadow:0 4px 16px rgba(0,184,132,.32);letter-spacing:-.01em;transition:all var(--t-fast);font-family:var(--font)}
+.live-cta:hover{box-shadow:0 6px 22px rgba(0,184,132,.45);transform:translateY(-1px)}
+.live-cta:active{transform:translateY(0)}
+.live-cta.active{outline:2px solid rgba(0,184,132,.45);outline-offset:2px}
+.live-cta-ic{font-size:18px;line-height:1}
+.live-cta-tx{line-height:1}
+
+/* 세션 접기/펼치기 */
+.session-hd{cursor:pointer;position:relative;padding-right:36px}
+.session-chevron{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--tx-3);transition:transform var(--t-med)}
+.session-card.open .session-chevron{transform:translateY(-50%) rotate(180deg)}
+.session-card:not(.open) .session-bd{display:none}
+.session-card.open .session-collapsed{display:none}
+.session-collapsed{padding:11px 16px;font-size:13.5px;color:var(--tx-2);cursor:pointer;background:var(--bg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background var(--t-fast)}
+.session-collapsed:hover{background:var(--bg-3)}
+.expand-btn{font-weight:700}
+
+/* 평가자 셀렉트 */
+.assess-author-select{font-size:13px;padding:7px 10px;border:1px solid var(--brd-2);border-radius:var(--r);background:var(--bg-1);color:var(--tx);font-family:var(--font);font-weight:600}
+
+/* 카드 모달 버튼 줄바꿈 */
+.card-actions{flex-wrap:wrap;gap:8px}
+
+/* 사이드바 가독성·터치 기본 보강 */
+.member-item{padding:11px 12px;gap:11px;border-radius:10px}
+.member-name{font-size:14.5px;font-weight:600}
+.sidebar-search{padding:11px 14px;font-size:14px}
+
+/* ===== 모바일 시인성 대폭 개선 ===== */
+@media(max-width:768px){
+  .live-cta{font-size:17px;padding:17px 14px;margin:14px 12px 8px}
+  .live-cta-ic{font-size:20px}
+
+  .member-item{padding:14px 12px;gap:12px}
+  .member-name{font-size:16px}
+  .member-avatar{width:42px;height:42px;font-size:15px;border-radius:12px}
+  .session-badge{font-size:12px;min-width:24px;height:24px}
+  .sidebar-search{font-size:15.5px;padding:14px 14px}
+  .sidebar-tab{padding:11px 0;font-size:13px}
+  .add-member-btn{font-size:14px;padding:13px}
+  .mp-btn{font-size:13px;padding:11px 12px}
+
+  .topbar{padding:13px 16px}
+  .member-title{font-size:19px}
+  .member-subtitle{font-size:12.5px}
+  .member-detail-line{font-size:12px}
+  .topbar-actions .btn{padding:10px 13px;font-size:13px}
+
+  .content{padding:16px 14px;gap:13px}
+  .stat-val{font-size:25px}
+  .stat-lbl{font-size:11px}
+
+  .section-header{padding:15px 16px}
+  .section-label{font-size:15px}
+  .sec-count{font-size:12px}
+
+  .session-hd{padding:13px 36px 13px 16px}
+  .role-tag{font-size:10px}
+  .session-author{font-size:14px;font-weight:700}
+  .session-date{font-size:13px}
+  .session-content{font-size:15px;line-height:1.75}
+  .session-collapsed{font-size:14.5px;padding:13px 16px}
+  .small-btn{font-size:12.5px;padding:7px 13px}
+
+  .assess-name{font-size:14px}
+  .assess-cp{font-size:11.5px}
+  .assess-select{font-size:14px;padding:9px 10px}
+  .assess-note-input{font-size:14px;padding:9px 11px}
+  .assess-author-select{font-size:14px;padding:9px 11px}
+  .body-swing-alert{font-size:12px}
+
+  .filter-btn{padding:8px 12px;font-size:12.5px}
+}
