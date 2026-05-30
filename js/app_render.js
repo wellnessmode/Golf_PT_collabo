@@ -102,6 +102,7 @@ function render(){
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">
       ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'<button class="mp-btn live-btn'+(S.showLiveSession?' active':'')+'" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>':''}
+      ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'<button class="mp-btn'+((typeof aiEnabled==='function'&&aiEnabled())?' ai-on':'')+'" onclick="event.stopPropagation();setAnthropicKey()">🤖 AI 정리 '+((typeof aiEnabled==='function'&&aiEnabled())?'켜짐':'설정')+'</button>':''}
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
       ${!isInfo?'<button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>':''}
       <div class="mp-label">마이페이지</div>

@@ -286,11 +286,33 @@ function updateVoiceText(bayId, val){
   window._voiceSaveT=setTimeout(function(){ try{ save(); }catch(e){} }, 800);
 }
 
-// Claude Haiku 정리 (옵션) — config.ANTHROPIC_API_KEY 있으면 사용, 없으면 null → 로컬 폴백
+// Claude API 키 — 이 기기(브라우저)에만 저장. git/서버 어디에도 안 올라감.
+// 우선순위: localStorage > config.js(비워둠 권장)
+function getAnthropicKey(){
+  try{ var k=localStorage.getItem('golf_pt_anthropic_key'); if(k) return k; }catch(e){}
+  return (window.APP_CONFIG&&window.APP_CONFIG.ANTHROPIC_API_KEY)||'';
+}
+function aiEnabled(){ return !!getAnthropicKey(); }
+function setAnthropicKey(){
+  var cur='';
+  try{ cur=localStorage.getItem('golf_pt_anthropic_key')||''; }catch(e){}
+  var masked=cur?(cur.slice(0,10)+'…'+cur.slice(-4)):'(없음)';
+  var v=prompt('Claude API 키를 붙여넣으세요 (sk-ant-... )\n현재: '+masked+'\n\n· 이 키는 이 기기에만 저장됩니다 (서버·깃에 안 올라감)\n· 비우고 확인하면 AI 정리 해제\n· AI 정리 비활성 시 앱 내장 정리로 자동 폴백', cur);
+  if(v===null) return;
+  v=(v||'').trim();
+  if(v && v.indexOf('sk-ant-')!==0){ alert('올바른 키 형식이 아닙니다 (sk-ant- 로 시작해야 합니다)'); return; }
+  try{ if(v) localStorage.setItem('golf_pt_anthropic_key', v); else localStorage.removeItem('golf_pt_anthropic_key'); }catch(e){ alert('이 기기에 저장할 수 없습니다 (시크릿 모드?)'); return; }
+  try{ logAudit('system','AI 키 '+(v?'설정':'해제'),'',{device:'local'}); }catch(e){}
+  render();
+  liveToast(v?'🤖 AI 정리 켜짐 (이 기기 전용)':'AI 정리 꺼짐 (내장 정리 사용)','ok');
+}
+
+// Claude Haiku 정리 (옵션) — 키 있으면 사용, 없으면 null → 로컬 폴백
 async function aiSummarizeWithClaude(transcript, author){
   try{
+    var key=getAnthropicKey();
+    if(!key) return null;
     var cfg=window.APP_CONFIG||{};
-    if(!cfg.ANTHROPIC_API_KEY) return null;
     var role=(typeof getRole==='function')?getRole(author):'trainer';
     var roleLabel=role==='pro'?'골프 프로':'PT 트레이너';
     var system='당신은 골프 레슨 세션카드 작성 보조 AI입니다. '+roleLabel+'이 레슨 중 말한 내용을 구조화된 한국어 세션카드로 정리합니다. '
@@ -301,7 +323,7 @@ async function aiSummarizeWithClaude(transcript, author){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'x-api-key':cfg.ANTHROPIC_API_KEY,
+        'x-api-key':key,
         'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true'
       },
@@ -356,9 +378,8 @@ function openVoiceDraft(memberId, author, transcript){
   var localStructured=structureTranscript(transcript,author);
   S.newSession={ date:today(), author:author, content:localStructured+summary, media:[], mediaUrls:['',''] };
   S.showAddSession=true;
-  // Claude API 있으면 백그라운드로 더 정교한 정리 시도 — 응답 오면 자동 교체
-  var cfg=window.APP_CONFIG||{};
-  if(cfg.ANTHROPIC_API_KEY){
+  // Claude 키 있으면 백그라운드로 더 정교한 정리 시도 — 응답 오면 자동 교체
+  if(aiEnabled()){
     aiSummarizeWithClaude(transcript,author).then(function(better){
       if(better && S.showAddSession && S.newSession){
         S.newSession.content = better + summary;
