@@ -1241,7 +1241,7 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
   .add-member-btn{font-size:14px;padding:13px}
   .mp-btn{font-size:13px;padding:11px 12px}
 
-  .topbar{padding:13px 16px}
+  .topbar{padding:13px 16px;padding-top:max(13px,calc(env(safe-area-inset-top, 0px) + 12px))}
   .member-title{font-size:19px}
   .member-subtitle{font-size:12.5px}
   .member-detail-line{font-size:12px}
@@ -1272,3 +1272,33 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 
   .filter-btn{padding:8px 12px;font-size:12.5px}
 }
+
+/* #2 세션/평가 헤더 줄바꿈 방지 (모바일에서 '세션 기 록', '전 체' 깨짐 수정) */
+.section-label{white-space:nowrap}
+.filter-btn{white-space:nowrap}
+.section-right{flex-wrap:wrap;justify-content:flex-end;gap:6px}
+@media(max-width:768px){
+  .section-header{flex-wrap:wrap;gap:10px;align-items:center}
+  .section-header .section-label{flex:1 1 auto}
+  .section-right{width:100%;justify-content:flex-start}
+  .filter-btn{padding:8px 13px}
+}
+/* #3 세션 펼침 애니메이션 (토글한 카드만 1회) */
+@keyframes sessExpand{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+.session-card.just-opened .session-bd{animation:sessExpand .24s var(--ease)}
+.session-card{transition:box-shadow var(--t-fast),border-color var(--t-fast)}
+.session-card.open{box-shadow:var(--sh-sm)}
+
+/* #5 회원 상단 라이브 버튼 + 베이 선택 모달 */
+.btn.live-mini{background:var(--ac-glow2);color:var(--ac-2);border:1px solid var(--ac);font-weight:700}
+.btn.live-mini:hover{background:var(--ac-glow);color:var(--ac-2)}
+.baypick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 4px}
+@media(max-width:480px){.baypick-grid{grid-template-columns:1fr}}
+.baypick{display:flex;flex-direction:column;align-items:center;gap:4px;padding:20px 10px;border:none;border-radius:12px;color:#fff;cursor:pointer;font-family:var(--font);transition:transform var(--t-fast),box-shadow var(--t-fast)}
+.baypick.bay-blue{background:linear-gradient(135deg,#3868d6,#2a4fa8)}
+.baypick.bay-amber{background:linear-gradient(135deg,#e08a1e,#c2710f)}
+.baypick.bay-green{background:linear-gradient(135deg,#00b884,#00936a)}
+.baypick:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
+.baypick.occ{opacity:.45;cursor:not-allowed}
+.bp-name{font-size:16px;font-weight:800}
+.bp-sub{font-size:11px;opacity:.92}

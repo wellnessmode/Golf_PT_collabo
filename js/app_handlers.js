@@ -661,16 +661,23 @@ function toggleSession(id){
   var mid = S.selectedMember;
   var sess = (S.sessions[mid]||[]);
   var cur = (S.openSessions[id]!==undefined) ? S.openSessions[id] : (sess.length>0 && sess.slice().sort(function(a,b){return b.date.localeCompare(a.date);})[0].id===id);
-  S.openSessions[id] = !cur;
+  var willOpen = !cur;
+  S.openSessions[id] = willOpen;
+  var sc = document.querySelector('.content'); var top = sc ? sc.scrollTop : 0;
+  S._animSession = willOpen ? id : null;
   render();
+  S._animSession = null;
+  var sc2 = document.querySelector('.content'); if(sc2) sc2.scrollTop = top; // 화면 위로 튐 방지
 }
 function toggleAllSessions(){
   if(!S.openSessions) S.openSessions = {};
   var mid = S.selectedMember;
   var sess = (S.sessions[mid]||[]);
   var allOpen = sess.length>0 && sess.every(function(s){return S.openSessions[s.id];});
+  var sc = document.querySelector('.content'); var top = sc ? sc.scrollTop : 0;
   sess.forEach(function(s){ S.openSessions[s.id] = !allOpen; });
   render();
+  var sc2 = document.querySelector('.content'); if(sc2) sc2.scrollTop = top;
 }
 function updateAssessDate(val){
   const mid = S.selectedMember;

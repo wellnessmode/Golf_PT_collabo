@@ -86,6 +86,43 @@ function openLiveSession(){
 }
 function closeLiveSession(){ S.showLiveSession=false; render(); }
 
+// 회원 카드에서 바로 라이브 시작 (회원 → 베이 선택)
+function openLiveForMember(memberId){
+  var m=S.members.find(function(x){return x.id===memberId;}); if(!m) return;
+  S.showLiveSession=true; S.showDashboard=false; S.sidebarOpen=false;
+  var existing=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===memberId;});
+  S.liveBayPickFor = existing ? null : memberId;   // 이미 진행중이면 라이브뷰로, 아니면 베이 선택
+  render();
+}
+function pickBayForMember(bayId){
+  var memberId=S.liveBayPickFor; if(!memberId) return;
+  if(S.activeSessions[bayId]){ liveToast(getBay(bayId).name+'은(는) 사용 중입니다','err'); return; }
+  var dup=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===memberId;});
+  if(dup){ liveToast(getBay(dup).name+'에서 이미 진행 중입니다','err'); S.liveBayPickFor=null; render(); return; }
+  var m=S.members.find(function(x){return x.id===memberId;}); if(!m){ S.liveBayPickFor=null; render(); return; }
+  S.liveConfirm={bayId:bayId, memberId:memberId, memberName:m.name};  // 기존 명시 컨펌 모달 재사용
+  S.liveBayPickFor=null;
+  render();
+}
+function cancelBayPick(){ S.liveBayPickFor=null; render(); }
+function renderBayPickModal(){
+  if(!S.liveBayPickFor) return '';
+  var m=S.members.find(function(x){return x.id===S.liveBayPickFor;});
+  if(!m) return '';
+  var bays=(S.bays&&S.bays.length)?S.bays:BAYS_DEFAULT;
+  return '<div class="modal-overlay" onclick="if(event.target===this)cancelBayPick()"><div class="modal">'
+    + '<div class="modal-title">'+m.name+'님 — 어느 타석?</div>'
+    + '<div class="baypick-grid">'
+    + bays.map(function(b){
+        var occ=S.activeSessions[b.id];
+        return '<button class="baypick '+b.color+(occ?' occ':'')+'"'+(occ?' disabled':' onclick="pickBayForMember(\''+b.id+'\')"')+'>'
+          + '<span class="bp-name">'+b.name+'</span><span class="bp-sub">'+(occ?occ.memberName+' 진행중':'여기서 시작')+'</span></button>';
+      }).join('')
+    + '</div>'
+    + '<div class="modal-actions"><button class="btn" onclick="cancelBayPick()">취소</button></div>'
+    + '</div></div>';
+}
+
 // ============ 세션 시작 (회원 배정 → 명시 컨펌) ============
 function openLiveStart(bayId){
   if(S.activeSessions[bayId]){ liveToast('이미 진행 중인 세션이 있습니다','err'); return; }
@@ -432,6 +469,7 @@ function renderLiveSession(){
   html += renderLiveStartModal();
   html += renderLiveConfirmModal();
   html += renderReassignModal();
+  html += renderBayPickModal();
   return html;
 }
 

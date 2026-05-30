@@ -73,7 +73,7 @@ function render(){
         <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
       </div>
     </div>
-    ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?`<button class="live-cta${S.showLiveSession?' active':''}" onclick="event.stopPropagation();openLiveSession()"><span class="live-cta-ic">🎯</span><span class="live-cta-tx">라이브 세션</span></button>`:''}
+    ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'':''}
     ${isInfo ? `
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
@@ -128,9 +128,9 @@ function render(){
       </div>
       <div class="topbar-actions">
         <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드">📊 성과</button>
-        <button class="btn" onclick="openImageCard()" title="이미지 카드">카드</button>
         <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
+        ${!isInfo?'<button class="btn live-mini" onclick="openLiveForMember(\''+mid+'\')">🎯 라이브 세션</button>':''}
         ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">'+'삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">'+'거절</button>':''}
       </div>
@@ -171,7 +171,7 @@ function render(){
         <div class="sessions-list">
           ${sessions.length===0 ? `<div class="empty-state">기록된 세션이 없습니다<br><span style="font-size:11px">상단 '+ 세션 기록' 버튼으로 추가하세요</span></div>` :
           sessions.map((s,si) => { var so=(S.openSessions&&S.openSessions[s.id]!==undefined)?S.openSessions[s.id]:(si===0); var prev=(s.content||'').replace(/\s+/g,' ').trim(); return `
-            <div class="session-card${so?' open':''}">
+            <div class="session-card${so?' open':''}${(so&&S._animSession===s.id)?' just-opened':''}">
               <div class="session-hd ${getRole(s.author)==='pro'?'pro':'trainer'}" onclick="toggleSession('${s.id}')">
                 <div class="role-tag ${getRole(s.author)==='pro'?'pro':'trainer'}">${getRole(s.author)==='pro'?'GOLF PRO':'GOLF PT'}</div>
                 <div class="session-author">${s.author}</div>
