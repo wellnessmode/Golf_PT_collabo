@@ -1190,3 +1190,6 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 .vi-head b{color:var(--tx)}
 .vi-area{width:100%;min-height:64px;max-height:160px;resize:vertical;font-family:inherit;font-size:13.5px;line-height:1.65;color:var(--tx);background:var(--bg-1);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;outline:none;-webkit-appearance:none}
 .vi-area:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-glow2)}
+
+/* AI 정리 키 설정 버튼 — 켜짐 상태 */
+.mp-btn.ai-on{background:var(--ac-glow2);color:var(--ac-2);border-color:var(--ac);font-weight:700}
