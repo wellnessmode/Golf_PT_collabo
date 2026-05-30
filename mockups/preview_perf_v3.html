@@ -1,4 +1,4 @@
-/* ================================================================
+<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>성과 리포트 v3 (앱 실장착)</title><style>/* ================================================================
    Golf PT — Premium Light UI
    Design System v3.2
    ================================================================ */
@@ -1183,3 +1183,248 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
   .pv-vthumb,.pv-bna-thumb{background:#e8eaed!important}
   .pv-vplay{background:#0a0c0f!important;color:#fff!important}
 }
+
+body{background:#dee1e6}
+.__note{position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#0d0d10;color:#fff;font:600 12px -apple-system,sans-serif;padding:8px 14px;text-align:center;opacity:.94}</style></head><body><div class='app' id='root' style='display:block;height:auto'>
+  <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img class="sidebar-logo-img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'110'%20height%3D'24'%3E%3Ctext%20x%3D'0'%20y%3D'18'%20font-family%3D'Arial'%20font-weight%3D'900'%20font-size%3D'14'%20fill%3D'%25231a1a1a'%3ENATIONAL%20GYM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="내셔널짐">
+      <div class="sidebar-top-actions">
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+    
+    <div class="sidebar-section-label">전체 회원 관리</div>
+    <div class="infodesk-tools">
+      <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
+      <div class="infodesk-summary">PT+골프 2명 · 골프 0명 · 총 2명</div>
+    </div>
+    
+    <input class="sidebar-search" placeholder="회원 검색..." value="" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
+    <div class="member-list">
+      
+        <div class="member-item active" onclick="selectMember('m1')">
+          <div class="member-avatar av-green">로버</div>
+          <div class="member-name">로버트 <span class="exp-badge exp-expired">만료</span></div>
+          <div class="session-badge">7</div>
+          <div class="member-actions">
+            
+            
+            
+          </div>
+        </div>
+        <div class="member-item" onclick="selectMember('m2')">
+          <div class="member-avatar av-blue">윤명</div>
+          <div class="member-name">윤명숙 <span class="exp-badge exp-expired">만료</span></div>
+          <div class="session-badge">9</div>
+          <div class="member-actions">
+            
+            
+            
+          </div>
+        </div>
+    </div>
+    
+    <div class="sidebar-mypage">
+      <button class="mp-btn live-btn" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
+      
+      <div class="mp-label">마이페이지</div>
+      
+      <button class="mp-btn" onclick="openAuditLog()">감사 로그</button>
+      <button class="mp-btn" onclick="event.stopPropagation();window.open('manual.html','_blank')">사용 매뉴얼</button>
+    </div>
+    <div class="sync-indicator local"><div class="sync-dot"></div><div>로컬 모드</div></div>
+  </div>
+  <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+
+  <div class="main">
+    
+    <div class="topbar">
+      <div class="member-title-wrap">
+        <div class="topbar-avatar av-green">로버</div>
+        <div>
+          <div class="member-title">로버트 회원님</div>
+          <div class="member-subtitle">레슨 3/12회 (~2025-12-31 <span class="exp-badge exp-expired">만료</span>) · PT 4/12회</div>
+          <div class="member-detail-line">📞 010-1234-5678 · ✉ robert@example.com · 가입일 2025-06-01</div>
+          
+          
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드">📊 성과</button>
+        <button class="btn" onclick="openImageCard()" title="이미지 카드">카드</button>
+        <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
+        
+        
+        
+      </div>
+    </div>
+    <div class="content">
+      <div class="stat-row"><div class="stat"><div class="stat-val">7</div><div class="stat-lbl">총 세션</div></div><div class="stat"><div class="stat-val blue">3</div><div class="stat-lbl">골프 프로</div></div><div class="stat"><div class="stat-val green">4</div><div class="stat-lbl">골프 PT</div></div></div>
+
+      <div class="section-card">
+        <div class="section-header" onclick="toggleAssess()">
+          <div class="section-label"><div class="dot dot-green"></div>체형 기능 평가<span class="sec-count">(14/14)</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        
+      </div>
+
+      <div class="section-card">
+        <div class="section-header open" style="cursor:default">
+          <div class="section-label"><div class="dot dot-amber"></div>세션 기록<span class="sec-count">(7건)</span></div>
+          <div class="section-right">
+            <div class="filter-btn active" onclick="setFilter('all')">전체</div>
+            <div class="filter-btn" onclick="setFilter('pro')">프로</div>
+            <div class="filter-btn" onclick="setFilter('trainer')">트레이너</div>
+          </div>
+        </div>
+        
+        <div class="sessions-list">
+          
+            <div class="session-card">
+              <div class="session-hd pro">
+                <div class="role-tag pro">GOLF PRO</div>
+                <div class="session-author">정우진 프로</div>
+                <div class="session-date">2025-08-04</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">하체랑 코어 연결시켜서 움직여주기</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+            <div class="session-card">
+              <div class="session-hd trainer">
+                <div class="role-tag trainer">GOLF PT</div>
+                <div class="session-author">최현승 트레이너</div>
+                <div class="session-date">2025-07-08</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">회전근개, 코어, 견갑골 안정화 및 어깨근육운동</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+            <div class="session-card">
+              <div class="session-hd trainer">
+                <div class="role-tag trainer">GOLF PT</div>
+                <div class="session-author">최현승 트레이너</div>
+                <div class="session-date">2025-07-01</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">발가락, 햄스트링 및 엉덩이 트레이닝</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+            <div class="session-card">
+              <div class="session-hd trainer">
+                <div class="role-tag trainer">GOLF PT</div>
+                <div class="session-author">최현승 트레이너</div>
+                <div class="session-date">2025-06-27</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">스텝박스 리듬트레이닝, 플라이오메트릭 점프순발력트레이닝, 상체 푸쉬운동</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+            <div class="session-card">
+              <div class="session-hd pro">
+                <div class="role-tag pro">GOLF PRO</div>
+                <div class="session-author">정우진 프로</div>
+                <div class="session-date">2025-06-23</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">볼 포지션 수정 집중</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+            <div class="session-card">
+              <div class="session-hd trainer">
+                <div class="role-tag trainer">GOLF PT</div>
+                <div class="session-author">최현승 트레이너</div>
+                <div class="session-date">2025-06-17</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">상하체 분리운동, 코어운동 진행</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+            <div class="session-card">
+              <div class="session-hd pro">
+                <div class="role-tag pro">GOLF PRO</div>
+                <div class="session-author">정우진 프로</div>
+                <div class="session-date">2025-06-16</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">스윙 중에 팔만 내리면서 몸회전을 안해서 문제 발생</div>
+                
+                
+                <div class="session-actions">
+                  
+                  
+                </div>
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+  
+  
+  <div class="perf-overlay perf-light"><div class="perf-shell perf-v3" style="font-size:15px"><div class="pv-hd"><div class="pv-hd-top"><div class="pv-brand">NATIONAL GYM<small>GOLF PT · PERFORMANCE</small></div><div class="pv-ctrls"><div class="pv-cg"><span class="pv-l">단위</span><div class="pv-seg"><button class="on" onclick="setPerfDist('yd')">yd</button><button class="" onclick="setPerfDist('m')">m</button></div></div><div class="pv-cg"><span class="pv-l">속도</span><div class="pv-seg"><button class="on" onclick="setPerfSpd('mph')">mph</button><button class="" onclick="setPerfSpd('ms')">m/s</button></div></div><div class="pv-cg"><span class="pv-l">글씨</span><div class="pv-seg"><button class="on" onclick="setPerfTextScale(1)">가</button><button class="" onclick="setPerfTextScale(1.18)">가+</button><button class="" onclick="setPerfTextScale(1.4)">가++</button></div></div><button class="pv-icbtn" onclick="printPerf()" title="인쇄">🖨</button><button class="pv-icbtn" onclick="closePerformance()" title="닫기">✕</button></div></div><div class="pv-title">PERFORMANCE <span>REPORT</span><span class="pv-demo">DEMO</span></div><div class="pv-meta">2026-03-01 – 현재 · MEASURED BY TRACKMAN iO</div></div><div class="pv-player"><div class="pv-p-top"><div><div class="pv-pname">김서연 <span>회원님</span></div><div class="pv-pmeta">HCP 14 · AVG 88 · 가입 2026-03-01</div></div><div class="pv-ptags"><div>🎯 드라이버 비거리 220m 돌파 · 싱글 핸디캡</div></div></div><div class="pv-invest"><div class="pv-iv-label">⏱ 내셔널짐과 함께한 시간</div><div class="pv-iv-grid"><div class="pv-iv-cell"><div class="pv-iv-v">13<span class="u">주</span></div><div class="pv-iv-l">함께한 기간</div></div><div class="pv-iv-cell"><div class="pv-iv-v">0</div><div class="pv-iv-l">완료 세션</div></div><div class="pv-iv-cell"><div class="pv-iv-v">0<span class="u">시간</span></div><div class="pv-iv-l">측정·훈련</div></div><div class="pv-iv-cell"><div class="pv-iv-v">10</div><div class="pv-iv-l">기록된 샷</div></div></div></div></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>01</i>현재 상태</div><div class="pv-sec-x">최근 4주 평균 · 드라이버 기준</div></div><div class="pv-kgrid"><div class="pv-k hi"><div class="pv-k-l">Carry · 드라이버</div><div class="pv-k-v">217<span class="pv-k-u">yd</span></div><span class="kpi-delta up">▲ +35yd</span></div><div class="pv-k"><div class="pv-k-l">Club Speed</div><div class="pv-k-v">102<span class="pv-k-u">mph</span></div><span class="kpi-delta up">▲ +8.1</span></div><div class="pv-k"><div class="pv-k-l">Smash</div><div class="pv-k-v">1.49</div><span class="kpi-delta up">▲ +0.07</span></div><div class="pv-k hi"><div class="pv-k-l">평균 스코어</div><div class="pv-k-v">88<span class="pv-k-u">타</span></div></div></div></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>02</i>목표 진척</div><div class="pv-sec-x">12주 사이클</div></div><div class="pv-gl"><div class="pv-gl-h">🎯 다음 단계까지</div><div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">드라이버 평균 비거리 250 yd 돌파</span><span class="pv-gl-val">217<span class="un"> yd</span></span></div><div class="pv-gl-bar"><div class="pv-gl-fill" style="width:87%"></div></div><div class="pv-gl-rest">33 yd 남음 · 현재 페이스 유지 시 6주 내 달성 예상</div></div><div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">평균 스코어 90타 깨기</span><span class="pv-gl-val">88<span class="un"> 타</span></span></div><div class="pv-gl-bar"><div class="pv-gl-fill" style="width:100%"></div></div><div class="pv-gl-rest">숏게임 정확도 보강으로 달성 가능</div></div></div></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>03</i>클럽별 평균</div><div class="pv-sec-x">TrackMan 측정값</div></div><div class="pv-tabs"><button class="pv-tab on" onclick="setPerfClub('driver')">드라이버 <span class="pv-ct">6</span></button><button class="pv-tab" onclick="setPerfClub('wood')">우드 <span class="pv-ct">1</span></button><button class="pv-tab" onclick="setPerfClub('iron')">아이언 <span class="pv-ct">2</span></button><button class="pv-tab" onclick="setPerfClub('wedge')">웨지 <span class="pv-ct">1</span></button></div><table class="pv-tbl"><thead><tr><th>지표</th><th>현재 평균</th><th>단위</th></tr></thead><tbody><tr><td>Club Speed</td><td>99</td><td>mph</td></tr><tr><td>Ball Speed</td><td>144</td><td>mph</td></tr><tr><td>Smash</td><td>1.46</td><td></td></tr><tr><td>Carry</td><td>202</td><td>yd</td></tr><tr><td>Total</td><td>219</td><td>yd</td></tr><tr><td>Launch</td><td>13.5</td><td>°</td></tr><tr><td>Spin</td><td>2850</td><td>rpm</td></tr><tr><td>Club Path</td><td>-1.1</td><td>°</td></tr><tr><td>Face Angle</td><td>1.1</td><td>°</td></tr></tbody></table></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>04</i>측정 샷 · 영상</div><div class="pv-sec-x">10개 표시</div></div><div class="pv-filt"><button class="pv-chip on" onclick="setPerfVidFilter('all')">전체</button><button class="pv-chip" onclick="setPerfVidFilter('week')">이번주</button><button class="pv-chip" onclick="setPerfVidFilter('month')">이번달</button><button class="pv-chip" onclick="setPerfVidFilter('best')">⭐ 베스트</button><button class="pv-chip" onclick="setPerfVidFilter('driver')">드라이버</button><button class="pv-chip" onclick="setPerfVidFilter('iron')">아이언</button></div><div class="pv-vg"><div class="pv-vcard" onclick="openPerfShot(9)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">05-24</span><span class="pv-vdist">105<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">피칭웨지</div><div class="pv-vdetail">CS 74 · 1.25</div></div></div><div class="pv-vcard" onclick="openPerfShot(8)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">05-24</span><span class="pv-vdist">152<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">7번 아이언</div><div class="pv-vdetail">CS 82.5 · 1.34</div></div></div><div class="pv-vcard" onclick="openPerfShot(6)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">05-24</span><span class="pv-vdist">200<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">5번 우드</div><div class="pv-vdetail">CS 96 · 1.46</div></div></div><div class="pv-vcard" onclick="openPerfShot(5)"><div class="pv-vthumb"><span class="pv-vbest">BEST</span><div class="pv-vplay">▶</div><span class="pv-vdate">05-24</span><span class="pv-vdist">217<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">드라이버</div><div class="pv-vdetail">CS 102.3 · 1.486</div></div></div><div class="pv-vcard" onclick="openPerfShot(7)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">05-17</span><span class="pv-vdist">148<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">7번 아이언</div><div class="pv-vdetail">CS 82 · 1.34</div></div></div><div class="pv-vcard" onclick="openPerfShot(4)"><div class="pv-vthumb"><span class="pv-vbest">BEST</span><div class="pv-vplay">▶</div><span class="pv-vdate">05-17</span><span class="pv-vdist">213<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">드라이버</div><div class="pv-vdetail">CS 101.4 · 1.479</div></div></div><div class="pv-vcard" onclick="openPerfShot(3)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">05-03</span><span class="pv-vdist">207<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">드라이버</div><div class="pv-vdetail">CS 100.2 · 1.467</div></div></div><div class="pv-vcard" onclick="openPerfShot(2)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">04-19</span><span class="pv-vdist">200<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">드라이버</div><div class="pv-vdetail">CS 98.6 · 1.45</div></div></div><div class="pv-vcard" onclick="openPerfShot(1)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">04-05</span><span class="pv-vdist">194<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">드라이버</div><div class="pv-vdetail">CS 97.1 · 1.44</div></div></div><div class="pv-vcard" onclick="openPerfShot(0)"><div class="pv-vthumb"><div class="pv-vplay">▶</div><span class="pv-vdate">03-08</span><span class="pv-vdist">182<span>yd</span></span></div><div class="pv-vinfo"><div class="pv-vclub">드라이버</div><div class="pv-vdetail">CS 94.2 · 1.42</div></div></div></div></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>05</i>변화의 증거</div><div class="pv-sec-x">처음 vs 현재</div></div><div class="pv-bna-h">⏮ BEFORE  ·  AFTER ⏭</div><div class="pv-bna"><div class="pv-bna-col"><div class="pv-bna-thumb"><span class="pv-bna-tag">BEFORE</span><div class="pv-vplay">▶</div></div><div class="pv-bna-stats"><div class="pv-bna-date">2026-03-08</div><div class="pv-bna-val">182 <span>yd</span></div></div></div><div class="pv-bna-arr">→</div><div class="pv-bna-col after"><div class="pv-bna-thumb"><span class="pv-bna-tag">AFTER</span><div class="pv-vplay">▶</div></div><div class="pv-bna-stats"><div class="pv-bna-date">2026-05-24</div><div class="pv-bna-val">217 <span>yd</span></div></div></div></div><div class="pv-bna-delta"><span>드라이버 캐리 변화</span><b>+35 yd · +19.2%</b></div></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>06</i>근력 향상 · Golf PT</div></div><div class="pv-chart"><svg viewBox="0 0 560 180" class="chart" preserveAspectRatio="xMidYMid meet"><line x1="38" y1="16.0" x2="544" y2="16.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="85.0" x2="544" y2="85.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="154.0" x2="544" y2="154.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><polyline fill="none" stroke="#0a0c0f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="38.0,109.5 139.2,98.4 240.4,87.2 341.6,76.1 442.8,65.0 544.0,53.8"/><circle cx="38.0" cy="109.5" r="2.2" fill="#fff" stroke="#0a0c0f" stroke-width="1.6"/><circle cx="139.2" cy="98.4" r="2.2" fill="#fff" stroke="#0a0c0f" stroke-width="1.6"/><circle cx="240.4" cy="87.2" r="2.2" fill="#fff" stroke="#0a0c0f" stroke-width="1.6"/><circle cx="341.6" cy="76.1" r="2.2" fill="#fff" stroke="#0a0c0f" stroke-width="1.6"/><circle cx="442.8" cy="65.0" r="2.2" fill="#fff" stroke="#0a0c0f" stroke-width="1.6"/><circle cx="544.0" cy="53.8" r="3.6" fill="#0a0c0f" stroke="#0a0c0f" stroke-width="0"/><polyline fill="none" stroke="#5b616a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="38.0,87.2 139.2,76.1 240.4,60.5 341.6,47.2 442.8,31.6 544.0,16.0"/><circle cx="38.0" cy="87.2" r="2.2" fill="#fff" stroke="#5b616a" stroke-width="1.6"/><circle cx="139.2" cy="76.1" r="2.2" fill="#fff" stroke="#5b616a" stroke-width="1.6"/><circle cx="240.4" cy="60.5" r="2.2" fill="#fff" stroke="#5b616a" stroke-width="1.6"/><circle cx="341.6" cy="47.2" r="2.2" fill="#fff" stroke="#5b616a" stroke-width="1.6"/><circle cx="442.8" cy="31.6" r="2.2" fill="#fff" stroke="#5b616a" stroke-width="1.6"/><circle cx="544.0" cy="16.0" r="3.6" fill="#5b616a" stroke="#5b616a" stroke-width="0"/><polyline fill="none" stroke="#9aa0a8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="38.0,154.0 139.2,149.5 240.4,142.9 341.6,136.2 442.8,131.7 544.0,125.1"/><circle cx="38.0" cy="154.0" r="2.2" fill="#fff" stroke="#9aa0a8" stroke-width="1.6"/><circle cx="139.2" cy="149.5" r="2.2" fill="#fff" stroke="#9aa0a8" stroke-width="1.6"/><circle cx="240.4" cy="142.9" r="2.2" fill="#fff" stroke="#9aa0a8" stroke-width="1.6"/><circle cx="341.6" cy="136.2" r="2.2" fill="#fff" stroke="#9aa0a8" stroke-width="1.6"/><circle cx="442.8" cy="131.7" r="2.2" fill="#fff" stroke="#9aa0a8" stroke-width="1.6"/><circle cx="544.0" cy="125.1" r="3.6" fill="#9aa0a8" stroke="#9aa0a8" stroke-width="0"/><polyline fill="none" stroke="#c8cdd3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="38.0,142.9 139.2,136.2 240.4,131.7 341.6,125.1 442.8,120.6 544.0,113.9"/><circle cx="38.0" cy="142.9" r="2.2" fill="#fff" stroke="#c8cdd3" stroke-width="1.6"/><circle cx="139.2" cy="136.2" r="2.2" fill="#fff" stroke="#c8cdd3" stroke-width="1.6"/><circle cx="240.4" cy="131.7" r="2.2" fill="#fff" stroke="#c8cdd3" stroke-width="1.6"/><circle cx="341.6" cy="125.1" r="2.2" fill="#fff" stroke="#c8cdd3" stroke-width="1.6"/><circle cx="442.8" cy="120.6" r="2.2" fill="#fff" stroke="#c8cdd3" stroke-width="1.6"/><circle cx="544.0" cy="113.9" r="3.6" fill="#c8cdd3" stroke="#c8cdd3" stroke-width="0"/><text x="32" y="20" text-anchor="end" class="cax">92</text><text x="32" y="154" text-anchor="end" class="cax">30</text><text x="38.0" y="171" text-anchor="start" class="cax">03-15</text><text x="240.4" y="171" text-anchor="middle" class="cax">04-12</text><text x="544.0" y="171" text-anchor="end" class="cax">05-23</text></svg><div class="chart-legend"><span class="cl-item"><i style="background:#0a0c0f"></i>스쿼트</span><span class="cl-item"><i style="background:#5b616a"></i>데드리프트</span><span class="cl-item"><i style="background:#9aa0a8"></i>벤치프레스</span><span class="cl-item"><i style="background:#c8cdd3"></i>바벨로우</span></div></div></div><div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>07</i>다음 12주 계획</div></div><div class="pv-next"><div class="pv-nx-h">시즌 챌린지 · 진행 중</div><div class="pv-nx-grid"><div class="pv-nx"><div class="v">250<span class="u"> yd</span></div><div class="l">드라이버 평균</div></div><div class="pv-nx"><div class="v">89<span class="u"> 타</span></div><div class="l">평균 스코어</div></div><div class="pv-nx"><div class="v">±1<span class="u">°</span></div><div class="l">Face to Path</div></div></div><div class="pv-nx-note">권장 일정 · 골프 PT <b>주 2회 × 12주 = 24회</b> · 트랙맨 측정 <b>월 1회 정밀</b>.</div></div></div><div class="pv-sec"><div class="pv-cta-wrap"><div class="pv-cta primary"><div class="pv-cta-ic">📅</div><div><div class="pv-cta-t">다음 레슨 예약</div><div class="pv-cta-s">담당 지도자에게 안내</div></div></div><div class="pv-cta"><div class="pv-cta-ic">📤</div><div><div class="pv-cta-t">친구에게 공유</div><div class="pv-cta-s">변화 자랑하기</div></div></div></div></div><div class="pv-foot">본 리포트의 모든 탄도 데이터는 <b>TRACKMAN iO</b> 로 측정되었으며 담당 지도자 분석과 함께 작성되었습니다.<br><span>측정 베이스라인 · 영상 자산 · 코칭 이력은 <b>내셔널짐</b>에 누적되어 회원님의 다음 단계 진단에 활용됩니다.</span></div></div></div>
+  </div><div class='__note'>실제 앱 렌더 — 사이드바 📊 성과 클릭 시 보이는 v3 리포트. 클럽 탭/필터 칩/영상 카드/단위 글씨 토글 다 동작합니다.</div></body></html>
