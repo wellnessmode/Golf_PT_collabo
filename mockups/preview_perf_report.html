@@ -1,4 +1,4 @@
-/* ================================================================
+<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>성과 리포트 (실제 화면)</title><style>/* ================================================================
    Golf PT — Premium Light UI
    Design System v3.2
    ================================================================ */
@@ -991,3 +991,144 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 
 /* 라이브 뷰 자체 스크롤 — .main(overflow:hidden) 안에서 긴 내용(베이 다수+샷로그) 스크롤 보장 */
 .main > .live-wrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+.__note{position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#0d0d10;color:#fff;font:600 12px -apple-system,sans-serif;padding:8px 14px;text-align:center;opacity:.94}</style></head><body><div class='app' id='root'>
+  <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img class="sidebar-logo-img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'110'%20height%3D'26'%3E%3Ctext%20x%3D'0'%20y%3D'19'%20font-family%3D'Arial'%20font-weight%3D'900'%20font-size%3D'15'%20fill%3D'%25231a1a1a'%3ENATIONAL%20GYM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="내셔널짐">
+      <div class="sidebar-top-actions">
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </div>
+    
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" onclick="S.sidebarTab='pt_lesson';render()">PT+골프</div>
+      <div class="sidebar-tab" onclick="S.sidebarTab='lesson';render()">골프</div>
+    </div>
+    
+    <input class="sidebar-search" placeholder="회원 검색..." value="" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
+    <div class="member-list">
+      
+        <div class="member-item active" onclick="selectMember('m1')">
+          <div class="member-avatar av-blue">김민</div>
+          <div class="member-name">김민수</div>
+          <div class="session-badge">1</div>
+          <div class="member-actions">
+            
+            
+            
+          </div>
+        </div>
+        <div class="member-item" onclick="selectMember('m2')">
+          <div class="member-avatar av-coral">박지</div>
+          <div class="member-name">박지훈</div>
+          <div class="session-badge">0</div>
+          <div class="member-actions">
+            
+            
+            
+          </div>
+        </div>
+    </div>
+    
+    <div class="sidebar-mypage">
+      <button class="mp-btn live-btn" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 상담용 데모 화면</button>
+      <button class="mp-btn dash-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
+      <div class="mp-label">마이페이지</div>
+      <button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>
+      
+      
+    </div>
+    <div class="sync-indicator local"><div class="sync-dot"></div><div>로컬 모드</div></div>
+  </div>
+  <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+
+  <div class="main">
+    
+    <div class="topbar">
+      <div class="member-title-wrap">
+        <div class="topbar-avatar av-blue">김민</div>
+        <div>
+          <div class="member-title">김민수 회원님</div>
+          <div class="member-subtitle">레슨 0/12회 · PT 1/12회</div>
+          <div class="member-detail-line"> · 가입일 2026-03-01</div>
+          <div class="member-detail-line golf-profile">HC 18 · 평균 95타</div>
+          <div class="member-detail-line goal-line">목표: 3개월 내 90타</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드">📊 성과</button>
+        <button class="btn" onclick="openImageCard()" title="이미지 카드">카드</button>
+        <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
+        
+        <button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>
+        
+      </div>
+    </div>
+    <div class="content">
+      <div class="stat-row"><div class="stat"><div class="stat-val">1</div><div class="stat-lbl">총 세션</div></div><div class="stat"><div class="stat-val blue">0</div><div class="stat-lbl">골프 프로</div></div><div class="stat"><div class="stat-val green">1</div><div class="stat-lbl">골프 PT</div></div></div>
+
+      <div class="section-card">
+        <div class="section-header" onclick="toggleAssess()">
+          <div class="section-label"><div class="dot dot-green"></div>체형 기능 평가<span class="sec-count">(14/14)</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        
+      </div>
+
+      <div class="section-card">
+        <div class="section-header open" style="cursor:default">
+          <div class="section-label"><div class="dot dot-amber"></div>세션 기록<span class="sec-count">(1건)</span></div>
+          <div class="section-right">
+            <div class="filter-btn active" onclick="setFilter('all')">전체</div>
+            <div class="filter-btn" onclick="setFilter('pro')">프로</div>
+            <div class="filter-btn" onclick="setFilter('trainer')">트레이너</div>
+          </div>
+        </div>
+        
+        <div class="sessions-list">
+          
+            <div class="session-card">
+              <div class="session-hd trainer">
+                <div class="role-tag trainer">GOLF PT</div>
+                <div class="session-author">최현승 트레이너</div>
+                <div class="session-date">2026-05-20</div>
+                
+              </div>
+              <div class="session-bd">
+                <div class="session-content">백스윙 상체 회전 강화</div>
+                
+                
+                <div class="session-actions">
+                  <button class="small-btn edit" onclick="openEditSession('s1')">수정</button>
+                  <button class="small-btn del" onclick="deleteSession('s1')">삭제</button>
+                </div>
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+  
+  
+  <div class="perf-overlay"><div class="perf-shell" style="zoom:1"><div class="perf-topbar"><div class="perf-brand"><img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'110'%20height%3D'26'%3E%3Ctext%20x%3D'0'%20y%3D'19'%20font-family%3D'Arial'%20font-weight%3D'900'%20font-size%3D'15'%20fill%3D'%25231a1a1a'%3ENATIONAL%20GYM%3C%2Ftext%3E%3C%2Fsvg%3E" class="perf-logo" alt="">성과 리포트</div><div class="perf-ctrls"><span class="pfc-grp"><b>거리</b><button class="pfc on" onclick="setPerfDist('yd')">yd</button><button class="pfc" onclick="setPerfDist('m')">m</button></span><span class="pfc-grp"><b>속도</b><button class="pfc on" onclick="setPerfSpd('mph')">mph</button><button class="pfc" onclick="setPerfSpd('ms')">m/s</button></span><span class="pfc-grp pfc-font"><b>글씨</b><button class="pfc on" onclick="setPerfTextScale(1)">가</button><button class="pfc" onclick="setPerfTextScale(1.18)">가+</button><button class="pfc" onclick="setPerfTextScale(1.4)">가++</button></span><button class="pfc pfc-print" onclick="printPerf()">🖨 인쇄</button><button class="perf-close" onclick="closePerformance()">✕</button></div></div><div class="perf-hero"><div class="ph-left"><div class="ph-name">김민수 회원님</div><div class="ph-goal">🎯 3개월 내 90타</div><div class="ph-meta">핸디캡 18  ·  평균 95타  ·  2026-03-01 ~ 현재</div></div></div><div class="perf-section"><div class="ps-title"><span class="ps-dot blue"></span>골프 퍼포먼스 <small>(트랙맨 · 드라이버)</small></div><div class="kpi-grid"><div class="kpi-card blue"><div class="kpi-label">비거리(캐리)</div><div class="kpi-val">244<span class="kpi-unit">yd</span></div><span class="kpi-delta up">▲ +14yd</span></div><div class="kpi-card blue"><div class="kpi-label">클럽 스피드</div><div class="kpi-val">103<span class="kpi-unit">mph</span></div><span class="kpi-delta up">▲ +3</span></div><div class="kpi-card blue"><div class="kpi-label">볼 스피드</div><div class="kpi-val">152<span class="kpi-unit">mph</span></div><span class="kpi-delta up">▲ +4</span></div><div class="kpi-card green"><div class="kpi-label">스매시 팩터</div><div class="kpi-val">1.48<span class="kpi-unit"></span></div><span class="kpi-delta flat">■ 0</span></div></div><div class="ts-panel"><div class="ts-h">대표 샷 — 드라이버 <span class="ts-when">2026-05-27 · 데모</span></div><div class="ts-tiles"><div class="ts-tile"><div class="ts-l">Ball</div><div class="ts-v">152<span class="ts-u">mph</span></div></div><div class="ts-tile"><div class="ts-l">Club</div><div class="ts-v">103<span class="ts-u">mph</span></div></div><div class="ts-tile"><div class="ts-l">Smash</div><div class="ts-v">1.48</div></div><div class="ts-tile"><div class="ts-l">Carry</div><div class="ts-v">244<span class="ts-u">yd</span></div></div><div class="ts-tile"><div class="ts-l">Total</div><div class="ts-v">260<span class="ts-u">yd</span></div></div></div><div class="ts-params"><div class="ts-p"><span>Club Path</span><b>0.6 °</b></div><div class="ts-p"><span>Face Angle</span><b>-0.3 °</b></div><div class="ts-p"><span>Attack</span><b>1.2 °</b></div><div class="ts-p"><span>Launch</span><b>13.8 °</b></div><div class="ts-p"><span>Spin</span><b>2710 rpm</b></div><div class="ts-p"><span>Side</span><b>2.1 yd</b></div></div></div><div class="chart-grid"><div class="chart-card"><div class="cc-title">비거리(캐리) 추세 <span class="cc-unit">yd</span></div><svg viewBox="0 0 340 140" class="chart" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="c1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3868d6" stop-opacity="0.22"/><stop offset="1" stop-color="#3868d6" stop-opacity="0"/></linearGradient></defs><line x1="38" y1="16.0" x2="324" y2="16.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="66.0" x2="324" y2="66.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="116.0" x2="324" y2="116.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><polygon fill="url(#c1)" points="38.0,116.0 38.0,116.0 324.0,16.0 324.0,116.0"/><polyline fill="none" stroke="#3868d6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="38.0,116.0 324.0,16.0"/><circle cx="38.0" cy="116.0" r="2.6" fill="#fff" stroke="#3868d6" stroke-width="2"/><circle cx="324.0" cy="16.0" r="4.5" fill="#3868d6" stroke="#3868d6" stroke-width="0"/><text x="32" y="20" text-anchor="end" class="cax">244</text><text x="32" y="116" text-anchor="end" class="cax">230</text><text x="38.0" y="133" text-anchor="start" class="cax">05-20</text><text x="324.0" y="133" text-anchor="end" class="cax">05-27</text><text x="316.0" y="7.0" text-anchor="end" class="clast" fill="#3868d6">244yd</text></svg></div><div class="chart-card"><div class="cc-title">클럽 스피드 추세 <span class="cc-unit">mph</span></div><svg viewBox="0 0 340 140" class="chart" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="c2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity="0.22"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient></defs><line x1="38" y1="16.0" x2="324" y2="16.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="66.0" x2="324" y2="66.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="116.0" x2="324" y2="116.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><polygon fill="url(#c2)" points="38.0,116.0 38.0,116.0 324.0,16.0 324.0,116.0"/><polyline fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="38.0,116.0 324.0,16.0"/><circle cx="38.0" cy="116.0" r="2.6" fill="#fff" stroke="#6366f1" stroke-width="2"/><circle cx="324.0" cy="16.0" r="4.5" fill="#6366f1" stroke="#6366f1" stroke-width="0"/><text x="32" y="20" text-anchor="end" class="cax">103</text><text x="32" y="116" text-anchor="end" class="cax">100</text><text x="38.0" y="133" text-anchor="start" class="cax">05-20</text><text x="324.0" y="133" text-anchor="end" class="cax">05-27</text><text x="316.0" y="7.0" text-anchor="end" class="clast" fill="#6366f1">103</text></svg></div><div class="chart-card"><div class="cc-title">스핀량 최적화 <span class="cc-unit">rpm · 낮을수록 효율↑</span></div><svg viewBox="0 0 340 140" class="chart" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="c3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d97706" stop-opacity="0.22"/><stop offset="1" stop-color="#d97706" stop-opacity="0"/></linearGradient></defs><line x1="38" y1="16.0" x2="324" y2="16.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="66.0" x2="324" y2="66.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="116.0" x2="324" y2="116.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><polygon fill="url(#c3)" points="38.0,116.0 38.0,16.0 324.0,116.0 324.0,116.0"/><polyline fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="38.0,16.0 324.0,116.0"/><circle cx="38.0" cy="16.0" r="2.6" fill="#fff" stroke="#d97706" stroke-width="2"/><circle cx="324.0" cy="116.0" r="4.5" fill="#d97706" stroke="#d97706" stroke-width="0"/><text x="32" y="20" text-anchor="end" class="cax">2820</text><text x="32" y="116" text-anchor="end" class="cax">2710</text><text x="38.0" y="133" text-anchor="start" class="cax">05-20</text><text x="324.0" y="133" text-anchor="end" class="cax">05-27</text><text x="316.0" y="107.0" text-anchor="end" class="clast" fill="#d97706">2710</text></svg></div><div class="chart-card"><div class="cc-title">클럽 패스 정렬 <span class="cc-unit">° · 0에 가까울수록 직진성↑</span></div><svg viewBox="0 0 340 140" class="chart" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="c4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00b884" stop-opacity="0.22"/><stop offset="1" stop-color="#00b884" stop-opacity="0"/></linearGradient></defs><line x1="38" y1="16.0" x2="324" y2="16.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="66.0" x2="324" y2="66.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><line x1="38" y1="116.0" x2="324" y2="116.0" stroke="rgba(0,0,0,.05)" stroke-width="1"/><polygon fill="url(#c4)" points="38.0,116.0 38.0,116.0 324.0,16.0 324.0,116.0"/><polyline fill="none" stroke="#00b884" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="38.0,116.0 324.0,16.0"/><circle cx="38.0" cy="116.0" r="2.6" fill="#fff" stroke="#00b884" stroke-width="2"/><circle cx="324.0" cy="16.0" r="4.5" fill="#00b884" stroke="#00b884" stroke-width="0"/><text x="32" y="20" text-anchor="end" class="cax">0.6</text><text x="32" y="116" text-anchor="end" class="cax">-2</text><text x="38.0" y="133" text-anchor="start" class="cax">05-20</text><text x="324.0" y="133" text-anchor="end" class="cax">05-27</text><text x="316.0" y="7.0" text-anchor="end" class="clast" fill="#00b884">0.6°</text></svg></div></div><div class="radar-card"><div class="cc-title">스윙 종합 — 초기 vs 현재</div><svg viewBox="0 0 260 260" class="radar"><polygon points="130.0,106.0 152.8,122.6 144.1,149.4 115.9,149.4 107.2,122.6" fill="none" stroke="rgba(0,0,0,.07)" stroke-width="1"/><polygon points="130.0,82.0 175.7,115.2 158.2,168.8 101.8,168.8 84.3,115.2" fill="none" stroke="rgba(0,0,0,.07)" stroke-width="1"/><polygon points="130.0,58.0 198.5,107.8 172.3,188.2 87.7,188.2 61.5,107.8" fill="none" stroke="rgba(0,0,0,.07)" stroke-width="1"/><polygon points="130.0,34.0 221.3,100.3 186.4,207.7 73.6,207.7 38.7,100.3" fill="none" stroke="rgba(0,0,0,.07)" stroke-width="1"/><line x1="130" y1="130" x2="130.0" y2="34.0" stroke="rgba(0,0,0,.06)" stroke-width="1"/><line x1="130" y1="130" x2="221.3" y2="100.3" stroke="rgba(0,0,0,.06)" stroke-width="1"/><line x1="130" y1="130" x2="186.4" y2="207.7" stroke="rgba(0,0,0,.06)" stroke-width="1"/><line x1="130" y1="130" x2="73.6" y2="207.7" stroke="rgba(0,0,0,.06)" stroke-width="1"/><line x1="130" y1="130" x2="38.7" y2="100.3" stroke="rgba(0,0,0,.06)" stroke-width="1"/><polygon points="130.0,44.7 175.7,115.2 165.1,178.3 79.2,199.9 64.3,108.6" fill="rgba(150,160,170,.12)" stroke="#9aa3ad" stroke-width="1.6" stroke-dasharray="4 3"/><polygon points="130.0,34.0 184.8,112.2 170.1,185.2 79.2,199.9 46.4,102.8" fill="rgba(0,184,132,.16)" stroke="#00b884" stroke-width="2.2"/><circle cx="130.0" cy="34.0" r="3" fill="#00b884"/><circle cx="184.8" cy="112.2" r="3" fill="#00b884"/><circle cx="170.1" cy="185.2" r="3" fill="#00b884"/><circle cx="79.2" cy="199.9" r="3" fill="#00b884"/><circle cx="46.4" cy="102.8" r="3" fill="#00b884"/><text x="130.0" y="21.0" text-anchor="middle" class="radar-lab">비거리</text><text x="236.5" y="98.4" text-anchor="start" class="radar-lab">클럽스피드</text><text x="195.8" y="223.6" text-anchor="start" class="radar-lab">볼스피드</text><text x="64.2" y="223.6" text-anchor="end" class="radar-lab">스매시</text><text x="23.5" y="98.4" text-anchor="end" class="radar-lab">정확도</text></svg><div class="radar-legend"><span><i class="dash"></i>초기(05-20)</span><span><i class="solid"></i>현재(05-27)</span></div></div></div><div class="perf-footer">내셔널짐 Golf PT · Performance Analytics<br><span>모든 데이터는 실제 측정 장비(TrackMan) 및 트레이닝 기록 기반으로 산출됩니다.</span></div></div></div>
+  </div><div class='__note'>실제 구현 화면 — 성과 리포트(라이브 샷 자동 연결). 상단 단위/글씨/인쇄 버튼 + 대표 샷 패널. (이 미리보기는 정적 — 버튼 동작은 실제 앱에서)</div></body></html>
