@@ -23,6 +23,8 @@ window.APP_CONFIG = {
   //   → worker/README.md 참고해서 워커에 /claude 추가 + `wrangler secret put ANTHROPIC_API_KEY` 후 true 로.
   // 대안: 키를 각 기기 앱에서 "🤖 AI 정리 설정"으로 입력(localStorage). 이 경우 아래는 비워둠.
   AI_VIA_WORKER: false,
+  AI_WORKER_URL: '',   // Claude 프록시 워커 주소. 비우면 R2_WORKER_URL 사용. (예: https://ng-claude.ceo-5ef.workers.dev)
+  AI_WORKER_KEY: '',   // 워커 인증용 키(시크릿 아님, 게이트용). 비우면 R2_API_KEY 사용.
   ANTHROPIC_API_KEY: '',
   ANTHROPIC_MODEL: 'claude-haiku-4-5'
 };

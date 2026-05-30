@@ -294,7 +294,9 @@ function getAnthropicKey(){
 }
 function aiEnabled(){
   var cfg=window.APP_CONFIG||{};
-  if(cfg.AI_VIA_WORKER && cfg.R2_WORKER_URL && cfg.R2_API_KEY) return true; // 워커 프록시
+  var wurl=cfg.AI_WORKER_URL||cfg.R2_WORKER_URL;
+  var wkey=cfg.AI_WORKER_KEY||cfg.R2_API_KEY;
+  if(cfg.AI_VIA_WORKER && wurl && wkey) return true; // 워커 프록시
   return !!getAnthropicKey(); // 기기 로컬 키
 }
 function setAnthropicKey(){
@@ -328,11 +330,14 @@ async function aiSummarizeWithClaude(transcript, author){
       messages:[{role:'user',content:'다음 받아쓴 원문을 세션카드로 정리해주세요:\n\n'+transcript}]
     };
     var parse=function(data){ var t=(data&&data.content&&data.content[0]&&data.content[0].text)||''; return t.trim()||null; };
-    // 1순위: R2 워커 프록시 (Anthropic 키가 Cloudflare 시크릿에만 존재)
-    if(cfg.AI_VIA_WORKER && cfg.R2_WORKER_URL && cfg.R2_API_KEY){
+    // 1순위: 워커 프록시 (Anthropic 키가 Cloudflare 시크릿에만 존재)
+    // AI_WORKER_URL 있으면 그쪽, 없으면 R2_WORKER_URL 재사용
+    var wbase=cfg.AI_WORKER_URL||cfg.R2_WORKER_URL;
+    var wauth=cfg.AI_WORKER_KEY||cfg.R2_API_KEY;
+    if(cfg.AI_VIA_WORKER && wbase && wauth){
       try{
-        var wurl=String(cfg.R2_WORKER_URL).replace(/\/+$/,'')+'/claude';
-        var wres=await fetch(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':cfg.R2_API_KEY},body:JSON.stringify(payload)});
+        var wurl=String(wbase).replace(/\/+$/,'')+'/claude';
+        var wres=await fetch(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)});
         if(wres.ok){ var wt=parse(await wres.json()); if(wt) return wt; }
         else console.warn('[claude] worker http', wres.status);
       }catch(e){ console.warn('[claude] worker fail:', e&&e.message); }
