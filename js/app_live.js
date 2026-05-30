@@ -292,7 +292,11 @@ function getAnthropicKey(){
   try{ var k=localStorage.getItem('golf_pt_anthropic_key'); if(k) return k; }catch(e){}
   return (window.APP_CONFIG&&window.APP_CONFIG.ANTHROPIC_API_KEY)||'';
 }
-function aiEnabled(){ return !!getAnthropicKey(); }
+function aiEnabled(){
+  var cfg=window.APP_CONFIG||{};
+  if(cfg.AI_VIA_WORKER && cfg.R2_WORKER_URL && cfg.R2_API_KEY) return true; // 워커 프록시
+  return !!getAnthropicKey(); // 기기 로컬 키
+}
 function setAnthropicKey(){
   var cur='';
   try{ cur=localStorage.getItem('golf_pt_anthropic_key')||''; }catch(e){}
@@ -307,11 +311,9 @@ function setAnthropicKey(){
   liveToast(v?'🤖 AI 정리 켜짐 (이 기기 전용)':'AI 정리 꺼짐 (내장 정리 사용)','ok');
 }
 
-// Claude Haiku 정리 (옵션) — 키 있으면 사용, 없으면 null → 로컬 폴백
+// Claude Haiku 정리 — 1순위: R2 워커 프록시(키 서버에만), 2순위: 브라우저 직접(기기 키), 실패 시 null→로컬 폴백
 async function aiSummarizeWithClaude(transcript, author){
   try{
-    var key=getAnthropicKey();
-    if(!key) return null;
     var cfg=window.APP_CONFIG||{};
     var role=(typeof getRole==='function')?getRole(author):'trainer';
     var roleLabel=role==='pro'?'골프 프로':'PT 트레이너';
@@ -319,6 +321,26 @@ async function aiSummarizeWithClaude(transcript, author){
       +'반드시 아래 형식을 지키세요:\n'
       +'[AI 자동 정리]\n- 핵심 포인트 (5-8개 불릿)\n- 각 불릿은 25자 이내, 명확한 동사형\n- 중복 제거, 시간 순서 유지\n- 운동/드릴/교정 포인트가 있으면 우선 추출\n'
       +'추가 텍스트(설명·인사·확률표현) 금지. 형식만 출력.';
+    var payload={
+      model:cfg.ANTHROPIC_MODEL||'claude-haiku-4-5',
+      max_tokens:600,
+      system:system,
+      messages:[{role:'user',content:'다음 받아쓴 원문을 세션카드로 정리해주세요:\n\n'+transcript}]
+    };
+    var parse=function(data){ var t=(data&&data.content&&data.content[0]&&data.content[0].text)||''; return t.trim()||null; };
+    // 1순위: R2 워커 프록시 (Anthropic 키가 Cloudflare 시크릿에만 존재)
+    if(cfg.AI_VIA_WORKER && cfg.R2_WORKER_URL && cfg.R2_API_KEY){
+      try{
+        var wurl=String(cfg.R2_WORKER_URL).replace(/\/+$/,'')+'/claude';
+        var wres=await fetch(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':cfg.R2_API_KEY},body:JSON.stringify(payload)});
+        if(wres.ok){ var wt=parse(await wres.json()); if(wt) return wt; }
+        else console.warn('[claude] worker http', wres.status);
+      }catch(e){ console.warn('[claude] worker fail:', e&&e.message); }
+      // 워커 실패 → 아래 직접 키 폴백 시도
+    }
+    // 2순위: 브라우저 직접 호출 (이 기기 localStorage 키)
+    var key=getAnthropicKey();
+    if(!key) return null;
     var res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{
@@ -327,17 +349,10 @@ async function aiSummarizeWithClaude(transcript, author){
         'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true'
       },
-      body:JSON.stringify({
-        model:cfg.ANTHROPIC_MODEL||'claude-haiku-4-5',
-        max_tokens:600,
-        system:system,
-        messages:[{role:'user',content:'다음 받아쓴 원문을 세션카드로 정리해주세요:\n\n'+transcript}]
-      })
+      body:JSON.stringify(payload)
     });
     if(!res.ok){ console.warn('[claude] http',res.status); return null; }
-    var data=await res.json();
-    var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'';
-    return text.trim() || null;
+    return parse(await res.json());
   }catch(e){
     console.warn('[claude] fail:', e&&e.message);
     return null;
