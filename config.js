@@ -17,5 +17,9 @@ window.APP_CONFIG = {
   SUPABASE_URL: 'https://cacytkmijttyeasmhvhq.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhY3l0a21panR0eWVhc21odmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjAyMjUsImV4cCI6MjA5MTQ5NjIyNX0.ovjMFi4WSB18KeTm7MNd4jmvKEmMamObyclMjgXomNg',
   R2_WORKER_URL: 'https://golf-pt-storage.ceo-fc9.workers.dev',
-  R2_API_KEY: 'national_gym-golf-pt-qwpiefjwofjwioefhlkjd'
+  R2_API_KEY: 'national_gym-golf-pt-qwpiefjwofjwioefhlkjd',
+  // (선택) Claude API — 음성 세션카드 자동 정리에 사용. 비워두면 앱 내장 로컬 엔진으로 폴백.
+  // 키 보안: 브라우저 노출 위험이 있어 *내부 운영 PWA 한정* 권장. 외부 공개시엔 Worker 프록시 사용.
+  ANTHROPIC_API_KEY: '',
+  ANTHROPIC_MODEL: 'claude-haiku-4-5'
 };

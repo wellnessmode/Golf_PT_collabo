@@ -212,12 +212,33 @@ function deleteShot(shotId){
 }
 
 // ============ 음성 받아쓰기 → AI 세션카드 ============
-// 진행 중 음성을 받아쓰고(브라우저 STT), 종료 시 로컬 AI가 세션카드로 구조화.
-// 미지원 기기(주로 iOS Safari)는 자동으로 수동 입력으로 폴백 — 절대 앱이 멈추지 않음.
+// 진행 중 음성을 받아쓰고(브라우저 STT), 종료 시 AI가 세션카드로 구조화.
+// 하이브리드:
+//  - 안드로이드/PC 크롬 → Web Speech API 실시간 받아쓰기
+//  - iOS 사파리(아이폰/아이패드) → 텍스트 입력 + 시스템 키보드 받아쓰기 (안정)
+//  - 둘 다 안 되면 종료 후 직접 입력
 var _voiceRec = null;
+function isIOS(){
+  try{
+    var ua=navigator.userAgent||'';
+    if(/iPad|iPhone|iPod/.test(ua)) return true;
+    // 아이패드 OS 13+: MacIntel + 터치 지원으로 위장
+    if(navigator.platform==='MacIntel' && (navigator.maxTouchPoints||0)>1) return true;
+    return false;
+  }catch(e){ return false; }
+}
 function voiceSupported(){
-  try{ return typeof window!=='undefined' && (('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window)); }
-  catch(e){ return false; }
+  try{
+    if(typeof window==='undefined') return false;
+    if(isIOS()) return false; // iOS Web Speech는 한국어 실시간 불안정 → 시스템 받아쓰기 모드 사용
+    return ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
+  }catch(e){ return false; }
+}
+function voiceMode(){
+  // 'web' = 실시간 자동 받아쓰기, 'ios' = 시스템 받아쓰기(텍스트), 'none' = 미지원
+  if(voiceSupported()) return 'web';
+  if(isIOS()) return 'ios';
+  return 'none';
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function startVoice(bayId){
@@ -256,6 +277,51 @@ function updateVoicePreview(bayId, interim){
   var el=document.querySelector('.bay-card[data-bay="'+bayId+'"] .vr-text');
   if(el){ var base=(a._transcript||'').slice(-90); el.textContent=(base+(interim?(' '+interim):'')).trim()||'듣는 중...'; }
 }
+// iOS 모드: textarea 입력을 활성세션 transcript에 누적 저장
+function updateVoiceText(bayId, val){
+  var a=S.activeSessions[bayId]; if(!a) return;
+  a._transcript=val||'';
+  // 자주 저장하지 않도록 디바운스
+  clearTimeout(window._voiceSaveT);
+  window._voiceSaveT=setTimeout(function(){ try{ save(); }catch(e){} }, 800);
+}
+
+// Claude Haiku 정리 (옵션) — config.ANTHROPIC_API_KEY 있으면 사용, 없으면 null → 로컬 폴백
+async function aiSummarizeWithClaude(transcript, author){
+  try{
+    var cfg=window.APP_CONFIG||{};
+    if(!cfg.ANTHROPIC_API_KEY) return null;
+    var role=(typeof getRole==='function')?getRole(author):'trainer';
+    var roleLabel=role==='pro'?'골프 프로':'PT 트레이너';
+    var system='당신은 골프 레슨 세션카드 작성 보조 AI입니다. '+roleLabel+'이 레슨 중 말한 내용을 구조화된 한국어 세션카드로 정리합니다. '
+      +'반드시 아래 형식을 지키세요:\n'
+      +'[AI 자동 정리]\n- 핵심 포인트 (5-8개 불릿)\n- 각 불릿은 25자 이내, 명확한 동사형\n- 중복 제거, 시간 순서 유지\n- 운동/드릴/교정 포인트가 있으면 우선 추출\n'
+      +'추가 텍스트(설명·인사·확률표현) 금지. 형식만 출력.';
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':cfg.ANTHROPIC_API_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:cfg.ANTHROPIC_MODEL||'claude-haiku-4-5',
+        max_tokens:600,
+        system:system,
+        messages:[{role:'user',content:'다음 받아쓴 원문을 세션카드로 정리해주세요:\n\n'+transcript}]
+      })
+    });
+    if(!res.ok){ console.warn('[claude] http',res.status); return null; }
+    var data=await res.json();
+    var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'';
+    return text.trim() || null;
+  }catch(e){
+    console.warn('[claude] fail:', e&&e.message);
+    return null;
+  }
+}
+
 // 받아쓴 원문 → 불릿 세션카드 (로컬 AI 키워드 태깅)
 function structureTranscript(transcript, author){
   var t=(transcript||'').replace(/\s+/g,' ').trim();
@@ -287,8 +353,20 @@ function openVoiceDraft(memberId, author, transcript){
     summary='\n\n[트랙맨] 저장된 샷 '+todayShots.length+'개'+(carries.length?' · 베스트 캐리 '+Math.max.apply(null,carries)+'yd':'');
   }
   S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
-  S.newSession={ date:today(), author:author, content:structureTranscript(transcript,author)+summary, media:[], mediaUrls:['',''] };
+  var localStructured=structureTranscript(transcript,author);
+  S.newSession={ date:today(), author:author, content:localStructured+summary, media:[], mediaUrls:['',''] };
   S.showAddSession=true;
+  // Claude API 있으면 백그라운드로 더 정교한 정리 시도 — 응답 오면 자동 교체
+  var cfg=window.APP_CONFIG||{};
+  if(cfg.ANTHROPIC_API_KEY){
+    aiSummarizeWithClaude(transcript,author).then(function(better){
+      if(better && S.showAddSession && S.newSession){
+        S.newSession.content = better + summary;
+        try{ liveToast('🤖 Claude AI 정리 완료','ok'); }catch(e){}
+        try{ render(); }catch(e){}
+      }
+    });
+  }
   return true;
 }
 
@@ -347,17 +425,24 @@ function renderBayCard(bay, canCoach, isAdmin){
                + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
             : '아직 저장된 샷 없음')
         + '</div>';
-  // 음성 받아쓰기 (지원 기기) / 미지원 안내
+  // 음성 받아쓰기 — 기기별 하이브리드
   if(!stale){
-    if(voiceSupported()){
+    var mode=voiceMode();
+    if(mode==='web'){
       if(S.voiceBay===bay.id){
         body += '<div class="voice-rec"><div class="vr-head"><span class="vr-dot"></span>녹음 중 · 받아쓰기<button class="vr-stop" onclick="stopVoice(\''+bay.id+'\')">중지</button></div>'
               + '<div class="vr-text">'+(esc((act._transcript||'').slice(-90))||'듣는 중...')+'</div></div>';
       } else {
         body += '<button class="btn voice-btn" onclick="startVoice(\''+bay.id+'\')">🎙 '+((act._transcript||'').trim()?'받아쓰기 계속':'음성 기록 시작')+'</button>';
       }
+    } else if(mode==='ios'){
+      // 아이폰/아이패드: 시스템 받아쓰기 (textarea + 키보드의 🎤 버튼 안내)
+      body += '<div class="voice-ios">'
+            +   '<div class="vi-head">🎙 <b>키보드의 마이크 버튼</b>으로 받아쓰기</div>'
+            +   '<textarea class="vi-area" placeholder="레슨 내용을 말하거나 입력하세요. 키보드 마이크 🎤 누르면 음성→텍스트 자동 변환." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
+            + '</div>';
     } else if((act._transcript||'').trim()){
-      body += '<div class="voice-note">🎙 이 기기는 실시간 받아쓰기 미지원 — 종료 시 직접 입력</div>';
+      body += '<div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div>';
     }
   }
   body += '<div class="bay-actions">';
