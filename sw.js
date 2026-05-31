@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v4.1';
+const CACHE_NAME = 'golf-pt-v4.2';
 const ASSETS = [
   './',
   './index.html',
@@ -40,6 +40,8 @@ self.addEventListener('activate', function(e) {
     })
   );
 });
+
+self.addEventListener('message', function(e){ if(e.data && e.data.type==='SKIP_WAITING') self.skipWaiting(); });
 
 self.addEventListener('fetch', function(e) {
   var url = e.request.url;

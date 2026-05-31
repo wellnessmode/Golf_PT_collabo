@@ -1351,3 +1351,7 @@ body.role-select .app{background:#0d1117}
 .pw-divider::before,.pw-divider::after{content:"";flex:1;height:1px;background:var(--brd-2)}
 .mp-btn.bio-on{background:var(--ac-glow2);color:var(--ac-2);border-color:var(--ac);font-weight:700}
 .pw-modal{animation:contentSwitch .18s var(--ease)}
+
+/* 새로고침 버튼 스핀 (눌렀을 때 잠깐 회전) */
+@keyframes spinRefresh{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.sidebar-bell svg.spin{animation:spinRefresh .8s linear infinite}

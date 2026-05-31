@@ -71,8 +71,9 @@ function render(){
     <div class="sidebar-logo">
       <img class="sidebar-logo-img" src="assets/logo.png" alt="내셔널짐">
       <div class="sidebar-top-actions">
-        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
-        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+        <button class="sidebar-bell" onclick="event.stopPropagation();reloadApp()" title="새로고침"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.51-7.13"/><polyline points="21 4 21 10 15 10"/></svg></button>
+        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()" title="알림">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+        <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()" title="로그아웃"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
       </div>
     </div>
     ${(S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin')?'':''}

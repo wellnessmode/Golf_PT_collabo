@@ -559,6 +559,17 @@ async function syncLocalMediaToR2(){
 
 async function seedRemote(){try{for(const m of S.members) await cloud.upsertMember(m);for(const mid in S.assessments){for(const key in S.assessments[mid]){const v=S.assessments[mid][key];await cloud.upsertAssessment(mid,key,v.result,v.note);}}for(const mid in S.sessions){for(const s of S.sessions[mid]) await cloud.upsertSession(mid,s);}}catch(e){console.warn('[cloud] seedRemote fail:',e);}}
 
+// 새로고침 버튼 — Supabase 데이터 갱신 + SW 캐시 정리 + 페이지 리로드 (PWA에 새로고침이 없을 때)
+async function reloadApp(){
+  if(S.uploading>0){ if(!confirm('업로드 중인 파일이 '+S.uploading+'개 있습니다. 그래도 새로고침할까요?')) return; }
+  var btns=document.querySelectorAll('.sidebar-bell svg, .sidebar-home-btn svg');
+  try{ document.querySelector('.sidebar-bell svg').classList.add('spin'); }catch(e){}
+  try{ if(cloud&&cloud.enabled) await refreshFromCloud(); }catch(e){ console.warn('[reload] cloud:',e); }
+  try{ if('caches' in window){ var keys=await caches.keys(); await Promise.all(keys.map(function(k){return caches.delete(k);})); } }catch(e){ console.warn('[reload] caches:',e); }
+  try{ if(navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'SKIP_WAITING'}); } }catch(e){}
+  location.reload();
+}
+
 async function refreshFromCloud(){
   if(!cloud.enabled) return;S.cloudSync='loading';render();
   const remote=await cloud.loadAll();
