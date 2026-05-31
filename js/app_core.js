@@ -571,11 +571,23 @@ async function seedRemote(){try{for(const m of S.members) await cloud.upsertMemb
 // 새로고침 버튼 — Supabase 데이터 갱신 + SW 캐시 정리 + 페이지 리로드 (PWA에 새로고침이 없을 때)
 async function reloadApp(){
   if(S.uploading>0){ if(!confirm('업로드 중인 파일이 '+S.uploading+'개 있습니다. 그래도 새로고침할까요?')) return; }
-  var btns=document.querySelectorAll('.sidebar-bell svg, .sidebar-home-btn svg');
-  try{ document.querySelector('.sidebar-bell svg').classList.add('spin'); }catch(e){}
-  try{ if(cloud&&cloud.enabled) await refreshFromCloud(); }catch(e){ console.warn('[reload] cloud:',e); }
-  try{ if('caches' in window){ var keys=await caches.keys(); await Promise.all(keys.map(function(k){return caches.delete(k);})); } }catch(e){ console.warn('[reload] caches:',e); }
-  try{ if(navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'SKIP_WAITING'}); } }catch(e){}
+  // 1) SW에 강제 업데이트 체크 (새 버전 있으면 install → controllerchange가 자동 reload)
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
+      var reg = await navigator.serviceWorker.getRegistration();
+      if(reg){ await reg.update(); if(reg.waiting){ try{ reg.waiting.postMessage({type:'SKIP_WAITING'}); }catch(e){} } }
+    }
+  }catch(e){ console.warn('[reload] sw update:',e); }
+  // 2) Supabase 최신 데이터 받아오기 (3초 타임아웃 — 인터넷 느려도 안 멈춤)
+  try{
+    if(cloud&&cloud.enabled){
+      await Promise.race([
+        refreshFromCloud(),
+        new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},3000);})
+      ]);
+    }
+  }catch(e){ console.warn('[reload] cloud:',e&&e.message); }
+  // 3) 페이지 리로드 (캐시 삭제 X — SW가 알아서 새 거 가져옴)
   location.reload();
 }
 
