@@ -593,7 +593,7 @@ function calcFitness(assess){var PTS={'정상':7,'경미한 제한':5,'주의 �
 function syncBadge(){
   const map={local:{cls:'local',label:'로컬 모드'},loading:{cls:'loading',label:'동기화 중...'},connected:{cls:'connected',label:'Supabase 동기화됨'},error:{cls:'error',label:'동기화 오류'}};
   const s=map[S.cloudSync]||map.local;
-  const refresh=(S.cloudSync==='connected'||S.cloudSync==='error')?`<button class="sync-refresh" onclick="refreshFromCloud()">새로고침</button>`:'';
+  const refresh=(S.cloudSync==='connected'||S.cloudSync==='error')?`<button class="sync-refresh" onclick="reloadApp()">새로고침</button>`:'';
   return `<div class="sync-indicator ${s.cls}"><div class="sync-dot"></div><div>${s.label}</div>${refresh}</div>`;
 }
 

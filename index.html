@@ -40,10 +40,33 @@
 
 <!-- Service Worker -->
 <script>
+// SW 등록 + 자동 업데이트 (새 코드 배포 시 자동 적용)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(function(e) {
-    console.log('SW registration failed:', e);
+  navigator.serviceWorker.register('sw.js').then(function(reg){
+    // 페이지 로드 시마다 새 sw.js 강제 체크
+    try{ reg.update(); }catch(e){}
+    // 새 버전 발견 시 자동 활성화
+    reg.addEventListener('updatefound', function(){
+      var nw = reg.installing;
+      if(!nw) return;
+      nw.addEventListener('statechange', function(){
+        if(nw.state === 'installed' && navigator.serviceWorker.controller){
+          // 새 SW 설치됨 → skipWaiting 트리거 (controllerchange가 reload 처리)
+          try{ nw.postMessage({type:'SKIP_WAITING'}); }catch(e){}
+        }
+      });
+    });
+  }).catch(function(e){ console.log('SW registration failed:', e); });
+  // SW 컨트롤러 바뀌면 한 번만 자동 reload
+  var _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if(_swReloaded) return; _swReloaded = true;
+    location.reload();
   });
+  // 30분마다 백그라운드 업데이트 체크
+  setInterval(function(){
+    navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); }).catch(function(){});
+  }, 30*60*1000);
 }
 </script>
 </body>
