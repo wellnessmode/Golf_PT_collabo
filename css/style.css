@@ -1342,3 +1342,12 @@ body.role-select .app{background:#0d1117}
 .media-chip.vid{background:rgba(56,104,214,.12);color:var(--pro)}
 .media-chip.img{background:var(--ac-glow2);color:var(--ac-2)}
 @media(max-width:768px){.media-chip{font-size:12px;padding:2px 8px}}
+
+/* 생체 인증 (Face ID / 지문) */
+.bio-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 16px rgba(0,184,132,.3);margin-bottom:14px;font-family:var(--font);transition:transform var(--t-fast)}
+.bio-btn:active{transform:scale(.98)}
+.bio-btn:disabled{opacity:.6;cursor:wait}
+.pw-divider{display:flex;align-items:center;gap:10px;margin:6px 0 14px;color:var(--tx-3);font-size:10.5px;font-weight:600}
+.pw-divider::before,.pw-divider::after{content:"";flex:1;height:1px;background:var(--brd-2)}
+.mp-btn.bio-on{background:var(--ac-glow2);color:var(--ac-2);border-color:var(--ac);font-weight:700}
+.pw-modal{animation:contentSwitch .18s var(--ease)}
