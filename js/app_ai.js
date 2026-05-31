@@ -464,10 +464,12 @@ async function deleteSession(id){
     }
   }
   S.sessions[mid] = (S.sessions[mid]||[]).filter(s => s.id!==id);
+  if(!S.deletedSessionIds) S.deletedSessionIds = {};
+  S.deletedSessionIds[id] = Date.now();   // tombstone — 머지에서 부활 방지
   logActivity('세션 삭제', mid, '');
   logAudit('session','세션 삭제', (S.members.find(function(x){return x.id===mid;})||{}).name||'', {sessionId:id, date:sess&&sess.date, author:sess&&sess.author});
   save(); render();
-  cloud.deleteSession(id);
+  try{ await cloud.deleteSession(id); }catch(e){ console.warn('[cloud] deleteSession await fail:', e); }
 }
 
 // ============ 기존 세션 자동 분석 (로컬) ============
