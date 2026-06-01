@@ -29,6 +29,8 @@ var STATE_FILE = path.join(__dirname, '.agent-state.json');
 var LOG_FILE = path.join(__dirname, 'agent.log');
 var processed = {};
 try { processed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (e) {}
+// 시작 컷오프: 기본 = 에이전트 켠 시각. backfillMinutes 만큼 과거 허용 가능.
+var AGENT_CUTOFF_MS = Date.now() - ((CFG && CFG.backfillMinutes ? CFG.backfillMinutes : 0) * 60000);
 
 function log(msg){
   var line = '[' + new Date().toISOString() + '] ' + msg;
@@ -154,19 +156,33 @@ async function handleFtmf(filePath){
 // ---- 폴더 스캔 ----
 async function scan(){
   var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : [CFG.watchDir];
+  // 시작 시점 컷오프 — 에이전트 켠 이후 생성된 ftmf만 처리(과거 연습기록 무시)
+  // CFG.processExisting=true 면 과거 것도 처리. backfillMinutes 면 그만큼 과거까지 허용.
+  var cutoff = AGENT_CUTOFF_MS;
   for (var d = 0; d < dirs.length; d++){
     var dir = dirs[d];
     if (!dir) continue;
     var files;
     try { files = fs.readdirSync(dir); } catch (e) { continue; }
     files = files.filter(function(f){ return /\.ftmf$/i.test(f); });
-    // 오래된 것부터
     files.sort();
     for (var i = 0; i < files.length; i++){
-      try { await handleFtmf(path.join(dir, files[i])); }
+      var fp = path.join(dir, files[i]);
+      // 파일 생성/수정 시각이 컷오프보다 이전이면 스킵 (단, 이미 처리표시는 남김)
+      if (!CFG.processExisting){
+        try {
+          var mt = fs.statSync(fp).mtimeMs;
+          if (mt < cutoff){
+            if (!processed[files[i]]) { processed[files[i]] = { skip:'before-start', t:Date.now() }; }
+            continue;
+          }
+        } catch(e){}
+      }
+      try { await handleFtmf(fp); }
       catch (e) { log('처리 오류 ' + files[i] + ': ' + e.message); }
     }
   }
+  saveState();
 }
 
 // ---- 메인 루프 ----

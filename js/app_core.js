@@ -302,7 +302,9 @@ function reconcileAgentShots(){
     var pending = (s.source==='agent') && (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
     if(!pending) return true;  // 이미 귀속된(저장된) 샷은 유지
     var act = S.activeSessions[s.bayId];
-    if(act && !isStaleSession(act)){
+    // 활성세션 시작 이후의 샷만 대상 (그 전에 친 과거 샷은 무시)
+    var afterStart = act && s.ts && String(s.ts) >= String(act.startedAt);
+    if(act && !isStaleSession(act) && afterStart){
       if(act.mode==='lesson'){
         // 레슨 모드: 자동저장 안 함. pending 상태로 유지 → 베이카드 "최근 샷"에서 트레이너가 선택
         s._pendingBay = s.bayId;
@@ -319,11 +321,14 @@ function reconcileAgentShots(){
   });
   if(changed){ try{ save(); }catch(e){} }
 }
-// 레슨 모드 — 특정 베이의 "미저장 최근 샷" 목록
+// 레슨 모드 — 특정 베이의 "미저장 최근 샷" 목록 (활성세션 시작 이후만)
 function pendingShotsForBay(bayId){
+  var act=S.activeSessions[bayId];
   return (S.shotEvents||[]).filter(function(s){
-    return s.source==='agent' && s.bayId===bayId &&
-      (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
+    if(!(s.source==='agent' && s.bayId===bayId)) return false;
+    if(!(!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName)) return false;
+    if(act && act.startedAt && s.ts && String(s.ts) < String(act.startedAt)) return false; // 시작 전 샷 제외
+    return true;
   }).sort(function(a,b){return String(b.ts).localeCompare(String(a.ts));});
 }
 

@@ -502,7 +502,9 @@ function renderLiveSession(){
   var bays = (S.bays && S.bays.length) ? S.bays : BAYS_DEFAULT;
 
   var html = '<div class="live-wrap">';
-  html += '<div class="live-head"><button class="btn live-close-btn" onclick="closeLiveSession()">‹ 닫기</button><div class="live-title">🎯 라이브 세션</div></div>';
+  html += '<div class="live-head"><button class="btn live-close-btn" onclick="closeLiveSession()">‹ 닫기</button>'
+       +  '<div class="live-title">🎯 라이브 세션</div>'
+       +  '<button class="btn live-refresh-btn" onclick="reloadApp()" title="새로고침">🔄</button></div>';
   html += '<div class="live-sub">베이에 회원을 배정하면, 트랙맨 샷이 <strong>그 회원에게 저장</strong>됩니다. '
        +  '<span class="live-live-tag">● TrackMan 실시간 연동</span></div>';
   html += '<div class="bay-grid">';

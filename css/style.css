@@ -1402,3 +1402,12 @@ body.role-select .app{background:#0d1117}
 
 /* 트랙맨 실연동 표시 (초록) */
 .live-live-tag{display:inline-block;background:var(--ac-glow2);color:var(--ac-2);font-weight:700;font-size:11px;padding:2px 10px;border-radius:20px;margin-left:4px;white-space:nowrap}
+
+/* 라이브 헤더 새로고침 버튼 */
+.live-head{gap:8px}
+.live-refresh-btn{padding:8px 12px;font-size:15px;flex-shrink:0}
+.live-title{flex:1;text-align:center}
+@media(max-width:768px){
+  .live-title{font-size:16px}
+  .live-refresh-btn{padding:8px 10px}
+}
