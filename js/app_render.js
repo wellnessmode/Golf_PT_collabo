@@ -80,6 +80,7 @@ function render(){
     ${isInfo ? `
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
+      ${isAdmin?'<button class="mp-btn live-admin-btn" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>':''}
       <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 데모 화면</button>
       <div class="infodesk-summary">PT+골프 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 골프 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>

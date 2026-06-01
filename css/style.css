@@ -1415,3 +1415,6 @@ body.role-select .app{background:#0d1117}
 /* 전체 삭제 버튼 (관리자) */
 .purge-all-btn{font-size:11px;font-weight:800;color:#fff;background:var(--err);border:none;border-radius:14px;padding:4px 11px;cursor:pointer;font-family:var(--font);margin-left:6px}
 .purge-all-btn:hover{background:#b91c1c}
+
+/* 관리자 라이브 세션 진입 버튼 */
+.mp-btn.live-admin-btn{background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#fff;font-weight:700;border:none}
