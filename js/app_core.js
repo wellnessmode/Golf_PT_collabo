@@ -288,7 +288,9 @@ const cloud = {
   async endActiveSession(bayId){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').delete().eq('bay_id',bayId);if(error) throw error;}catch(e){console.warn('[cloud] endActiveSession fail:',e);}},
   async insertShot(shot){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').upsert({id:shot.id,bay_id:shot.bayId,member_id:shot.memberId,member_name:shot.memberName,author:shot.author||'',ts:shot.ts,data:shot.data||{},video_r2_key:shot.videoR2Key||null,source:shot.source||'mock'});if(error) throw error;}catch(e){console.warn('[cloud] insertShot fail:',e);}},
   async reassignShot(shotId,memberId,memberName){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').update({member_id:memberId,member_name:memberName}).eq('id',shotId);if(error) throw error;}catch(e){console.warn('[cloud] reassignShot fail:',e);}},
-  async deleteShot(id){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteShot fail:',e);}}
+  async deleteShot(id){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteShot fail:',e);}},
+  // 샷 전체 삭제 (DB만 — 트랙맨 PC 영상 원본과 무관)
+  async deleteAllShots(){if(!this.enabled) return false;try{const {error}=await this.client.from('shot_events').delete().neq('id','');if(error) throw error;return true;}catch(e){console.warn('[cloud] deleteAllShots fail:',e);return false;}}
 };
 
 // 에이전트가 넣은 샷(member 비어있음)을 같은 베이의 활성세션 회원에게 자동 귀속.

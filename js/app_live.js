@@ -120,6 +120,24 @@ function purgeDemoShots(){
   liveToast('🗑 데모 샷 '+mocks.length+'개 삭제됨','ok');
 }
 
+// 저장된 샷 전체 삭제 — 관리자 전용.
+// ⚠️ 앱/DB의 샷 기록만 지움. 트랙맨 PC의 영상·데이터 원본은 절대 건드리지 않음(접근도 안 함).
+async function purgeAllShots(){
+  var n=(S.shotEvents||[]).length;
+  if(n===0){ liveToast('저장된 샷이 없습니다','ok'); return; }
+  if(!confirm('앱에 저장된 샷 '+n+'개를 전부 삭제할까요?\n\n· 앱/클라우드의 샷 기록만 지워집니다.\n· 트랙맨 PC의 영상·원본 데이터는 그대로 유지됩니다.\n· 되돌릴 수 없습니다.')) return;
+  if(!confirm('정말 전부 삭제합니다. 계속할까요?')) return;
+  // R2 영상 사본 제거(앱용 — 트랙맨 PC 원본과 무관). 실패해도 진행.
+  (S.shotEvents||[]).forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+  S.shotEvents=[];
+  save();
+  var ok=false; try{ ok=await cloud.deleteAllShots(); }catch(e){}
+  logActivity('샷 전체 삭제', '', n+'개');
+  logAudit('session','샷 전체삭제','',{count:n, cloud:ok});
+  render();
+  liveToast('🗑 샷 '+n+'개 전체 삭제됨'+(ok?'':' (로컬만 — 새로고침 후 확인)'),'ok');
+}
+
 // 베이 모드 전환 (레슨 선별저장 ↔ 연습 자동저장)
 function setBayMode(bayId, mode){
   var act=S.activeSessions[bayId]; if(!act) return;
@@ -612,9 +630,10 @@ function renderShotLog(isAdmin){
   var canCoach = S.currentRole==='pro' || S.currentRole==='trainer' || isAdmin;
   var shots = S.shotEvents.slice().sort(function(a,b){ return b.ts.localeCompare(a.ts); }).slice(0,30);
   var mockCount = (S.shotEvents||[]).filter(function(s){return s.source==='mock';}).length;
-  var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+S.shotEvents.length+'개'
-           + (isAdmin && mockCount>0 ? ' <button class="purge-demo-btn" onclick="purgeDemoShots()">🗑 데모샷 '+mockCount+'개 정리</button>' : '')
-           + (isAdmin && mockCount===0 ? ' <span class="shot-log-admin">관리자: 잘못 들어간 샷은 「이동」으로 재할당</span>' : '')
+  var total = S.shotEvents.length;
+  var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+total+'개'
+           + (isAdmin && mockCount>0 ? ' <button class="purge-demo-btn" onclick="purgeDemoShots()">🗑 데모 '+mockCount+'개</button>' : '')
+           + (isAdmin && total>0 ? ' <button class="purge-all-btn" onclick="purgeAllShots()">🗑 전체 삭제</button>' : '')
            + '</div>';
   if(shots.length===0){
     html += '<div class="empty-state">아직 저장된 샷이 없습니다</div>';
