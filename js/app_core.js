@@ -374,8 +374,23 @@ function cancelPassword(){S.showPwModal=false;S.pendingRole=null;S.pwError=false
 const bio = {
   available:false,
   KEY_PREFIX:'golf_pt_bio_',
+  // 모바일/태블릿(아이폰·아이패드·갤럭시폰·갤럭시탭 등)인지 판별. 데스크탑은 false.
+  isMobileDevice(){
+    try{
+      var ua=navigator.userAgent||'';
+      var uaMobile = /iPhone|iPad|iPod|Android|Mobile|Tablet|Silk|Kindle|PlayBook|BlackBerry|Windows Phone/i.test(ua);
+      // 아이패드 OS 13+: MacIntel + 멀티터치로 위장 → 터치 지원 Mac은 태블릿으로 간주
+      var iPadOS = (navigator.platform==='MacIntel' && (navigator.maxTouchPoints||0)>1);
+      // UA-CH(최신 크롬/엣지): navigator.userAgentData.mobile
+      var uaCh = (navigator.userAgentData && navigator.userAgentData.mobile===true);
+      // 터치 + coarse 포인터(손가락) 동시 → 터치 1순위 기기(태블릿/폰)
+      var coarseTouch = (typeof matchMedia==='function' && matchMedia('(pointer:coarse)').matches && (navigator.maxTouchPoints||0)>0);
+      return uaMobile || iPadOS || uaCh || coarseTouch;
+    }catch(e){ return false; }
+  },
   async init(){
     try{
+      if(!this.isMobileDevice()){ this.available=false; return; }   // 데스크탑/노트북 → 생체 UI 숨김
       if(!window.PublicKeyCredential) return;
       if(typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable!=='function') return;
       this.available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
