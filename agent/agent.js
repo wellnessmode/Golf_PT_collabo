@@ -132,14 +132,17 @@ async function handleFtmf(filePath){
   }
 
   // shot_events insert (member는 비워두고 서버/앱이 활성세션으로 귀속)
+  // ts = "지금 처리한 시각"(UTC). 샷 친 직후 수 초 내 처리되므로 정확하고,
+  // ftmf 내부 시각의 타임존 혼선을 피한다. 원본 시각은 data.measuredAt에 보존.
+  var nowIso = new Date().toISOString();
   var shot = {
     id: shotId,
     bay_id: bayId,
     member_id: CFG.pendingMemberId || '00000000-0000-0000-0000-000000000000',
     member_name: '',
     author: '',
-    ts: parsed.eventTime || new Date().toISOString(),
-    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit }, parsed.data),
+    ts: nowIso,
+    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime }, parsed.data),
     video_r2_key: videoKey,
     source: 'agent'
   };

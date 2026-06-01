@@ -641,7 +641,7 @@ function renderShotLog(isAdmin){
     html += '<div class="shot-list">' + shots.map(function(s){
       var bay = getBay(s.bayId);
       var t = new Date(s.ts);
-      var ts = String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+      var ts = isNaN(t) ? '' : (String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'));
       var d = s.data||{};
       var metric = (d._units&&d._units.dist==='m')||d._src==='trackman_io';
       var carry = d.carry!=null&&d.carry!==''? Math.round((metric?parseFloat(d.carry)*1.09361:parseFloat(d.carry)))+'yd' : '';
