@@ -10,7 +10,7 @@
 //  5. 명시 컨펌    — 세션 시작 시 "베이가 비어있는지 직접 확인" 컨펌을 반드시 거친다.
 //  6. 베이당 1명   — 한 베이엔 한 세션, 한 회원은 동시에 한 베이만 (활성세션 시작 시 이중 체크).
 //
-// ⚠️ 현재는 트랙맨 연동 전 "데모(목) 모드" — 굿샷 데이터는 모의값이며 source:'mock'으로 표시됩니다.
+// TrackMan iO 실시간 연동. 에이전트가 ftmf 파싱→실측 샷 전송. (데모샷 source=mock 은 관리자 정리 가능)
 // ---------------------------------------------------------------
 
 // ============ 헬퍼 ============
@@ -503,8 +503,8 @@ function renderLiveSession(){
 
   var html = '<div class="live-wrap">';
   html += '<div class="live-head"><button class="btn live-close-btn" onclick="closeLiveSession()">‹ 닫기</button><div class="live-title">🎯 라이브 세션</div></div>';
-  html += '<div class="live-sub">베이를 선택해 회원을 배정하면, <strong>굿샷이 그 회원에게만</strong> 저장됩니다. '
-       +  '<span class="live-mock-tag">현재 트랙맨 연동 전 데모(목) 모드</span></div>';
+  html += '<div class="live-sub">베이에 회원을 배정하면, 트랙맨 샷이 <strong>그 회원에게 저장</strong>됩니다. '
+       +  '<span class="live-live-tag">● TrackMan 실시간 연동</span></div>';
   html += '<div class="bay-grid">';
   bays.forEach(function(bay){ html += renderBayCard(bay, canCoach, isAdmin); });
   html += '</div>';

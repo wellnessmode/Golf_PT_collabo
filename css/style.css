@@ -1399,3 +1399,6 @@ body.role-select .app{background:#0d1117}
 /* 데모샷 정리 버튼 (관리자) */
 .purge-demo-btn{font-size:11px;font-weight:700;color:var(--err);background:var(--err-bg);border:1px solid rgba(220,38,38,.25);border-radius:14px;padding:4px 11px;cursor:pointer;font-family:var(--font);margin-left:6px}
 .purge-demo-btn:hover{background:rgba(220,38,38,.14)}
+
+/* 트랙맨 실연동 표시 (초록) */
+.live-live-tag{display:inline-block;background:var(--ac-glow2);color:var(--ac-2);font-weight:700;font-size:11px;padding:2px 10px;border-radius:20px;margin-left:4px;white-space:nowrap}
