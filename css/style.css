@@ -1373,3 +1373,25 @@ body.role-select .app{background:#0d1117}
 .pv-vm-mkvnote a{color:#7adba0;font-weight:700}
 .pv-vm-novid{aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#888;background:linear-gradient(160deg,#1a2027,#0a0c0f);border-radius:14px 14px 0 0}
 .pv-vm-novid-t{font-size:12px}
+
+/* 베이 모드(레슨/연습) + 레슨 선별저장 */
+.bay-mode-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.bay-mode{font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.02em}
+.bay-mode.lesson{background:rgba(56,104,214,.12);color:var(--pro)}
+.bay-mode.practice{background:var(--ac-glow2);color:var(--ac-2)}
+.mode-switch{font-size:11px;font-weight:600;color:var(--tx-3);background:transparent;border:1px solid var(--brd-2);border-radius:14px;padding:4px 10px;cursor:pointer;font-family:var(--font)}
+.mode-switch:hover{background:var(--bg-3);color:var(--tx-2)}
+.pending-shots{background:var(--bg-2);border:1px solid var(--brd);border-radius:10px;padding:10px;margin-bottom:8px}
+.ps-title{font-size:11px;font-weight:700;color:var(--tx-2);margin-bottom:8px}
+.ps-item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:var(--bg-1);border:1px solid var(--brd);margin-bottom:6px}
+.ps-item:last-child{margin-bottom:0}
+.ps-info{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.ps-club{font-size:13px;font-weight:700;color:var(--tx)}
+.ps-carry{font-size:14px;font-weight:800;color:var(--ac-2);font-variant-numeric:tabular-nums}
+.ps-time{font-size:11px;color:var(--tx-3);margin-left:auto}
+.ps-save{font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--ac),var(--ac-2));border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-family:var(--font);white-space:nowrap}
+.ps-drop{font-size:11px;font-weight:600;color:var(--tx-3);background:transparent;border:1px solid var(--brd-2);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:var(--font);white-space:nowrap}
+@media(max-width:768px){
+  .ps-item{flex-wrap:wrap}
+  .ps-save,.ps-drop{padding:10px 14px;font-size:13px}
+}

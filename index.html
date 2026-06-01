@@ -40,30 +40,25 @@
 
 <!-- Service Worker -->
 <script>
-// SW 등록 + 자동 업데이트 (새 코드 배포 시 자동 적용)
+// SW 등록 + 백그라운드 업데이트 (새 버전은 다음 앱 실행 때 자연 적용)
+// ※ 자동 location.reload() 안 함 — 강제 리로드가 흰 화면을 유발했었음.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(function(reg){
-    // 페이지 로드 시마다 새 sw.js 강제 체크
     try{ reg.update(); }catch(e){}
-    // 새 버전 발견 시 자동 활성화
+    // 새 버전 설치되면 대기시킴(skipWaiting). 사용자가 다음에 앱 열 때 적용됨.
     reg.addEventListener('updatefound', function(){
       var nw = reg.installing;
       if(!nw) return;
       nw.addEventListener('statechange', function(){
         if(nw.state === 'installed' && navigator.serviceWorker.controller){
-          // 새 SW 설치됨 → skipWaiting 트리거 (controllerchange가 reload 처리)
           try{ nw.postMessage({type:'SKIP_WAITING'}); }catch(e){}
+          // 알림만, 강제 reload 안 함
+          try{ if(window.__onSwUpdate) window.__onSwUpdate(); }catch(e){}
         }
       });
     });
   }).catch(function(e){ console.log('SW registration failed:', e); });
-  // SW 컨트롤러 바뀌면 한 번만 자동 reload
-  var _swReloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', function(){
-    if(_swReloaded) return; _swReloaded = true;
-    location.reload();
-  });
-  // 30분마다 백그라운드 업데이트 체크
+  // 30분마다 백그라운드 업데이트 체크 (reload 없음)
   setInterval(function(){
     navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); }).catch(function(){});
   }, 30*60*1000);

@@ -105,6 +105,36 @@ function pickBayForMember(bayId){
   render();
 }
 function cancelBayPick(){ S.liveBayPickFor=null; render(); }
+
+// 베이 모드 전환 (레슨 선별저장 ↔ 연습 자동저장)
+function setBayMode(bayId, mode){
+  var act=S.activeSessions[bayId]; if(!act) return;
+  act.mode=mode;
+  save();
+  if(mode==='practice'){ reconcileAgentShots(); } // 연습 전환 시 대기 샷 자동 저장
+  try{ cloud.startActiveSession(bayId, act); }catch(e){}
+  render();
+  liveToast(mode==='lesson'?'레슨 모드 — 좋은 샷만 선별 저장':'연습 모드 — 모든 샷 자동 저장','ok');
+}
+// 레슨 모드: 이 샷을 회원에게 저장
+function saveLessonShot(shotId, bayId){
+  var act=S.activeSessions[bayId]; if(!act){ liveToast('활성 세션이 없습니다','err'); return; }
+  var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
+  s.memberId=act.memberId; s.memberName=act.memberName; s.author=act.author; delete s._pendingBay;
+  save();
+  try{ cloud.reassignShot(s.id, act.memberId, act.memberName); }catch(e){}
+  logActivity('레슨 샷 저장', act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
+  render();
+  liveToast('✓ '+act.memberName+'님에게 저장','ok');
+  if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(e){} }
+}
+// 레슨 모드: 이 샷 버림 (화면+서버에서 제거)
+function dropLessonShot(shotId){
+  S.shotEvents=(S.shotEvents||[]).filter(function(x){return x.id!==shotId;});
+  save();
+  try{ cloud.deleteShot(shotId); }catch(e){}
+  render();
+}
 function renderBayPickModal(){
   if(!S.liveBayPickFor) return '';
   var m=S.members.find(function(x){return x.id===S.liveBayPickFor;});
@@ -151,7 +181,9 @@ function confirmLiveStart(){
   var dupBay = Object.keys(S.activeSessions).find(function(b){ return S.activeSessions[b].memberId===c.memberId; });
   if(dupBay){ liveToast('해당 회원이 이미 '+getBay(dupBay).name+'에서 진행 중입니다','err'); S.liveConfirm=null; render(); return; }
   var author = S.currentUser || '관리자';
-  var sess = {memberId:c.memberId, memberName:c.memberName, author:author, startedAt:new Date().toISOString(), note:''};
+  // 레슨 전용 베이(3번룸)는 기본 '레슨'(선별저장), 연습 겸용은 '연습'(자동저장)
+  var mode = c.mode || (bay.type==='lesson_only' ? 'lesson' : 'practice');
+  var sess = {memberId:c.memberId, memberName:c.memberName, author:author, startedAt:new Date().toISOString(), note:'', mode:mode};
   S.activeSessions[c.bayId] = sess;
   save();
   logActivity('라이브 세션 시작', c.memberId, bay.name);
@@ -524,12 +556,37 @@ function renderBayCard(bay, canCoach, isAdmin){
       body += '<div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div>';
     }
   }
-  // 트랙맨 자동 측정 안내 (굿샷 버튼 불필요 — 공만 치면 자동 저장)
+  var mode = act.mode || (bay.type==='lesson_only'?'lesson':'practice');
   if(!stale){
-    body += '<div class="bay-auto">🎯 공을 치면 트랙맨이 <strong>자동 저장</strong>합니다</div>';
+    if(mode==='lesson'){
+      // 레슨 모드: 트랙맨 최근 샷을 보여주고, 트레이너가 좋은 것만 [저장]
+      var pend = pendingShotsForBay(bay.id);
+      body += '<div class="bay-mode-row"><span class="bay-mode lesson">레슨 · 선별 저장</span>'
+            + '<button class="mode-switch" onclick="setBayMode(\''+bay.id+'\',\'practice\')">연습으로</button></div>';
+      if(pend.length){
+        body += '<div class="pending-shots"><div class="ps-title">방금 친 샷 — 저장할 것만 선택</div>';
+        pend.slice(0,5).forEach(function(s){
+          var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
+          var carry=d.carry!=null?Math.round(m?d.carry*1.09361:d.carry):'?';
+          var club=(typeof _clubKo==='function'?_clubKo(d.club):d.club)||'샷';
+          var t=new Date(s.ts); var ts=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+          body += '<div class="ps-item"><div class="ps-info"><span class="ps-club">'+club+'</span>'
+                + '<span class="ps-carry">'+carry+'yd</span><span class="ps-time">'+ts+'</span></div>'
+                + '<button class="ps-save" onclick="saveLessonShot(\''+s.id+'\',\''+bay.id+'\')">＋ 저장</button>'
+                + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button></div>';
+        });
+        body += '</div>';
+      } else {
+        body += '<div class="bay-auto">🎯 공을 치면 여기에 <strong>최근 샷</strong>이 떠요 — 좋은 것만 저장</div>';
+      }
+    } else {
+      // 연습 모드: 자동 저장
+      body += '<div class="bay-mode-row"><span class="bay-mode practice">연습 · 자동 저장</span>'
+            + '<button class="mode-switch" onclick="setBayMode(\''+bay.id+'\',\'lesson\')">레슨으로</button></div>';
+      body += '<div class="bay-auto">🎯 공을 치면 트랙맨이 <strong>모두 자동 저장</strong>합니다</div>';
+    }
   }
   body += '<div class="bay-actions">';
-  // 데모 버튼은 관리자에게만 (트랙맨 없이 테스트용)
   if(S.currentRole==='admin' && !stale){
     body += '<button class="btn goodshot-btn" onclick="triggerGoodShot(\''+bay.id+'\')">＋ 데모샷</button>';
   }

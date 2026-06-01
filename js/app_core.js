@@ -293,24 +293,38 @@ const cloud = {
 
 // 에이전트가 넣은 샷(member 비어있음)을 같은 베이의 활성세션 회원에게 자동 귀속.
 // 활성세션 없으면 폐기(저장 안 함) — Fail-safe 원칙 유지.
+// EMPTY = 에이전트가 회원 미정으로 넣은 샷
+var AGENT_EMPTY_MEMBER = '00000000-0000-0000-0000-000000000000';
 function reconcileAgentShots(){
   if(!S.shotEvents || !S.shotEvents.length) return;
-  var EMPTY = '00000000-0000-0000-0000-000000000000';
   var changed = false;
   S.shotEvents = S.shotEvents.filter(function(s){
-    var pending = (s.source==='agent') && (!s.memberId || s.memberId===EMPTY || !s.memberName);
-    if(!pending) return true;
+    var pending = (s.source==='agent') && (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
+    if(!pending) return true;  // 이미 귀속된(저장된) 샷은 유지
     var act = S.activeSessions[s.bayId];
     if(act && !isStaleSession(act)){
+      if(act.mode==='lesson'){
+        // 레슨 모드: 자동저장 안 함. pending 상태로 유지 → 베이카드 "최근 샷"에서 트레이너가 선택
+        s._pendingBay = s.bayId;
+        return true;
+      }
+      // 연습 모드: 자동 저장(귀속)
       s.memberId = act.memberId; s.memberName = act.memberName; s.author = act.author;
       changed = true;
       try{ cloud.reassignShot(s.id, act.memberId, act.memberName); }catch(e){}
       return true;
     }
-    // 활성세션 없음 → 미귀속 샷은 화면에서 숨김(서버엔 남아 관리자 재할당 가능)
+    // 활성세션 없음 → 화면에서 숨김(서버엔 남아 관리자 재할당/정리 가능)
     return false;
   });
   if(changed){ try{ save(); }catch(e){} }
+}
+// 레슨 모드 — 특정 베이의 "미저장 최근 샷" 목록
+function pendingShotsForBay(bayId){
+  return (S.shotEvents||[]).filter(function(s){
+    return s.source==='agent' && s.bayId===bayId &&
+      (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
+  }).sort(function(a,b){return String(b.ts).localeCompare(String(a.ts));});
 }
 
 // ============ Cloudflare R2 미디어 스토리지 ============
@@ -606,27 +620,31 @@ async function syncLocalMediaToR2(){
 async function seedRemote(){try{for(const m of S.members) await cloud.upsertMember(m);for(const mid in S.assessments){for(const key in S.assessments[mid]){const v=S.assessments[mid][key];await cloud.upsertAssessment(mid,key,v.result,v.note);}}for(const mid in S.sessions){for(const s of S.sessions[mid]) await cloud.upsertSession(mid,s);}}catch(e){console.warn('[cloud] seedRemote fail:',e);}}
 
 // 새로고침 버튼 — Supabase 데이터 갱신 + SW 캐시 정리 + 페이지 리로드 (PWA에 새로고침이 없을 때)
+// 새로고침 = Supabase 데이터만 다시 받아옴 (페이지 reload 안 함 → 흰 화면 원천 차단).
+// SW/코드 업데이트는 index.html이 백그라운드로 처리.
 async function reloadApp(){
-  if(S.uploading>0){ if(!confirm('업로드 중인 파일이 '+S.uploading+'개 있습니다. 그래도 새로고침할까요?')) return; }
-  // 1) SW에 강제 업데이트 체크 (새 버전 있으면 install → controllerchange가 자동 reload)
-  try{
-    if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
-      var reg = await navigator.serviceWorker.getRegistration();
-      if(reg){ await reg.update(); if(reg.waiting){ try{ reg.waiting.postMessage({type:'SKIP_WAITING'}); }catch(e){} } }
-    }
-  }catch(e){ console.warn('[reload] sw update:',e); }
-  // 2) Supabase 최신 데이터 받아오기 (3초 타임아웃 — 인터넷 느려도 안 멈춤)
+  if(S.uploading>0){ liveToastSafe('업로드 중 — 잠시 후 다시'); return; }
+  S.cloudSync='loading';
+  try{ render(); }catch(e){}
   try{
     if(cloud&&cloud.enabled){
       await Promise.race([
         refreshFromCloud(),
-        new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},3000);})
+        new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},6000);})
       ]);
+    } else {
+      // 로컬 모드면 그냥 화면만 갱신
+      try{ render(); }catch(e){}
     }
-  }catch(e){ console.warn('[reload] cloud:',e&&e.message); }
-  // 3) 페이지 리로드 (캐시 삭제 X — SW가 알아서 새 거 가져옴)
-  location.reload();
+    liveToastSafe('✓ 최신 데이터로 동기화됨');
+  }catch(e){
+    console.warn('[reload] cloud:',e&&e.message);
+    S.cloudSync='error';
+    try{ render(); }catch(e2){}
+    liveToastSafe('동기화 지연 — 네트워크 확인');
+  }
 }
+function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(msg,'ok'); }catch(e){} }
 
 async function refreshFromCloud(){
   if(!cloud.enabled) return;S.cloudSync='loading';render();
