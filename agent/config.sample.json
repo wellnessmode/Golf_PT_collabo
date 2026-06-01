@@ -1,0 +1,17 @@
+{
+  "SUPABASE_URL": "https://cacytkmijttyeasmhvhq.supabase.co",
+  "SUPABASE_ANON_KEY": "여기에-anon-key",
+  "R2_WORKER_URL": "https://golf-pt-storage.ceo-fc9.workers.dev",
+  "R2_API_KEY": "여기에-r2-key",
+
+  "watchDirs": [
+    "C:\\ProgramData\\TrackMan\\TrackMan Performance Studio\\Data"
+  ],
+  "bayMap": {
+    "24240089": "bay3"
+  },
+  "defaultBay": null,
+  "uploadVideo": true,
+  "intervalSec": 5,
+  "verbose": false
+}

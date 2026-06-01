@@ -291,6 +291,28 @@ const cloud = {
   async deleteShot(id){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteShot fail:',e);}}
 };
 
+// 에이전트가 넣은 샷(member 비어있음)을 같은 베이의 활성세션 회원에게 자동 귀속.
+// 활성세션 없으면 폐기(저장 안 함) — Fail-safe 원칙 유지.
+function reconcileAgentShots(){
+  if(!S.shotEvents || !S.shotEvents.length) return;
+  var EMPTY = '00000000-0000-0000-0000-000000000000';
+  var changed = false;
+  S.shotEvents = S.shotEvents.filter(function(s){
+    var pending = (s.source==='agent') && (!s.memberId || s.memberId===EMPTY || !s.memberName);
+    if(!pending) return true;
+    var act = S.activeSessions[s.bayId];
+    if(act && !isStaleSession(act)){
+      s.memberId = act.memberId; s.memberName = act.memberName; s.author = act.author;
+      changed = true;
+      try{ cloud.reassignShot(s.id, act.memberId, act.memberName); }catch(e){}
+      return true;
+    }
+    // 활성세션 없음 → 미귀속 샷은 화면에서 숨김(서버엔 남아 관리자 재할당 가능)
+    return false;
+  });
+  if(changed){ try{ save(); }catch(e){} }
+}
+
 // ============ Cloudflare R2 미디어 스토리지 ============
 const r2 = {
   workerUrl:'', apiKey:'', enabled:false,
@@ -533,7 +555,7 @@ async function init(){
       save();S.cloudSync='connected';
     } else {S.cloudSync='error';}
     // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
-    try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;save();}}catch(e){console.warn('[cloud] live load skip:',e);}
+    try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
     render();
   } else {S.cloudSync='local';}
   // 마지막 단계: 로컬에 있는 영상이 R2에 누락된 경우 자동 재업로드
@@ -610,7 +632,7 @@ async function refreshFromCloud(){
   if(!cloud.enabled) return;S.cloudSync='loading';render();
   const remote=await cloud.loadAll();
   if(remote){var localMediaMap={};Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(s.media) localMediaMap[s.id]=s.media;});});S.members=remote.members;S.assessments=remote.assessments;S.sessions=remote.sessions;var _tomb=S.deletedSessionIds||{};Object.keys(S.sessions).forEach(function(mid){S.sessions[mid]=(S.sessions[mid]||[]).filter(function(s){if(_tomb[s.id]){try{cloud.deleteSession(s.id);}catch(e){}return false;}return true;});});Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(localMediaMap[s.id]) s.media=localMediaMap[s.id];});});if(S.members.length>0&&!S.members.find(m=>m.id===S.selectedMember)){S.selectedMember=S.members[0].id;}save();S.cloudSync='connected';}else{S.cloudSync='error';}
-  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
+  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   render();
 }
 

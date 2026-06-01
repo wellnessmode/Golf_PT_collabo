@@ -1,0 +1,148 @@
+// ============================================================
+//  TrackMan FTMF 파서 — .ftmf(ZIP) 안의 Fusion JSON에서 샷 메트릭 추출
+// ------------------------------------------------------------
+//  의존성 0 (Node 내장 zlib만 사용). ftmf = ZIP(store/deflate),
+//  안에 .stmf(또 ZIP) → Fusion/Fusion_OutputMessages.json
+//
+//  추출 결과는 우리 앱 shotEvents.data 스키마로 정규화:
+//   {club, clubSpeed, ballSpeed, smash, carry, total, launch, spin,
+//    clubPath, faceAngle, attack, side, sideTotal, landAngle, ...}
+//  단위: 트랙맨 원본 m·m/s 그대로 저장 (앱에서 yd/mph 변환)
+// ============================================================
+const zlib = require('zlib');
+
+// ---- 최소 ZIP 리더 (중앙 디렉터리 파싱, store+deflate 지원) ----
+function readZipEntries(buf){
+  // End of Central Directory 찾기 (뒤에서부터)
+  var eocd = -1;
+  for (var i = buf.length - 22; i >= 0 && i > buf.length - 22 - 65536; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Not a ZIP (no EOCD)');
+  var cdCount = buf.readUInt16LE(eocd + 10);
+  var cdOffset = buf.readUInt32LE(eocd + 16);
+  var entries = {};
+  var p = cdOffset;
+  for (var n = 0; n < cdCount; n++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) break;
+    var method = buf.readUInt16LE(p + 10);
+    var compSize = buf.readUInt32LE(p + 20);
+    var nameLen = buf.readUInt16LE(p + 28);
+    var extraLen = buf.readUInt16LE(p + 30);
+    var commentLen = buf.readUInt16LE(p + 32);
+    var localOff = buf.readUInt32LE(p + 42);
+    var name = buf.toString('utf8', p + 46, p + 46 + nameLen);
+    entries[name] = { method: method, compSize: compSize, localOff: localOff };
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
+function extractEntry(buf, ent){
+  // local header에서 실제 데이터 시작 계산
+  var lo = ent.localOff;
+  if (buf.readUInt32LE(lo) !== 0x04034b50) throw new Error('bad local header');
+  var nameLen = buf.readUInt16LE(lo + 26);
+  var extraLen = buf.readUInt16LE(lo + 28);
+  var dataStart = lo + 30 + nameLen + extraLen;
+  var raw = buf.slice(dataStart, dataStart + ent.compSize);
+  if (ent.method === 0) return raw;            // store
+  if (ent.method === 8) return zlib.inflateRawSync(raw); // deflate
+  throw new Error('unsupported zip method ' + ent.method);
+}
+function findEntry(entries, suffix){
+  var keys = Object.keys(entries);
+  for (var i=0;i<keys.length;i++){ if (keys[i].indexOf(suffix) !== -1) return keys[i]; }
+  return null;
+}
+
+// ---- 메인: ftmf Buffer → 정규화된 샷 객체 ----
+function parseFtmf(ftmfBuffer){
+  var outer = readZipEntries(ftmfBuffer);
+
+  // 1) .stmf 찾기 (또 ZIP)
+  var stmfName = findEntry(outer, '.stmf');
+  if (!stmfName) throw new Error('no .stmf inside ftmf');
+  var stmfBuf = extractEntry(ftmfBuffer, outer[stmfName]);
+
+  // 2) stmf 안의 Fusion JSON
+  var inner = readZipEntries(stmfBuf);
+  var fusionName = findEntry(inner, 'Fusion_OutputMessages.json');
+  if (!fusionName) throw new Error('no Fusion_OutputMessages.json');
+  var fusionJson = JSON.parse(extractEntry(stmfBuf, inner[fusionName]).toString('utf8'));
+
+  // 3) TmfInfo (시간·MeasurementId)
+  var tmfInfo = {};
+  var tmfName = findEntry(inner, 'TmfInfo.json');
+  if (tmfName) { try { tmfInfo = JSON.parse(extractEntry(stmfBuf, inner[tmfName]).toString('utf8')); } catch(e){} }
+
+  // 4) Measurement 메시지(가장 완전한 것 = ClubSpeed 포함) 선택
+  var meas = null;
+  fusionJson.forEach(function(m){
+    var t = (m['#Header']||{})['#Type']||'';
+    if (t.indexOf('FusionData/Measurement') === 0 && m.Measurement && m.Measurement.ClubSpeed != null) {
+      meas = m.Measurement;
+    }
+  });
+  // ClubSpeed 없는 경우라도 LaunchData라도 잡기
+  if (!meas) {
+    fusionJson.forEach(function(m){
+      if (m.Measurement && meas == null) meas = m.Measurement;
+    });
+  }
+  if (!meas) throw new Error('no Measurement in fusion json');
+
+  // 5) ftmf 내부 영상 파일 목록 (scene/peek mkv)
+  var videos = Object.keys(outer).filter(function(k){ return /\.(mkv|mov|mp4)$/i.test(k); });
+
+  var measurementId = (meas.Id) || tmfInfo.MeasurementId ||
+    ((fusionJson[0]||{})['#Header']||{}).MeasurementId || null;
+  var trackingUnit = ((fusionJson[0]||{})['#Header']||{}).TrackingUnit || null;
+  var eventTime = tmfInfo.TimeStart || meas.Time ||
+    ((fusionJson[0]||{})['#Header']||{}).EventTime || null;
+
+  function num(v){ return (v==null||isNaN(v)) ? null : Math.round(v*1000)/1000; }
+
+  // 트랙맨 원본 단위: 거리=m, 속도=m/s, 각도=°, 스핀=rpm
+  var data = {
+    club: meas.DetectedClubCategory || null,
+    dexterity: meas.PlayerDexterity || null,
+    // 클럽
+    clubSpeed: num(meas.ClubSpeed),
+    smash: num(meas.SmashFactor),
+    attack: num(meas.AttackAngle),
+    clubPath: num(meas.ClubPath),
+    faceAngle: num(meas.FaceAngle),
+    faceToPath: num(meas.FaceToPath),
+    dynamicLoft: num(meas.DynamicLoft),
+    impactOffset: num(meas.ImpactOffset),
+    impactHeight: num(meas.ImpactHeight),
+    // 볼
+    ballSpeed: num(meas.BallSpeed),
+    launch: num(meas.LaunchAngle),
+    launchDir: num(meas.LaunchDirection),
+    spin: num(meas.SpinRate),
+    spinAxis: num(meas.SpinAxis),
+    // 탄도
+    maxHeight: num(meas.MaxHeight),
+    hangTime: num(meas.HangTime),
+    landAngle: num(meas.LandingAngle),
+    carry: num(meas.Carry),
+    carrySide: num(meas.CarrySide),
+    total: num(meas.Total),
+    totalSide: num(meas.TotalSide),
+    curve: num(meas.Curve),
+    _units: { dist:'m', speed:'m/s', angle:'deg', spin:'rpm' },
+    _src: 'trackman_io'
+  };
+
+  return {
+    measurementId: measurementId,
+    trackingUnit: trackingUnit,
+    eventTime: eventTime,
+    data: data,
+    videos: videos,                 // ftmf 내부 영상 경로(상대)
+    raw: { tmfInfo: tmfInfo }
+  };
+}
+
+module.exports = { parseFtmf: parseFtmf, readZipEntries: readZipEntries, extractEntry: extractEntry, findEntry: findEntry };
