@@ -524,9 +524,15 @@ function renderBayCard(bay, canCoach, isAdmin){
       body += '<div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div>';
     }
   }
+  // 트랙맨 자동 측정 안내 (굿샷 버튼 불필요 — 공만 치면 자동 저장)
+  if(!stale){
+    body += '<div class="bay-auto">🎯 공을 치면 트랙맨이 <strong>자동 저장</strong>합니다</div>';
+  }
   body += '<div class="bay-actions">';
-  body += '<button class="btn goodshot-btn'+(stale?' is-disabled':'')+'" '
-        + (stale ? 'disabled' : 'onclick="triggerGoodShot(\''+bay.id+'\')"') + '>🎯 굿샷</button>';
+  // 데모 버튼은 관리자에게만 (트랙맨 없이 테스트용)
+  if(S.currentRole==='admin' && !stale){
+    body += '<button class="btn goodshot-btn" onclick="triggerGoodShot(\''+bay.id+'\')">＋ 데모샷</button>';
+  }
   body += '<button class="btn bay-end-btn" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button>';
   body += '</div></div>';
   return '<div class="bay-card active" data-bay="'+bay.id+'">'+head+body+'</div>';

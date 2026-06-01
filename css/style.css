@@ -1356,3 +1356,20 @@ body.role-select .app{background:#0d1117}
 .pw-modal{animation:contentSwitch .18s var(--ease)}
 
 
+
+/* 트랙맨 자동 측정 안내 (라이브 베이) */
+.bay-auto{font-size:12px;font-weight:600;color:var(--ac-2);background:var(--ac-glow2);border:1px solid rgba(0,184,132,.2);border-radius:8px;padding:9px 11px;margin-bottom:8px;text-align:center;line-height:1.5}
+.bay-auto strong{color:var(--ac-2)}
+.goodshot-btn{flex:1;background:var(--bg-4);color:var(--tx-2);font-weight:700}
+
+/* 성과 리포트 — 베스트샷 KPI 보조 */
+.pv-shotcount{font-size:12px;color:var(--tx-3,#7a8089);text-align:center;margin-top:10px}
+.pv-shotcount strong{color:var(--ac-2,#00a070)}
+/* 영상 썸네일 표시 */
+.pv-vhasvid{position:absolute;top:7px;right:7px;font-size:13px;z-index:2}
+/* 샷 모달 실제 영상 */
+.pv-vm-video{width:100%;height:100%;object-fit:contain;background:#000;border-radius:14px 14px 0 0}
+.pv-vm-mkvnote{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);color:#fff;font-size:10.5px;padding:7px 10px;line-height:1.5}
+.pv-vm-mkvnote a{color:#7adba0;font-weight:700}
+.pv-vm-novid{aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#888;background:linear-gradient(160deg,#1a2027,#0a0c0f);border-radius:14px 14px 0 0}
+.pv-vm-novid-t{font-size:12px}
