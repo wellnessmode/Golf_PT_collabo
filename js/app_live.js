@@ -626,22 +626,47 @@ function renderBayCard(bay, canCoach, isAdmin){
   return '<div class="bay-card active" data-bay="'+bay.id+'">'+head+body+'</div>';
 }
 
+function _shotTimeLabel(s){
+  // 시계 어긋남에 강한 표시: _rcvAt(앱이 받은 시각) 우선, 아니면 s.ts.
+  // 5분 이내면 "방금", 1시간 이내 "N분 전", 24시간 이내 "HH:MM" 절대.
+  var ref = s._rcvAt || (s.ts ? Date.parse(s.ts) : null);
+  if(!ref || isNaN(ref)) return '';
+  var diff = Date.now() - ref;
+  if(diff < 5*60000 && diff > -5*60000) return '방금';
+  if(diff < 60*60000 && diff > 0) return Math.round(diff/60000)+'분 전';
+  var t = new Date(ref);
+  return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+}
 function renderShotLog(isAdmin){
   var canCoach = S.currentRole==='pro' || S.currentRole==='trainer' || isAdmin;
-  var shots = S.shotEvents.slice().sort(function(a,b){ return b.ts.localeCompare(a.ts); }).slice(0,30);
+  var all = S.shotEvents.slice().sort(function(a,b){
+    var ra=a._rcvAt||0, rb=b._rcvAt||0;
+    if(ra&&rb) return rb-ra;
+    return String(b.ts||'').localeCompare(String(a.ts||''));
+  });
+  var assigned = all.filter(function(s){ return !(s._unassigned && !s.memberName); });
+  var unassignedAll = all.filter(function(s){ return s._unassigned && !s.memberName; });
   var mockCount = (S.shotEvents||[]).filter(function(s){return s.source==='mock';}).length;
   var total = S.shotEvents.length;
+  var showUn = !!S._showUnassigned;
+  var shots = assigned.slice(0,30);
   var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+total+'개'
            + (isAdmin && mockCount>0 ? ' <button class="purge-demo-btn" onclick="purgeDemoShots()">🗑 데모 '+mockCount+'개</button>' : '')
            + (isAdmin && total>0 ? ' <button class="purge-all-btn" onclick="purgeAllShots()">🗑 전체 삭제</button>' : '')
            + '</div>';
-  if(shots.length===0){
+  if(unassignedAll.length>0){
+    html += '<div class="unassigned-fold">'
+         + '<button class="unassigned-toggle" onclick="toggleUnassigned()">📥 미배정 '+unassignedAll.length+'개 '+(showUn?'▲ 접기':'▼ 펼치기')+'</button>'
+         + (isAdmin && unassignedAll.length>0 ? ' <button class="small-btn purge-un-btn" onclick="purgeUnassignedShots()">🗑 미배정만 삭제</button>' : '')
+         + '</div>';
+  }
+  if(shots.length===0 && !showUn){
     html += '<div class="empty-state">아직 저장된 샷이 없습니다</div>';
-  } else {
-    html += '<div class="shot-list">' + shots.map(function(s){
+  }
+  var rowsToShow = showUn ? unassignedAll.slice(0,50).concat(shots) : shots;
+  if(rowsToShow.length){
+    html += '<div class="shot-list">' + rowsToShow.map(function(s){
       var bay = getBay(s.bayId);
-      var t = new Date(s.ts);
-      var ts = isNaN(t) ? '' : (String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'));
       var d = s.data||{};
       var metric = (d._units&&d._units.dist==='m')||d._src==='trackman_io';
       var carry = d.carry!=null&&d.carry!==''? Math.round((metric?parseFloat(d.carry)*1.09361:parseFloat(d.carry)))+'yd' : '';
@@ -651,7 +676,7 @@ function renderShotLog(isAdmin){
         + '<span class="shot-member">'+(s.memberName||'<span class="unassigned-tag">미배정</span>')+'</span>'
         + '<span class="shot-club">'+(d.club||'')+'</span>'
         + '<span class="shot-metric">'+carry+'</span>'
-        + '<span class="shot-time">'+ts+'</span>'
+        + '<span class="shot-time">'+_shotTimeLabel(s)+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
         + (isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')
         + (canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
@@ -660,6 +685,19 @@ function renderShotLog(isAdmin){
   }
   html += '</div>';
   return html;
+}
+function toggleUnassigned(){ S._showUnassigned = !S._showUnassigned; if(typeof render==='function') render(); }
+async function purgeUnassignedShots(){
+  var un = (S.shotEvents||[]).filter(function(s){ return s._unassigned && !s.memberName; });
+  if(!un.length) return;
+  if(!confirm('미배정 '+un.length+'개를 삭제합니다.\n\n⚠️ 컴퓨터에 저장된 원본 영상은 절대 삭제되지 않습니다.\n앱·서버 기록만 정리합니다.\n\n계속할까요?')) return;
+  for(var i=0;i<un.length;i++){
+    try{ await cloud.deleteShot(un[i].id); }catch(e){}
+    if(un[i].videoR2Key){ try{ await r2.remove(un[i].videoR2Key); }catch(e){} }
+  }
+  S.shotEvents = S.shotEvents.filter(function(s){ return !(s._unassigned && !s.memberName); });
+  try{ save(); }catch(e){}
+  if(typeof render==='function') render();
 }
 
 function renderLiveStartModal(){

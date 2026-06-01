@@ -294,53 +294,48 @@ const cloud = {
 };
 
 // 에이전트가 넣은 샷(member 비어있음)을 같은 베이의 활성세션 회원에게 자동 귀속.
-// 활성세션 없으면 폐기(저장 안 함) — Fail-safe 원칙 유지.
-// EMPTY = 에이전트가 회원 미정으로 넣은 샷
+// 활성세션 없으면 _unassigned 로 마킹 (샷 로그에 접어 표시).
+// 시간 비교 없음 — 활성세션 있는 베이면 무조건 매칭(시계/타임존 오차 무관).
 var AGENT_EMPTY_MEMBER = '00000000-0000-0000-0000-000000000000';
 function reconcileAgentShots(){
   if(!S.shotEvents || !S.shotEvents.length) return;
   var changed = false;
+  var now = Date.now();
+  S.shotEvents.forEach(function(s){
+    // 최초 수신 시각 기록(시계 어긋남과 무관하게 "방금 수신" 표시 가능)
+    if(s.source==='agent' && !s._rcvAt) s._rcvAt = now;
+  });
   S.shotEvents = S.shotEvents.filter(function(s){
     var pending = (s.source==='agent') && (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
-    if(!pending) return true;  // 이미 귀속된(저장된) 샷은 유지
+    if(!pending) return true;
     var act = S.activeSessions[s.bayId];
-    // 활성세션 시작 이후의 샷만 대상 — 단 5분 여유(시계/타임존 오차 흡수).
-    // 과거 폭주는 에이전트 쪽 컷오프가 1차로 막으므로 여기선 느슨하게.
-    var afterStart = true;
-    if(act && act.startedAt && s.ts){
-      var dShot = Date.parse(s.ts), dStart = Date.parse(act.startedAt);
-      if(!isNaN(dShot) && !isNaN(dStart)) afterStart = dShot >= (dStart - 5*60000);
-    }
-    if(act && !isStaleSession(act) && afterStart){
+    if(act && !isStaleSession(act)){
       if(act.mode==='lesson'){
-        // 레슨 모드: 자동저장 안 함. pending 상태로 유지 → 베이카드 "최근 샷"에서 트레이너가 선택
         s._pendingBay = s.bayId;
         return true;
       }
-      // 연습 모드: 자동 저장(귀속)
       s.memberId = act.memberId; s.memberName = act.memberName; s.author = act.author;
       changed = true;
       try{ cloud.reassignShot(s.id, act.memberId, act.memberName); }catch(e){}
       return true;
     }
-    // 활성세션 없음/시작전 → 숨기지 말고 "미배정"으로 유지 (샷 로그에 보임, 나중에 배정/정리 가능)
     s._unassigned = true;
     return true;
   });
   if(changed){ try{ save(); }catch(e){} }
 }
-// 레슨 모드 — 특정 베이의 "미저장 최근 샷" 목록 (활성세션 시작 이후만)
+// 레슨 모드 — 특정 베이의 "미저장 최근 샷" (시간 비교 없음, 베이의 pending agent 샷 전부)
 function pendingShotsForBay(bayId){
-  var act=S.activeSessions[bayId];
   return (S.shotEvents||[]).filter(function(s){
     if(!(s.source==='agent' && s.bayId===bayId)) return false;
     if(!(!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName)) return false;
-    if(act && act.startedAt && s.ts){
-      var dShot=Date.parse(s.ts), dStart=Date.parse(act.startedAt);
-      if(!isNaN(dShot)&&!isNaN(dStart) && dShot < dStart-5*60000) return false; // 5분 이상 과거만 제외
-    }
     return true;
-  }).sort(function(a,b){return String(b.ts).localeCompare(String(a.ts));});
+  }).sort(function(a,b){
+    // 수신 시각 우선(없으면 ts) — 시계 어긋나도 도착 순서 유지
+    var ra = a._rcvAt||0, rb = b._rcvAt||0;
+    if(ra && rb) return rb-ra;
+    return String(b.ts||'').localeCompare(String(a.ts||''));
+  });
 }
 
 // ============ Cloudflare R2 미디어 스토리지 ============

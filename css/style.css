@@ -1422,3 +1422,9 @@ body.role-select .app{background:#0d1117}
 /* 미배정 샷 (활성세션 없이 들어온 트랙맨 샷) */
 .shot-row.unassigned{background:rgba(217,119,6,.05)}
 .unassigned-tag{font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:10px}
+
+/* 미배정 폴드 — 노이즈 안 되게 접어두기 */
+.unassigned-fold{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:rgba(217,119,6,.04);flex-wrap:wrap}
+.unassigned-toggle{flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--warn);font-weight:700;font-size:13px;cursor:pointer;padding:4px 0}
+.purge-un-btn{background:#fff0e0!important;color:var(--warn)!important;border:1px solid #f5c98a!important;font-size:12px;padding:5px 10px;border-radius:8px;font-weight:700;cursor:pointer}
+.purge-un-btn:hover{background:#ffe2c2!important}
