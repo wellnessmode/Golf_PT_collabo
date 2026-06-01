@@ -304,8 +304,13 @@ function reconcileAgentShots(){
     var pending = (s.source==='agent') && (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
     if(!pending) return true;  // 이미 귀속된(저장된) 샷은 유지
     var act = S.activeSessions[s.bayId];
-    // 활성세션 시작 이후의 샷만 대상 (그 전에 친 과거 샷은 무시)
-    var afterStart = act && s.ts && String(s.ts) >= String(act.startedAt);
+    // 활성세션 시작 이후의 샷만 대상 — 단 5분 여유(시계/타임존 오차 흡수).
+    // 과거 폭주는 에이전트 쪽 컷오프가 1차로 막으므로 여기선 느슨하게.
+    var afterStart = true;
+    if(act && act.startedAt && s.ts){
+      var dShot = Date.parse(s.ts), dStart = Date.parse(act.startedAt);
+      if(!isNaN(dShot) && !isNaN(dStart)) afterStart = dShot >= (dStart - 5*60000);
+    }
     if(act && !isStaleSession(act) && afterStart){
       if(act.mode==='lesson'){
         // 레슨 모드: 자동저장 안 함. pending 상태로 유지 → 베이카드 "최근 샷"에서 트레이너가 선택
@@ -318,8 +323,9 @@ function reconcileAgentShots(){
       try{ cloud.reassignShot(s.id, act.memberId, act.memberName); }catch(e){}
       return true;
     }
-    // 활성세션 없음 → 화면에서 숨김(서버엔 남아 관리자 재할당/정리 가능)
-    return false;
+    // 활성세션 없음/시작전 → 숨기지 말고 "미배정"으로 유지 (샷 로그에 보임, 나중에 배정/정리 가능)
+    s._unassigned = true;
+    return true;
   });
   if(changed){ try{ save(); }catch(e){} }
 }
@@ -329,7 +335,10 @@ function pendingShotsForBay(bayId){
   return (S.shotEvents||[]).filter(function(s){
     if(!(s.source==='agent' && s.bayId===bayId)) return false;
     if(!(!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName)) return false;
-    if(act && act.startedAt && s.ts && String(s.ts) < String(act.startedAt)) return false; // 시작 전 샷 제외
+    if(act && act.startedAt && s.ts){
+      var dShot=Date.parse(s.ts), dStart=Date.parse(act.startedAt);
+      if(!isNaN(dShot)&&!isNaN(dStart) && dShot < dStart-5*60000) return false; // 5분 이상 과거만 제외
+    }
     return true;
   }).sort(function(a,b){return String(b.ts).localeCompare(String(a.ts));});
 }

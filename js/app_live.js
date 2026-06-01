@@ -642,14 +642,18 @@ function renderShotLog(isAdmin){
       var bay = getBay(s.bayId);
       var t = new Date(s.ts);
       var ts = String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
-      return '<div class="shot-row">'
+      var d = s.data||{};
+      var metric = (d._units&&d._units.dist==='m')||d._src==='trackman_io';
+      var carry = d.carry!=null&&d.carry!==''? Math.round((metric?parseFloat(d.carry)*1.09361:parseFloat(d.carry)))+'yd' : '';
+      var unassigned = s._unassigned && (!s.memberName);
+      return '<div class="shot-row'+(unassigned?' unassigned':'')+'">'
         + '<span class="shot-bay '+bay.color+'">'+bay.name+'</span>'
-        + '<span class="shot-member">'+s.memberName+'</span>'
-        + '<span class="shot-club">'+((s.data&&s.data.club)||'')+'</span>'
-        + '<span class="shot-metric">'+(s.data&&s.data.carry!=null&&s.data.carry!==''?Math.round(parseFloat(s.data.carry))+'yd':'')+'</span>'
+        + '<span class="shot-member">'+(s.memberName||'<span class="unassigned-tag">미배정</span>')+'</span>'
+        + '<span class="shot-club">'+(d.club||'')+'</span>'
+        + '<span class="shot-metric">'+carry+'</span>'
         + '<span class="shot-time">'+ts+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
-        + (isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">이동</button>' : '')
+        + (isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')
         + (canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
         + '</div>';
     }).join('') + '</div>';

@@ -1418,3 +1418,7 @@ body.role-select .app{background:#0d1117}
 
 /* 관리자 라이브 세션 진입 버튼 */
 .mp-btn.live-admin-btn{background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#fff;font-weight:700;border:none}
+
+/* 미배정 샷 (활성세션 없이 들어온 트랙맨 샷) */
+.shot-row.unassigned{background:rgba(217,119,6,.05)}
+.unassigned-tag{font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:10px}
