@@ -210,8 +210,8 @@ function buildPerfData(memberId){
       pt.push({date:md, sets:s.ptSets});
     }
   });
-  // 라이브 세션에서 저장된 트랙맨 샷 → 날짜별 평균(드라이버 우선)으로 골프 시계열 보강
-  var memberShots=(S.shotEvents||[]).filter(function(s){return s.memberId===memberId;});
+  // 라이브 세션에서 저장된 트랙맨 샷 (데모/가짜 mock 제외 — 실측만)
+  var memberShots=(S.shotEvents||[]).filter(function(s){return s.memberId===memberId && s.source!=='mock';});
   if(memberShots.length){
     var existDates={}; golf.forEach(function(g){existDates[g.date]=true;});
     var byDate={};

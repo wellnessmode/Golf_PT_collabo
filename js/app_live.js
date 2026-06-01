@@ -106,6 +106,20 @@ function pickBayForMember(bayId){
 }
 function cancelBayPick(){ S.liveBayPickFor=null; render(); }
 
+// 데모(가짜) 샷 일괄 삭제 — 관리자 전용. source==='mock' 전부 제거.
+function purgeDemoShots(){
+  var mocks=(S.shotEvents||[]).filter(function(s){return s.source==='mock';});
+  if(!mocks.length){ liveToast('데모 샷이 없습니다','ok'); return; }
+  if(!confirm('데모(가짜) 샷 '+mocks.length+'개를 모두 삭제할까요?\n(트랙맨 실측 샷은 그대로 유지됩니다)')) return;
+  S.shotEvents=(S.shotEvents||[]).filter(function(s){return s.source!=='mock';});
+  save();
+  mocks.forEach(function(s){ try{ cloud.deleteShot(s.id); }catch(e){} });
+  logActivity('데모샷 정리', '', mocks.length+'개');
+  logAudit('session','데모샷 일괄삭제','',{count:mocks.length});
+  render();
+  liveToast('🗑 데모 샷 '+mocks.length+'개 삭제됨','ok');
+}
+
 // 베이 모드 전환 (레슨 선별저장 ↔ 연습 자동저장)
 function setBayMode(bayId, mode){
   var act=S.activeSessions[bayId]; if(!act) return;
@@ -587,9 +601,6 @@ function renderBayCard(bay, canCoach, isAdmin){
     }
   }
   body += '<div class="bay-actions">';
-  if(S.currentRole==='admin' && !stale){
-    body += '<button class="btn goodshot-btn" onclick="triggerGoodShot(\''+bay.id+'\')">＋ 데모샷</button>';
-  }
   body += '<button class="btn bay-end-btn" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button>';
   body += '</div></div>';
   return '<div class="bay-card active" data-bay="'+bay.id+'">'+head+body+'</div>';
@@ -598,8 +609,10 @@ function renderBayCard(bay, canCoach, isAdmin){
 function renderShotLog(isAdmin){
   var canCoach = S.currentRole==='pro' || S.currentRole==='trainer' || isAdmin;
   var shots = S.shotEvents.slice().sort(function(a,b){ return b.ts.localeCompare(a.ts); }).slice(0,30);
+  var mockCount = (S.shotEvents||[]).filter(function(s){return s.source==='mock';}).length;
   var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+S.shotEvents.length+'개'
-           + (isAdmin ? ' <span class="shot-log-admin">관리자: 잘못 들어간 샷은 「이동」으로 다른 회원에게 재할당</span>' : '')
+           + (isAdmin && mockCount>0 ? ' <button class="purge-demo-btn" onclick="purgeDemoShots()">🗑 데모샷 '+mockCount+'개 정리</button>' : '')
+           + (isAdmin && mockCount===0 ? ' <span class="shot-log-admin">관리자: 잘못 들어간 샷은 「이동」으로 재할당</span>' : '')
            + '</div>';
   if(shots.length===0){
     html += '<div class="empty-state">아직 저장된 샷이 없습니다</div>';

@@ -1395,3 +1395,7 @@ body.role-select .app{background:#0d1117}
   .ps-item{flex-wrap:wrap}
   .ps-save,.ps-drop{padding:10px 14px;font-size:13px}
 }
+
+/* 데모샷 정리 버튼 (관리자) */
+.purge-demo-btn{font-size:11px;font-weight:700;color:var(--err);background:var(--err-bg);border:1px solid rgba(220,38,38,.25);border-radius:14px;padding:4px 11px;cursor:pointer;font-family:var(--font);margin-left:6px}
+.purge-demo-btn:hover{background:rgba(220,38,38,.14)}
