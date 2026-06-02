@@ -37,6 +37,11 @@ function log(msg){
   try { fs.appendFileSync(LOG_FILE, line + '\n'); } catch (e) {}
   if (CFG.verbose) console.log(line);
 }
+function say(msg){ // verbose 무관 항상 콘솔 + 로그
+  var line = '[' + new Date().toISOString() + '] ' + msg;
+  try { fs.appendFileSync(LOG_FILE, line + '\n'); } catch (e) {}
+  console.log(line);
+}
 function saveState(){ try { fs.writeFileSync(STATE_FILE, JSON.stringify(processed)); } catch (e) {} }
 
 // ---- HTTPS helper ----
@@ -188,8 +193,57 @@ async function scan(){
   saveState();
 }
 
+// ---- PC 시계 검증 (외부 NTP-급 시각과 교차검증) ----
+// Google + Cloudflare HTTPS 응답의 Date 헤더(서버 시각)와 로컬 비교.
+// 두 곳 모두 신뢰가능 + 서로 교차검증 → 한쪽 장애에도 robust.
+function _httpDate(host){
+  return new Promise(function(resolve){
+    var t0 = Date.now();
+    var req = https.request({hostname:host, port:443, method:'HEAD', path:'/', timeout:5000}, function(res){
+      var t1 = Date.now();
+      var hdr = res.headers && res.headers.date;
+      res.resume();
+      if(!hdr) return resolve(null);
+      var serverMs = Date.parse(hdr);
+      if(isNaN(serverMs)) return resolve(null);
+      // RTT 절반 보정 (응답 받은 시점 ≈ 서버시각 + RTT/2)
+      var localMid = (t0 + t1)/2;
+      resolve(localMid - serverMs); // 양수 = PC가 앞섬, 음수 = 뒤짐
+    });
+    req.on('error', function(){ resolve(null); });
+    req.on('timeout', function(){ try{req.destroy();}catch(e){} resolve(null); });
+    req.end();
+  });
+}
+async function checkClock(){
+  say('PC 시계 검증 중... (Google + Cloudflare 교차검증)');
+  var results = await Promise.all([_httpDate('www.google.com'), _httpDate('www.cloudflare.com')]);
+  var skews = results.filter(function(x){ return x!==null; });
+  if(skews.length===0){
+    say('⚠️ 시계 검증 실패 (네트워크) — 건너뜀');
+    return;
+  }
+  var avg = Math.round(skews.reduce(function(a,b){return a+b;},0) / skews.length);
+  var avgSec = Math.round(avg/1000);
+  var sign = avg>=0 ? '+' : '';
+  var sources = ['google','cloudflare'].filter(function(_,i){return results[i]!==null;}).join('/');
+  say('  → 출처('+sources+') 평균 차이: '+sign+avgSec+'초 ('+sign+avg+'ms)');
+  if(Math.abs(avg) < 5000){
+    say('  ✓ PC 시계 정확 (5초 이내) — 샷 시각 신뢰 OK');
+  } else if(Math.abs(avg) < 60000){
+    say('  ⚠️ PC 시계가 '+sign+avgSec+'초 어긋남 — 동기화 권장');
+  } else {
+    var min = Math.round(avg/60000);
+    say('  🚨 PC 시계가 '+(min>=0?'+':'')+min+'분 어긋남! Windows 시간 동기화 필요:');
+    say('     설정 > 시간 및 언어 > 날짜 및 시간 > "지금 동기화" 클릭');
+    say('     또는 관리자 cmd: w32tm /resync');
+  }
+}
+
 // ---- 메인 루프 ----
-log('=== Golf PT Bay Agent 시작 === bayMap=' + JSON.stringify(CFG.bayMap||{}) + ' interval=' + (CFG.intervalSec||5) + 's');
+say('=== Golf PT Bay Agent 시작 === bayMap=' + JSON.stringify(CFG.bayMap||{}) + ' interval=' + (CFG.intervalSec||5) + 's');
+say('PC 로컬시각: ' + new Date().toString());
+checkClock().catch(function(e){ say('시계검증 오류: '+e.message); });
 (function loop(){
   scan().catch(function(e){ log('scan 오류: ' + e.message); })
         .then(function(){ setTimeout(loop, (CFG.intervalSec || 5) * 1000); });
