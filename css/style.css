@@ -1479,3 +1479,20 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 @media (hover:none) and (pointer:coarse){
   input[type=text],input[type=email],input[type=tel],input[type=number],input[type=search],input[type=password],textarea,select{font-size:16px!important}
 }
+
+/* 비번 모달 — 이 기기 자동 로그인 체크박스 (생체 미지원 기기) */
+.pw-trust{display:flex;align-items:flex-start;gap:9px;margin:2px 2px 14px;padding:11px 12px;background:rgba(0,184,132,.06);border:1px solid rgba(0,184,132,.25);border-radius:10px;cursor:pointer;text-align:left}
+.pw-trust input{width:19px;height:19px;margin-top:1px;flex-shrink:0;accent-color:#00b884;cursor:pointer}
+.pw-trust span{font-size:13px;font-weight:700;color:var(--tx);line-height:1.4}
+.pw-trust small{display:block;font-size:11px;font-weight:500;color:var(--tx-3);margin-top:3px}
+
+/* 샷 선택 모드 (체크박스 다중 삭제) */
+.sel-mode-btn{background:#eef6ff!important;color:#1f6feb!important;border:1px solid #b9d6f5!important}
+.sel-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 12px;background:var(--bg-3,#f4f6f8);border-bottom:1px solid var(--line,#e5e8ec)}
+.sel-toolbar .sel-count{font-size:12.5px;font-weight:800;color:var(--ac,#00b884);margin:0 2px}
+.sel-del-btn{margin-left:auto}
+.sel-del-btn[disabled]{opacity:.4;pointer-events:none}
+.shot-row.selectable{cursor:pointer;user-select:none}
+.shot-row.selectable:active{background:rgba(0,184,132,.06)}
+.shot-row.selectable.on{background:rgba(0,184,132,.1);box-shadow:inset 3px 0 0 var(--ac,#00b884)}
+.shot-check{font-size:16px;flex-shrink:0;width:20px;text-align:center;color:var(--ac,#00b884)}

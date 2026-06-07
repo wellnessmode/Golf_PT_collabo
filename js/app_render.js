@@ -44,10 +44,45 @@ function renderRoleSelector(){
       </div>
       <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
     </div>
-  </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div>'+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+S.bioError+'</div>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">생체 로그인 등록</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+S.bioError+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
+  </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div>'+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+S.bioError+'</div>':'')+(!bio.available?'<label class="pw-trust"><input type="checkbox" '+(S.trustDevice?'checked':'')+' onchange="S.trustDevice=this.checked"><span>이 기기에서 자동 로그인<small>다음부터 비밀번호 없이 바로 입장 (스튜디오 공용 기기용)</small></span></label>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">생체 로그인 등록</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+S.bioError+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
 }
 
+// 흰 화면 방지: render 중 에러가 나도 화면이 비지 않게 감싼다.
+// (라이브 세션 등에서 예기치 못한 데이터로 throw → 흰 화면 먹통 재발 방지)
 function render(){
+  try{
+    _render();
+  }catch(e){
+    console.error('[render] 오류:', e);
+    try{ _renderRecovery(e); }catch(_){}
+  }
+}
+function _renderRecovery(err){
+  var root = document.getElementById('root');
+  if(!root) return;
+  // 이미 정상 화면이 그려져 있으면(내용 있음) 건드리지 않음 — 마지막 정상 상태 유지
+  if(root.children && root.children.length>0 && !root.querySelector('.recovery-panel')) return;
+  root.innerHTML = '<div class="recovery-panel" style="max-width:420px;margin:22vh auto;padding:0 24px;text-align:center;font-family:-apple-system,sans-serif;color:#1a1f26">'
+    + '<div style="font-size:46px;margin-bottom:14px">🛠</div>'
+    + '<div style="font-size:17px;font-weight:800;margin-bottom:8px">화면을 다시 불러올게요</div>'
+    + '<div style="font-size:13px;color:#888;line-height:1.7;margin-bottom:20px">일시적인 표시 문제가 있었어요.<br>아래 버튼을 누르면 정상으로 돌아옵니다.</div>'
+    + '<button onclick="recoverApp()" style="padding:12px 28px;background:#00b884;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer">다시 불러오기</button>'
+    + '</div>';
+}
+// 복구 버튼 — 모달/임시상태 닫고 안전하게 재렌더 (그래도 안 되면 새로고침)
+function recoverApp(){
+  try{
+    S.showLiveSession=false; S.showPerformance=false; S.showReport=false;
+    S.showAddSession=false; S.showAddMember=false; S.perfShotModal=null;
+    S.liveToast=null; S.showPwModal=false; S.bioEnrollFor=null;
+    render();
+    var root=document.getElementById('root');
+    if(!root || !root.children || root.children.length===0 || root.querySelector('.recovery-panel')){
+      location.reload();
+    }
+  }catch(e){ location.reload(); }
+}
+function _render(){
   if(!S.currentRole){document.body.classList.add('role-select');renderRoleSelector();return;}
   document.body.classList.remove('role-select');
   const root = document.getElementById('root');

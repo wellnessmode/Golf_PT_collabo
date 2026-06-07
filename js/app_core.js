@@ -374,7 +374,7 @@ let S = {
   showLiveSession:false, liveStartBay:null, liveStartQuery:'',
   liveConfirm:null, liveReassignShot:null, liveToast:null, voiceBay:null,
   perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1, openSessions:{}, liveBayPickFor:null,
-  bioBusy:false, bioError:'', bioEnrollFor:null,
+  bioBusy:false, bioError:'', bioEnrollFor:null, trustDevice:false,
   deletedSessionIds:{}   // 삭제된 세션 tombstone (다른 기기 캐시가 재업로드해 부활하는 것 방지)
 };
 
@@ -414,7 +414,13 @@ function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const 
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
-function submitPassword(){var p=S.pendingRole;if(!p)return;var key=p.role==='infodesk'?'infodesk':(p.role==='admin'?'관리자':p.user);if(S.pwInput===getPassword(key)){logAudit('auth','로그인',p.user||key,{role:p.role,method:'password'});if(bio.available && !bio.isRegistered(p.role,p.user)){S.bioEnrollFor={role:p.role,user:p.user};S.showPwModal=false;render();return;}activateRole(p.role,p.user);}else{S.pwError=true;render();}}
+// '이 기기 자동 로그인' (생체 미지원 기기용) — 켜져 있으면 다음 부팅 시 비번 없이 입장
+function deviceTrusted(){try{return localStorage.getItem('golf_pt_trust_device')==='1';}catch(e){return false;}}
+function setDeviceTrust(on){try{if(on)localStorage.setItem('golf_pt_trust_device','1');else localStorage.removeItem('golf_pt_trust_device');}catch(e){}}
+function submitPassword(){var p=S.pendingRole;if(!p)return;var key=p.role==='infodesk'?'infodesk':(p.role==='admin'?'관리자':p.user);if(S.pwInput===getPassword(key)){logAudit('auth','로그인',p.user||key,{role:p.role,method:'password'});
+  // 생체 미지원 기기에서 '자동 로그인' 체크 시 → 이 기기 신뢰 저장
+  if(!bio.available && S.trustDevice){ setDeviceTrust(true); }
+  if(bio.available && !bio.isRegistered(p.role,p.user)){S.bioEnrollFor={role:p.role,user:p.user};S.showPwModal=false;render();return;}activateRole(p.role,p.user);}else{S.pwError=true;render();}}
 function cancelPassword(){S.showPwModal=false;S.pendingRole=null;S.pwError=false;S.bioError='';render();}
 
 // ============ 생체 인증 (Face ID / 지문 / 홍채) — WebAuthn ============
@@ -480,9 +486,13 @@ const bio = {
 };
 
 // 모달 자동 시도 — 등록된 사용자면 모달 열리자마자 생체인증 트리거
+// _bioTrying: 중복 방지. 자동 트리거 + 사용자 버튼 탭이 겹쳐도 Face ID 창은 1번만.
+var _bioTrying = false;
 async function bioAutoTry(){
+  if(_bioTrying) return;                    // 이미 인증창 떠 있으면 무시 (두 번 뜸 방지)
   var p=S.pendingRole; if(!p||!bio.available) return;
   if(!bio.isRegistered(p.role,p.user)) return;
+  _bioTrying = true;
   S.bioBusy=true; S.bioError=''; render();
   try{
     var ok=await bio.verify(p.role,p.user);
@@ -492,6 +502,8 @@ async function bioAutoTry(){
   }catch(e){
     S.bioBusy=false;
     S.bioError=(e&&e.name==='NotAllowedError')?'생체 인증 취소됨':'생체 인증 오류';
+  }finally{
+    _bioTrying = false;
   }
   render();
 }
@@ -532,7 +544,11 @@ async function bioToggleSelf(){
     if(e&&e.name!=='NotAllowedError') alert('등록 실패: '+(e.message||e));
   }
 }
-function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}render();}
+function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}
+  // 로그아웃 시 자동 로그인 해제 → 역할 선택 화면을 쓸 수 있게 (다음 로그인 때 재설정 가능)
+  setDeviceTrust(false);
+  S.trustDevice=false;
+  render();}
 
 async function init(){
   loadLocal();readHash();render();
@@ -544,13 +560,17 @@ async function init(){
   if(allMedia.length>0) render();
   r2.init();
   bio.init().then(function(){
-    if(!bio.available){ render(); return; }
     render();
-    // 앱 시작 시 자동 생체 로그인 — 마지막 사용자가 등록되어 있으면 바로 트리거
-    if(S.currentRole) return; // 이미 로그인되어 있으면 스킵
+    // 앱 시작 시 자동 로그인
+    if(S.currentRole) return; // 이미 로그인되어 있으면(세션복원) 스킵
     var last; try{ last=JSON.parse(localStorage.getItem('golf_pt_last_user')||'null'); }catch(e){}
-    if(last && last.role && last.user && bio.isRegistered(last.role,last.user)){
-      setRole(last.role, last.user); // 비밀번호 모달 + bioAutoTry 자동 실행
+    if(!last || !last.role || !last.user) return;
+    if(bio.available && bio.isRegistered(last.role,last.user)){
+      // 생체 등록된 기기 → Face ID/지문 자동 트리거
+      setRole(last.role, last.user);
+    } else if(!bio.available && deviceTrusted()){
+      // 생체 미지원 기기(구형 아이패드 등) + '이 기기 자동 로그인' 허용 → 비번 없이 입장
+      activateRole(last.role, last.user);
     }
   });
   if(cloud.init()){

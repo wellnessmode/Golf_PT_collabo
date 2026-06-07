@@ -656,37 +656,58 @@ function renderShotLog(isAdmin){
   var mockCount = (S.shotEvents||[]).filter(function(s){return s.source==='mock';}).length;
   var total = S.shotEvents.length;
   var showUn = !!S._showUnassigned;
+  var selMode = !!S._shotSelMode;
+  if(!S._shotSel) S._shotSel = {};
+  var selCount = Object.keys(S._shotSel).filter(function(k){return S._shotSel[k];}).length;
   var shots = assigned.slice(0,30);
+
   var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+total+'개'
-           + (isAdmin && mockCount>0 ? ' <button class="purge-demo-btn" onclick="purgeDemoShots()">🗑 데모 '+mockCount+'개</button>' : '')
-           + (isAdmin && total>0 ? ' <button class="purge-all-btn" onclick="purgeAllShots()">🗑 전체 삭제</button>' : '')
+           + (canCoach && total>0 && !selMode ? ' <button class="small-btn sel-mode-btn" onclick="enterShotSelMode()">☑︎ 선택</button>' : '')
+           + (isAdmin && mockCount>0 && !selMode ? ' <button class="purge-demo-btn" onclick="purgeDemoShots()">🗑 데모 '+mockCount+'개</button>' : '')
+           + (isAdmin && total>0 && !selMode ? ' <button class="purge-all-btn" onclick="purgeAllShots()">🗑 전체 삭제</button>' : '')
            + '</div>';
-  if(unassignedAll.length>0){
-    html += '<div class="unassigned-fold">'
-         + '<button class="unassigned-toggle" onclick="toggleUnassigned()">📥 미배정 '+unassignedAll.length+'개 '+(showUn?'▲ 접기':'▼ 펼치기')+'</button>'
-         + (isAdmin && unassignedAll.length>0 ? ' <button class="small-btn purge-un-btn" onclick="purgeUnassignedShots()">🗑 미배정만 삭제</button>' : '')
+
+  // 선택 모드 툴바
+  if(selMode){
+    html += '<div class="sel-toolbar">'
+         + '<button class="small-btn" onclick="selectAllShots()">전체 선택</button>'
+         + '<button class="small-btn" onclick="clearShotSel()">선택 해제</button>'
+         + '<span class="sel-count">'+selCount+'개 선택</span>'
+         + '<button class="small-btn del sel-del-btn"'+(selCount?'':' disabled')+' onclick="deleteSelectedShots()">🗑 선택 삭제</button>'
+         + '<button class="small-btn" onclick="exitShotSelMode()">취소</button>'
          + '</div>';
   }
-  if(shots.length===0 && !showUn){
-    html += '<div class="empty-state">아직 저장된 샷이 없습니다</div>';
+
+  if(unassignedAll.length>0 && !selMode){
+    html += '<div class="unassigned-fold">'
+         + '<button class="unassigned-toggle" onclick="toggleUnassigned()">📥 미배정 '+unassignedAll.length+'개 '+(showUn?'▲ 접기':'▼ 펼치기')+'</button>'
+         + (isAdmin ? ' <button class="small-btn purge-un-btn" onclick="purgeUnassignedShots()">🗑 미배정만 삭제</button>' : '')
+         + '</div>';
   }
-  var rowsToShow = showUn ? unassignedAll.slice(0,50).concat(shots) : shots;
-  if(rowsToShow.length){
+  // 선택 모드에선 배정/미배정 모두 보여서 한 번에 정리 가능
+  var rowsToShow = selMode ? unassignedAll.concat(assigned).slice(0,80)
+                 : (showUn ? unassignedAll.slice(0,50).concat(shots) : shots);
+  if(rowsToShow.length===0){
+    html += '<div class="empty-state">아직 저장된 샷이 없습니다</div>';
+  } else {
     html += '<div class="shot-list">' + rowsToShow.map(function(s){
       var bay = getBay(s.bayId);
       var d = s.data||{};
       var metric = (d._units&&d._units.dist==='m')||d._src==='trackman_io';
       var carry = d.carry!=null&&d.carry!==''? Math.round((metric?parseFloat(d.carry)*1.09361:parseFloat(d.carry)))+'yd' : '';
       var unassigned = s._unassigned && (!s.memberName);
-      return '<div class="shot-row'+(unassigned?' unassigned':'')+'">'
+      var checked = !!S._shotSel[s.id];
+      return '<div class="shot-row'+(unassigned?' unassigned':'')+(selMode?' selectable'+(checked?' on':''):'')+'"'
+        + (selMode?' onclick="toggleShotSel(\''+s.id+'\')"':'')+'>'
+        + (selMode?'<span class="shot-check">'+(checked?'☑':'☐')+'</span>':'')
         + '<span class="shot-bay '+bay.color+'">'+bay.name+'</span>'
         + '<span class="shot-member">'+(s.memberName||'<span class="unassigned-tag">미배정</span>')+'</span>'
         + '<span class="shot-club">'+(d.club||'')+'</span>'
         + '<span class="shot-metric">'+carry+'</span>'
         + '<span class="shot-time">'+_shotTimeLabel(s)+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
-        + (isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')
-        + (canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
+        + (!selMode && isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')
+        + (!selMode && canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
         + '</div>';
     }).join('') + '</div>';
   }
@@ -694,6 +715,32 @@ function renderShotLog(isAdmin){
   return html;
 }
 function toggleUnassigned(){ S._showUnassigned = !S._showUnassigned; if(typeof render==='function') render(); }
+// ===== 샷 선택 모드 (체크박스 다중 삭제) =====
+function enterShotSelMode(){ S._shotSelMode=true; S._shotSel={}; render(); }
+function exitShotSelMode(){ S._shotSelMode=false; S._shotSel={}; render(); }
+function clearShotSel(){ S._shotSel={}; render(); }
+function toggleShotSel(id){ if(!S._shotSel) S._shotSel={}; S._shotSel[id]=!S._shotSel[id]; render(); }
+function selectAllShots(){
+  S._shotSel={};
+  (S.shotEvents||[]).forEach(function(s){ S._shotSel[s.id]=true; });
+  render();
+}
+async function deleteSelectedShots(){
+  var ids = Object.keys(S._shotSel||{}).filter(function(k){return S._shotSel[k];});
+  if(!ids.length) return;
+  if(!confirm('선택한 '+ids.length+'개 샷을 삭제합니다.\n\n⚠️ 컴퓨터에 저장된 원본 영상은 절대 삭제되지 않습니다.\n앱·서버 기록(과 앱이 복사해둔 영상)만 정리합니다.\n\n계속할까요?')) return;
+  var idset = {}; ids.forEach(function(id){ idset[id]=true; });
+  var targets = (S.shotEvents||[]).filter(function(s){ return idset[s.id]; });
+  for(var i=0;i<targets.length;i++){
+    try{ await cloud.deleteShot(targets[i].id); }catch(e){}
+    if(targets[i].videoR2Key){ try{ await r2.remove(targets[i].videoR2Key); }catch(e){} }
+  }
+  S.shotEvents = (S.shotEvents||[]).filter(function(s){ return !idset[s.id]; });
+  S._shotSelMode=false; S._shotSel={};
+  try{ save(); }catch(e){}
+  liveToastSafe('🗑 '+targets.length+'개 삭제됨');
+  render();
+}
 async function purgeUnassignedShots(){
   var un = (S.shotEvents||[]).filter(function(s){ return s._unassigned && !s.memberName; });
   if(!un.length) return;
