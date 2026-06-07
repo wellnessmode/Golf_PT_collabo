@@ -231,7 +231,7 @@ function endLiveSession(bayId){
   var bay = getBay(bayId);
   var hasVoice = (act._transcript||'').trim().length>0;
   var msg = bay.name+' · '+act.memberName+'님 세션을 종료할까요?\n'
-    + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리해 드립니다)' : '(저장된 샷 기록은 회원에게 남습니다)');
+    + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리합니다)' : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)');
   if(!confirm(msg)) return;
   var transcript = act._transcript||'', memberId = act.memberId, author = act.author;
   if(S.voiceBay===bayId) stopVoice(bayId);
@@ -240,11 +240,18 @@ function endLiveSession(bayId){
   logActivity('라이브 세션 종료', memberId, bay.name);
   logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
   cloud.endActiveSession(bayId);
-  var drafted = false;
-  if(transcript.trim()) drafted = openVoiceDraft(memberId, author, transcript);
+  // 라이브 세션 종료 = 세션 기록 생성 (일원화). 음성 있으면 AI 정리, 없으면 빈 카드.
+  if(transcript.trim()){
+    openVoiceDraft(memberId, author, transcript);
+    liveToast('🤖 AI가 세션카드를 정리했어요 — 확인 후 저장','ok');
+  } else {
+    // 음성 없음 → 회원 선택 후 빈 세션카드 모달 (수기 입력)
+    S.selectedMember = memberId;
+    S.newSession = {date:today(), author:author||S.currentUser||'', content:'', media:[], mediaUrls:['','']};
+    S.showAddSession = true;
+    liveToast('⏹ '+bay.name+' 세션 종료 — 세션 카드를 작성하세요','ok');
+  }
   render();
-  if(drafted) liveToast('🤖 AI가 세션카드를 정리했어요 — 확인 후 저장','ok');
-  else liveToast('⏹ '+bay.name+' 세션 종료','ok');
 }
 
 // ============ 굿샷 (현재 데모/목) ============

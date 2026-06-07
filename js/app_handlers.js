@@ -366,9 +366,10 @@ function renderImageCardModal(){
 }
 
 function openReport(){
-  var mid = S.selectedMember;
+  // 성과 화면에서 호출되면 perfMember 우선, 아니면 selectedMember
+  var mid = S.perfMember || S.selectedMember;
   var m = S.members.find(function(x){return x.id===mid;});
-  if(!m) return;
+  if(!m){ alert('리포트를 만들 회원이 선택되지 않았습니다.'); return; }
   var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);}).slice(0,10);
   var cleaned = allSess.map(function(s){
     return {

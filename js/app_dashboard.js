@@ -340,7 +340,7 @@ function renderPerformance(){
   if(!data) return '';
   var hasData = (data.golf&&data.golf.length) || (data.pt&&data.pt.length) || (data.shots&&data.shots.length);
   if(!hasData && !S.perfDemo){
-    return '<div class="perf-overlay perf-light"><div class="perf-shell"><div class="perf-topbar"><div class="perf-brand"><img src="assets/logo.png" class="perf-logo" alt="">PERFORMANCE REPORT</div><button class="perf-close" onclick="closePerformance()">✕</button></div>'+
+    return '<div class="perf-overlay perf-light"><div class="perf-shell"><div class="perf-topbar"><div class="perf-brand"><img src="assets/logo.png" class="perf-logo" alt="">PERFORMANCE REPORT</div><button class="perf-close" onclick="closePerformance()">닫기</button></div>'+
       '<div class="perf-empty"><div class="pe-icon">📊</div><div class="pe-title">'+data.member.name+' 회원님 측정 데이터가 아직 없습니다</div><div class="pe-sub">라이브 세션에서 샷을 저장하면<br>이 화면에 성장 리포트가 자동으로 그려집니다.</div><button class="perf-demo-btn" onclick="openDemoPerformance()">상담용 데모 데이터로 미리보기 →</button></div>'+
       '</div></div>';
   }
@@ -357,8 +357,9 @@ function renderPerformance(){
         +'<div class="pv-cg"><span class="pv-l">단위</span><div class="pv-seg"><button class="'+(S.perfUnitDist==='yd'?'on':'')+'" onclick="setPerfDist(\'yd\')">yd</button><button class="'+(S.perfUnitDist==='m'?'on':'')+'" onclick="setPerfDist(\'m\')">m</button></div></div>'
         +'<div class="pv-cg"><span class="pv-l">속도</span><div class="pv-seg"><button class="'+(S.perfUnitSpd==='mph'?'on':'')+'" onclick="setPerfSpd(\'mph\')">mph</button><button class="'+(S.perfUnitSpd==='ms'?'on':'')+'" onclick="setPerfSpd(\'ms\')">m/s</button></div></div>'
         +'<div class="pv-cg"><span class="pv-l">글씨</span><div class="pv-seg"><button class="'+(ts===1?'on':'')+'" onclick="setPerfTextScale(1)">가</button><button class="'+(ts>1&&ts<1.3?'on':'')+'" onclick="setPerfTextScale(1.18)">가+</button><button class="'+(ts>=1.3?'on':'')+'" onclick="setPerfTextScale(1.4)">가++</button></div></div>'
+        +'<button class="pv-icbtn pv-report-btn" onclick="openReport()" title="AI 리포트">🤖 리포트</button>'
         +'<button class="pv-icbtn" onclick="printPerf()" title="인쇄">🖨</button>'
-        +'<button class="pv-icbtn" onclick="closePerformance()" title="닫기">✕</button>'
+        +'<button class="pv-closebtn" onclick="closePerformance()">닫기</button>'
       +'</div>'
     +'</div>'
     +'<div class="pv-title">PERFORMANCE <span>REPORT</span>'+(S.perfDemo?'<span class="pv-demo">DEMO</span>':'')+'</div>'

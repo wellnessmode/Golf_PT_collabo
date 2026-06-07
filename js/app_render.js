@@ -132,11 +132,9 @@ function render(){
         </div>
       </div>
       <div class="topbar-actions">
-        <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드">📊 성과</button>
-        <button class="btn" onclick="openReport()" title="회원 리포트">리포트</button>
+        <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드 + AI 리포트">📊 성과·리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
-        ${!isInfo?'<button class="btn live-mini" onclick="openLiveForMember(\''+mid+'\')">🎯 라이브 세션</button>':''}
-        ${!isInfo?'<button class="btn primary" onclick="openAddSession()">+ 세션 기록</button>':''}
+        ${!isInfo?'<button class="btn primary live-mini" onclick="openLiveForMember(\''+mid+'\')" title="라이브 세션이 종료되면 세션 기록이 자동 생성됩니다">🎯 라이브 세션</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">'+'삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">'+'거절</button>':''}
       </div>
     </div>
