@@ -526,10 +526,19 @@ function renderLiveSession(){
   var canCoach = role==='pro' || role==='trainer' || isAdmin;
   var bays = (S.bays && S.bays.length) ? S.bays : BAYS_DEFAULT;
 
-  var html = '<div class="live-wrap">';
+  var paused = (typeof shotPauseOn==='function') && shotPauseOn();
+  var html = '<div class="live-wrap'+(paused?' shot-paused':'')+'">';
   html += '<div class="live-head"><button class="btn live-close-btn" onclick="closeLiveSession()">‹ 닫기</button>'
-       +  '<div class="live-title">🏌️ 수업 센터</div>'
+       +  '<div class="live-title">🏌️ 수업 센터'+(paused?' <span class="paused-pill">🔇 수신 정지</span>':'')+'</div>'
        +  '<button class="btn live-refresh-btn" onclick="reloadApp()" title="새로고침">🔄</button></div>';
+  if(isAdmin){
+    html += '<div class="shot-pause-bar">'
+         +  (paused
+              ? '<div class="sp-msg">🔇 <b>샷 수신 일시정지</b> 중 — 에이전트가 보내는 새 샷이 화면에 안 뜹니다</div>'
+                +'<button class="btn sp-resume" onclick="toggleShotPause()">▶ 수신 재개</button>'
+              : '<button class="btn sp-pause" onclick="toggleShotPause()" title="가짜/원치 않는 샷이 들어올 때 긴급 차단">🔇 샷 수신 일시정지</button>')
+         +  '</div>';
+  }
   if(canCoach){
     html += '<div class="class-actions">'
          +  '<button class="btn primary class-live-btn" onclick="openClassPick(\'live\')">🎯 라이브 수업<small>베이 배정 · 샷 자동 저장</small></button>'

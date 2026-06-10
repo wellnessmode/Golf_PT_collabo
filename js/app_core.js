@@ -282,7 +282,12 @@ const cloud = {
   async upsertSession(memberId,s){if(!this.enabled) return;try{const mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});const {error}=await this.client.from('sessions').upsert({id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.supplement||'',media:mediaMeta});if(error) throw error;}catch(e){console.warn('[cloud] upsertSession fail:',e);}},
   async deleteSession(id){if(!this.enabled) return;try{const {error}=await this.client.from('sessions').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteSession fail:',e);}},
   // ----- 라이브 세션 (베이/활성세션/굿샷) -----
-  async loadLive(){if(!this.enabled) return null;try{const [bRes,aRes,sRes]=await Promise.all([this.client.from('bays').select('*'),this.client.from('active_sessions').select('*'),this.client.from('shot_events').select('*').order('ts',{ascending:false}).limit(300)]);if(bRes.error) throw bRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const bays=(bRes.data||[]).map(r=>({id:r.id,name:r.name,color:r.color,type:r.type}));const activeSessions={};(aRes.data||[]).forEach(r=>{activeSessions[r.bay_id]={memberId:r.member_id,memberName:r.member_name,author:r.author,startedAt:r.started_at,note:r.note||''};});const shotEvents=(sRes.data||[]).map(r=>({id:r.id,bayId:r.bay_id,memberId:r.member_id,memberName:r.member_name,author:r.author||'',ts:r.ts,data:r.data||{},videoR2Key:r.video_r2_key||null,source:r.source||'mock'})).reverse();return {bays,activeSessions,shotEvents};}catch(e){console.warn('[cloud] loadLive skip:',e&&e.message);return null;}},
+  async loadLive(){if(!this.enabled) return null;
+    // 🔇 수신 일시정지 — 관리자가 토글했으면 빈 라이브 데이터 반환(샷 부활 차단)
+    try{ if(localStorage.getItem('golf_pt_shotpause')==='1') return {bays:[], activeSessions:{}, shotEvents:[]}; }catch(e){}
+    try{const [bRes,aRes,sRes]=await Promise.all([this.client.from('bays').select('*'),this.client.from('active_sessions').select('*'),this.client.from('shot_events').select('*').order('ts',{ascending:false}).limit(300)]);if(bRes.error) throw bRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const bays=(bRes.data||[]).map(r=>({id:r.id,name:r.name,color:r.color,type:r.type}));const activeSessions={};(aRes.data||[]).forEach(r=>{activeSessions[r.bay_id]={memberId:r.member_id,memberName:r.member_name,author:r.author,startedAt:r.started_at,note:r.note||''};});
+    // 🚫 mock 출처는 통째로 제외 — 옛 데모 데이터/잡음 부활 차단 (앱 자체는 mock 안 만듦)
+    const shotEvents=(sRes.data||[]).filter(r=>r.source!=='mock').map(r=>({id:r.id,bayId:r.bay_id,memberId:r.member_id,memberName:r.member_name,author:r.author||'',ts:r.ts,data:r.data||{},videoR2Key:r.video_r2_key||null,source:r.source||'agent'})).reverse();return {bays,activeSessions,shotEvents};}catch(e){console.warn('[cloud] loadLive skip:',e&&e.message);return null;}},
   async upsertBays(bays){if(!this.enabled||!bays||!bays.length) return;try{const {error}=await this.client.from('bays').upsert(bays.map(b=>({id:b.id,name:b.name,color:b.color,type:b.type})));if(error) throw error;}catch(e){console.warn('[cloud] upsertBays fail:',e);}},
   async startActiveSession(bayId,sess){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').upsert({bay_id:bayId,member_id:sess.memberId,member_name:sess.memberName,author:sess.author,started_at:sess.startedAt,note:sess.note||''});if(error) throw error;}catch(e){console.warn('[cloud] startActiveSession fail:',e);}},
   async endActiveSession(bayId){if(!this.enabled) return;try{const {error}=await this.client.from('active_sessions').delete().eq('bay_id',bayId);if(error) throw error;}catch(e){console.warn('[cloud] endActiveSession fail:',e);}},
@@ -415,6 +420,26 @@ function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const 
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
+// 🔇 샷 수신 일시정지 — 옛 에이전트/잡음으로 가짜 샷 들어올 때 긴급 차단
+function shotPauseOn(){try{return localStorage.getItem('golf_pt_shotpause')==='1';}catch(e){return false;}}
+function toggleShotPause(){
+  var on = shotPauseOn();
+  if(!on){
+    if(!confirm('샷 수신을 일시정지합니다.\n\n• 트랙맨 에이전트가 보내는 새 샷이 이 기기에 안 들어옵니다\n• 라이브 화면의 베이/세션도 잠시 비워집니다\n• 다시 켜면 즉시 복귀합니다\n\n계속할까요?')) return;
+    try{localStorage.setItem('golf_pt_shotpause','1');}catch(e){}
+    // 즉시 로컬 라이브도 비워서 화면에 부활 못 함
+    S.shotEvents=[]; S.activeSessions={};
+    try{save();}catch(e){}
+    liveToastSafe('🔇 샷 수신 일시정지');
+  } else {
+    try{localStorage.removeItem('golf_pt_shotpause');}catch(e){}
+    liveToastSafe('▶ 샷 수신 재개');
+    // 재개 즉시 한 번 동기화
+    try{ if(typeof refreshFromCloud==='function') refreshFromCloud(); }catch(e){}
+  }
+  render();
+}
+
 // '이 기기 자동 로그인' (생체 미지원 기기용) — 켜져 있으면 다음 부팅 시 비번 없이 입장
 function deviceTrusted(){try{return localStorage.getItem('golf_pt_trust_device')==='1';}catch(e){return false;}}
 function setDeviceTrust(on){try{if(on)localStorage.setItem('golf_pt_trust_device','1');else localStorage.removeItem('golf_pt_trust_device');}catch(e){}}
