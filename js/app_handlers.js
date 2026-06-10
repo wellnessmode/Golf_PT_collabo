@@ -223,7 +223,7 @@ function saveQuickNote(){
   S.sessions[mid].push(s);
   logActivity('레슨 노트',mid,s.content.slice(0,40));
   save(); S.showQuickNote=false; render();
-  cloud.upsertSession(mid,s);
+  syncSessionUp(mid,s);
 }
 function renderQuickNoteModal(){
   if(!S.showQuickNote) return '';
@@ -713,7 +713,7 @@ function addSession(){
   }
   S.showAddSession = false;
   render();
-  cloud.upsertSession(mid, s);
+  syncSessionUp(mid, s);
   generateLocalSummary(mid, s);
   render();
 }

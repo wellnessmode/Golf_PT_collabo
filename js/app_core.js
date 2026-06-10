@@ -279,7 +279,7 @@ const cloud = {
   async loadAll(){if(!this.enabled) return null;try{const [mRes,aRes,sRes]=await Promise.all([this.client.from('members').select('*').order('created_at',{ascending:true}),this.client.from('assessments').select('*'),this.client.from('sessions').select('*').order('date',{ascending:true})]);if(mRes.error) throw mRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const members=(mRes.data||[]).map(r=>{var extra=r.data||{};return Object.assign({id:r.id,name:r.name,color:r.color||'av-green'},extra);});const assessments={};(aRes.data||[]).forEach(r=>{if(!assessments[r.member_id]) assessments[r.member_id]={};assessments[r.member_id][r.item_key]={result:r.result||'미검사',note:r.note||''};});const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) sessions[r.member_id]=[];sessions[r.member_id].push({id:r.id,date:r.date,author:r.author,content:r.content||'',supplement:r.supplement||'',media:Array.isArray(r.media)?r.media:(r.media?r.media:[])});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
   async upsertMember(m){if(!this.enabled) return;try{var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||''};var payload={id:m.id,name:m.name,color:m.color,data:extra};var {error}=await this.client.from('members').upsert(payload);if(error){if(String(error.message||'').toLowerCase().indexOf('data')!==-1){console.warn('[cloud] members.data column missing');var fallback=await this.client.from('members').upsert({id:m.id,name:m.name,color:m.color});if(fallback.error) throw fallback.error;return;}throw error;}}catch(e){console.warn('[cloud] upsertMember fail:',e);}},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return;try{const {error}=await this.client.from('assessments').upsert({member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()});if(error) throw error;}catch(e){console.warn('[cloud] upsertAssessment fail:',e);}},
-  async upsertSession(memberId,s){if(!this.enabled) return;try{const mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});const {error}=await this.client.from('sessions').upsert({id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.supplement||'',media:mediaMeta});if(error) throw error;}catch(e){console.warn('[cloud] upsertSession fail:',e);}},
+  async upsertSession(memberId,s){if(!this.enabled) return false;try{const mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});const {error}=await this.client.from('sessions').upsert({id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.supplement||'',media:mediaMeta});if(error) throw error;return true;}catch(e){console.warn('[cloud] upsertSession fail:',e);return false;}},
   async deleteSession(id){if(!this.enabled) return;try{const {error}=await this.client.from('sessions').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteSession fail:',e);}},
   // ----- 라이브 세션 (베이/활성세션/굿샷) -----
   async loadLive(){if(!this.enabled) return null;
@@ -420,6 +420,42 @@ function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const 
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
+// 유령 세션 강제 정리 — 삭제했는데 옛 기기/브라우저 캐시가 되살려놓은 기록.
+// 발견 즉시: 로컬 제거 + tombstone + 서버 삭제. (2026-06 확인분: 로버트 회원 테스트 기록 2건)
+var ZOMBIE_SESSIONS = [
+  function(s, memberName){ return memberName.indexOf('로버트')!==-1 && String(s.date)==='2026-04-14' && (s.content||'').indexOf('123123')!==-1; },
+  function(s, memberName){ return memberName.indexOf('로버트')!==-1 && String(s.date)==='2026-04-11' && (s.content||'').replace(/\s/g,'').indexOf('아이언스윙')!==-1; }
+];
+function purgeZombieSessions(){
+  var killed = 0;
+  Object.keys(S.sessions||{}).forEach(function(mid){
+    var m = (S.members||[]).find(function(x){return x.id===mid;});
+    var name = (m&&m.name)||'';
+    S.sessions[mid] = (S.sessions[mid]||[]).filter(function(s){
+      var isZombie = ZOMBIE_SESSIONS.some(function(match){ try{ return match(s, name); }catch(e){ return false; } });
+      if(!isZombie) return true;
+      if(!S.deletedSessionIds) S.deletedSessionIds = {};
+      S.deletedSessionIds[s.id] = Date.now();          // tombstone — 이 기기에선 영구 차단
+      try{ cloud.deleteSession(s.id); }catch(e){}       // 서버에서도 삭제
+      killed++;
+      return false;
+    });
+  });
+  if(killed){ try{save();}catch(e){} console.warn('[zombie] 유령 세션 '+killed+'건 정리됨'); }
+  return killed;
+}
+
+// 세션 업로드 — 성공 확인 전까지 _dirty 유지 (오프라인이어도 부팅 머지가 재시도).
+// _dirty 없는 캐시 세션은 재업로드 대상이 아니므로, 타 기기에서 삭제한 기록이 부활하지 않는다.
+function syncSessionUp(mid, s){
+  if(!s) return;
+  s._dirty = true;
+  try{save();}catch(e){}
+  Promise.resolve(cloud.upsertSession(mid, s)).then(function(ok){
+    if(ok){ delete s._dirty; try{save();}catch(e){} }
+  });
+}
+
 // 🔇 샷 수신 일시정지 — 옛 에이전트/잡음으로 가짜 샷 들어올 때 긴급 차단
 function shotPauseOn(){try{return localStorage.getItem('golf_pt_shotpause')==='1';}catch(e){return false;}}
 function toggleShotPause(){
@@ -577,7 +613,7 @@ function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.current
   render();}
 
 async function init(){
-  loadLocal();readHash();render();
+  loadLocal();purgeZombieSessions();readHash();render();
   if(navigator.storage&&navigator.storage.persist){try{await navigator.storage.persist();}catch(e){}}
   await mediaDB.init();
   var allMedia=await mediaDB.getAll();
@@ -619,10 +655,13 @@ async function init(){
         const remoteMemberIds=new Set(S.members.map(m=>m.id));
         for(const m of localSnap.members){if(!remoteMemberIds.has(m.id)){await cloud.upsertMember(m);S.members.push(m);remoteMemberIds.add(m.id);}}
         const remoteSessionIds=new Set();Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){remoteSessionIds.add(s.id);});});
-        for(const mid in localSnap.sessions){for(const s of localSnap.sessions[mid]){if(_tomb[s.id]) continue; /* 삭제된 건 재업로드 금지 */ if(!remoteSessionIds.has(s.id)){await cloud.upsertSession(mid,s);if(!S.sessions[mid]) S.sessions[mid]=[];S.sessions[mid].push(s);remoteSessionIds.add(s.id);}}}
+        // 재업로드는 "이 기기가 만들었고 아직 업로드 안 끝난(_dirty)" 세션만.
+        // 캐시에만 남은 세션을 무조건 복구하면, 다른 기기/브라우저에서 삭제한 기록이 부활한다.
+        for(const mid in localSnap.sessions){for(const s of localSnap.sessions[mid]){if(_tomb[s.id]) continue; if(!s._dirty) continue; if(!remoteSessionIds.has(s.id)){const ok=await cloud.upsertSession(mid,s);if(ok) delete s._dirty;if(!S.sessions[mid]) S.sessions[mid]=[];S.sessions[mid].push(s);remoteSessionIds.add(s.id);}}}
         for(const mid in localSnap.assessments){for(const key in localSnap.assessments[mid]){if(key.indexOf('_')===0) continue;const hasRemote=S.assessments[mid]&&S.assessments[mid][key];if(!hasRemote){const v=localSnap.assessments[mid][key];await cloud.upsertAssessment(mid,key,v.result,v.note);if(!S.assessments[mid]) S.assessments[mid]={};S.assessments[mid][key]=v;}}}
         if(!S.members.find(m=>m.id===S.selectedMember)){S.selectedMember=S.members[0]?S.members[0].id:null;}
       } else {await seedRemote();}
+      purgeZombieSessions();   // 클라우드 머지 후 유령 세션 재확인(서버 삭제 포함)
       save();S.cloudSync='connected';
     } else {S.cloudSync='error';}
     // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
@@ -665,7 +704,7 @@ async function syncLocalMediaToR2(){
       p.m.r2Status='synced';
       p.m.r2Key=p.m.r2Key || p.m.mediaId;
       var stored=(S.sessions[p.mid]||[]).find(function(x){return x.id===p.sid;});
-      if(stored) cloud.upsertSession(p.mid, stored);
+      if(stored) syncSessionUp(p.mid, stored);
       fixed++;
     } else {
       p.m.r2Status='failed';
@@ -706,7 +745,30 @@ function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(ms
 async function refreshFromCloud(){
   if(!cloud.enabled) return;S.cloudSync='loading';render();
   const remote=await cloud.loadAll();
-  if(remote){var localMediaMap={};Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(s.media) localMediaMap[s.id]=s.media;});});S.members=remote.members;S.assessments=remote.assessments;S.sessions=remote.sessions;var _tomb=S.deletedSessionIds||{};Object.keys(S.sessions).forEach(function(mid){S.sessions[mid]=(S.sessions[mid]||[]).filter(function(s){if(_tomb[s.id]){try{cloud.deleteSession(s.id);}catch(e){}return false;}return true;});});Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(localMediaMap[s.id]) s.media=localMediaMap[s.id];});});if(S.members.length>0&&!S.members.find(m=>m.id===S.selectedMember)){S.selectedMember=S.members[0].id;}save();S.cloudSync='connected';}else{S.cloudSync='error';}
+  if(remote){
+    var localMediaMap={}, localDirty={};
+    Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){
+      if(s.media) localMediaMap[s.id]=s.media;
+      if(s._dirty){ if(!localDirty[mid]) localDirty[mid]=[]; localDirty[mid].push(s); }   // 업로드 미완 보존
+    });});
+    S.members=remote.members;S.assessments=remote.assessments;S.sessions=remote.sessions;
+    var _tomb=S.deletedSessionIds||{};
+    Object.keys(S.sessions).forEach(function(mid){S.sessions[mid]=(S.sessions[mid]||[]).filter(function(s){if(_tomb[s.id]){try{cloud.deleteSession(s.id);}catch(e){}return false;}return true;});});
+    Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(localMediaMap[s.id]) s.media=localMediaMap[s.id];});});
+    // _dirty(업로드 전) 로컬 세션 재부착 + 업로드 재시도 — 새로고침으로 새 일지가 증발하지 않게
+    Object.keys(localDirty).forEach(function(mid){
+      var have={};(S.sessions[mid]||[]).forEach(function(s){have[s.id]=true;});
+      localDirty[mid].forEach(function(s){
+        if(_tomb[s.id]||have[s.id]) return;
+        if(!S.sessions[mid]) S.sessions[mid]=[];
+        S.sessions[mid].push(s);
+        try{ syncSessionUp(mid, s); }catch(e){}
+      });
+    });
+    if(S.members.length>0&&!S.members.find(m=>m.id===S.selectedMember)){S.selectedMember=S.members[0].id;}
+    purgeZombieSessions();
+    save();S.cloudSync='connected';
+  }else{S.cloudSync='error';}
   try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   render();
 }

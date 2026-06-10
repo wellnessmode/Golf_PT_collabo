@@ -112,7 +112,7 @@ function saveEditSession(){
   S.editSessionId = null;
   S.showAddSession = false;
   save(); render();
-  cloud.upsertSession(mid, sess);
+  syncSessionUp(mid, sess);
 }
 
 // ============ 대시보드 ============
@@ -335,7 +335,7 @@ async function handleFileUpload(input, view){
             var stored = sid && (S.sessions[sid]||[]).find(function(x){
               return (x.media||[]).some(function(mm){return mm.mediaId===mediaId;});
             });
-            if(stored) cloud.upsertSession(sid, stored);
+            if(stored) syncSessionUp(sid, stored);
           }catch(e){}
         });
       })(mediaItem, file, S.newSession);
