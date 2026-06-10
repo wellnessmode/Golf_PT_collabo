@@ -528,8 +528,14 @@ function renderLiveSession(){
 
   var html = '<div class="live-wrap">';
   html += '<div class="live-head"><button class="btn live-close-btn" onclick="closeLiveSession()">‹ 닫기</button>'
-       +  '<div class="live-title">🎯 라이브 세션</div>'
+       +  '<div class="live-title">🏌️ 수업 센터</div>'
        +  '<button class="btn live-refresh-btn" onclick="reloadApp()" title="새로고침">🔄</button></div>';
+  if(canCoach){
+    html += '<div class="class-actions">'
+         +  '<button class="btn primary class-live-btn" onclick="openClassPick(\'live\')">🎯 라이브 수업<small>베이 배정 · 샷 자동 저장</small></button>'
+         +  (role==='pro'||role==='trainer' ? '<button class="btn class-journal-btn" onclick="openClassPick(\'journal\')">✏️ 일지만 기록<small>샷 없이 바로 작성</small></button>' : '')
+         +  '</div>';
+  }
   html += '<div class="live-sub">베이에 회원을 배정하면, 트랙맨 샷이 <strong>그 회원에게 저장</strong>됩니다. '
        +  '<span class="live-live-tag">● TrackMan 실시간 연동</span></div>';
   html += '<div class="bay-grid">';
@@ -543,7 +549,51 @@ function renderLiveSession(){
   html += renderLiveConfirmModal();
   html += renderReassignModal();
   html += renderBayPickModal();
+  html += renderClassPickModal();
   return html;
+}
+
+// ===== 수업 센터 — 회원 선택 (라이브 수업 / 일지만 기록 공용) =====
+function openClassPick(mode){ S.classPick=mode; S.classPickQuery=''; render(); }
+function closeClassPick(){ S.classPick=null; S.classPickQuery=''; render(); }
+function classPickMember(memberId){
+  var mode=S.classPick; S.classPick=null; S.classPickQuery='';
+  if(mode==='journal'){
+    // 샷 저장 없이 일지만 — 회원 화면으로 이동해 일지 카드 열기
+    S.selectedMember=memberId; S.showLiveSession=false;
+    openAddSession();
+    return;
+  }
+  openLiveForMember(memberId);  // 라이브 수업 — 베이 선택으로
+}
+function renderClassPickModal(){
+  if(!S.classPick) return '';
+  var isAdmin=S.currentRole==='admin';
+  var journal=S.classPick==='journal';
+  var q=(S.classPickQuery||'').trim().toLowerCase();
+  var list=S.members.filter(function(m){
+    if(!isAdmin && !(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
+    if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
+    return true;
+  });
+  return '<div class="modal-overlay" onclick="if(event.target===this)closeClassPick()"><div class="modal">'
+    + '<div class="modal-title">'+(journal?'✏️ 일지만 기록':'🎯 라이브 수업')+' — 회원 선택</div>'
+    + (journal?'<div class="classpick-note">샷 저장 없이 수업 일지만 작성합니다</div>':'')
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="S.classPickQuery=this.value;render()"></div>'
+    + '<div class="live-member-list">'
+    + (list.length===0 ? '<div class="empty-state">배정된 회원이 없습니다</div>'
+       : list.map(function(m){
+           var busyBay=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===m.id;});
+           var blocked=!journal && busyBay;   // 라이브는 진행중이면 차단, 일지는 무관
+           return '<div class="live-member'+(blocked?' busy':'')+'"'+(blocked?'':' onclick="classPickMember(\''+m.id+'\')"')+'>'
+             + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
+             + '<div class="lm-name">'+m.name+'</div>'
+             + (busyBay?'<span class="lm-busy">'+getBay(busyBay).name+' 진행중</span>':'')
+             + '</div>';
+         }).join(''))
+    + '</div>'
+    + '<div class="modal-actions"><button class="btn" onclick="closeClassPick()">취소</button></div>'
+    + '</div></div>';
 }
 
 function renderBayCard(bay, canCoach, isAdmin){

@@ -115,7 +115,7 @@ function _render(){
     ${isInfo ? `
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
-      ${isAdmin?'<button class="mp-btn live-admin-btn" onclick="event.stopPropagation();openLiveSession()">🎯 라이브 세션</button>':''}
+      ${isAdmin?'<button class="mp-btn live-admin-btn" onclick="event.stopPropagation();openLiveSession()">🏌️ 수업 센터</button>':''}
       <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 데모 화면</button>
       <div class="infodesk-summary">PT+골프 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 골프 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
@@ -169,7 +169,8 @@ function _render(){
       <div class="topbar-actions">
         <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드 + AI 리포트">📊 성과·리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
-        ${!isInfo?'<button class="btn primary live-mini" onclick="openLiveForMember(\''+mid+'\')" title="라이브 세션이 종료되면 세션 기록이 자동 생성됩니다">🎯 라이브 세션</button>':''}
+        ${!isInfo?'<button class="btn primary live-mini" onclick="openLiveForMember(\''+mid+'\')" title="베이 배정 + 트랙맨 샷 자동 저장">🎯 라이브 수업</button>':''}
+        ${!isInfo?'<button class="btn journal-btn" onclick="openAddSession()" title="샷 저장 없이 일지만 작성">✏️ 일지만 기록</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">'+'삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">'+'거절</button>':''}
       </div>
     </div>

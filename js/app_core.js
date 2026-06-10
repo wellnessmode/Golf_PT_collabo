@@ -373,6 +373,7 @@ let S = {
   bays:[], activeSessions:{}, shotEvents:[],
   showLiveSession:false, liveStartBay:null, liveStartQuery:'',
   liveConfirm:null, liveReassignShot:null, liveToast:null, voiceBay:null,
+  classPick:null, classPickQuery:'',
   perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1, openSessions:{}, liveBayPickFor:null,
   bioBusy:false, bioError:'', bioEnrollFor:null, trustDevice:false,
   deletedSessionIds:{}   // 삭제된 세션 tombstone (다른 기기 캐시가 재업로드해 부활하는 것 방지)
