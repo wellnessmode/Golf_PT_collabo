@@ -1515,3 +1515,17 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .sp-resume{background:var(--ac);color:#fff;font-weight:800}
 .live-wrap.shot-paused .bay-grid{opacity:.55;pointer-events:none;filter:grayscale(.3)}
 .paused-pill{display:inline-block;font-size:11px;font-weight:800;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;letter-spacing:-.01em}
+
+/* 🎙 수업 녹음 (앱 내장) */
+.rec-start-btn{width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;padding:11px 14px;margin-bottom:9px;font-weight:800;font-size:14px;border-radius:12px;background:linear-gradient(135deg,#ff5d5d,#e63b3b);color:#fff;border:none}
+.rec-start-btn small{font-size:10.5px;font-weight:600;opacity:.85}
+.rec-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-bottom:9px;border-radius:12px;flex-wrap:wrap}
+.rec-bar.on{background:rgba(230,59,59,.08);border:1.5px solid rgba(230,59,59,.4)}
+.rec-bar.busy{background:var(--bg-3);border:1px dashed var(--brd-2)}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:#e63b3b;animation:recblink 1s infinite}
+@keyframes recblink{0%,100%{opacity:1}50%{opacity:.25}}
+.rec-label{font-weight:800;font-size:13px;color:var(--tx)}
+.rec-hint{font-size:10.5px;color:var(--tx-3);flex:1;min-width:90px}
+.rec-stop{background:#e63b3b;color:#fff;border:none;border-radius:9px;padding:7px 13px;font-weight:800;font-size:12.5px;cursor:pointer}
+.rec-spin{animation:recspin 1.2s linear infinite;display:inline-block}
+@keyframes recspin{to{transform:rotate(360deg)}}
