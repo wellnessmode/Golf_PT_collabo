@@ -672,7 +672,7 @@ function renderClassPickModal(){
   return '<div class="modal-overlay" onclick="if(event.target===this)closeClassPick()"><div class="modal">'
     + '<div class="modal-title">'+(journal?'✏️ 일지만 기록':'🎯 라이브 수업')+' — 회원 선택</div>'
     + (journal?'<div class="classpick-note">샷 저장 없이 수업 일지만 작성합니다</div>':'')
-    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="S.classPickQuery=this.value;render()"></div>'
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="searchInput(this,&apos;classPickQuery&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;classPickQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">배정된 회원이 없습니다</div>'
        : list.map(function(m){
@@ -926,7 +926,7 @@ function renderLiveStartModal(){
   });
   return '<div class="modal-overlay" onclick="if(event.target===this)closeLiveStart()"><div class="modal">'
     + '<div class="modal-title">'+bay.name+' — 회원 배정</div>'
-    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="S.liveStartQuery=this.value;render()"></div>'
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="searchInput(this,&apos;liveStartQuery&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">배정된 회원이 없습니다</div>'
        : list.map(function(m){
@@ -964,7 +964,7 @@ function renderReassignModal(){
   });
   return '<div class="modal-overlay" onclick="if(event.target===this)closeReassign()"><div class="modal">'
     + '<div class="modal-title">굿샷 재할당 — 현재 「'+shot.memberName+'」</div>'
-    + '<div class="form-group"><input class="form-input live-search-input" placeholder="옮길 회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="S.liveStartQuery=this.value;render()"></div>'
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="옮길 회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="searchInput(this,&apos;liveStartQuery&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">회원이 없습니다</div>'
        : list.map(function(m){

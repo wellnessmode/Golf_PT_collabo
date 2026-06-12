@@ -128,6 +128,7 @@ const APP_VERSION = {
 function getChosung(str){
   if(!str) return '';
   const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  // 자모(ㄱ,ㄴ,ㄷ...)도 그대로 통과시켜 초성검색 시 매칭됨
   let result = '';
   for(let i=0;i<str.length;i++){
     const code = str.charCodeAt(i);
@@ -138,6 +139,26 @@ function getChosung(str){
     }
   }
   return result;
+}
+
+// 검색 입력 공통 핸들러 — iOS 한글 입력기 깨짐 방지.
+// 문제: oninput 마다 render() 호출 → innerHTML 재생성 → 한글 IME 조합 중 input 이 새로 생겨
+// 자모가 그대로 박힘 ("김" → "ㄱㅣㅁ"). 게다가 초성검색도 자모 상태로 매칭 실패.
+// 해결: 1) 조합 중(isComposing)엔 render 보류 2) 디바운스 80ms 3) compositionend 에서 1회 render.
+window._searchTimer = null;
+function searchInput(el, key){
+  // 값은 즉시 저장(상태만) — innerHTML 재생성은 미룸
+  S[key] = el.value;
+  if(el.isComposing || el._composing){ return; }   // 조합 중이면 대기 (조합 끝나면 onCompEnd 에서 render)
+  clearTimeout(window._searchTimer);
+  window._searchTimer = setTimeout(function(){ render(); }, 80);
+}
+function searchCompStart(el){ el._composing = true; }
+function searchCompEnd(el, key){
+  el._composing = false;
+  S[key] = el.value;
+  clearTimeout(window._searchTimer);
+  window._searchTimer = setTimeout(function(){ render(); }, 0);
 }
 
 function matchExercise(ex, query){

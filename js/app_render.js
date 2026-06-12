@@ -126,7 +126,7 @@ function _render(){
       <div class="sidebar-tab${S.sidebarTab==='lesson'?' active':''}" onclick="S.sidebarTab='lesson';render()">골프</div>
     </div>
     `}
-    <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="S.memberSearch=this.value;render()" onclick="event.stopPropagation()">
+    <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="searchInput(this,&apos;memberSearch&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;memberSearch&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off" onclick="event.stopPropagation()">
     <div class="member-list">
       ${S.members.filter(function(m){var mType=m.memberType||'pt_lesson';if(!isInfo){if(mType!==S.sidebarTab) return false;if(!(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;}if(S.memberSearch){var q=S.memberSearch.trim().toLowerCase();if(q&&m.name.toLowerCase().indexOf(q)===-1&&getChosung(m.name).indexOf(getChosung(q))===-1) return false;}return true;}).map(m => `
         <div class="member-item${m.id===mid?' active':''}" onclick="selectMember('${m.id}')">
