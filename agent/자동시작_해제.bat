@@ -1,18 +1,17 @@
 @echo off
-chcp 65001 >nul
-title Golf PT ì—ì´ì „íŠ¸ - ìžë™ì‹œìž‘ í•´ì œ
+title Golf PT ¿¡ÀÌÀüÆ® - ÀÚµ¿½ÃÀÛ ÇØÁ¦
 echo.
 set "LNK=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\GolfPT-Agent.lnk"
 if exist "%LNK%" (
   del "%LNK%"
-  echo  [ì™„ë£Œ] ìžë™ì‹œìž‘ í•´ì œë¨ - ë‹¤ìŒ ë¶€íŒ…ë¶€í„° ìžë™ ì‹¤í–‰ ì•ˆ ë¨.
+  echo  [¿Ï·á] ÀÚµ¿½ÃÀÛ ÇØÁ¦µÊ - ´ÙÀ½ ºÎÆÃºÎÅÍ ÀÚµ¿ ½ÇÇà ¾È µÊ.
 ) else (
-  echo  ìžë™ì‹œìž‘ì´ ë“±ë¡ë˜ì–´ ìžˆì§€ ì•ŠìŠµë‹ˆë‹¤.
+  echo  ÀÚµ¿½ÃÀÛÀÌ µî·ÏµÇ¾î ÀÖÁö ¾Ê½À´Ï´Ù.
 )
 echo.
-echo  í˜„ìž¬ ì‹¤í–‰ ì¤‘ì¸ ì—ì´ì „íŠ¸ë„ ì§€ê¸ˆ ì¤‘ì§€í•©ë‹ˆë‹¤...
+echo  ÇöÀç ½ÇÇà ÁßÀÎ ¿¡ÀÌÀüÆ®µµ Áö±Ý ÁßÁöÇÕ´Ï´Ù...
 echo stop> "%~dp0agent.stop"
 taskkill /F /IM node.exe >nul 2>nul
-echo  [ì™„ë£Œ] ì¤‘ì§€í–ˆìŠµë‹ˆë‹¤.
+echo  [¿Ï·á] ÁßÁöÇß½À´Ï´Ù.
 echo.
 pause

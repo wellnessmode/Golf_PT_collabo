@@ -1,26 +1,25 @@
 @echo off
-chcp 65001 >nul
-title Golf PT ì—ì´ì „íŠ¸ - ìžë™ì‹œìž‘ ì„¤ì¹˜
+title Golf PT ¿¡ÀÌÀüÆ® - ÀÚµ¿½ÃÀÛ ¼³Ä¡
 echo.
 echo  ========================================================
-echo    Golf PT ë² ì´ ì—ì´ì „íŠ¸ - ìžë™ì‹œìž‘ ì„¤ì¹˜
+echo    Golf PT º£ÀÌ ¿¡ÀÌÀüÆ® - ÀÚµ¿½ÃÀÛ ¼³Ä¡
 echo  ========================================================
 echo.
 
-REM --- Node.js ì„¤ì¹˜ í™•ì¸ ---
+REM --- Node.js ¼³Ä¡ È®ÀÎ ---
 where node >nul 2>nul
 if errorlevel 1 (
-  echo  [ì˜¤ë¥˜] Node.js ê°€ ì„¤ì¹˜ë˜ì–´ ìžˆì§€ ì•ŠìŠµë‹ˆë‹¤.
-  echo         https://nodejs.org ì—ì„œ LTS ë²„ì „ ì„¤ì¹˜ í›„ ë‹¤ì‹œ ì‹¤í–‰í•˜ì„¸ìš”.
+  echo  [¿À·ù] Node.js °¡ ¼³Ä¡µÇ¾î ÀÖÁö ¾Ê½À´Ï´Ù.
+  echo         https://nodejs.org ¿¡¼­ LTS ¹öÀü ¼³Ä¡ ÈÄ ´Ù½Ã ½ÇÇàÇÏ¼¼¿ä.
   echo.
   pause
   exit /b
 )
 
-REM --- config.json ì¡´ìž¬ í™•ì¸ ---
+REM --- config.json Á¸Àç È®ÀÎ ---
 if not exist "%~dp0config.json" (
-  echo  [ì£¼ì˜] config.json ì´ ì—†ìŠµë‹ˆë‹¤.
-  echo         config.sample.json ì„ config.json ìœ¼ë¡œ ë³µì‚¬í•˜ê³  ë‚´ìš©ì„ ì±„ì›Œì£¼ì„¸ìš”.
+  echo  [ÁÖÀÇ] config.json ÀÌ ¾ø½À´Ï´Ù.
+  echo         config.sample.json À» config.json À¸·Î º¹»çÇÏ°í ³»¿ëÀ» Ã¤¿öÁÖ¼¼¿ä.
   echo.
   pause
   exit /b
@@ -30,27 +29,27 @@ set "VBS=%~dp0start-hidden.vbs"
 set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "LNK=%STARTUP%\GolfPT-Agent.lnk"
 
-REM --- ì‹œìž‘í”„ë¡œê·¸ëž¨ í´ë”ì— ë°”ë¡œê°€ê¸° ìƒì„± (ì°½ ì—†ì´ wscript ë¡œ VBS ì‹¤í–‰) ---
+REM --- ½ÃÀÛÇÁ·Î±×·¥ Æú´õ¿¡ ¹Ù·Î°¡±â »ý¼º (Ã¢ ¾øÀÌ wscript ·Î VBS ½ÇÇà) ---
 powershell -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%'); $s.TargetPath='wscript.exe'; $s.Arguments='\"%VBS%\"'; $s.WorkingDirectory='%~dp0'; $s.WindowStyle=7; $s.Description='Golf PT Bay Agent'; $s.Save()"
 
 if exist "%LNK%" (
-  echo  [ì™„ë£Œ] ìžë™ì‹œìž‘ ë“±ë¡ë¨.
-  echo         ì´ì œ PC ë¥¼ ì¼¤ ë•Œë§ˆë‹¤ ì—ì´ì „íŠ¸ê°€ ì°½ ì—†ì´ ìžë™ ì‹¤í–‰ë©ë‹ˆë‹¤.
+  echo  [¿Ï·á] ÀÚµ¿½ÃÀÛ µî·ÏµÊ.
+  echo         ÀÌÁ¦ PC ¸¦ ÄÓ ¶§¸¶´Ù ¿¡ÀÌÀüÆ®°¡ Ã¢ ¾øÀÌ ÀÚµ¿ ½ÇÇàµË´Ï´Ù.
   echo.
-  echo  ì§€ê¸ˆ ë°”ë¡œ ì‹¤í–‰í• ê¹Œìš”? ì•„ë¬´ í‚¤ë‚˜ ëˆ„ë¥´ë©´ ë°±ê·¸ë¼ìš´ë“œë¡œ ì‹œìž‘í•©ë‹ˆë‹¤.
+  echo  Áö±Ý ¹Ù·Î ½ÇÇàÇÒ±î¿ä? ¾Æ¹« Å°³ª ´©¸£¸é ¹é±×¶ó¿îµå·Î ½ÃÀÛÇÕ´Ï´Ù.
   pause >nul
-  REM í˜¹ì‹œ ì´ë¯¸ ëŒê³  ìžˆë˜ ì¸ìŠ¤í„´ìŠ¤ ì •ë¦¬ (ì¤‘ë³µ ì‹¤í–‰ ë°©ì§€)
+  REM È¤½Ã ÀÌ¹Ì µ¹°í ÀÖ´ø ÀÎ½ºÅÏ½º Á¤¸® (Áßº¹ ½ÇÇà ¹æÁö)
   echo stop> "%~dp0agent.stop"
   taskkill /F /IM node.exe >nul 2>nul
   ping -n 6 127.0.0.1 >nul
   del "%~dp0agent.stop" >nul 2>nul
-  REM ìƒˆ ì¸ìŠ¤í„´ìŠ¤ 1ê°œë§Œ ë°±ê·¸ë¼ìš´ë“œ ì‹œìž‘
+  REM »õ ÀÎ½ºÅÏ½º 1°³¸¸ ¹é±×¶ó¿îµå ½ÃÀÛ
   wscript "%VBS%"
   echo.
-  echo  [ì‹¤í–‰ë¨] ì—ì´ì „íŠ¸ê°€ ë°±ê·¸ë¼ìš´ë“œì—ì„œ ë™ìž‘ ì¤‘ìž…ë‹ˆë‹¤.
-  echo           ì´ ì°½ì€ ë‹«ì•„ë„ ë©ë‹ˆë‹¤.  (ìƒíƒœí™•ì¸.bat ìœ¼ë¡œ í™•ì¸ ê°€ëŠ¥)
+  echo  [½ÇÇàµÊ] ¿¡ÀÌÀüÆ®°¡ ¹é±×¶ó¿îµå¿¡¼­ µ¿ÀÛ ÁßÀÔ´Ï´Ù.
+  echo           ÀÌ Ã¢Àº ´Ý¾Æµµ µË´Ï´Ù.  (»óÅÂÈ®ÀÎ.bat À¸·Î È®ÀÎ °¡´É)
 ) else (
-  echo  [ì˜¤ë¥˜] ìžë™ì‹œìž‘ ë“±ë¡ ì‹¤íŒ¨. ê´€ë¦¬ìžì—ê²Œ ë¬¸ì˜í•˜ì„¸ìš”.
+  echo  [¿À·ù] ÀÚµ¿½ÃÀÛ µî·Ï ½ÇÆÐ. °ü¸®ÀÚ¿¡°Ô ¹®ÀÇÇÏ¼¼¿ä.
 )
 echo.
 pause
