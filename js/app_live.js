@@ -789,15 +789,20 @@ function renderBayCard(bay, canCoach, isAdmin){
 }
 
 function _shotTimeLabel(s){
-  // 시계 어긋남에 강한 표시: _rcvAt(앱이 받은 시각) 우선, 아니면 s.ts.
-  // 5분 이내면 "방금", 1시간 이내 "N분 전", 24시간 이내 "HH:MM" 절대.
-  var ref = s._rcvAt || (s.ts ? Date.parse(s.ts) : null);
+  // ts 우선 신뢰 (v5.7부터 에이전트가 '처리 시각'을 정확히 보냄).
+  // ts 없을 때만 _rcvAt(이 기기가 처음 본 시각) — 단 그 경우 '방금' 표시는 안 함
+  // (새로 열 때마다 옛 샷이 전부 '방금'으로 보이던 오표시 방지).
+  var ref = s.ts ? Date.parse(s.ts) : NaN;
+  var fromTs = !isNaN(ref);
+  if(!fromTs) ref = s._rcvAt;
   if(!ref || isNaN(ref)) return '';
   var diff = Date.now() - ref;
-  if(diff < 5*60000 && diff > -5*60000) return '방금';
-  if(diff < 60*60000 && diff > 0) return Math.round(diff/60000)+'분 전';
+  if(fromTs && diff < 5*60000 && diff > -5*60000) return '방금';
+  if(diff > 0 && diff < 60*60000) return Math.round(diff/60000)+'분 전';
   var t = new Date(ref);
-  return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+  var sameDay = (new Date()).toDateString()===t.toDateString();
+  return (sameDay?'':String(t.getMonth()+1)+'/'+t.getDate()+' ')
+       + String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
 }
 function renderShotLog(isAdmin){
   var canCoach = S.currentRole==='pro' || S.currentRole==='trainer' || isAdmin;
