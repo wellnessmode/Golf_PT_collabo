@@ -57,54 +57,48 @@
 
 <!-- Service Worker -->
 <script>
-// SW 등록 + 업데이트 배너 방식.
-// 새 버전 감지 → 상단에 "업데이트" 배너 → 사용자가 누를 때 1회 reload (흰 화면 방지).
+// SW 등록 + 자동 업데이트.
+// 홈화면 PWA 가 사용자 개입 없이 최신으로 갱신되도록:
+// 새 SW 감지 → skipWaiting → controllerchange 에서 1회 reload.
+// 단, 입력 중이면 미뤘다가 포커스 떠날 때/포그라운드 복귀 때 적용 (작업 중 끊김 방지).
 (function(){
   if (!('serviceWorker' in navigator)) return;
-  var pendingWorker = null;
+  var waitingWorker = null, reloaded = false;
 
-  function showUpdateBanner(worker){
-    pendingWorker = worker;
-    if (document.getElementById('sw-update-banner')) return;
-    var b = document.createElement('div');
-    b.id = 'sw-update-banner';
-    b.innerHTML = '<span>새 버전이 있어요</span><button id="sw-update-btn">업데이트</button>';
-    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));z-index:100000;background:#0d1117;color:#fff;border-radius:24px;padding:10px 12px 10px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);font:600 13px -apple-system,sans-serif';
-    var btnStyle = 'background:#00b884;color:#fff;border:none;border-radius:18px;padding:8px 16px;font:700 13px -apple-system,sans-serif;cursor:pointer';
-    b.querySelector('#sw-update-btn').style.cssText = btnStyle;
-    document.body.appendChild(b);
-    document.getElementById('sw-update-btn').addEventListener('click', function(){
-      try{ if(pendingWorker) pendingWorker.postMessage({type:'SKIP_WAITING'}); }catch(e){}
-      b.querySelector('#sw-update-btn').textContent = '적용 중...';
-    });
+  function isBusy(){
+    var ae = document.activeElement;
+    return ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
   }
-
-  // 새 SW가 컨트롤 잡으면 그때 1회 reload (사용자가 버튼 눌렀을 때만 도달)
-  var reloaded = false;
+  function applyUpdate(){
+    if (reloaded || !waitingWorker) return;
+    if (isBusy()) return;            // 입력 중이면 보류
+    try { waitingWorker.postMessage({ type: 'SKIP_WAITING' }); } catch(e){}
+  }
+  // 새 SW가 컨트롤을 잡으면 1회 reload → 즉시 최신 화면
   navigator.serviceWorker.addEventListener('controllerchange', function(){
     if (reloaded) return; reloaded = true;
     location.reload();
   });
 
   navigator.serviceWorker.register('sw.js').then(function(reg){
-    // 이미 대기 중인 새 SW가 있으면 즉시 배너
-    if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+    if (reg.waiting && navigator.serviceWorker.controller){ waitingWorker = reg.waiting; applyUpdate(); }
     try{ reg.update(); }catch(e){}
     reg.addEventListener('updatefound', function(){
-      var nw = reg.installing;
-      if(!nw) return;
+      var nw = reg.installing; if(!nw) return;
       nw.addEventListener('statechange', function(){
         if(nw.state === 'installed' && navigator.serviceWorker.controller){
-          showUpdateBanner(nw);
+          waitingWorker = nw; applyUpdate();   // 자동 적용 (입력 중이면 보류)
         }
       });
     });
   }).catch(function(e){ console.log('SW registration failed:', e); });
 
-  // 앱 다시 포커스될 때 + 15분마다 업데이트 체크
-  function checkUpdate(){ navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); }).catch(function(){}); }
+  // 포그라운드 복귀/포커스 해제 시 — 업데이트 체크 + 대기중이면 적용
+  function checkUpdate(){ navigator.serviceWorker.getRegistration().then(function(r){ if(r){ r.update(); } applyUpdate(); }).catch(function(){}); }
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkUpdate(); });
-  setInterval(checkUpdate, 15*60*1000);
+  document.addEventListener('focusout', function(){ setTimeout(applyUpdate, 300); });
+  window.addEventListener('focus', checkUpdate);
+  setInterval(checkUpdate, 60*1000);
 })();
 </script>
 </body>

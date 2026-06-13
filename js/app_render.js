@@ -126,10 +126,13 @@ function _render(){
       <div class="sidebar-tab${S.sidebarTab==='lesson'?' active':''}" onclick="S.sidebarTab='lesson';render()">골프</div>
     </div>
     `}
-    <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="searchInput(this,&apos;memberSearch&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;memberSearch&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off" onclick="event.stopPropagation()">
+    <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="filterMemberRows(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" onclick="event.stopPropagation()">
     <div class="member-list">
-      ${S.members.filter(function(m){var mType=m.memberType||'pt_lesson';if(!isInfo){if(mType!==S.sidebarTab) return false;if(!(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;}if(S.memberSearch){var q=S.memberSearch.trim().toLowerCase();if(q&&m.name.toLowerCase().indexOf(q)===-1&&getChosung(m.name).indexOf(getChosung(q))===-1) return false;}return true;}).map(m => `
-        <div class="member-item${m.id===mid?' active':''}" onclick="selectMember('${m.id}')">
+      ${S.members.filter(function(m){var mType=m.memberType||'pt_lesson';if(!isInfo){if(mType!==S.sidebarTab) return false;if(!(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;}return true;}).map(function(m){
+        var _cho=getChosung(m.name); var _q=(S.memberSearch||'').trim().toLowerCase();
+        var _hide=_q&&m.name.toLowerCase().indexOf(_q)===-1&&_cho.indexOf(getChosung(_q))===-1;
+        return `
+        <div class="member-item${m.id===mid?' active':''}" data-name="${m.name.toLowerCase().replace(/"/g,'')}" data-cho="${_cho.replace(/"/g,'')}"${_hide?' style="display:none"':''} onclick="selectMember('${m.id}')">
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
           <div class="member-name">${m.name}${expiryBadge(nearestExpiry(m))}${(m.memberType||'pt_lesson')==='lesson'?'<span class="type-tag lesson-tag">골프</span>':''}</div>
           <div class="session-badge">${(S.sessions[m.id]||[]).length}</div>
@@ -138,7 +141,7 @@ function _render(){
             ${(isInfo&&!isAdmin)&&!S.deleteRequests[m.id]?'<button class="member-del-btn" onclick="event.stopPropagation();requestDelete(\''+m.id+'\')">'+'삭제</button>':''}
             ${S.deleteRequests[m.id]?'<span class="del-pending-badge">삭제대기</span>':''}
           </div>
-        </div>`).join('')}
+        </div>`;}).join('')}
     </div>
     ${(isInfo&&!isAdmin)?'<div class="add-member-btn" onclick="openAddMember()">+ 새 회원 등록</div>':''}
     <div class="sidebar-mypage">

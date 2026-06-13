@@ -141,24 +141,36 @@ function getChosung(str){
   return result;
 }
 
-// 검색 입력 공통 핸들러 — iOS 한글 입력기 깨짐 방지.
-// 문제: oninput 마다 render() 호출 → innerHTML 재생성 → 한글 IME 조합 중 input 이 새로 생겨
-// 자모가 그대로 박힘 ("김" → "ㄱㅣㅁ"). 게다가 초성검색도 자모 상태로 매칭 실패.
-// 해결: 1) 조합 중(isComposing)엔 render 보류 2) 디바운스 80ms 3) compositionend 에서 1회 render.
-window._searchTimer = null;
-function searchInput(el, key){
-  // 값은 즉시 저장(상태만) — innerHTML 재생성은 미룸
-  S[key] = el.value;
-  if(el.isComposing || el._composing){ return; }   // 조합 중이면 대기 (조합 끝나면 onCompEnd 에서 render)
-  clearTimeout(window._searchTimer);
-  window._searchTimer = setTimeout(function(){ render(); }, 80);
+// 검색 — iOS 한글 입력기 깨짐("김"→"ㄱㅣㅁ") 근본 해결.
+// 원인: 타이핑마다 render()로 화면 전체를 다시 그려 input DOM 이 교체 → IME 조합 끊김.
+// 해결: 검색 중엔 render() 를 절대 호출하지 않는다. 이미 그려진 행의 display 만 토글.
+// (input DOM 이 그대로 살아있어 한글 조합이 안 깨지고, 초성검색도 정상)
+function _searchMatch(name, cho, qq, qcho){
+  if(!qq) return true;
+  return name.indexOf(qq)!==-1 || (qcho && cho.indexOf(qcho)!==-1);
 }
-function searchCompStart(el){ el._composing = true; }
-function searchCompEnd(el, key){
-  el._composing = false;
-  S[key] = el.value;
-  clearTimeout(window._searchTimer);
-  window._searchTimer = setTimeout(function(){ render(); }, 0);
+function filterMemberRows(q){
+  S.memberSearch = q;   // 상태만 저장 (render 안 함)
+  var qq=(q||'').trim().toLowerCase(), qcho=getChosung(qq);
+  var rows=document.querySelectorAll('.sidebar .member-item');
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    r.style.display=_searchMatch(r.getAttribute('data-name')||'', r.getAttribute('data-cho')||'', qq, qcho)?'':'none';
+  }
+}
+// 라이브/수업/재할당 픽커 공통 — render 없이 .live-member 행 display 토글
+function filterPickRows(q, stateKey){
+  S[stateKey]=q;
+  var qq=(q||'').trim().toLowerCase(), qcho=getChosung(qq);
+  var rows=document.querySelectorAll('.live-member-list .live-member');
+  var shown=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var ok=_searchMatch(r.getAttribute('data-name')||'', r.getAttribute('data-cho')||'', qq, qcho);
+    r.style.display=ok?'':'none'; if(ok) shown++;
+  }
+  var empty=document.querySelector('.live-member-list .pick-empty');
+  if(empty) empty.style.display=shown?'none':'';
 }
 
 function matchExercise(ex, query){

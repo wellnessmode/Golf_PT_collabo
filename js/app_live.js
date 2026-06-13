@@ -663,22 +663,23 @@ function renderClassPickModal(){
   if(!S.classPick) return '';
   var isAdmin=S.currentRole==='admin';
   var journal=S.classPick==='journal';
-  var q=(S.classPickQuery||'').trim().toLowerCase();
+  var q=(S.classPickQuery||'').trim().toLowerCase(), qcho=getChosung(q);
   var list=S.members.filter(function(m){
     if(!isAdmin && !(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
-    if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
     return true;
   });
   return '<div class="modal-overlay" onclick="if(event.target===this)closeClassPick()"><div class="modal">'
     + '<div class="modal-title">'+(journal?'✏️ 일지만 기록':'🎯 라이브 수업')+' — 회원 선택</div>'
     + (journal?'<div class="classpick-note">샷 저장 없이 수업 일지만 작성합니다</div>':'')
-    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="searchInput(this,&apos;classPickQuery&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;classPickQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="filterPickRows(this.value,&apos;classPickQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">배정된 회원이 없습니다</div>'
-       : list.map(function(m){
+       : '<div class="pick-empty empty-state" style="display:none">검색 결과 없음</div>'+list.map(function(m){
+           var cho=getChosung(m.name);
+           var hide=q&&m.name.toLowerCase().indexOf(q)===-1&&cho.indexOf(qcho)===-1;
            var busyBay=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===m.id;});
            var blocked=!journal && busyBay;   // 라이브는 진행중이면 차단, 일지는 무관
-           return '<div class="live-member'+(blocked?' busy':'')+'"'+(blocked?'':' onclick="classPickMember(\''+m.id+'\')"')+'>'
+           return '<div class="live-member'+(blocked?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'"'+(hide?' style="display:none"':'')+(blocked?'':' onclick="classPickMember(\''+m.id+'\')"')+'>'
              + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
              + '<div class="lm-name">'+m.name+'</div>'
              + (busyBay?'<span class="lm-busy">'+getBay(busyBay).name+' 진행중</span>':'')
@@ -918,20 +919,21 @@ function renderLiveStartModal(){
   if(!S.liveStartBay) return '';
   var bay = getBay(S.liveStartBay);
   var isAdmin = S.currentRole==='admin';
-  var q = (S.liveStartQuery||'').trim().toLowerCase();
+  var q = (S.liveStartQuery||'').trim().toLowerCase(), qcho=getChosung(q);
   var list = S.members.filter(function(m){
     if(!isAdmin && !(m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1)) return false;
-    if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
     return true;
   });
   return '<div class="modal-overlay" onclick="if(event.target===this)closeLiveStart()"><div class="modal">'
     + '<div class="modal-title">'+bay.name+' — 회원 배정</div>'
-    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="searchInput(this,&apos;liveStartQuery&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="filterPickRows(this.value,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">배정된 회원이 없습니다</div>'
-       : list.map(function(m){
+       : '<div class="pick-empty empty-state" style="display:none">검색 결과 없음</div>'+list.map(function(m){
+           var cho=getChosung(m.name);
+           var hide=q&&m.name.toLowerCase().indexOf(q)===-1&&cho.indexOf(qcho)===-1;
            var busyBay = Object.keys(S.activeSessions).find(function(b){ return S.activeSessions[b].memberId===m.id; });
-           return '<div class="live-member'+(busyBay?' busy':'')+'"'+(busyBay?'':' onclick="pickLiveMember(\''+m.id+'\')"')+'>'
+           return '<div class="live-member'+(busyBay?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'"'+(hide?' style="display:none"':'')+(busyBay?'':' onclick="pickLiveMember(\''+m.id+'\')"')+'>'
              + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
              + '<div class="lm-name">'+m.name+'</div>'
              + (busyBay ? '<span class="lm-busy">'+getBay(busyBay).name+' 진행중</span>' : '')
@@ -957,18 +959,17 @@ function renderReassignModal(){
   if(!S.liveReassignShot) return '';
   var shot = S.shotEvents.find(function(s){ return s.id===S.liveReassignShot; });
   if(!shot) return '';
-  var q = (S.liveStartQuery||'').trim().toLowerCase();
-  var list = S.members.filter(function(m){
-    if(q && m.name.toLowerCase().indexOf(q)===-1 && getChosung(m.name).indexOf(getChosung(q))===-1) return false;
-    return true;
-  });
+  var q = (S.liveStartQuery||'').trim().toLowerCase(), qcho=getChosung(q);
+  var list = S.members.slice();
   return '<div class="modal-overlay" onclick="if(event.target===this)closeReassign()"><div class="modal">'
     + '<div class="modal-title">굿샷 재할당 — 현재 「'+shot.memberName+'」</div>'
-    + '<div class="form-group"><input class="form-input live-search-input" placeholder="옮길 회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="searchInput(this,&apos;liveStartQuery&apos;)" oncompositionstart="searchCompStart(this)" oncompositionend="searchCompEnd(this,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
+    + '<div class="form-group"><input class="form-input live-search-input" placeholder="옮길 회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="filterPickRows(this.value,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">회원이 없습니다</div>'
-       : list.map(function(m){
-           return '<div class="live-member'+(m.id===shot.memberId?' busy':'')+'" onclick="applyReassign(\''+m.id+'\')">'
+       : '<div class="pick-empty empty-state" style="display:none">검색 결과 없음</div>'+list.map(function(m){
+           var cho=getChosung(m.name);
+           var hide=q&&m.name.toLowerCase().indexOf(q)===-1&&cho.indexOf(qcho)===-1;
+           return '<div class="live-member'+(m.id===shot.memberId?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'" onclick="applyReassign(\''+m.id+'\')"'+(hide?' style="display:none"':'')+'>'
              + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
              + '<div class="lm-name">'+m.name+'</div>'
              + (m.id===shot.memberId ? '<span class="lm-busy">현재</span>' : '')
