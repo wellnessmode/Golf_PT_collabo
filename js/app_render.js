@@ -48,18 +48,55 @@ function renderRoleSelector(){
 }
 
 // 흰 화면 방지 + 스크롤 자동 보존:
-// render 중 에러가 나도 화면이 비지 않게 감쌈.
-// 같은 화면 안에서의 어떤 render(폴링/선택모드/토스트/AI 처리 등) 든 스크롤이 튀지 않게,
-// 화면 키가 같으면 직전 scrollY 를 다음 페인트에 복원. 화면 전환 시(역할/회원/뷰 변경)는
-// 키가 달라 보존하지 않음 — 새 페이지는 자연스럽게 0 부터 시작.
+// 이 앱은 body{overflow:hidden} 라 페이지 자체가 스크롤하지 않고, 내부 컨테이너
+// (.live-wrap / .content / .member-list / .perf-overlay 등) 가 각자 스크롤한다.
+// render() 가 innerHTML 을 통째로 재생성하면 컨테이너가 새로 만들어져 scrollTop=0 으로
+// 리셋. 그래서 [선택]/폴링 등 어떤 render 든 화면이 위로 튀어 보임.
+// 해결: render 직전에 스크롤 가능한 모든 컨테이너의 scrollTop 을 selector→값 으로
+// 스냅샷, render 후 같은 selector 로 다시 찾아 복원. 화면이 바뀌면(키 다름) 미적용.
+var _SCROLL_SELS = [
+  '.main > .live-wrap', '.content', '.member-list', '.perf-overlay',
+  '.ex-picker-list', '.live-member-list', '.modal-overlay'
+];
+function _snapshotScrolls(){
+  var snap = {};
+  for(var i=0;i<_SCROLL_SELS.length;i++){
+    try{
+      var els = document.querySelectorAll(_SCROLL_SELS[i]);
+      for(var j=0;j<els.length;j++){
+        if(els[j].scrollTop > 0){
+          // 같은 selector 의 j 번째 컨테이너에 복원
+          snap[_SCROLL_SELS[i]+'@'+j] = els[j].scrollTop;
+        }
+      }
+    }catch(e){}
+  }
+  try{
+    var ws = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0;
+    if(ws>0) snap.__win = ws;
+  }catch(e){}
+  return snap;
+}
+function _restoreScrolls(snap){
+  if(!snap) return;
+  Object.keys(snap).forEach(function(k){
+    try{
+      if(k==='__win'){ window.scrollTo(0, snap[k]); return; }
+      var at = k.lastIndexOf('@');
+      var sel = k.slice(0, at), idx = parseInt(k.slice(at+1),10)||0;
+      var els = document.querySelectorAll(sel);
+      if(els[idx]) els[idx].scrollTop = snap[k];
+    }catch(e){}
+  });
+}
 function _renderKey(){
   return (S.currentRole||'')+'|'+(S.selectedMember||'')+'|'
        + (S.showLiveSession?'L':'') + (S.showPerformance?'P':'')
        + (S.showDashboard?'D':'') + (S.showReport?'R':'') + (S.showAddSession?'S':'');
 }
 function render(){
-  var sy = 0;
-  try{ sy = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0; }catch(e){}
+  var snap = null;
+  try{ snap = _snapshotScrolls(); }catch(e){}
   var keyBefore = window._lastRenderKey;
   try{
     _render();
@@ -67,12 +104,16 @@ function render(){
     console.error('[render] 오류:', e);
     try{ _renderRecovery(e); }catch(_){}
   }
-  // 화면 키가 같으면(=같은 화면) 스크롤 위치 복원. 다르면(=새 화면) 0 부터 자연스럽게 시작.
+  // 같은 화면이면 스크롤 복원. 다른 화면이면 자연스럽게 0 부터.
   try{
     var keyAfter = _renderKey();
     window._lastRenderKey = keyAfter;
-    if(keyBefore && keyBefore===keyAfter && sy>0){
-      requestAnimationFrame(function(){ try{ window.scrollTo(0, sy); }catch(e){} });
+    if(keyBefore && keyBefore===keyAfter && snap && Object.keys(snap).length){
+      // rAF 두 번 — innerHTML 후 layout 완료 시점에 복원(iOS Safari 호환)
+      requestAnimationFrame(function(){
+        _restoreScrolls(snap);
+        requestAnimationFrame(function(){ _restoreScrolls(snap); });
+      });
     }
   }catch(e){}
 }
