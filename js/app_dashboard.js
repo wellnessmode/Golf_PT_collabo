@@ -550,12 +550,13 @@ function renderPerformance(){
     var vmt=function(l,v,u){return '<div class="pv-vmt"><div class="l">'+l+'</div><div class="v">'+(v==null?'—':v)+(u?'<span class="u"> '+u+'</span>':'')+'</div></div>';};
     var vmp=function(l,v,u){return '<div class="pv-vmp"><span>'+l+'</span><b>'+(v==null?'—':v)+(u?' '+u:'')+'</b></div>';};
     // 영상: mp4 우선(에이전트가 변환했으면), 없으면 mkv 원본. 둘 다 다운로드 버튼 제공.
-    var mp4Key = sm.videoMp4R2Key || (sm.videoR2Key && sm.videoR2Key.replace(/\.mkv$/i,'.mp4'));
-    var hasMp4 = !!sm.videoMp4R2Key;   // 에이전트가 실제 만든 mp4 (재생 가능 보장)
+    // ※ mp4 키는 shot.data 안에 저장됨(dm.videoMp4R2Key) — 최상위 아님.
+    var mp4Stored = dm.videoMp4R2Key || null;
+    var hasMp4 = !!mp4Stored;   // 에이전트가 실제 만든 mp4 (아이폰 재생 보장)
     var vidUrl='', dlUrl='', isMkvOnly=false;
     if(typeof r2!=='undefined' && r2.enabled){
       if(hasMp4){
-        vidUrl = r2.url(sm.videoMp4R2Key);
+        vidUrl = r2.url(mp4Stored);
         dlUrl  = sm.videoR2Key ? r2.url(sm.videoR2Key) : vidUrl;  // 원본 mkv 다운 옵션
       } else if(sm.videoR2Key){
         vidUrl = r2.url(sm.videoR2Key);
