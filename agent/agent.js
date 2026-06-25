@@ -198,7 +198,11 @@ async function handleFtmf(filePath){
   };
   var ok = await pushShot(shot);
   if (ok){
-    log('✓ 샷 전송 ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm] bay=' + bayId);
+    log('✓ 샷 전송 ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm total=' + parsed.data.total + 'm] bay=' + bayId);
+    // 토탈 키 진단 — TPS 화면 값과 비교용. 비어있지 않은 후보만 출력.
+    var tc = parsed.data._totalCandidates || {};
+    var nonNull = Object.keys(tc).filter(function(k){ return tc[k] != null; }).map(function(k){ return k+'='+tc[k]; });
+    if (nonNull.length) log('  토탈 후보값들 → ' + nonNull.join(', '));
     processed[fname] = { id: shotId, mid: parsed.measurementId, t: Date.now() };
     saveState();
   } else {

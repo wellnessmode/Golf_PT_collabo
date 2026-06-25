@@ -130,6 +130,17 @@ function parseFtmf(ftmfBuffer){
     carrySide: num(meas.CarrySide),
     total: num(meas.Total),
     totalSide: num(meas.TotalSide),
+    // 토탈 후보 키들 — TPS 화면이 어떤 키를 보여주는지 확인용. 진단 후 결정.
+    // (TrackMan ftmf 는 버전에 따라 TotalDistance/CarryAndRoll/FinalDistance/Roll 등이 더 있을 수 있음)
+    _totalCandidates: {
+      Total: num(meas.Total),
+      TotalDistance: num(meas.TotalDistance),
+      CarryAndRoll: num(meas.CarryAndRoll),
+      FinalDistance: num(meas.FinalDistance),
+      Roll: num(meas.Roll),
+      RollDistance: num(meas.RollDistance),
+      Carry: num(meas.Carry)
+    },
     curve: num(meas.Curve),
     _units: { dist:'m', speed:'m/s', angle:'deg', spin:'rpm' },
     _src: 'trackman_io'
