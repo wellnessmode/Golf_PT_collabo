@@ -113,17 +113,18 @@ function _buildPendingShotsHTML(bayId){
   var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ 방금 친 샷 — 저장할 것만 선택<span class="ps-count">'+pend.length+'</span></div>';
   pend.slice(0,5).forEach(function(s){
     var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
-    var carry=d.carry!=null?Math.round(m?d.carry*1.09361:d.carry):null;
-    var total=d.total!=null?Math.round(m?d.total*1.09361:d.total):null;
-    var ball =d.ballSpeed!=null?Math.round(m?d.ballSpeed*2.23694:d.ballSpeed):null;
+    // 거리=미터(트랙맨 원본 그대로). 야드 데이터(옛것)는 미터로 환산.
+    var carry=d.carry!=null?Math.round((m?d.carry:d.carry*0.9144)*10)/10:null;
+    var total=d.total!=null?Math.round((m?d.total:d.total*0.9144)*10)/10:null;
+    var ball =d.ballSpeed!=null?Math.round((m?d.ballSpeed:d.ballSpeed*0.44704)*10)/10:null;  // m/s
     var spin =d.spin!=null?Math.round(d.spin):null;
     var club=(typeof _clubKo==='function'?_clubKo(d.club):d.club)||'샷';
     var when=(typeof _shotTimeLabel==='function')?_shotTimeLabel(s):'';
     var fresh=s._isNew && (Date.now()-s._isNew < 30000) ? ' new' : '';
     var bits=[];
-    if(carry!=null) bits.push('<span class="psb-main">'+carry+'<small>yd 캐리</small></span>');
-    if(total!=null && total!==carry) bits.push('<span class="psb">토탈 '+total+'yd</span>');
-    if(ball!=null) bits.push('<span class="psb">볼 '+ball+'mph</span>');
+    if(carry!=null) bits.push('<span class="psb-main">'+carry+'<small>m 캐리</small></span>');
+    if(total!=null && total!==carry) bits.push('<span class="psb">토탈 '+total+'m</span>');
+    if(ball!=null) bits.push('<span class="psb">볼 '+ball+'m/s</span>');
     if(spin!=null) bits.push('<span class="psb">스핀 '+spin+'</span>');
     html += '<div class="ps-card'+fresh+'" data-shot="'+s.id+'">'
           + '<div class="psc-hd"><span class="psc-club">'+club+'</span><span class="psc-time">'+when+'</span></div>'
@@ -996,7 +997,7 @@ function renderShotLog(isAdmin){
       var bay = getBay(s.bayId);
       var d = s.data||{};
       var metric = (d._units&&d._units.dist==='m')||d._src==='trackman_io';
-      var carry = d.carry!=null&&d.carry!==''? Math.round((metric?parseFloat(d.carry)*1.09361:parseFloat(d.carry)))+'yd' : '';
+      var carry = d.carry!=null&&d.carry!==''? (Math.round((metric?parseFloat(d.carry):parseFloat(d.carry)*0.9144)*10)/10)+'m' : '';
       var unassigned = s._unassigned && (!s.memberName);
       var checked = !!S._shotSel[s.id];
       return '<div class="shot-row'+(unassigned?' unassigned':'')+(selMode?' selectable'+(checked?' on':''):'')+'"'
