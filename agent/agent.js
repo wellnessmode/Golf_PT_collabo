@@ -80,6 +80,39 @@ async function pushShot(shot){
 }
 
 // ---- R2: 영상 업로드 (워커 PUT /{key}) ----
+// MKV → MP4 변환 (옵션, ffmpegPath 가 설정됐을 때만).
+// 빠른 컨테이너 리먹스 시도 → 실패하면 트랜스코드. PC 부하 최소화 위해 백그라운드 우선순위 가능.
+async function convertMkvToMp4(mkvBuf, ffmpegPath){
+  var os = require('os'); var path = require('path'); var fs = require('fs');
+  var { spawn } = require('child_process');
+  var tmpIn  = path.join(os.tmpdir(), 'gpt_'+Date.now()+'_'+Math.floor(Math.random()*1e6)+'.mkv');
+  var tmpOut = tmpIn.replace(/\.mkv$/,'.mp4');
+  fs.writeFileSync(tmpIn, mkvBuf);
+  function run(args){
+    return new Promise(function(resolve){
+      var p = spawn(ffmpegPath, args, { windowsHide:true });
+      var err='';
+      p.stderr.on('data', function(d){ err += d.toString(); });
+      p.on('error', function(){ resolve({code:-1, err:err}); });
+      p.on('close', function(code){ resolve({code:code, err:err}); });
+    });
+  }
+  try{
+    // 1) 빠른 리먹스 (재인코딩 X) — 코덱이 H.264/AAC 면 즉시 끝
+    var r = await run(['-y','-i', tmpIn, '-c','copy','-movflags','+faststart', tmpOut]);
+    if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
+      // 2) 폴백: 트랜스코드 (H.264 + AAC)
+      r = await run(['-y','-i', tmpIn, '-c:v','libx264','-preset','veryfast','-crf','24','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
+    }
+    var out = fs.readFileSync(tmpOut);
+    return out;
+  } finally {
+    try{ fs.unlinkSync(tmpIn); }catch(_){}
+    try{ fs.unlinkSync(tmpOut); }catch(_){}
+  }
+}
+
 async function uploadVideo(key, buf, contentType){
   if (!CFG.R2_WORKER_URL || !CFG.R2_API_KEY) return false;
   return new Promise(function(resolve){
@@ -122,6 +155,7 @@ async function handleFtmf(filePath){
   var shotId = 'tm_' + (parsed.measurementId || (Date.now()+''+Math.random().toString(36).slice(2,6)));
   var videoKey = null;
 
+  var videoMp4Key = null;
   // 영상 업로드 (옵션) — ftmf 내부 scene.mkv
   if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
     try{
@@ -132,6 +166,17 @@ async function handleFtmf(filePath){
         var key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mkv';
         var ok = await uploadVideo(key, vbuf, 'video/x-matroska');
         if (ok){ videoKey = key; log('  영상 업로드 ' + (vbuf.length/1e6).toFixed(1) + 'MB → ' + key); }
+        // MP4 변환 (옵션) — ffmpegPath 설정 시 같은 영상의 mp4 도 업로드 → iPhone Safari 재생 OK
+        if (ok && CFG.ffmpegPath){
+          try{
+            var mp4buf = await convertMkvToMp4(vbuf, CFG.ffmpegPath);
+            if (mp4buf && mp4buf.length){
+              var mp4key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mp4';
+              var ok2 = await uploadVideo(mp4key, mp4buf, 'video/mp4');
+              if (ok2){ videoMp4Key = mp4key; log('  MP4 변환·업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key); }
+            }
+          }catch(e){ log('  MP4 변환 스킵: ' + e.message); }
+        }
       }
     }catch(e){ log('  영상 업로드 스킵: ' + e.message); }
   }
@@ -147,7 +192,7 @@ async function handleFtmf(filePath){
     member_name: '',
     author: '',
     ts: nowIso,
-    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime }, parsed.data),
+    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime, videoMp4R2Key: videoMp4Key || undefined }, parsed.data),
     video_r2_key: videoKey,
     source: 'agent'
   };

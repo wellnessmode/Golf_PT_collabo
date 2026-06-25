@@ -549,13 +549,28 @@ function renderPerformance(){
     var metric=_isMetricShot(dm);
     var vmt=function(l,v,u){return '<div class="pv-vmt"><div class="l">'+l+'</div><div class="v">'+(v==null?'—':v)+(u?'<span class="u"> '+u+'</span>':'')+'</div></div>';};
     var vmp=function(l,v,u){return '<div class="pv-vmp"><span>'+l+'</span><b>'+(v==null?'—':v)+(u?' '+u:'')+'</b></div>';};
-    // 영상: R2 키가 있으면 실제 영상 재생, 없으면 플레이스홀더
-    var vidUrl=(sm.videoR2Key && typeof r2!=='undefined' && r2.enabled)? r2.url(sm.videoR2Key) : '';
+    // 영상: mp4 우선(에이전트가 변환했으면), 없으면 mkv 원본. 둘 다 다운로드 버튼 제공.
+    var mp4Key = sm.videoMp4R2Key || (sm.videoR2Key && sm.videoR2Key.replace(/\.mkv$/i,'.mp4'));
+    var hasMp4 = !!sm.videoMp4R2Key;   // 에이전트가 실제 만든 mp4 (재생 가능 보장)
+    var vidUrl='', dlUrl='', isMkvOnly=false;
+    if(typeof r2!=='undefined' && r2.enabled){
+      if(hasMp4){
+        vidUrl = r2.url(sm.videoMp4R2Key);
+        dlUrl  = sm.videoR2Key ? r2.url(sm.videoR2Key) : vidUrl;  // 원본 mkv 다운 옵션
+      } else if(sm.videoR2Key){
+        vidUrl = r2.url(sm.videoR2Key);
+        dlUrl  = vidUrl;
+        isMkvOnly = /\.mkv$/i.test(sm.videoR2Key);
+      }
+    }
+    var fname = 'shot_'+(sm.id||'').slice(0,8)+(hasMp4?'.mp4':'.mkv');
     var vidHtml;
     if(vidUrl){
-      var isMkv=/\.mkv$/i.test(sm.videoR2Key);
-      vidHtml='<video class="pv-vm-video" src="'+vidUrl+'" controls playsinline preload="metadata"></video>'
-        +(isMkv?'<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. <a href="'+vidUrl+'" download>영상 내려받기</a></div>':'');
+      vidHtml='<video class="pv-vm-video" src="'+vidUrl+'" controls playsinline preload="metadata"></video>';
+      if(isMkvOnly){
+        vidHtml += '<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. 아래에서 영상을 내려받아 폰의 동영상 앱으로 보세요.</div>';
+      }
+      vidHtml += '<div class="pv-vm-dl"><a class="pv-dl-btn" href="'+dlUrl+'" download="'+fname+'" target="_blank" rel="noopener">⬇ 영상 다운로드'+(hasMp4?' (MP4)':' (MKV 원본)')+'</a></div>';
     } else {
       vidHtml='<div class="pv-vm-novid"><div class="pv-vplay" style="width:54px;height:54px;font-size:18px">▶</div><div class="pv-vm-novid-t">영상 없음</div></div>';
     }

@@ -1557,3 +1557,8 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .live-live-tag{display:inline-flex;align-items:center;gap:5px}
 .live-live-tag::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#e63b3b;animation:liveBlink 1.4s infinite}
 @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 영상 다운로드 큰 버튼 */
+.pv-vm-dl{padding:12px 14px 4px;text-align:center}
+.pv-dl-btn{display:inline-block;padding:10px 22px;border-radius:10px;background:#0d1117;color:#fff;font-weight:800;font-size:13.5px;text-decoration:none;border:1px solid rgba(255,255,255,.08);transition:.15s}
+.pv-dl-btn:hover{background:#1a1f26}

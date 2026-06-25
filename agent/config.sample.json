@@ -11,6 +11,7 @@
   },
   "defaultBay": "bay3",
   "uploadVideo": true,
+  "ffmpegPath": "",
   "intervalSec": 5,
   "verbose": true,
   "processExisting": false,
