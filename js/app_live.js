@@ -114,13 +114,18 @@ async function _livePollTick(){
     var live = await cloud.loadLive();
     if(!live) return;
     if(!S.showLiveSession) return;  // 폴링 중 닫혔으면 무시
-    // 새로 도착한 샷 식별
+    // 변경 감지를 위해 ID 집합 / 활성세션 키 비교
     var prev = _liveLastIds;
     var curIds = (live.shotEvents||[]).map(function(s){return s.id;});
+    var hasNew = false;
     if(prev){
       var prevSet = {}; prev.forEach(function(id){prevSet[id]=true;});
-      (live.shotEvents||[]).forEach(function(s){ if(!prevSet[s.id]) s._isNew = Date.now(); });
+      (live.shotEvents||[]).forEach(function(s){ if(!prevSet[s.id]){ s._isNew = Date.now(); hasNew = true; } });
     }
+    var actBefore = JSON.stringify(Object.keys(S.activeSessions||{}).sort());
+    var actAfter  = JSON.stringify(Object.keys(live.activeSessions||{}).sort());
+    var countChanged = !prev || curIds.length !== prev.length;
+    var changed = hasNew || (actBefore!==actAfter) || countChanged;
     _liveLastIds = curIds;
     if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
     // _isNew/_rcvAt 보존하며 머지
@@ -131,8 +136,13 @@ async function _livePollTick(){
       return s;
     });
     if(typeof reconcileAgentShots==='function') reconcileAgentShots();
+    // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
+    if(!changed) return;
     try{save();}catch(e){}
+    // 변경 있어 render 가 필요해도 스크롤 위치는 보존
+    var sy = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0;
     render();
+    requestAnimationFrame(function(){ try{ window.scrollTo(0, sy); }catch(e){} });
   }catch(e){ /* 네트워크 일시 오류 무시 — 다음 4초에 재시도 */ }
 }
 

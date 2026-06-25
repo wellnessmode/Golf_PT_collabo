@@ -592,8 +592,10 @@ const bio = {
     } finally { window.__bioActive = false; }
   },
   async verify(role,user){
+    // 락 먼저 — 어떤 동기 검사보다 앞 (동시 호출이 둘 다 통과하는 레이스 차단)
+    if(window.__bioActive) return false;
+    if(S.currentRole) return false;       // 이미 로그인됐으면 verify 자체 거부 (잔여 시트 방지)
     if(!this.available) return false;
-    if(window.__bioActive) return false;   // 이미 생체창(Face ID)이 떠 있으면 중복 호출 차단
     var idStr=localStorage.getItem(this._id(role,user));
     if(!idStr) return false;
     window.__bioActive = true;
