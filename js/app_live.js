@@ -216,14 +216,11 @@ async function _livePollTick(){
     // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
     if(!changed) return;
     try{save();}catch(e){}
-    // 1) 부분 DOM 패치 시도 — render 자체를 안 부르고 두 영역만 교체.
-    //    사장님이 샷 삭제하려고 페이지 내려가 있어도 스크롤/포커스 그대로.
+    // 1) 부분 DOM 패치 — render 자체를 안 부르고 두 영역만 교체 (가장 매끈)
     var patched = (typeof _patchLivePartials==='function') && _patchLivePartials();
     if(patched) return;
-    // 2) 구조적 변경(베이/세션 종료 등)일 때만 전체 render — 그래도 스크롤 보존
-    var sy = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0;
+    // 2) 구조적 변경일 때 전체 render — render() 함수 자체가 스크롤 자동 보존
     render();
-    requestAnimationFrame(function(){ try{ window.scrollTo(0, sy); }catch(e){} });
   }catch(e){ /* 네트워크 일시 오류 무시 — 다음 4초에 재시도 */ }
 }
 

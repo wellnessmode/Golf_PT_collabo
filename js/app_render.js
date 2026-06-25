@@ -47,15 +47,34 @@ function renderRoleSelector(){
   </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div>'+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+S.bioError+'</div>':'')+(!bio.available?'<label class="pw-trust"><input type="checkbox" '+(S.trustDevice?'checked':'')+' onchange="S.trustDevice=this.checked"><span>이 기기에서 자동 로그인<small>다음부터 비밀번호 없이 바로 입장 (스튜디오 공용 기기용)</small></span></label>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">생체 로그인 등록</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+S.bioError+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
 }
 
-// 흰 화면 방지: render 중 에러가 나도 화면이 비지 않게 감싼다.
-// (라이브 세션 등에서 예기치 못한 데이터로 throw → 흰 화면 먹통 재발 방지)
+// 흰 화면 방지 + 스크롤 자동 보존:
+// render 중 에러가 나도 화면이 비지 않게 감쌈.
+// 같은 화면 안에서의 어떤 render(폴링/선택모드/토스트/AI 처리 등) 든 스크롤이 튀지 않게,
+// 화면 키가 같으면 직전 scrollY 를 다음 페인트에 복원. 화면 전환 시(역할/회원/뷰 변경)는
+// 키가 달라 보존하지 않음 — 새 페이지는 자연스럽게 0 부터 시작.
+function _renderKey(){
+  return (S.currentRole||'')+'|'+(S.selectedMember||'')+'|'
+       + (S.showLiveSession?'L':'') + (S.showPerformance?'P':'')
+       + (S.showDashboard?'D':'') + (S.showReport?'R':'') + (S.showAddSession?'S':'');
+}
 function render(){
+  var sy = 0;
+  try{ sy = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0; }catch(e){}
+  var keyBefore = window._lastRenderKey;
   try{
     _render();
   }catch(e){
     console.error('[render] 오류:', e);
     try{ _renderRecovery(e); }catch(_){}
   }
+  // 화면 키가 같으면(=같은 화면) 스크롤 위치 복원. 다르면(=새 화면) 0 부터 자연스럽게 시작.
+  try{
+    var keyAfter = _renderKey();
+    window._lastRenderKey = keyAfter;
+    if(keyBefore && keyBefore===keyAfter && sy>0){
+      requestAnimationFrame(function(){ try{ window.scrollTo(0, sy); }catch(e){} });
+    }
+  }catch(e){}
 }
 function _renderRecovery(err){
   var root = document.getElementById('root');
