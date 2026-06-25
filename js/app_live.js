@@ -264,17 +264,23 @@ function purgeDemoShots(){
 async function purgeAllShots(){
   var n=(S.shotEvents||[]).length;
   if(n===0){ liveToast('저장된 샷이 없습니다','ok'); return; }
-  if(!confirm('앱에 저장된 샷 '+n+'개를 전부 삭제할까요?\n\n· 앱/클라우드의 샷 기록만 지워집니다.\n· 트랙맨 PC의 영상·원본 데이터는 그대로 유지됩니다.\n· 되돌릴 수 없습니다.')) return;
-  if(!confirm('정말 전부 삭제합니다. 계속할까요?')) return;
-  // R2 영상 사본 제거(앱용 — 트랙맨 PC 원본과 무관). 실패해도 진행.
-  (S.shotEvents||[]).forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+  if(!confirm('샷 '+n+'개 전체 삭제합니다.\n(트랙맨 PC 영상은 그대로)\n계속할까요?')) return;
+  // 1) 즉시 화면 비움 (사용자는 빠릿빠릿하게 결과를 본다)
+  var snapshot = (S.shotEvents||[]).slice();
   S.shotEvents=[];
-  save();
-  var ok=false; try{ ok=await cloud.deleteAllShots(); }catch(e){}
+  try{save();}catch(e){}
+  if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
+  liveToast('🗑 '+n+'개 삭제 중...','ok');
   logActivity('샷 전체 삭제', '', n+'개');
-  logAudit('session','샷 전체삭제','',{count:n, cloud:ok});
-  render();
-  liveToast('🗑 샷 '+n+'개 전체 삭제됨'+(ok?'':' (로컬만 — 새로고침 후 확인)'),'ok');
+  // 2) 폴링 정지(서버 정리 끝나기 전에 옛 샷이 다시 부활하지 않도록)
+  var hadPoll = !!_livePollTimer;
+  if(typeof stopLivePolling==='function') stopLivePolling();
+  // 3) Supabase 한방 + R2 영상 백그라운드 병렬 — await 안 함, 사용자 안 기다림
+  Promise.resolve(cloud.deleteAllShots()).then(function(ok){
+    snapshot.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    logAudit('session','샷 전체삭제','',{count:n, cloud:ok});
+    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
+  });
 }
 
 // 베이 모드 전환 (레슨 선별저장 ↔ 연습 자동저장)
@@ -1012,42 +1018,64 @@ function renderShotLog(isAdmin){
 }
 function toggleUnassigned(){ S._showUnassigned = !S._showUnassigned; if(typeof render==='function') render(); }
 // ===== 샷 선택 모드 (체크박스 다중 삭제) =====
-function enterShotSelMode(){ S._shotSelMode=true; S._shotSel={}; render(); }
-function exitShotSelMode(){ S._shotSelMode=false; S._shotSel={}; render(); }
-function clearShotSel(){ S._shotSel={}; render(); }
-function toggleShotSel(id){ if(!S._shotSel) S._shotSel={}; S._shotSel[id]=!S._shotSel[id]; render(); }
+// 선택 모드 토글 — render() 안 부르고 부분 패치만 (.shot-log 영역만 교체).
+// render 가 root.innerHTML 통째 재생성 시 iOS Safari 가 새 .live-wrap layout 완료 전에
+// scrollTop 복원이 일어나 스크롤이 위로 튀던 문제 해결.
+function _patchShotLogOnly(){
+  try{
+    var logEl = document.querySelector('.shot-log');
+    if(!logEl || typeof renderShotLog!=='function') return false;
+    var isAdmin = S.currentRole==='admin';
+    logEl.outerHTML = renderShotLog(isAdmin);
+    return true;
+  }catch(e){ return false; }
+}
+function enterShotSelMode(){ S._shotSelMode=true; S._shotSel={}; if(_patchShotLogOnly()) return; render(); }
+function exitShotSelMode(){ S._shotSelMode=false; S._shotSel={}; if(_patchShotLogOnly()) return; render(); }
+function clearShotSel(){ S._shotSel={}; if(_patchShotLogOnly()) return; render(); }
+function toggleShotSel(id){ if(!S._shotSel) S._shotSel={}; S._shotSel[id]=!S._shotSel[id]; if(_patchShotLogOnly()) return; render(); }
 function selectAllShots(){
   S._shotSel={};
   (S.shotEvents||[]).forEach(function(s){ S._shotSel[s.id]=true; });
-  render();
+  if(_patchShotLogOnly()) return; render();
 }
 async function deleteSelectedShots(){
   var ids = Object.keys(S._shotSel||{}).filter(function(k){return S._shotSel[k];});
   if(!ids.length) return;
-  if(!confirm('선택한 '+ids.length+'개 샷을 삭제합니다.\n\n⚠️ 컴퓨터에 저장된 원본 영상은 절대 삭제되지 않습니다.\n앱·서버 기록(과 앱이 복사해둔 영상)만 정리합니다.\n\n계속할까요?')) return;
+  if(!confirm('선택한 '+ids.length+'개 샷을 삭제합니다.\n(트랙맨 PC 영상은 그대로)\n계속할까요?')) return;
   var idset = {}; ids.forEach(function(id){ idset[id]=true; });
   var targets = (S.shotEvents||[]).filter(function(s){ return idset[s.id]; });
-  for(var i=0;i<targets.length;i++){
-    try{ await cloud.deleteShot(targets[i].id); }catch(e){}
-    if(targets[i].videoR2Key){ try{ await r2.remove(targets[i].videoR2Key); }catch(e){} }
-  }
+  // 1) 즉시 화면 갱신
   S.shotEvents = (S.shotEvents||[]).filter(function(s){ return !idset[s.id]; });
   S._shotSelMode=false; S._shotSel={};
   try{ save(); }catch(e){}
+  if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
   liveToastSafe('🗑 '+targets.length+'개 삭제됨');
-  render();
+  // 2) 폴링 정지 + Supabase 일괄(IN) + R2 백그라운드 병렬
+  var hadPoll = !!_livePollTimer;
+  if(typeof stopLivePolling==='function') stopLivePolling();
+  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
+    targets.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
+  });
 }
 async function purgeUnassignedShots(){
   var un = (S.shotEvents||[]).filter(function(s){ return s._unassigned && !s.memberName; });
   if(!un.length) return;
-  if(!confirm('미배정 '+un.length+'개를 삭제합니다.\n\n⚠️ 컴퓨터에 저장된 원본 영상은 절대 삭제되지 않습니다.\n앱·서버 기록만 정리합니다.\n\n계속할까요?')) return;
-  for(var i=0;i<un.length;i++){
-    try{ await cloud.deleteShot(un[i].id); }catch(e){}
-    if(un[i].videoR2Key){ try{ await r2.remove(un[i].videoR2Key); }catch(e){} }
-  }
+  if(!confirm('미배정 '+un.length+'개 삭제합니다.\n(트랙맨 PC 영상은 그대로)\n계속할까요?')) return;
+  var ids = un.map(function(s){return s.id;});
+  // 즉시 화면 갱신
   S.shotEvents = S.shotEvents.filter(function(s){ return !(s._unassigned && !s.memberName); });
   try{ save(); }catch(e){}
-  if(typeof render==='function') render();
+  if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
+  liveToastSafe('🗑 미배정 '+un.length+'개 삭제됨');
+  // 백그라운드 정리
+  var hadPoll = !!_livePollTimer;
+  if(typeof stopLivePolling==='function') stopLivePolling();
+  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
+    un.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
+  });
 }
 
 function renderLiveStartModal(){
