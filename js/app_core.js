@@ -335,6 +335,26 @@ const cloud = {
 // 활성세션 없으면 _unassigned 로 마킹 (샷 로그에 접어 표시).
 // 시간 비교 없음 — 활성세션 있는 베이면 무조건 매칭(시계/타임존 오차 무관).
 var AGENT_EMPTY_MEMBER = '00000000-0000-0000-0000-000000000000';
+// 활성세션 mode 판정 — 한 곳에서만. (act.mode > 직전 로컬 > 베이 타입 fallback)
+function bayMode(bayId, act){
+  act = act || (S.activeSessions && S.activeSessions[bayId]);
+  if(act && act.mode) return act.mode;
+  var bay = (typeof getBay==='function') ? getBay(bayId) : null;
+  return (bay && bay.type==='lesson_only') ? 'lesson' : 'practice';
+}
+// 클라우드에서 받은 활성세션 적용 — mode 보존(loadLive 가 mode 를 안 싣고 옴).
+// 직전 로컬 mode → 없으면 베이 타입 fallback 으로 채워, 새로고침 후에도 레슨/연습 유지.
+function applyRemoteActive(remoteActive){
+  var prev = {};
+  Object.keys(S.activeSessions||{}).forEach(function(b){ if(S.activeSessions[b] && S.activeSessions[b].mode) prev[b]=S.activeSessions[b].mode; });
+  S.activeSessions = remoteActive || {};
+  Object.keys(S.activeSessions).forEach(function(b){
+    if(!S.activeSessions[b].mode){
+      var bay = (typeof getBay==='function') ? getBay(b) : null;
+      S.activeSessions[b].mode = prev[b] || ((bay && bay.type==='lesson_only') ? 'lesson' : 'practice');
+    }
+  });
+}
 function reconcileAgentShots(){
   if(!S.shotEvents || !S.shotEvents.length) return;
   var changed = false;
@@ -348,7 +368,8 @@ function reconcileAgentShots(){
     if(!pending) return true;
     var act = S.activeSessions[s.bayId];
     if(act && !isStaleSession(act)){
-      if(act.mode==='lesson'){
+      // mode 가 없으면 베이 타입으로 판정 (레슨 전용 베이는 항상 선별저장)
+      if(bayMode(s.bayId, act)==='lesson'){
         s._pendingBay = s.bayId;
         return true;
       }
@@ -698,7 +719,7 @@ async function init(){
       save();S.cloudSync='connected';
     } else {S.cloudSync='error';}
     // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
-    try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
+    try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
     render();
   } else {S.cloudSync='local';}
   // 마지막 단계: 로컬에 있는 영상이 R2에 누락된 경우 자동 재업로드
@@ -802,7 +823,7 @@ async function refreshFromCloud(){
     purgeZombieSessions();
     save();S.cloudSync='connected';
   }else{S.cloudSync='error';}
-  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;S.activeSessions=live.activeSessions;S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
+  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   render();
 }
 

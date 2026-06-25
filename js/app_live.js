@@ -753,7 +753,7 @@ function renderBayCard(bay, canCoach, isAdmin){
       body += '<div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div>';
     }
   }
-  var mode = act.mode || (bay.type==='lesson_only'?'lesson':'practice');
+  var mode = bayMode(bay.id, act);
   if(!stale){
     if(mode==='lesson'){
       // 레슨 모드: 트랙맨 최근 샷을 보여주고, 트레이너가 좋은 것만 [저장]
