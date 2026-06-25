@@ -106,6 +106,83 @@ function stopLivePolling(){
   if(_livePollTimer){ clearInterval(_livePollTimer); _livePollTimer=null; }
   _liveLastIds = null;
 }
+// 베이카드 '방금 친 샷' HTML 생성 (renderBayCard 와 _patchLivePartials 공용)
+function _buildPendingShotsHTML(bayId){
+  var pend = (typeof pendingShotsForBay==='function') ? pendingShotsForBay(bayId) : [];
+  if(!pend.length) return '';
+  var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ 방금 친 샷 — 저장할 것만 선택<span class="ps-count">'+pend.length+'</span></div>';
+  pend.slice(0,5).forEach(function(s){
+    var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
+    var carry=d.carry!=null?Math.round(m?d.carry*1.09361:d.carry):null;
+    var total=d.total!=null?Math.round(m?d.total*1.09361:d.total):null;
+    var ball =d.ballSpeed!=null?Math.round(m?d.ballSpeed*2.23694:d.ballSpeed):null;
+    var spin =d.spin!=null?Math.round(d.spin):null;
+    var club=(typeof _clubKo==='function'?_clubKo(d.club):d.club)||'샷';
+    var when=(typeof _shotTimeLabel==='function')?_shotTimeLabel(s):'';
+    var fresh=s._isNew && (Date.now()-s._isNew < 30000) ? ' new' : '';
+    var bits=[];
+    if(carry!=null) bits.push('<span class="psb-main">'+carry+'<small>yd 캐리</small></span>');
+    if(total!=null && total!==carry) bits.push('<span class="psb">토탈 '+total+'yd</span>');
+    if(ball!=null) bits.push('<span class="psb">볼 '+ball+'mph</span>');
+    if(spin!=null) bits.push('<span class="psb">스핀 '+spin+'</span>');
+    html += '<div class="ps-card'+fresh+'" data-shot="'+s.id+'">'
+          + '<div class="psc-hd"><span class="psc-club">'+club+'</span><span class="psc-time">'+when+'</span></div>'
+          + '<div class="psc-metrics">'+bits.join('')+'</div>'
+          + '<div class="psc-actions">'
+          + '<button class="ps-save big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\')">＋ 저장</button>'
+          + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>'
+          + '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// 부분 DOM 패치 — render() 전체 호출 없이 두 영역만 교체.
+// 화면 스크롤/포커스/사용자 동작 전혀 안 건드림 (사장님이 샷 삭제하려고
+// 내려가 있어도 위치 그대로 — 새 샷 카드는 베이카드 상단에 추가됨).
+// 새 샷이 베이/모드/세션 종료 등 '구조적' 변경을 동반하면 false 반환 → 호출자가 full render.
+function _patchLivePartials(){
+  try{
+    // 1) 베이카드별 .pending-shots 영역 갱신 (레슨모드만 의미 있음)
+    var bayCards = document.querySelectorAll('.bay-card.active[data-bay]');
+    for(var i=0;i<bayCards.length;i++){
+      var card = bayCards[i];
+      var bayId = card.getAttribute('data-bay');
+      var act = S.activeSessions[bayId];
+      if(!act) return false;
+      if(bayMode(bayId, act) !== 'lesson') continue;
+      var existing = card.querySelector('.pending-shots');
+      var newHTML = _buildPendingShotsHTML(bayId);
+      if(newHTML){
+        if(existing){ existing.outerHTML = newHTML; }
+        else {
+          // 첫 샷 — '🎯 공을 치면...' 안내 자리에 삽입. 없으면 bay-shots 다음에
+          var hint = card.querySelector('.bay-auto');
+          if(hint){ hint.outerHTML = newHTML; }
+          else { var anchor = card.querySelector('.bay-shots'); if(anchor) anchor.insertAdjacentHTML('afterend', newHTML); }
+        }
+      } else if(existing){
+        // 비었으면 안내 문구로 교체 (사용자가 모두 저장/버림 한 후)
+        existing.outerHTML = '<div class="bay-auto">🎯 공을 치면 여기에 <strong>최근 샷</strong>이 떠요 — 좋은 것만 저장</div>';
+      }
+      // '저장된 샷 N개' 카운트도 갱신
+      var shotsEl = card.querySelector('.bay-shots');
+      if(shotsEl){
+        var shotsCnt = (typeof liveBayShots==='function') ? liveBayShots(bayId, act).length : 0;
+        shotsEl.innerHTML = shotsCnt>0 ? ('저장된 샷 <strong>'+shotsCnt+'</strong>개') : '아직 저장된 샷 없음';
+      }
+    }
+    // 2) 페이지 하단 .shot-log 갱신 (선택 모드 중이면 보호 — render 트리거)
+    if(S._shotSelMode) return false;
+    var logEl = document.querySelector('.shot-log');
+    if(logEl && typeof renderShotLog==='function'){
+      var isAdmin = S.currentRole==='admin';
+      logEl.outerHTML = renderShotLog(isAdmin);
+    }
+    return true;
+  }catch(e){ console.warn('[live] partial patch fail:', e); return false; }
+}
+
 async function _livePollTick(){
   if(!S.showLiveSession) { stopLivePolling(); return; }
   if(!cloud || !cloud.enabled) return;
@@ -139,7 +216,11 @@ async function _livePollTick(){
     // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
     if(!changed) return;
     try{save();}catch(e){}
-    // 변경 있어 render 가 필요해도 스크롤 위치는 보존
+    // 1) 부분 DOM 패치 시도 — render 자체를 안 부르고 두 영역만 교체.
+    //    사장님이 샷 삭제하려고 페이지 내려가 있어도 스크롤/포커스 그대로.
+    var patched = (typeof _patchLivePartials==='function') && _patchLivePartials();
+    if(patched) return;
+    // 2) 구조적 변경(베이/세션 종료 등)일 때만 전체 render — 그래도 스크롤 보존
     var sy = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0;
     render();
     requestAnimationFrame(function(){ try{ window.scrollTo(0, sy); }catch(e){} });
@@ -787,32 +868,8 @@ function renderBayCard(bay, canCoach, isAdmin){
   // 페이지 아래쪽에 작게 보이던 문제 해결 + 새 샷은 _isNew 로 강조.
   var modeEarly = bayMode(bay.id, act);
   if(!stale && modeEarly==='lesson'){
-    var pendEarly = pendingShotsForBay(bay.id);
-    if(pendEarly.length){
-      body += '<div class="pending-shots big"><div class="ps-title">⛳ 방금 친 샷 — 저장할 것만 선택<span class="ps-count">'+pendEarly.length+'</span></div>';
-      pendEarly.slice(0,5).forEach(function(s){
-        var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
-        var carry=d.carry!=null?Math.round(m?d.carry*1.09361:d.carry):null;
-        var total=d.total!=null?Math.round(m?d.total*1.09361:d.total):null;
-        var ball =d.ballSpeed!=null?Math.round(m?d.ballSpeed*2.23694:d.ballSpeed):null;
-        var spin =d.spin!=null?Math.round(d.spin):null;
-        var club=(typeof _clubKo==='function'?_clubKo(d.club):d.club)||'샷';
-        var when=(typeof _shotTimeLabel==='function')?_shotTimeLabel(s):'';
-        var fresh=s._isNew && (Date.now()-s._isNew < 30000) ? ' new' : '';
-        var bits=[];
-        if(carry!=null) bits.push('<span class="psb-main">'+carry+'<small>yd 캐리</small></span>');
-        if(total!=null && total!==carry) bits.push('<span class="psb">토탈 '+total+'yd</span>');
-        if(ball!=null) bits.push('<span class="psb">볼 '+ball+'mph</span>');
-        if(spin!=null) bits.push('<span class="psb">스핀 '+spin+'</span>');
-        body += '<div class="ps-card'+fresh+'">'
-              + '<div class="psc-hd"><span class="psc-club">'+club+'</span><span class="psc-time">'+when+'</span></div>'
-              + '<div class="psc-metrics">'+bits.join('')+'</div>'
-              + '<div class="psc-actions">'
-              + '<button class="ps-save big" onclick="saveLessonShot(\''+s.id+'\',\''+bay.id+'\')">＋ 저장</button>'
-              + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>'
-              + '</div></div>';
-      });
-      body += '</div>';
+    var psHTML = _buildPendingShotsHTML(bay.id);
+    if(psHTML){ body += psHTML;
     }
   }
   // 수업 녹음 (앱 내장) — 누구나 버튼 하나로
