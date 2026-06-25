@@ -473,7 +473,7 @@ function estimateStorageSize(){try{return JSON.stringify({members:S.members,asse
 function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=(p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice();S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();if(S.members.length>0&&!S.selectedMember) S.selectedMember=S.members[0].id;}
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
-function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
+function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{window.__authed=true;}catch(e){}try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
 // 유령 세션 강제 정리 — 삭제했는데 옛 기기/브라우저 캐시가 되살려놓은 기록.
 // 발견 즉시: 로컬 제거 + tombstone + 서버 삭제. (2026-06 확인분: 로버트 회원 테스트 기록 2건)
 var ZOMBIE_SESSIONS = [
@@ -573,6 +573,9 @@ const bio = {
   _fromB64u(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var bin=atob(s);var u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;},
   async enroll(role,user){
     if(!this.available) throw new Error('이 기기는 생체 인증을 지원하지 않습니다');
+    if(window.__bioActive) throw new Error('인증 진행 중');   // 동시 생체창 방지
+    window.__bioActive = true;
+    try{
     var challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
     var uid=new TextEncoder().encode(role+':'+user);
     var cred=await navigator.credentials.create({publicKey:{
@@ -586,11 +589,15 @@ const bio = {
     if(!cred||!cred.rawId) throw new Error('등록 실패');
     localStorage.setItem(this._id(role,user), this._b64u(cred.rawId));
     return true;
+    } finally { window.__bioActive = false; }
   },
   async verify(role,user){
     if(!this.available) return false;
+    if(window.__bioActive) return false;   // 이미 생체창(Face ID)이 떠 있으면 중복 호출 차단
     var idStr=localStorage.getItem(this._id(role,user));
     if(!idStr) return false;
+    window.__bioActive = true;
+    try{
     var challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
     var assertion=await navigator.credentials.get({publicKey:{
       challenge:challenge.buffer,
@@ -598,6 +605,7 @@ const bio = {
       userVerification:'required',timeout:60000
     }});
     return !!assertion;
+    } finally { window.__bioActive = false; }
   }
 };
 
@@ -605,7 +613,7 @@ const bio = {
 // _bioTrying: 중복 방지. 자동 트리거 + 사용자 버튼 탭이 겹쳐도 Face ID 창은 1번만.
 var _bioTrying = false;
 async function bioAutoTry(){
-  if(_bioTrying) return;                    // 이미 인증창 떠 있으면 무시 (두 번 뜸 방지)
+  if(_bioTrying || window.__bioActive) return;   // 이미 인증창 떠 있으면 무시 (두 번 뜸 방지)
   var p=S.pendingRole; if(!p||!bio.available) return;
   if(!bio.isRegistered(p.role,p.user)) return;
   _bioTrying = true;
