@@ -22,7 +22,11 @@ const { parseFtmf } = require('./ftmf-parser.js');
 
 // ---- 설정 로드 ----
 var CFG;
-try { CFG = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8')); }
+try {
+  // BOM(﻿) 제거 후 파싱 — 메모장/PowerShell 이 UTF-8 BOM 을 붙여도 안전하게.
+  var _cfgRaw = fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8').replace(/^﻿/, '');
+  CFG = JSON.parse(_cfgRaw);
+}
 catch (e) { console.error('config.json 읽기 실패:', e.message); process.exit(1); }
 
 var STATE_FILE = path.join(__dirname, '.agent-state.json');
@@ -292,6 +296,7 @@ async function checkClock(){
 // ---- 메인 루프 ----
 say('=== Golf PT Bay Agent 시작 === bayMap=' + JSON.stringify(CFG.bayMap||{}) + ' interval=' + (CFG.intervalSec||5) + 's');
 say('PC 로컬시각: ' + new Date().toString());
+say('영상 변환(MP4): ' + (CFG.ffmpegPath ? ('ON → ' + CFG.ffmpegPath) : 'OFF (ffmpegPath 미설정)'));
 checkClock().catch(function(e){ say('시계검증 오류: '+e.message); });
 (function loop(){
   scan().catch(function(e){ log('scan 오류: ' + e.message); })
