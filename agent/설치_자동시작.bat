@@ -25,6 +25,11 @@ if not exist "%~dp0config.json" (
   exit /b
 )
 
+REM --- node.exe 절대경로 기록 (백그라운드 런처가 PATH 없이도 찾도록) ---
+set "NODEPATH="
+for /f "delims=" %%i in ('where node 2^>nul') do if not defined NODEPATH set "NODEPATH=%%i"
+if defined NODEPATH (>"%~dp0node-path.txt" echo %NODEPATH%)
+
 set "VBS=%~dp0start-hidden.vbs"
 set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "LNK=%STARTUP%\GolfPT-Agent.lnk"
