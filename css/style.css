@@ -1529,3 +1529,31 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .rec-stop{background:#e63b3b;color:#fff;border:none;border-radius:9px;padding:7px 13px;font-weight:800;font-size:12.5px;cursor:pointer}
 .rec-spin{animation:recspin 1.2s linear infinite;display:inline-block}
 @keyframes recspin{to{transform:rotate(360deg)}}
+
+/* ⛳ 방금 친 샷 — 베이카드 상단에 크게(페이지 아래 작게 떠 안 보이던 문제 해결) */
+.pending-shots.big{margin:8px 0 12px;padding:10px;background:linear-gradient(180deg,#f0fbf6,#eaf6f0);border:1.5px solid #b6e2cc;border-radius:14px}
+.ps-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#0d6f4a;margin-bottom:8px;letter-spacing:-.01em}
+.ps-count{margin-left:auto;background:#0d6f4a;color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px}
+.ps-card{background:#fff;border:1.5px solid #d4e9dd;border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(13,111,74,.06)}
+.ps-card.new{animation:psNew 1.6s ease-out;border-color:#00b884;box-shadow:0 0 0 3px rgba(0,184,132,.18)}
+@keyframes psNew{
+  0%{transform:scale(.96);background:#d4f7e7;box-shadow:0 0 0 6px rgba(0,184,132,.35)}
+  100%{transform:scale(1);background:#fff;box-shadow:0 0 0 3px rgba(0,184,132,.18)}
+}
+.ps-card:last-child{margin-bottom:0}
+.psc-hd{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.psc-club{font-size:15px;font-weight:800;color:#1a1f26}
+.psc-time{margin-left:auto;font-size:11.5px;color:#7a8089;font-weight:600}
+.psc-metrics{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-bottom:10px}
+.psb-main{font-size:24px;font-weight:900;color:#0d1117;letter-spacing:-.02em;line-height:1}
+.psb-main small{font-size:11px;font-weight:700;color:#7a8089;margin-left:3px;letter-spacing:0}
+.psb{font-size:11.5px;font-weight:700;color:#525960;background:#f2f5f7;border-radius:6px;padding:3px 7px}
+.psc-actions{display:flex;gap:6px}
+.ps-save.big{flex:1;padding:11px 14px;font-size:14px;font-weight:800;border-radius:10px;background:#00b884;color:#fff;border:none;cursor:pointer}
+.ps-save.big:hover{background:#00a374}
+.psc-actions .ps-drop{padding:11px 16px;font-size:13px;font-weight:700;border-radius:10px;background:#fff;color:#888;border:1.5px solid #e1e4e8;cursor:pointer}
+
+/* 라이브 자동 갱신 표시 — 헤더 옆 작은 LIVE 점 */
+.live-live-tag{display:inline-flex;align-items:center;gap:5px}
+.live-live-tag::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#e63b3b;animation:liveBlink 1.4s infinite}
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}

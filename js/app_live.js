@@ -82,14 +82,65 @@ function liveToast(msg, kind){
 // ============ 진입 / 종료 ============
 function openLiveSession(){
   S.showLiveSession=true; S.showDashboard=false; S.selectedMember=null; S.sidebarOpen=false;
-  render();
+  startLivePolling(); render();
 }
-function closeLiveSession(){ S.showLiveSession=false; render(); }
+function closeLiveSession(){ S.showLiveSession=false; stopLivePolling(); render(); }
+
+// 라이브 세션 활성 중 자동 폴링 (4초마다) — 새로고침 안 눌러도 새 샷 자동 표시.
+// 폴링 시점에 이전 샷ID 들을 기억해 '새로 들어온 것' 만 _isNew 마킹 → 카드에 강조.
+var _livePollTimer = null, _liveLastIds = null;
+function startLivePolling(){
+  if(_livePollTimer) return;
+  // 첫 회는 즉시
+  _livePollTick();
+  _livePollTimer = setInterval(_livePollTick, 4000);
+  // 폰 백그라운드 갔다 오면 즉시 한 번 더
+  if(!window._liveVisHook){
+    window._liveVisHook = true;
+    document.addEventListener('visibilitychange', function(){
+      if(!document.hidden && S.showLiveSession) _livePollTick();
+    });
+  }
+}
+function stopLivePolling(){
+  if(_livePollTimer){ clearInterval(_livePollTimer); _livePollTimer=null; }
+  _liveLastIds = null;
+}
+async function _livePollTick(){
+  if(!S.showLiveSession) { stopLivePolling(); return; }
+  if(!cloud || !cloud.enabled) return;
+  if(typeof shotPauseOn==='function' && shotPauseOn()) return;
+  try{
+    var live = await cloud.loadLive();
+    if(!live) return;
+    if(!S.showLiveSession) return;  // 폴링 중 닫혔으면 무시
+    // 새로 도착한 샷 식별
+    var prev = _liveLastIds;
+    var curIds = (live.shotEvents||[]).map(function(s){return s.id;});
+    if(prev){
+      var prevSet = {}; prev.forEach(function(id){prevSet[id]=true;});
+      (live.shotEvents||[]).forEach(function(s){ if(!prevSet[s.id]) s._isNew = Date.now(); });
+    }
+    _liveLastIds = curIds;
+    if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
+    // _isNew/_rcvAt 보존하며 머지
+    var oldMap={}; (S.shotEvents||[]).forEach(function(s){oldMap[s.id]=s;});
+    S.shotEvents = (live.shotEvents||[]).map(function(s){
+      var o=oldMap[s.id];
+      if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; }
+      return s;
+    });
+    if(typeof reconcileAgentShots==='function') reconcileAgentShots();
+    try{save();}catch(e){}
+    render();
+  }catch(e){ /* 네트워크 일시 오류 무시 — 다음 4초에 재시도 */ }
+}
 
 // 회원 카드에서 바로 라이브 시작 (회원 → 베이 선택)
 function openLiveForMember(memberId){
   var m=S.members.find(function(x){return x.id===memberId;}); if(!m) return;
   S.showLiveSession=true; S.showDashboard=false; S.sidebarOpen=false;
+  startLivePolling();
   var existing=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===memberId;});
   S.liveBayPickFor = existing ? null : memberId;   // 이미 진행중이면 라이브뷰로, 아니면 베이 선택
   render();
@@ -721,6 +772,39 @@ function renderBayCard(bay, canCoach, isAdmin){
                + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
             : '아직 저장된 샷 없음')
         + '</div>';
+
+  // 레슨 모드 — '방금 친 샷' 을 베이카드 상단(회원 바로 아래)에 크게 띄움.
+  // 페이지 아래쪽에 작게 보이던 문제 해결 + 새 샷은 _isNew 로 강조.
+  var modeEarly = bayMode(bay.id, act);
+  if(!stale && modeEarly==='lesson'){
+    var pendEarly = pendingShotsForBay(bay.id);
+    if(pendEarly.length){
+      body += '<div class="pending-shots big"><div class="ps-title">⛳ 방금 친 샷 — 저장할 것만 선택<span class="ps-count">'+pendEarly.length+'</span></div>';
+      pendEarly.slice(0,5).forEach(function(s){
+        var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
+        var carry=d.carry!=null?Math.round(m?d.carry*1.09361:d.carry):null;
+        var total=d.total!=null?Math.round(m?d.total*1.09361:d.total):null;
+        var ball =d.ballSpeed!=null?Math.round(m?d.ballSpeed*2.23694:d.ballSpeed):null;
+        var spin =d.spin!=null?Math.round(d.spin):null;
+        var club=(typeof _clubKo==='function'?_clubKo(d.club):d.club)||'샷';
+        var when=(typeof _shotTimeLabel==='function')?_shotTimeLabel(s):'';
+        var fresh=s._isNew && (Date.now()-s._isNew < 30000) ? ' new' : '';
+        var bits=[];
+        if(carry!=null) bits.push('<span class="psb-main">'+carry+'<small>yd 캐리</small></span>');
+        if(total!=null && total!==carry) bits.push('<span class="psb">토탈 '+total+'yd</span>');
+        if(ball!=null) bits.push('<span class="psb">볼 '+ball+'mph</span>');
+        if(spin!=null) bits.push('<span class="psb">스핀 '+spin+'</span>');
+        body += '<div class="ps-card'+fresh+'">'
+              + '<div class="psc-hd"><span class="psc-club">'+club+'</span><span class="psc-time">'+when+'</span></div>'
+              + '<div class="psc-metrics">'+bits.join('')+'</div>'
+              + '<div class="psc-actions">'
+              + '<button class="ps-save big" onclick="saveLessonShot(\''+s.id+'\',\''+bay.id+'\')">＋ 저장</button>'
+              + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>'
+              + '</div></div>';
+      });
+      body += '</div>';
+    }
+  }
   // 수업 녹음 (앱 내장) — 누구나 버튼 하나로
   if(!stale && recSupported()){
     if(_rec.bayId===bay.id){
@@ -753,27 +837,14 @@ function renderBayCard(bay, canCoach, isAdmin){
       body += '<div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div>';
     }
   }
-  var mode = bayMode(bay.id, act);
+  var mode = modeEarly;
   if(!stale){
     if(mode==='lesson'){
-      // 레슨 모드: 트랙맨 최근 샷을 보여주고, 트레이너가 좋은 것만 [저장]
-      var pend = pendingShotsForBay(bay.id);
+      // 레슨 모드: 모드 토글만 여기 (샷 목록은 상단에 이미 표시됨)
       body += '<div class="bay-mode-row"><span class="bay-mode lesson">레슨 · 선별 저장</span>'
             + '<button class="mode-switch" onclick="setBayMode(\''+bay.id+'\',\'practice\')">연습으로</button></div>';
-      if(pend.length){
-        body += '<div class="pending-shots"><div class="ps-title">방금 친 샷 — 저장할 것만 선택</div>';
-        pend.slice(0,5).forEach(function(s){
-          var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
-          var carry=d.carry!=null?Math.round(m?d.carry*1.09361:d.carry):'?';
-          var club=(typeof _clubKo==='function'?_clubKo(d.club):d.club)||'샷';
-          var t=new Date(s.ts); var ts=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
-          body += '<div class="ps-item"><div class="ps-info"><span class="ps-club">'+club+'</span>'
-                + '<span class="ps-carry">'+carry+'yd</span><span class="ps-time">'+ts+'</span></div>'
-                + '<button class="ps-save" onclick="saveLessonShot(\''+s.id+'\',\''+bay.id+'\')">＋ 저장</button>'
-                + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button></div>';
-        });
-        body += '</div>';
-      } else {
+      var hasPending = (typeof pendingShotsForBay==='function') && pendingShotsForBay(bay.id).length>0;
+      if(!hasPending){
         body += '<div class="bay-auto">🎯 공을 치면 여기에 <strong>최근 샷</strong>이 떠요 — 좋은 것만 저장</div>';
       }
     } else {
