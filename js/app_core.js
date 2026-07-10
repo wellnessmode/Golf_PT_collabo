@@ -374,18 +374,29 @@ function bayMode(bayId, act){
   var bay = (typeof getBay==='function') ? getBay(bayId) : null;
   return (bay && bay.type==='lesson_only') ? 'lesson' : 'practice';
 }
-// 클라우드에서 받은 활성세션 적용 — mode 보존(loadLive 가 mode 를 안 싣고 옴).
-// 직전 로컬 mode → 없으면 베이 타입 fallback 으로 채워, 새로고침 후에도 레슨/연습 유지.
+// 클라우드에서 받은 활성세션 적용 — 로컬 전용 필드 보존이 핵심.
+// 서버 active_sessions 에는 mode/_transcript(받아쓰기·메모)/_sttBusy 가 없다.
+// 이전 코드는 4초 폴링마다 세션 객체를 통째로 갈아끼워 받아쓴 내용이 매번 증발했다
+// ("5분 말했는데 마지막 두 줄만 보이다 사라짐"의 원인). 같은 베이·같은 회원의
+// 진행중 세션이면 '_' 로 시작하는 로컬 필드와 mode 를 전부 이어받는다.
+// 회원이 바뀌었으면(다른 세션) 이어받지 않는다 — 남의 세션에 메모가 붙으면 안 되므로.
 function applyRemoteActive(remoteActive){
-  var prev = {};
-  Object.keys(S.activeSessions||{}).forEach(function(b){ if(S.activeSessions[b] && S.activeSessions[b].mode) prev[b]=S.activeSessions[b].mode; });
-  S.activeSessions = remoteActive || {};
-  Object.keys(S.activeSessions).forEach(function(b){
-    if(!S.activeSessions[b].mode){
+  var prev = S.activeSessions || {};
+  var next = remoteActive || {};
+  Object.keys(next).forEach(function(b){
+    var n = next[b], p = prev[b];
+    if(p && p.memberId === n.memberId){
+      if(!n.mode && p.mode) n.mode = p.mode;
+      Object.keys(p).forEach(function(k){
+        if(k.charAt(0)==='_' && n[k]===undefined) n[k]=p[k];
+      });
+    }
+    if(!n.mode){
       var bay = (typeof getBay==='function') ? getBay(b) : null;
-      S.activeSessions[b].mode = prev[b] || ((bay && bay.type==='lesson_only') ? 'lesson' : 'practice');
+      n.mode = (bay && bay.type==='lesson_only') ? 'lesson' : 'practice';
     }
   });
+  S.activeSessions = next;
 }
 function reconcileAgentShots(){
   if(!S.shotEvents || !S.shotEvents.length) return;

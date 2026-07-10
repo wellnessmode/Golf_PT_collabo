@@ -609,14 +609,15 @@ function _recElapsed(){
   var s=Math.floor((Date.now()-_rec.startedAt)/1000);
   return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 }
-// 녹음 UI를 render 없이 직접 갱신 (경과시간·실시간 텍스트) — 화면 안 튀게
+// 녹음 UI를 render 없이 직접 갱신 (경과시간·실시간 텍스트) — 화면 안 튀게.
+// 표시는 _rec 자체 버퍼 기준 — 폴링이 세션 객체를 갈아끼워도 화면 텍스트는 유지.
 function _recUpdateUI(){
   try{
     var t=document.getElementById('rec-elapsed'); if(t) t.textContent=_recElapsed();
-    var act=_rec.bayId && S.activeSessions[_rec.bayId];
     var live=document.getElementById('rec-live-text');
-    if(live && act){
-      var txt=(act._transcript||'').trim();
+    if(live){
+      var txt=(typeof _recFullText==='function')?_recFullText():'';
+      if(!txt){ var act=_rec.bayId && S.activeSessions[_rec.bayId]; txt=((act&&act._transcript)||'').trim(); }
       live.textContent = txt ? txt.slice(-300) : (window._sttUnavailable ? '(변환 서버 미설정 — 녹음은 저장됩니다)' : '듣는 중... 말하면 15초 안에 글로 나타나요');
     }
   }catch(e){}
@@ -640,7 +641,10 @@ function _startSegment(){
   clearTimeout(_rec.segTimer);
   _rec.segTimer=setTimeout(function(){ try{ if(_rec.mr===mr && !_rec.stopping) mr.stop(); }catch(e){} }, REC_SEG_MS);
 }
-// 세그먼트 변환 → 받아쓰기 텍스트에 합류 → 화면에 실시간 반영 + 자동 저장
+// 세그먼트 변환 → _rec.tx(녹음기 자체 버퍼)에 누적 → act._transcript 를 전체로 덮어씀.
+// '이어붙이기'가 아니라 '전체 덮어쓰기'라서, 폴링 등 무엇이 act 를 갈아끼워도
+// 다음 세그먼트가 지금까지의 전문을 다시 써 넣는다 — 텍스트 유실 원천 차단.
+function _recFullText(){ return ((_rec.txBase||'')+' '+(_rec.tx||'')).trim(); }
 async function _handleSegment(blob, isFinal){
   var bayId=_rec.bayId || _rec._lastBay;
   _rec.pendingStt++;
@@ -656,22 +660,27 @@ async function _handleSegment(blob, isFinal){
     try{ r2.upload('rec/'+bayId+'_'+Date.now()+'_'+_rec.segIdx+(String(blob.type).indexOf('mp4')!==-1?'.m4a':'.webm'), blob); }catch(_){}
   }
   _rec.pendingStt--;
-  var act=S.activeSessions[bayId];
-  if(act && text){
-    act._transcript=((act._transcript||'')+' '+text).trim();
-    try{save();}catch(e){}
+  if(text){
+    _rec.tx=((_rec.tx||'')+' '+text).trim();     // 녹음기 버퍼 — 폴링과 무관하게 절대 안 사라짐
+    var act=S.activeSessions[bayId];
+    if(act){ act._transcript=_recFullText(); try{save();}catch(e){} }
     _recUpdateUI();   // render 없이 실시간 텍스트만 갱신
   }
   if(isFinal){ _finishRec(); }
 }
-// 최종 마무리 — 모든 변환 완료 후 자동 저장 확정 + UI 정리
+// 최종 마무리 — 모든 변환 완료 후 전문을 세션에 확정 기록
 function _finishRec(){
   if(_rec.pendingStt>0){ setTimeout(_finishRec, 400); return; }   // 남은 변환 대기
   var bayId=_rec._lastBay;
   var act=bayId && S.activeSessions[bayId];
-  if(act){ delete act._sttBusy; try{save();}catch(e){} }
+  var full=_recFullText();
+  if(act){
+    if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
+    delete act._sttBusy;
+    try{save();}catch(e){}
+  }
   _rec._lastBay=null;
-  liveToast('🎙 녹음 저장 완료 — 세션 종료 시 AI가 일지로 정리해요','ok');
+  liveToast(full ? '🎙 녹음 저장 완료 — 세션 종료 시 AI가 일지로 정리해요' : '🎙 녹음 종료 — 인식된 내용이 없습니다', full?'ok':'err');
   render();
 }
 async function startBayRec(bayId){
@@ -680,7 +689,8 @@ async function startBayRec(bayId){
   var act=S.activeSessions[bayId]; if(!act){ liveToast('먼저 회원을 배정하세요','err'); return; }
   try{
     var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
-    _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0};
+    // txBase = 녹음 시작 전 이미 있던 메모, tx = 이번 녹음으로 쌓이는 텍스트(자체 버퍼)
+    _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0, txBase:(act._transcript||'').trim(), tx:''};
     try{ if(navigator.wakeLock) _rec.wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
     _startSegment();
     _rec.uiTimer=setInterval(_recUpdateUI, 1000);   // 초시계·텍스트만 갱신(render X)
