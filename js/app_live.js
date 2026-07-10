@@ -184,14 +184,58 @@ function _patchLivePartials(){
   }catch(e){ console.warn('[live] partial patch fail:', e); return false; }
 }
 
+// 어제(또는 그 이전) 시작된 채 방치된 활성세션 자동 종료 — 로컬 + 서버.
+// 세션을 안 끄고 퇴근하면 다음날 연습 샷이 그 회원에게/미배정으로 계속 쌓이던 문제의 뿌리.
+function autoEndStaleSessions(remoteActive){
+  var src = remoteActive || S.activeSessions || {};
+  Object.keys(src).forEach(function(bayId){
+    var act = src[bayId];
+    if(act && isStaleSession(act)){
+      delete src[bayId];
+      if(S.activeSessions) delete S.activeSessions[bayId];
+      try{ cloud.endActiveSession(bayId); }catch(e){}
+      try{ logAudit('session','방치 세션 자동종료', act.memberName||'', {bay:bayId, startedAt:act.startedAt}); }catch(e){}
+      console.warn('[live] 방치 세션 자동종료:', bayId, act.memberName, act.startedAt);
+    }
+  });
+}
+
+// 오래된 미배정 샷 자동 정리 (관리자 기기, 24시간 경과분) — 에이전트는 그대로 두고
+// 앱이 노이즈를 스스로 청소. 회원에게 귀속된 샷은 절대 건드리지 않음. PC 원본 무관.
+var _stalePurgeDone = false;
+function purgeStaleUnassigned(){
+  if(_stalePurgeDone) return;                       // 세션당 1회
+  if(S.currentRole!=='admin') return;               // 관리자 기기에서만 (다기기 경합 방지)
+  var cutoff = Date.now() - 24*3600*1000;
+  var stale = (S.shotEvents||[]).filter(function(s){
+    if(s.memberName) return false;                  // 귀속된 샷 보호
+    if(s._pendingBay && S.activeSessions[s._pendingBay]) return false;  // 진행 중 레슨 대기샷 보호
+    var t = Date.parse(s.ts);
+    return !isNaN(t) && t < cutoff;
+  });
+  _stalePurgeDone = true;
+  if(!stale.length) return;
+  var ids = stale.map(function(s){return s.id;});
+  S.shotEvents = (S.shotEvents||[]).filter(function(s){ return ids.indexOf(s.id)===-1; });
+  try{ save(); }catch(e){}
+  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
+    stale.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    console.warn('[live] 오래된 미배정 '+ids.length+'건 자동 정리');
+    try{ liveToastSafe('🧹 오래된 미배정 '+ids.length+'개 자동 정리됨'); }catch(e){}
+  });
+}
+
 async function _livePollTick(){
   if(!S.showLiveSession) { stopLivePolling(); return; }
   if(!cloud || !cloud.enabled) return;
   if(typeof shotPauseOn==='function' && shotPauseOn()) return;
+  if(window._shotsDeleting) return;   // 일괄 삭제 진행 중 — 서버 정리 전 재로드 금지
   try{
     var live = await cloud.loadLive();
     if(!live) return;
     if(!S.showLiveSession) return;  // 폴링 중 닫혔으면 무시
+    if(window._shotsDeleting) return; // 폴링 요청이 삭제 시작 '전'에 나갔어도, 응답 적용은 차단
+    autoEndStaleSessions(live.activeSessions);  // 어제 켜두고 잊은 세션 자동 종료(서버 포함)
     // 변경 감지를 위해 ID 집합 / 활성세션 키 비교
     var prev = _liveLastIds;
     var curIds = (live.shotEvents||[]).map(function(s){return s.id;});
@@ -214,6 +258,7 @@ async function _livePollTick(){
       return s;
     });
     if(typeof reconcileAgentShots==='function') reconcileAgentShots();
+    purgeStaleUnassigned();   // 첫 폴링에서 24h+ 미배정 노이즈 자동 청소(관리자)
     // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
     if(!changed) return;
     try{save();}catch(e){}
@@ -276,10 +321,13 @@ async function purgeAllShots(){
   // 2) 폴링 정지(서버 정리 끝나기 전에 옛 샷이 다시 부활하지 않도록)
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
+  _liveLastIds = null;
+  window._shotsDeleting = true;
   // 3) Supabase 한방 + R2 영상 백그라운드 병렬 — await 안 함, 사용자 안 기다림
   Promise.resolve(cloud.deleteAllShots()).then(function(ok){
     snapshot.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
     logAudit('session','샷 전체삭제','',{count:n, cloud:ok});
+    window._shotsDeleting = false;
     if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
   });
 }
@@ -546,7 +594,8 @@ function updateVoiceText(bayId, val){
 // 🎙 시작 → MediaRecorder 녹음(화면 자동꺼짐 방지) → ⏹ 종료
 // → R2 에 원본 백업 + /stt(Whisper) 로 한국어 텍스트 변환 → 받아쓰기 칸에 합류
 // → 세션 종료 시 기존 AI 일지 정리 파이프라인 그대로 사용
-var _rec = { bayId:null, mr:null, chunks:[], startedAt:0, timer:null, wakeLock:null, autoStop:null };
+var _rec = { bayId:null, stream:null, mr:null, chunks:[], startedAt:0, uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0 };
+var REC_SEG_MS = 15000;   // 15초마다 잘라 변환 → 실시간처럼 아래에 글이 계속 붙음
 function recSupported(){
   try{ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder!=='undefined'); }catch(e){ return false; }
 }
@@ -560,60 +609,99 @@ function _recElapsed(){
   var s=Math.floor((Date.now()-_rec.startedAt)/1000);
   return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 }
+// 녹음 UI를 render 없이 직접 갱신 (경과시간·실시간 텍스트) — 화면 안 튀게
+function _recUpdateUI(){
+  try{
+    var t=document.getElementById('rec-elapsed'); if(t) t.textContent=_recElapsed();
+    var act=_rec.bayId && S.activeSessions[_rec.bayId];
+    var live=document.getElementById('rec-live-text');
+    if(live && act){
+      var txt=(act._transcript||'').trim();
+      live.textContent = txt ? txt.slice(-300) : (window._sttUnavailable ? '(변환 서버 미설정 — 녹음은 저장됩니다)' : '듣는 중... 말하면 15초 안에 글로 나타나요');
+    }
+  }catch(e){}
+}
+// 한 세그먼트(15초) 녹음 시작 — 끝나면 즉시 다음 세그먼트로 이어지고, 이전 조각은 병렬 변환
+function _startSegment(){
+  var mime=_recMime();
+  var opts={audioBitsPerSecond:32000}; if(mime) opts.mimeType=mime;
+  var mr=new MediaRecorder(_rec.stream, opts);
+  var segChunks=[];
+  mr.ondataavailable=function(e){ if(e.data&&e.data.size) segChunks.push(e.data); };
+  mr.onstop=function(){
+    var isFinal=_rec.stopping;
+    if(!isFinal && _rec.bayId){ _startSegment(); }   // 공백 최소화 — 먼저 다음 조각 시작
+    var blob=new Blob(segChunks,{type:(segChunks[0]&&segChunks[0].type)||'audio/mp4'});
+    if(blob.size>2000){ _handleSegment(blob, isFinal); }
+    else if(isFinal){ _finishRec(); }
+  };
+  _rec.mr=mr; _rec.segIdx++;
+  mr.start();
+  clearTimeout(_rec.segTimer);
+  _rec.segTimer=setTimeout(function(){ try{ if(_rec.mr===mr && !_rec.stopping) mr.stop(); }catch(e){} }, REC_SEG_MS);
+}
+// 세그먼트 변환 → 받아쓰기 텍스트에 합류 → 화면에 실시간 반영 + 자동 저장
+async function _handleSegment(blob, isFinal){
+  var bayId=_rec.bayId || _rec._lastBay;
+  _rec.pendingStt++;
+  var text='';
+  try{ text=await sttTranscribe(blob); }
+  catch(e){
+    console.warn('[stt] segment fail:', e&&e.message);
+    if(!window._sttUnavailable){
+      window._sttUnavailable=true;
+      liveToast('⚠️ 음성변환 서버 미설정 — 워커에 GROQ 키 등록 필요 (녹음은 저장됨)','err');
+    }
+    // 변환 실패 조각은 원본을 R2에 백업 (아무것도 잃지 않게)
+    try{ r2.upload('rec/'+bayId+'_'+Date.now()+'_'+_rec.segIdx+(String(blob.type).indexOf('mp4')!==-1?'.m4a':'.webm'), blob); }catch(_){}
+  }
+  _rec.pendingStt--;
+  var act=S.activeSessions[bayId];
+  if(act && text){
+    act._transcript=((act._transcript||'')+' '+text).trim();
+    try{save();}catch(e){}
+    _recUpdateUI();   // render 없이 실시간 텍스트만 갱신
+  }
+  if(isFinal){ _finishRec(); }
+}
+// 최종 마무리 — 모든 변환 완료 후 자동 저장 확정 + UI 정리
+function _finishRec(){
+  if(_rec.pendingStt>0){ setTimeout(_finishRec, 400); return; }   // 남은 변환 대기
+  var bayId=_rec._lastBay;
+  var act=bayId && S.activeSessions[bayId];
+  if(act){ delete act._sttBusy; try{save();}catch(e){} }
+  _rec._lastBay=null;
+  liveToast('🎙 녹음 저장 완료 — 세션 종료 시 AI가 일지로 정리해요','ok');
+  render();
+}
 async function startBayRec(bayId){
   if(!recSupported()){ liveToast('이 기기는 녹음을 지원하지 않습니다','err'); return; }
   if(_rec.bayId){ liveToast('이미 '+getBay(_rec.bayId).name+'에서 녹음 중입니다','err'); return; }
   var act=S.activeSessions[bayId]; if(!act){ liveToast('먼저 회원을 배정하세요','err'); return; }
   try{
     var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
-    var mime=_recMime();
-    var opts={audioBitsPerSecond:32000}; if(mime) opts.mimeType=mime;   // 32kbps mono ≈ 14MB/시간
-    var mr=new MediaRecorder(stream, opts);
-    _rec={bayId:bayId, mr:mr, chunks:[], startedAt:Date.now(), timer:null, wakeLock:null, autoStop:null};
-    mr.ondataavailable=function(e){ if(e.data&&e.data.size) _rec.chunks.push(e.data); };
-    mr.start(10000);   // 10초 단위로 모아 메모리 안정
-    try{ if(navigator.wakeLock) _rec.wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}   // 화면 자동꺼짐 방지
-    _rec.timer=setInterval(function(){ try{render();}catch(e){} }, 1000);
-    _rec.autoStop=setTimeout(function(){ try{ stopBayRec(bayId); }catch(e){} }, 90*60000);   // 90분 안전 자동종료
+    _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0};
+    try{ if(navigator.wakeLock) _rec.wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
+    _startSegment();
+    _rec.uiTimer=setInterval(_recUpdateUI, 1000);   // 초시계·텍스트만 갱신(render X)
+    _rec.autoStop=setTimeout(function(){ try{ stopBayRec(bayId); }catch(e){} }, 90*60000);
     render();
   }catch(e){
     console.warn('[rec] start fail:', e);
-    liveToast(e&&e.name==='NotAllowedError'?'마이크 권한을 허용해주세요 (설정에서)':'녹음 시작 실패','err');
+    liveToast(e&&e.name==='NotAllowedError'?'마이크 권한을 허용해주세요 (iOS: 설정>이 앱>마이크)':'녹음 시작 실패','err');
   }
 }
 async function stopBayRec(bayId){
   if(_rec.bayId!==bayId || !_rec.mr) return;
-  var mr=_rec.mr, chunks=_rec.chunks;
-  clearInterval(_rec.timer); clearTimeout(_rec.autoStop);
+  _rec.stopping=true;
+  _rec._lastBay=bayId;
+  clearInterval(_rec.uiTimer); clearTimeout(_rec.segTimer); clearTimeout(_rec.autoStop);
   try{ if(_rec.wakeLock) _rec.wakeLock.release(); }catch(e){}
-  var stopped=new Promise(function(res){ mr.onstop=res; setTimeout(res,3000); });
-  try{ mr.stop(); }catch(e){}
-  try{ mr.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
-  _rec={bayId:null, mr:null, chunks:[], startedAt:0, timer:null, wakeLock:null, autoStop:null};
   var act=S.activeSessions[bayId];
-  if(act){ act._sttBusy=true; }
-  render();
-  await stopped;
-  var blob=new Blob(chunks, {type:(chunks[0]&&chunks[0].type)||'audio/mp4'});
-  if(!blob.size){ if(act) delete act._sttBusy; liveToast('녹음이 비어 있습니다','err'); render(); return; }
-  // 원본 백업 (R2, 조용히 — 실패해도 변환은 진행)
-  var recKey='rec/'+bayId+'_'+Date.now()+(String(blob.type).indexOf('mp4')!==-1?'.m4a':'.webm');
-  try{ r2.upload(recKey, blob); }catch(e){}
-  // 음성 → 텍스트
-  var text='';
-  try{ text=await sttTranscribe(blob); }catch(e){ console.warn('[stt] fail:', e&&e.message); }
-  act=S.activeSessions[bayId];   // 변환 중 세션이 바뀌었을 수 있어 재조회
-  if(act){
-    delete act._sttBusy;
-    if(text){
-      act._transcript=((act._transcript||'')+'\n'+text).trim();
-      liveToast('🎙 녹음이 글로 변환됐어요 — 종료 시 AI가 일지로 정리','ok');
-    }else{
-      act._recBackup=recKey;
-      liveToast('변환 실패 — 녹음 원본은 저장됨','err');
-    }
-    try{save();}catch(e){}
-  }
+  if(act) act._sttBusy=true;   // 마지막 조각 변환 중 표시
+  try{ _rec.mr.stop(); }catch(e){ _finishRec(); }
+  try{ _rec.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+  _rec.bayId=null; _rec.mr=null; _rec.stream=null;
   render();
 }
 async function sttTranscribe(blob){
@@ -876,36 +964,26 @@ function renderBayCard(bay, canCoach, isAdmin){
     if(psHTML){ body += psHTML;
     }
   }
-  // 수업 녹음 (앱 내장) — 누구나 버튼 하나로
-  if(!stale && recSupported()){
-    if(_rec.bayId===bay.id){
-      body += '<div class="rec-bar on"><span class="rec-dot"></span><span class="rec-label">녹음 중 '+_recElapsed()+'</span>'
-            + '<span class="rec-hint">화면을 켜둔 채 두세요</span>'
-            + '<button class="rec-stop" onclick="stopBayRec(\''+bay.id+'\')">⏹ 종료·글변환</button></div>';
-    } else if(act._sttBusy){
-      body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">음성을 글로 변환 중...</span></div>';
-    } else if(!_rec.bayId){
-      body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+bay.id+'\')">🎙 수업 녹음<small>종료하면 자동으로 글 변환 → AI 일지</small></button>';
-    }
-  }
-  // 음성 받아쓰기 — 기기별 하이브리드
+  // 수업 녹음 — 방식 하나로 통일: 🎙 녹음하면 15초마다 아래에 글이 실시간으로 붙고,
+  // ⏹ 종료하면 자동 저장. (아이폰·갤럭시 동일 동작, Whisper 서버 변환 = 인식률 최상)
   if(!stale){
-    var mode=voiceMode();
-    if(mode==='web'){
-      if(S.voiceBay===bay.id){
-        body += '<div class="voice-rec"><div class="vr-head"><span class="vr-dot"></span>녹음 중 · 받아쓰기<button class="vr-stop" onclick="stopVoice(\''+bay.id+'\')">중지</button></div>'
-              + '<div class="vr-text">'+(esc((act._transcript||'').slice(-90))||'듣는 중...')+'</div></div>';
-      } else {
-        body += '<button class="btn voice-btn" onclick="startVoice(\''+bay.id+'\')">🎙 '+((act._transcript||'').trim()?'받아쓰기 계속':'음성 기록 시작')+'</button>';
+    if(recSupported() && _rec.bayId===bay.id){
+      body += '<div class="rec-bar on"><span class="rec-dot"></span><span class="rec-label">녹음 중 <span id="rec-elapsed">'+_recElapsed()+'</span></span>'
+            + '<button class="rec-stop" onclick="stopBayRec(\''+bay.id+'\')">⏹ 녹음 종료</button></div>'
+            + '<div class="rec-live" id="rec-live-text">'+esc(((act._transcript||'').trim()).slice(-300)||'듣는 중... 말하면 15초 안에 글로 나타나요')+'</div>';
+    } else if(act._sttBusy){
+      body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">마지막 조각 변환 중...</span></div>';
+    } else {
+      if(recSupported() && !_rec.bayId){
+        body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+bay.id+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
       }
-    } else if(mode==='ios'){
-      // 아이폰/아이패드: 시스템 받아쓰기 (textarea + 키보드의 🎤 버튼 안내)
-      body += '<div class="voice-ios">'
-            +   '<div class="vi-head">🎙 <b>키보드의 마이크 버튼</b>으로 받아쓰기</div>'
-            +   '<textarea class="vi-area" placeholder="레슨 내용을 말하거나 입력하세요. 키보드 마이크 🎤 누르면 음성→텍스트 자동 변환." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
-            + '</div>';
-    } else if((act._transcript||'').trim()){
-      body += '<div class="voice-note">🎙 받아쓰기 미지원 기기 — 종료 시 직접 입력</div>';
+      // 녹음 중이 아닐 때: 받아쓴 내용 확인·수정 (직접 타이핑도 여기)
+      if((act._transcript||'').trim() || !recSupported()){
+        body += '<div class="voice-ios">'
+              +   '<div class="vi-head">📝 수업 메모 <small>(자동 저장)</small></div>'
+              +   '<textarea class="vi-area" placeholder="수업 내용 메모 — 세션 종료 시 AI가 일지로 정리합니다." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
+              + '</div>';
+      }
     }
   }
   var mode = modeEarly;
@@ -1056,9 +1134,11 @@ async function deleteSelectedShots(){
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
   _liveLastIds = null;   // 폴링 비교 기준 리셋 — 재개 후 서버 상태를 새로 반영
+  window._shotsDeleting = true;   // 진행 중이던 폴링 응답도 적용 차단(부활 방지)
   Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(ok){
     targets.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
     if(!ok){ liveToastSafe('⚠️ 서버 삭제 일부 실패 — 다시 시도해주세요'); }
+    window._shotsDeleting = false;
     // 삭제 완료된 뒤에 폴링 재개(그 전엔 서버에 남아있어 다시 뜰 수 있음)
     if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 800);
   });
@@ -1076,8 +1156,11 @@ async function purgeUnassignedShots(){
   // 백그라운드 정리
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
+  _liveLastIds = null;
+  window._shotsDeleting = true;
   Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
     un.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    window._shotsDeleting = false;
     if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
   });
 }

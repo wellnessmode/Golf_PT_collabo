@@ -1563,3 +1563,11 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .pv-vm-dl{padding:10px 12px;background:#0d1117}
 .pv-dl-btn{display:block;width:100%;box-sizing:border-box;padding:13px;border-radius:11px;background:#00b884;color:#fff;font-weight:800;font-size:14px;text-decoration:none;text-align:center;border:none}
 .pv-dl-btn:hover{background:#00a374}
+
+/* 🎙 실시간 받아쓰기 표시 (녹음 중) */
+.rec-live{background:#0d1117;color:#c9d1d9;border-radius:0 0 12px 12px;margin:-9px 0 9px;padding:12px 14px;font-size:13px;line-height:1.65;min-height:52px;max-height:130px;overflow-y:auto;word-break:keep-all}
+.vi-head small{font-weight:500;color:var(--tx-3)}
+
+/* 관리자 작성 세션 라벨 */
+.role-tag.admin{background:#5b6472;color:#fff}
+.session-hd.admin{border-left:3px solid #5b6472}

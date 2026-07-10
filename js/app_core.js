@@ -201,6 +201,7 @@ const INSTRUCTORS = [
 function getRole(author){
   var inst = INSTRUCTORS.find(function(i){return i.name===author;});
   if(inst) return inst.role;
+  if(author==='관리자' || author==='인포데스크') return 'admin';   // 미지정 작성자를 PT로 오표기하던 문제
   return (author && author.indexOf('프로')!==-1) ? 'pro' : 'trainer';
 }
 
