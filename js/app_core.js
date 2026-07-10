@@ -26,14 +26,39 @@ const ASSESSMENT_ITEMS = [
 const RESULT_OPTIONS = ['미검사','정상','경미한 제한','주의 필요','제한'];
 const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 
-const DEFAULT_PASSWORDS = {
-  'infodesk':'ng2026',
-  '정우진 프로':'jung00',
-  '홍태양 프로':'hong00',
-  '최현승 트레이너':'choi00',
-  '이상렬 트레이너':'lee000',
-  '관리자':'admin0000'
-};
+// ============ B2B 화이트라벨 (config.js 오버라이드) ============
+// 브랜드/지도자/베이/초기비번은 config.js 값이 있으면 그걸 쓰고, 없으면 기본값.
+const APP_BRAND = Object.assign({
+  name:'NATIONAL GYM', nameKo:'내셔널짐', sub:'GOLF & PT',
+  tagline:'COLLABORATIVE COACHING PLATFORM',
+  reportSub:'GOLF PT · PERFORMANCE', measuredBy:'TRACKMAN iO'
+}, (window.APP_CONFIG && window.APP_CONFIG.BRAND) || {});
+
+const INSTRUCTORS = (window.APP_CONFIG && Array.isArray(window.APP_CONFIG.INSTRUCTORS) && window.APP_CONFIG.INSTRUCTORS.length)
+  ? window.APP_CONFIG.INSTRUCTORS
+  : [
+    {name:'정우진 프로', role:'pro'},
+    {name:'홍태양 프로', role:'pro'},
+    {name:'최현승 트레이너', role:'trainer'},
+    {name:'이상렬 트레이너', role:'trainer'}
+  ];
+
+const DEFAULT_PASSWORDS = (function(){
+  var d = {
+    'infodesk':'ng2026',
+    '정우진 프로':'jung00',
+    '홍태양 프로':'hong00',
+    '최현승 트레이너':'choi00',
+    '이상렬 트레이너':'lee000',
+    '관리자':'admin0000'
+  };
+  Object.assign(d, (window.APP_CONFIG && window.APP_CONFIG.PASSWORDS) || {});
+  // 화이트라벨 안전장치 — config 로 지도자 명단을 교체했는데 PASSWORDS 를 안 채우면
+  // getPassword 가 undefined 를 돌려줘 비번 모달 없이 로그인되는 구멍이 생긴다.
+  // 명단의 모든 이름에 초기 비밀번호를 강제 시드 (배포 후 앱에서 변경).
+  INSTRUCTORS.forEach(function(i){ if(!d[i.name]) d[i.name]='0000'; });
+  return d;
+})();
 function getPassword(key){
   try{
     var stored = JSON.parse(localStorage.getItem('golf_pt_passwords')||'{}');
@@ -46,15 +71,26 @@ function setPassword(key, newPw){
     var oldPw = stored[key] || DEFAULT_PASSWORDS[key];
     stored[key] = newPw;
     localStorage.setItem('golf_pt_passwords', JSON.stringify(stored));
-    logAudit('auth','비밀번호 변경', key, {before:oldPw, after:newPw});
+    logAudit('auth','비밀번호 변경', key, {});   // 비밀번호 값은 로그에 남기지 않는다
     return true;
   }catch(e){return false;}
 }
 
 const APP_VERSION = {
-  version:'v8.7',
+  version:'v8.8',
   date:'2026-07-10',
   changes:[
+    '녹음 원문 프라이버시 — 지도자·회원 화면에서 숨김, 관리자 전용 🎙 원문 보관함 신설',
+    '관리자 모드 비밀번호 변경 지원',
+    '성과 리포트 실데이터 완성 — 데모 수치·가짜 예측 제거, 회원 목표+실측 기반 목표진척, 성장 그래프(캐리 추이) 신설',
+    '탄착군 산점도 — 클럽별 좌우 분산 시각화 + 자동 해석 (GDR 벤치마킹)',
+    '클럽별 평균 캐리 갭 차트 · 비포/애프터 탭하면 샷 영상·전지표 모달',
+    '공유 리포트에 트랙맨 측정 섹션(베스트샷·추이·클럽표·샷 영상) 포함',
+    '샷 데이터 CSV 내보내기 (데이터 소유권)',
+    '리포트 공유·인쇄 버튼 실동작 (OS 공유시트/클립보드)',
+    '영상 업로드 안정성 — 3회 자동 재시도 + 실패 배지 + 수동 재업로드',
+    '성과 화면 기본 단위 미터(m·㎧)',
+    'B2B 화이트라벨 — 브랜드/지도자/베이/비밀번호 config.js 분리',
     '수업 녹음 — 실시간 받아쓰기(15초 단위) + 종료 시 자동 저장, 텍스트 유실 방지 2중 방어',
     'AI 골프 특화 정리 — 오늘의 핵심/교정 포인트/드릴/과제/특이사항 구조화, 녹음 원문 전체 보존',
     '라이브 세션 — 베이별(1·2번타석/3번룸) 활성세션 + 샷 저장 + 관리자 재할당/삭제',
@@ -193,12 +229,6 @@ function matchExercise(ex, query){
   return false;
 }
 
-const INSTRUCTORS = [
-  {name:'정우진 프로', role:'pro'},
-  {name:'홍태양 프로', role:'pro'},
-  {name:'최현승 트레이너', role:'trainer'},
-  {name:'이상렬 트레이너', role:'trainer'}
-];
 function getRole(author){
   var inst = INSTRUCTORS.find(function(i){return i.name===author;});
   if(inst) return inst.role;
@@ -209,11 +239,16 @@ function getRole(author){
 // ============ 라이브 세션: 베이(타석) 마스터 ============
 // 1번타석/2번타석 = 연습+레슨 겸용, 3번룸 = 레슨 전용.
 // 각 베이는 트랙맨 유닛/PC와 1:1로 물리 고정되며, 모든 매칭은 bay_id 기준.
-const BAYS_DEFAULT = [
-  {id:'bay1', name:'1번타석', color:'bay-blue',  type:'practice'},
-  {id:'bay2', name:'2번타석', color:'bay-amber', type:'practice'},
-  {id:'bay3', name:'3번룸',   color:'bay-green', type:'lesson_only'}
-];
+// config.BAYS 가 명시되면 그것이 단일 진실 소스 — localStorage/서버에 남은 옛 구성이
+// 이기면 "config만 바꾸면 된다"는 배포 가이드가 조용히 거짓이 된다 (증설 베이 미표시).
+const CONFIG_BAYS_SET = !!(window.APP_CONFIG && Array.isArray(window.APP_CONFIG.BAYS) && window.APP_CONFIG.BAYS.length);
+const BAYS_DEFAULT = CONFIG_BAYS_SET
+  ? window.APP_CONFIG.BAYS
+  : [
+    {id:'bay1', name:'1번타석', color:'bay-blue',  type:'practice'},
+    {id:'bay2', name:'2번타석', color:'bay-amber', type:'practice'},
+    {id:'bay3', name:'3번룸',   color:'bay-green', type:'lesson_only'}
+  ];
 
 const BODY_SWING_MAP = {
   static_posture:'정적 자세 불균형 — 어드레스 셋업 일관성 저하',
@@ -446,7 +481,19 @@ const r2 = {
   workerUrl:'', apiKey:'', enabled:false,
   init(){const cfg=window.APP_CONFIG||{};if(!cfg.R2_WORKER_URL||!cfg.R2_API_KEY) return false;this.workerUrl=String(cfg.R2_WORKER_URL).replace(/\/+$/,'');this.apiKey=cfg.R2_API_KEY;this.enabled=true;return true;},
   url(key){if(!this.enabled||!key) return '';return this.workerUrl+'/'+encodeURIComponent(key);},
-  async upload(key,blob){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'PUT',headers:{'X-API-Key':this.apiKey,'Content-Type':(blob&&blob.type)||'application/octet-stream'},body:blob});if(!res.ok){console.warn('[r2] upload http',res.status);return false;}return true;}catch(e){console.warn('[r2] upload fail:',e);return false;}},
+  // 업로드 — 일시적 네트워크/5xx 실패는 3회까지 자동 재시도 (지수 백오프)
+  async upload(key,blob){if(!this.enabled) return false;
+    for(var attempt=0; attempt<3; attempt++){
+      try{
+        const res=await fetch(this.url(key),{method:'PUT',headers:{'X-API-Key':this.apiKey,'Content-Type':(blob&&blob.type)||'application/octet-stream'},body:blob});
+        if(res.ok) return true;
+        console.warn('[r2] upload http',res.status,'(시도 '+(attempt+1)+'/3)');
+        if(res.status>=400 && res.status<500 && res.status!==429) return false;   // 인증 등 4xx는 재시도 무의미
+      }catch(e){console.warn('[r2] upload fail:',e&&e.message,'(시도 '+(attempt+1)+'/3)');}
+      if(attempt<2) await new Promise(function(r){setTimeout(r, 1500*(attempt+1));});
+    }
+    return false;
+  },
   async download(key){if(!this.enabled) return null;try{const res=await fetch(this.url(key));if(!res.ok) return null;return await res.blob();}catch(e){console.warn('[r2] download fail:',e);return null;}},
   async head(key){if(!this.enabled||!key) return false;try{const res=await fetch(this.url(key),{method:'HEAD'});return res.ok;}catch(e){return false;}},
   async remove(key){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'DELETE',headers:{'X-API-Key':this.apiKey}});return res.ok;}catch(e){console.warn('[r2] delete fail:',e);return false;}}
@@ -477,7 +524,7 @@ let S = {
   showLiveSession:false, liveStartBay:null, liveStartQuery:'',
   liveConfirm:null, liveReassignShot:null, liveToast:null, voiceBay:null,
   classPick:null, classPickQuery:'',
-  perfUnitDist:'yd', perfUnitSpd:'mph', perfTextScale:1, openSessions:{}, liveBayPickFor:null,
+  perfUnitDist:'m', perfUnitSpd:'ms', perfTextScale:1, openSessions:{}, liveBayPickFor:null,   // 기본 미터/㎧ — 트랙맨 iO 원본 단위
   bioBusy:false, bioError:'', bioEnrollFor:null, trustDevice:false,
   deletedSessionIds:{},  // 삭제된 세션 tombstone (다른 기기 캐시가 재업로드해 부활하는 것 방지)
   deletedMemberIds:{}    // 삭제 승인된 회원 tombstone (부팅/동기화 시 부활 차단)
@@ -515,7 +562,7 @@ function save(){
   try{var data={members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds,_dirtyAssess:S._dirtyAssess,_draftSession:(S.showAddSession?S.newSession:null),_draftMember:S.selectedMember};var str=JSON.stringify(data,function(k,v){if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;return v;});localStorage.setItem('golf_pt_v2',str);return true;}catch(e){try{S.activityLog=[];S.auditLog=S.auditLog?S.auditLog.slice(-20):[];S.handovers={};localStorage.setItem('golf_pt_v2',JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds}));return true;}catch(e2){console.warn('[save] localStorage full');return false;}}
 }
 function estimateStorageSize(){try{return JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,lastSeen:S.lastSeen}).length;}catch(e){return 0;}}
-function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=(p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice();S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};S.deletedMemberIds=p.deletedMemberIds||{};S._dirtyAssess=p._dirtyAssess||{};S._draftSession=p._draftSession||null;S._draftMember=p._draftMember||null;}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();if(S.members.length>0&&!S.selectedMember) S.selectedMember=S.members[0].id;}
+function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=CONFIG_BAYS_SET?BAYS_DEFAULT.slice():((p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice());S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};S.deletedMemberIds=p.deletedMemberIds||{};S._dirtyAssess=p._dirtyAssess||{};S._draftSession=p._draftSession||null;S._draftMember=p._draftMember||null;}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();if(S.members.length>0&&!S.selectedMember) S.selectedMember=S.members[0].id;}
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{window.__authed=true;}catch(e){}try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
@@ -639,7 +686,7 @@ const bio = {
     var uid=new TextEncoder().encode(role+':'+user);
     var cred=await navigator.credentials.create({publicKey:{
       challenge:challenge.buffer,
-      rp:{name:'내셔널짐 Golf PT',id:location.hostname},
+      rp:{name:APP_BRAND.nameKo+' Golf PT',id:location.hostname},
       user:{id:uid,name:role+':'+user,displayName:user+' ('+role+')'},
       pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
       authenticatorSelection:{userVerification:'required',authenticatorAttachment:'platform',residentKey:'preferred'},
@@ -798,7 +845,7 @@ async function init(){
       save();S.cloudSync='connected';
     } else {S.cloudSync='error';}
     // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
-    try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
+    try{const live=await cloud.loadLive();if(live){if(CONFIG_BAYS_SET){S.bays=BAYS_DEFAULT.slice();cloud.upsertBays(S.bays);}else if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
     render();
   } else {S.cloudSync='local';}
   // 마지막 단계: 로컬에 있는 영상이 R2에 누락된 경우 자동 재업로드
@@ -904,7 +951,7 @@ async function refreshFromCloud(){
     purgeZombieSessions();
     save();S.cloudSync='connected';
   }else{S.cloudSync='error';}
-  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length) S.bays=live.bays;applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
+  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length&&!CONFIG_BAYS_SET) S.bays=live.bays;applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   render();
 }
 

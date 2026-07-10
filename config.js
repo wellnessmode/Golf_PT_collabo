@@ -26,5 +26,29 @@ window.APP_CONFIG = {
   AI_WORKER_URL: '',   // Claude 프록시 워커 주소. 비우면 R2_WORKER_URL 사용. (예: https://ng-claude.ceo-5ef.workers.dev)
   AI_WORKER_KEY: '',   // 워커 인증용 키(시크릿 아님, 게이트용). 비우면 R2_API_KEY 사용.
   ANTHROPIC_API_KEY: '',
-  ANTHROPIC_MODEL: 'claude-haiku-4-5'
+  ANTHROPIC_MODEL: 'claude-haiku-4-5',
+
+  // ---------------------------------------------------------------
+  // B2B 화이트라벨 설정 — 이 블록(+위의 키들)만 바꾸면 다른 센터에
+  // 같은 앱을 그대로 배포할 수 있습니다. (센터별 Supabase/R2 분리 권장)
+  // ---------------------------------------------------------------
+  BRAND: {
+    name: 'NATIONAL GYM',                       // 영문 브랜드 (헤더·리포트 상단)
+    nameKo: '내셔널짐',                          // 한글 브랜드 (문구·푸터)
+    sub: 'GOLF & PT',                           // 브랜드 서브 타이틀
+    tagline: 'COLLABORATIVE COACHING PLATFORM', // 로그인 화면 태그라인
+    reportSub: 'GOLF PT · PERFORMANCE',         // 성과 리포트 헤더 서브
+    measuredBy: 'TRACKMAN iO'                   // 측정 장비 표기 (리포트 신뢰도 라인)
+  },
+  // 지도자 명단 — null 이면 기본값(내셔널짐 4인). 센터 배포 시 여기만 교체.
+  // 예: [{name:'홍길동 프로', role:'pro'}, {name:'김코치 트레이너', role:'trainer'}]
+  INSTRUCTORS: null,
+  // 베이(타석) 구성 — null 이면 기본값(1·2번타석 연습겸용 + 3번룸 레슨전용).
+  // type: 'practice'(자동 저장) | 'lesson_only'(선별 저장)
+  // 예: [{id:'bay1', name:'1번룸', color:'bay-green', type:'lesson_only'}]
+  BAYS: null,
+  // 초기 비밀번호 오버라이드 — null 이면 기본값. 배포 후 앱 내 '비밀번호 변경' 권장.
+  // INSTRUCTORS 를 교체하고 여기를 비워두면 새 지도자는 초기 비밀번호 '0000' 으로 시작.
+  // 예: { 'infodesk':'****', '홍길동 프로':'****', '관리자':'****' }
+  PASSWORDS: null
 };
