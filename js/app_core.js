@@ -732,6 +732,7 @@ async function init(){
   Object.keys(S.sessions).forEach(function(mid){(S.sessions[mid]||[]).forEach(function(s){if(s.media) s.media.forEach(function(m){if(m.mediaId&&!S.mediaUrls[m.mediaId]) console.warn('[media] missing:',s.id,m.name,m.mediaId);});});});
   if(allMedia.length>0) render();
   r2.init();
+  try{ if(typeof checkSttReady==='function') checkSttReady(); }catch(e){}   // 녹음 서버 준비 여부 미리 확인
   bio.init().then(function(){
     render();
     // 앱 시작 시 자동 로그인

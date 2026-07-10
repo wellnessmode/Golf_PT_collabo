@@ -1576,3 +1576,7 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .live-confirm-expiry{background:#fff2f0;border:1px solid #f5b5ab;color:#a3341d;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.6;margin:2px 0 10px;text-align:center;word-break:keep-all}
 /* 데이터 백업 버튼 (마이페이지) */
 .mp-btn.backup-btn{color:#1f6feb}
+
+/* 녹음 서버 미설정 안내 */
+.rec-disabled{background:#fff8e6;border:1px solid #f0d488;color:#8a6d1a;border-radius:11px;padding:11px 13px;margin-bottom:9px;font-size:12.5px;line-height:1.6;word-break:keep-all}
+.rec-disabled small{color:#a98b3a}

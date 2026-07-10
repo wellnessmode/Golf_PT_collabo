@@ -707,9 +707,21 @@ async function stopBayRec(bayId){
 async function sttTranscribe(blob){
   if(!r2.enabled) throw new Error('worker 미설정');
   var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob});
+  if(res.status===501){ window._sttReady=false; throw new Error('stt-not-configured'); }   // Groq 키 미설정
   if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('stt http '+res.status+' '+t.slice(0,120)); }
+  window._sttReady=true;
   var j=await res.json();
   return (j&&j.text||'').trim();
+}
+// 앱 시작 시 STT 서버(Groq 키) 준비 여부 확인 — 녹음 UI 를 미리 맞추기 위해.
+// 501=키 미설정, 그 외(400 empty audio 등)=키 있음.
+async function checkSttReady(){
+  try{
+    if(typeof r2==='undefined' || !r2.enabled){ window._sttReady=false; return; }
+    var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':'audio/mp4'},body:new Uint8Array(0)});
+    window._sttReady = (res.status!==501 && res.status!==401);
+    if(typeof render==='function' && S.showLiveSession){ try{render();}catch(e){} }
+  }catch(e){ /* 네트워크 실패 — 판정 보류(undefined). 녹음 버튼 표시하고 시도 시 실패하면 안내 */ }
 }
 
 // Claude API 키 — 이 기기(브라우저)에만 저장. git/서버 어디에도 안 올라감.
@@ -964,8 +976,9 @@ function renderBayCard(bay, canCoach, isAdmin){
     if(psHTML){ body += psHTML;
     }
   }
-  // 수업 녹음 — 방식 하나로 통일: 🎙 녹음하면 15초마다 아래에 글이 실시간으로 붙고,
-  // ⏹ 종료하면 자동 저장. (아이폰·갤럭시 동일 동작, Whisper 서버 변환 = 인식률 최상)
+  // 수업 녹음 — 🎙 녹음하면 15초마다 아래에 글이 실시간으로 붙고, ⏹ 종료 시 자동 저장.
+  // 변환 서버(Groq) 미설정이면 녹음 대신 메모 입력 안내 (헷갈리지 않게).
+  var sttOff = (window._sttReady === false);
   if(!stale){
     if(recSupported() && _rec.bayId===bay.id){
       body += '<div class="rec-bar on"><span class="rec-dot"></span><span class="rec-label">녹음 중 <span id="rec-elapsed">'+_recElapsed()+'</span></span>'
@@ -974,14 +987,17 @@ function renderBayCard(bay, canCoach, isAdmin){
     } else if(act._sttBusy){
       body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">마지막 조각 변환 중...</span></div>';
     } else {
-      if(recSupported() && !_rec.bayId){
+      if(recSupported() && !_rec.bayId && !sttOff){
         body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+bay.id+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
       }
-      // 녹음 중이 아닐 때: 받아쓴 내용 확인·수정 (직접 타이핑도 여기)
-      if((act._transcript||'').trim() || !recSupported()){
+      if(sttOff){
+        body += '<div class="rec-disabled">🎙 음성→글 변환 서버가 아직 준비 안 됐어요.<br><b>아래 메모칸에 직접 입력</b>하거나, <b>키보드의 마이크 🎤</b>로 받아쓰기 하세요.<br><small>(관리자: 워커에 Groq 키 등록하면 실시간 녹음이 켜집니다)</small></div>';
+      }
+      // 메모칸 — 녹음 텍스트 확인·수정 + 직접 타이핑/키보드 받아쓰기 (항상 접근 가능)
+      if((act._transcript||'').trim() || !recSupported() || sttOff){
         body += '<div class="voice-ios">'
-              +   '<div class="vi-head">📝 수업 메모 <small>(자동 저장)</small></div>'
-              +   '<textarea class="vi-area" placeholder="수업 내용 메모 — 세션 종료 시 AI가 일지로 정리합니다." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
+              +   '<div class="vi-head">📝 수업 메모 <small>(자동 저장 · 세션 종료 시 AI 정리)</small></div>'
+              +   '<textarea class="vi-area" placeholder="수업 내용을 입력하거나 키보드 마이크 🎤 로 받아쓰세요." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
               + '</div>';
       }
     }
