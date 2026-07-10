@@ -1050,11 +1050,13 @@ function renderShotLog(isAdmin){
 
   // 선택 모드 툴바
   if(selMode){
+    var selTotal=(S.shotEvents||[]).length;
+    var isAllSel=selCount>=selTotal && selTotal>0;
     html += '<div class="sel-toolbar">'
          + '<button class="small-btn" onclick="selectAllShots()">전체 선택</button>'
          + '<button class="small-btn" onclick="clearShotSel()">선택 해제</button>'
          + '<span class="sel-count">'+selCount+'개 선택</span>'
-         + '<button class="small-btn del sel-del-btn"'+(selCount?'':' disabled')+' onclick="deleteSelectedShots()">🗑 선택 삭제</button>'
+         + '<button class="small-btn del sel-del-btn"'+(selCount?'':' disabled')+' onclick="deleteSelectedShots()">'+(isAllSel?'🗑 전체 삭제(서버 포함)':'🗑 선택 삭제')+'</button>'
          + '<button class="small-btn" onclick="exitShotSelMode()">취소</button>'
          + '</div>';
   }
@@ -1121,25 +1123,35 @@ function selectAllShots(){
 async function deleteSelectedShots(){
   var ids = Object.keys(S._shotSel||{}).filter(function(k){return S._shotSel[k];});
   if(!ids.length) return;
-  if(!confirm('선택한 '+ids.length+'개 샷을 삭제합니다.\n(트랙맨 PC 영상은 그대로)\n계속할까요?')) return;
+  var total = (S.shotEvents||[]).length;
+  // 화면에 보이는 샷을 전부 선택했으면 = "전부 지우려는 의도".
+  // 화면 상한(1000)보다 서버에 더 많이 쌓여 있으면, 보이는 것만 지워도 나머지가 다시 뜬다.
+  // → 이 경우 서버 전체 삭제(deleteAllShots)로 확실히 비운다.
+  var wipeAll = ids.length >= total && total > 0;
+  var msg = wipeAll
+    ? '⚠️ 저장된 샷을 서버까지 전부 삭제합니다.\n(화면에 안 보이는 옛 샷 포함 · 트랙맨 PC 영상은 그대로)\n\n되돌릴 수 없습니다. 계속할까요?'
+    : '선택한 '+ids.length+'개 샷을 삭제합니다.\n(트랙맨 PC 영상은 그대로)\n계속할까요?';
+  if(!confirm(msg)) return;
+
   var idset = {}; ids.forEach(function(id){ idset[id]=true; });
   var targets = (S.shotEvents||[]).filter(function(s){ return idset[s.id]; });
   // 1) 즉시 화면 갱신
-  S.shotEvents = (S.shotEvents||[]).filter(function(s){ return !idset[s.id]; });
+  S.shotEvents = wipeAll ? [] : (S.shotEvents||[]).filter(function(s){ return !idset[s.id]; });
   S._shotSelMode=false; S._shotSel={};
   try{ save(); }catch(e){}
   if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
-  liveToastSafe('🗑 '+targets.length+'개 삭제됨');
-  // 2) 폴링 정지 + Supabase 일괄(IN) + R2 백그라운드 병렬
+  liveToastSafe(wipeAll ? '🗑 전체 삭제 중...' : '🗑 '+targets.length+'개 삭제됨');
+  // 2) 폴링 정지 + 서버 삭제 + R2 백그라운드
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
-  _liveLastIds = null;   // 폴링 비교 기준 리셋 — 재개 후 서버 상태를 새로 반영
-  window._shotsDeleting = true;   // 진행 중이던 폴링 응답도 적용 차단(부활 방지)
-  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(ok){
+  _liveLastIds = null;
+  window._shotsDeleting = true;
+  var op = wipeAll ? cloud.deleteAllShots() : cloud.deleteShotsBulk(ids);
+  Promise.resolve(op).then(function(ok){
     targets.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
-    if(!ok){ liveToastSafe('⚠️ 서버 삭제 일부 실패 — 다시 시도해주세요'); }
+    if(!ok){ liveToastSafe('⚠️ 서버 삭제 실패 — 다시 시도해주세요'); }
+    else if(wipeAll){ liveToastSafe('✓ 전체 삭제 완료'); }
     window._shotsDeleting = false;
-    // 삭제 완료된 뒤에 폴링 재개(그 전엔 서버에 남아있어 다시 뜰 수 있음)
     if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 800);
   });
 }
