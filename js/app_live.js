@@ -1194,12 +1194,22 @@ function renderLiveStartModal(){
     + '</div></div>';
 }
 
+// 회원 등록 상태 경고 (만료/임박) — 라이브 시작 전 안내용
+function memberStatusWarn(memberId){
+  var m=S.members.find(function(x){return x.id===memberId;}); if(!m) return '';
+  var warns=[];
+  var d=(typeof daysUntilExpiry==='function')?daysUntilExpiry(typeof nearestExpiry==='function'?nearestExpiry(m):m.expiry):null;
+  if(d!==null){ if(d<0) warns.push('⛔ 이용권 <b>만료</b>됨 ('+(-d)+'일 지남)'); else if(d<=14) warns.push('⏰ 이용권 <b>D-'+d+'</b> — 곧 만료'); }
+  if(!warns.length) return '';
+  return '<div class="live-confirm-expiry">'+warns.join('<br>')+'</div>';
+}
 function renderLiveConfirmModal(){
   var c = S.liveConfirm; if(!c) return '';
   var bay = getBay(c.bayId);
   return '<div class="modal-overlay"><div class="modal live-confirm">'
     + '<div class="live-confirm-bay '+bay.color+'">'+bay.name+'</div>'
     + '<div class="live-confirm-msg"><strong>'+c.memberName+'</strong>님 레슨을<br>'+bay.name+'에서 시작합니다.</div>'
+    + memberStatusWarn(c.memberId)
     + '<div class="live-confirm-warn">⚠️ '+bay.name+'이(가) <strong>비어있는지 직접 확인</strong>하셨습니까?<br><span class="lcw-sub">다른 회원이 연습 중인 타석이면 안 됩니다.</span></div>'
     + '<div class="modal-actions"><button class="btn" onclick="cancelLiveConfirm()">취소</button><button class="btn primary" onclick="confirmLiveStart()">확인 · 시작</button></div>'
     + '</div></div>';

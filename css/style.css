@@ -1571,3 +1571,8 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 /* 관리자 작성 세션 라벨 */
 .role-tag.admin{background:#5b6472;color:#fff}
 .session-hd.admin{border-left:3px solid #5b6472}
+
+/* 라이브 시작 확인 — 만료 경고 */
+.live-confirm-expiry{background:#fff2f0;border:1px solid #f5b5ab;color:#a3341d;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.6;margin:2px 0 10px;text-align:center;word-break:keep-all}
+/* 데이터 백업 버튼 (마이페이지) */
+.mp-btn.backup-btn{color:#1f6feb}

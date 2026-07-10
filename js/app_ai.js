@@ -262,7 +262,7 @@ function addMember(){
   logActivity('회원 등록', id, name);
   logAudit('member','회원 등록',name,{phone:m.phone,email:m.email,registeredDate:m.registeredDate,expiry:m.expiry});
   save(); render();
-  cloud.upsertMember(m);
+  syncMemberUp(m);
 }
 
 

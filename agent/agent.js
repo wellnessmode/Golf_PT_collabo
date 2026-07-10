@@ -32,9 +32,21 @@ catch (e) { console.error('config.json 읽기 실패:', e.message); process.exit
 var STATE_FILE = path.join(__dirname, '.agent-state.json');
 var LOG_FILE = path.join(__dirname, 'agent.log');
 var processed = {};
-try { processed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (e) {}
-// 시작 컷오프: 기본 = 에이전트 켠 시각. backfillMinutes 만큼 과거 허용 가능.
-var AGENT_CUTOFF_MS = Date.now() - ((CFG && CFG.backfillMinutes ? CFG.backfillMinutes : 0) * 60000);
+var _stateMeta = {};
+try {
+  var _raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  // 신형: {__meta:{lastCutoff}, ...processed}. 구형: 그냥 processed 맵.
+  if (_raw && _raw.__meta){ _stateMeta = _raw.__meta; delete _raw.__meta; }
+  processed = _raw || {};
+} catch (e) {}
+var _parseFail = {};   // 부분 파일 파싱 재시도 카운터 (영속 아님)
+// 시작 컷오프: 재시작 때마다 '지금'으로 리셋하면 단절/크래시/재부팅 동안의 샷이 유실된다.
+// → 직전 실행이 마지막으로 처리한 시각을 이어받아, 그 사이 생성된 ftmf 도 처리한다.
+// (단 과도한 소급 방지: 최대 7일 전까지만. backfillMinutes 는 추가 여유.)
+var _now = Date.now();
+var _resume = (_stateMeta && _stateMeta.lastSeenMtime) ? _stateMeta.lastSeenMtime : _now;
+var _maxBack = _now - 7*24*3600*1000;
+var AGENT_CUTOFF_MS = Math.max(_maxBack, Math.min(_resume, _now)) - ((CFG && CFG.backfillMinutes ? CFG.backfillMinutes : 0) * 60000);
 
 function log(msg){
   var line = '[' + new Date().toISOString() + '] ' + msg;
@@ -46,9 +58,27 @@ function say(msg){ // verbose 무관 항상 콘솔 + 로그
   try { fs.appendFileSync(LOG_FILE, line + '\n'); } catch (e) {}
   console.log(line);
 }
-function saveState(){ try { fs.writeFileSync(STATE_FILE, JSON.stringify(processed)); } catch (e) {} }
+function saveState(){
+  try {
+    // 처리이력 무한 증가 방지 — 최근 4000건만 유지(오래된 것부터 정리). 원자적 저장.
+    var keys = Object.keys(processed);
+    if (keys.length > 4000){
+      var arr = keys.map(function(k){ return [k, (processed[k] && processed[k].t) || 0]; });
+      arr.sort(function(a,b){ return a[1]-b[1]; });
+      for (var i=0;i<arr.length-4000;i++){ delete processed[arr[i][0]]; }
+    }
+    var tmp = STATE_FILE + '.tmp';
+    var out = Object.assign({ __meta: _stateMeta }, processed);
+    fs.writeFileSync(tmp, JSON.stringify(out));
+    fs.renameSync(tmp, STATE_FILE);   // 원자적 교체 — 재부팅 중 손상 방지
+  } catch (e) {}
+}
+// agent.log 회전 — 5MB 넘으면 .1 로 밀고 새로 시작(디스크 가득참 방지)
+function rotateLogIfBig(){
+  try{ var st=fs.statSync(LOG_FILE); if(st.size > 5*1024*1024){ try{fs.renameSync(LOG_FILE, LOG_FILE+'.1');}catch(e){ fs.writeFileSync(LOG_FILE,''); } } }catch(e){}
+}
 
-// ---- HTTPS helper ----
+// ---- HTTPS helper (타임아웃 포함 — 네트워크 단절 시 무한 정지 방지) ----
 function httpRequest(urlStr, opts, body){
   return new Promise(function(resolve, reject){
     var u = new URL(urlStr);
@@ -60,6 +90,8 @@ function httpRequest(urlStr, opts, body){
       res.on('data', function(c){ chunks.push(c); });
       res.on('end', function(){ resolve({ status: res.statusCode, body: Buffer.concat(chunks) }); });
     });
+    var TIMEOUT = (opts.timeoutMs || 30000);
+    req.setTimeout(TIMEOUT, function(){ req.destroy(new Error('timeout '+TIMEOUT+'ms')); });
     req.on('error', reject);
     if (body) req.write(body);
     req.end();
@@ -125,6 +157,7 @@ async function uploadVideo(key, buf, contentType){
       var req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'PUT', port:443,
         headers:{ 'X-API-Key': CFG.R2_API_KEY, 'Content-Type': contentType||'application/octet-stream', 'Content-Length': buf.length } },
         function(res){ res.on('data',function(){}); res.on('end',function(){ resolve(res.statusCode>=200&&res.statusCode<300); }); });
+      req.setTimeout(120000, function(){ req.destroy(new Error('R2 업로드 타임아웃')); });   // 대용량 영상 여유 2분
       req.on('error', function(e){ log('  ! R2 업로드 오류 '+e.message); resolve(false); });
       req.write(buf); req.end();
     }catch(e){ resolve(false); }
@@ -151,7 +184,15 @@ async function handleFtmf(filePath){
   var buf = fs.readFileSync(filePath);
   var parsed;
   try { parsed = parseFtmf(buf); }
-  catch (e) { log('파싱 실패 ' + fname + ': ' + e.message); processed[fname] = { err: e.message, t: Date.now() }; saveState(); return; }
+  catch (e) {
+    // 파싱 실패 = 부분 파일(재부팅/쓰기중)일 수 있음 → 영구 마킹하지 말고 재시도.
+    // 단 5회(약 25초) 넘게 계속 실패하면 '깨진 파일'로 확정하고 스킵.
+    var pf = _parseFail[fname] = (_parseFail[fname] || 0) + 1;
+    if (pf < 5) { log('파싱 대기(재시도 '+pf+'/5) ' + fname + ': ' + e.message); return; }
+    log('파싱 실패(확정) ' + fname + ': ' + e.message);
+    processed[fname] = { err: e.message, t: Date.now() }; saveState(); delete _parseFail[fname]; return;
+  }
+  delete _parseFail[fname];
 
   var bayId = resolveBay(parsed.trackingUnit);
   if (!bayId) { log('베이 매핑 없음 (TrackingUnit=' + parsed.trackingUnit + '), 건너뜀'); processed[fname] = { skip:'no-bay', t:Date.now() }; saveState(); return; }
@@ -208,6 +249,7 @@ async function handleFtmf(filePath){
     var nonNull = Object.keys(tc).filter(function(k){ return tc[k] != null; }).map(function(k){ return k+'='+tc[k]; });
     if (nonNull.length) log('  토탈 후보값들 → ' + nonNull.join(', '));
     processed[fname] = { id: shotId, mid: parsed.measurementId, t: Date.now() };
+    try{ var _mt=fs.statSync(filePath).mtimeMs; if(_mt> (_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mt; }catch(e){}
     saveState();
   } else {
     log('전송 실패(다음 주기 재시도): ' + fname);
@@ -216,6 +258,7 @@ async function handleFtmf(filePath){
 
 // ---- 폴더 스캔 ----
 async function scan(){
+  rotateLogIfBig();
   var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : [CFG.watchDir];
   // 시작 시점 컷오프 — 에이전트 켠 이후 생성된 ftmf만 처리(과거 연습기록 무시)
   // CFG.processExisting=true 면 과거 것도 처리. backfillMinutes 면 그만큼 과거까지 허용.

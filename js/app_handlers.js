@@ -129,7 +129,7 @@ function saveMemberEdit(){
   S.editMemberId=null; S.showAddMember=false;
   logActivity('회원 수정', editId, nm);
   logAudit('member','회원 수정',nm,{before:before,after:{name:m.name,phone:m.phone,email:m.email,expiry:m.expiry}});
-  save(); render(); cloud.upsertMember(m);
+  m._dirty=true; save(); render(); syncMemberUp(m);
 }
 // ============ 인수인계 시스템 ============
 function generateHandover(memberId, removedInstructors, addedInstructors){
@@ -571,11 +571,19 @@ function requestDelete(id){
 function approveDelete(id){
   if(!confirm('삭제를 승인하시겠습니까? 모든 세션과 평가 데이터가 영구 삭제됩니다.'))return;
   var mName=(S.members.find(function(m){return m.id===id;})||{}).name||'';
+  // 세션 tombstone 도 같이 남겨 다른 기기 캐시가 세션을 되살리지 못하게
+  if(!S.deletedSessionIds) S.deletedSessionIds={};
+  (S.sessions[id]||[]).forEach(function(s){ S.deletedSessionIds[s.id]=Date.now(); });
+  // 회원 tombstone — 부팅 머지가 삭제된 회원을 재업로드해 부활시키는 것 차단
+  if(!S.deletedMemberIds) S.deletedMemberIds={};
+  S.deletedMemberIds[id]=Date.now();
   S.members=S.members.filter(function(x){return x.id!==id;});
   delete S.assessments[id];delete S.sessions[id];delete S.deleteRequests[id];
   if(S.selectedMember===id) S.selectedMember=S.members.length>0?S.members[0].id:null;
   logAudit('member','삭제 승인',mName,{id:id});
   save(); render();
+  // 서버 전파 (회원+세션+평가+샷)
+  try{ cloud.deleteMember(id); }catch(e){}
 }
 function rejectDelete(id){
   var mName=(S.members.find(function(m){return m.id===id;})||{}).name||'';
@@ -625,7 +633,7 @@ function updateAssess(key, field, val){
   var itemName=(ASSESSMENT_ITEMS.find(function(i){return i.key===key;})||{}).name||key;
   logActivity('평가 수정', mid, itemName+': '+v.result);
   logAudit('assess','평가 수정', (S.members.find(function(m){return m.id===mid;})||{}).name||'', {item:itemName, field:field, value:val});
-  cloud.upsertAssessment(mid, key, v.result, v.note);
+  syncAssessUp(mid, key, v);
 }
 
 function snapshotAssessment(){
@@ -719,3 +727,57 @@ function addSession(){
 }
 
 // ============ AI 세션 요약 + 운동 추천 ============
+
+// ============ 데이터 백업 / 복구 (관리자) ============
+// Supabase/R2 장애·오조작 대비 로컬 스냅샷. 회원·세션·평가·인수인계 전부 JSON 한 파일로.
+function backupData(){
+  try{
+    var snap = {
+      _type:'golfpt-backup', _ver:1, _at:new Date().toISOString(),
+      members:S.members, assessments:S.assessments, sessions:S.sessions,
+      handovers:S.handovers, deleteRequests:S.deleteRequests,
+      deletedSessionIds:S.deletedSessionIds, deletedMemberIds:S.deletedMemberIds
+    };
+    var blob = new Blob([JSON.stringify(snap,null,2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = new Date(); var stamp = d.getFullYear()+''+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
+    a.href=url; a.download='golfpt_backup_'+stamp+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    logAudit('system','데이터 백업 다운로드','',{members:(S.members||[]).length});
+  }catch(e){ alert('백업 실패: '+(e.message||e)); }
+}
+function triggerRestore(){
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='application/json,.json';
+  inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var snap=JSON.parse(r.result);
+        if(snap._type!=='golfpt-backup') { if(!confirm('golfpt 백업 형식이 아닙니다. 그래도 복구를 시도할까요?')) return; }
+        var mc=(snap.members||[]).length;
+        if(!confirm('백업('+ (snap._at||'?') +')으로 복구합니다.\n회원 '+mc+'명 + 세션/평가.\n\n⚠️ 현재 이 기기의 회원/세션/평가가 백업 내용으로 덮어써지고, 서버에도 업로드됩니다.\n계속할까요?')) return;
+        if(snap.members) S.members=snap.members;
+        if(snap.assessments) S.assessments=snap.assessments;
+        if(snap.sessions) S.sessions=snap.sessions;
+        if(snap.handovers) S.handovers=snap.handovers;
+        if(snap.deleteRequests) S.deleteRequests=snap.deleteRequests;
+        if(snap.deletedSessionIds) S.deletedSessionIds=snap.deletedSessionIds;
+        if(snap.deletedMemberIds) S.deletedMemberIds=snap.deletedMemberIds;
+        save();
+        // 서버로 밀어올리기(복구 반영)
+        try{
+          (S.members||[]).forEach(function(m){ syncMemberUp(m); });
+          Object.keys(S.sessions||{}).forEach(function(mid){ (S.sessions[mid]||[]).forEach(function(s){ s._dirty=true; syncSessionUp(mid,s); }); });
+          Object.keys(S.assessments||{}).forEach(function(mid){ Object.keys(S.assessments[mid]||{}).forEach(function(k){ if(k.indexOf('_')!==0) syncAssessUp(mid,k,S.assessments[mid][k]); }); });
+        }catch(e){}
+        logAudit('system','데이터 복구','',{members:mc});
+        alert('복구 완료 — 회원 '+mc+'명. 서버 업로드는 백그라운드로 진행됩니다.');
+        render();
+      }catch(e){ alert('복구 실패: 잘못된 파일 ('+(e.message||e)+')'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
