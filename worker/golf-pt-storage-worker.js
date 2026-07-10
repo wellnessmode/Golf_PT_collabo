@@ -15,7 +15,7 @@
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, X-STT-Prompt',
   'Access-Control-Max-Age': '86400',
 };
 
