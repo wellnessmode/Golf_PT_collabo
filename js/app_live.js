@@ -707,21 +707,23 @@ async function stopBayRec(bayId){
 async function sttTranscribe(blob){
   if(!r2.enabled) throw new Error('worker 미설정');
   var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob});
-  if(res.status===501){ window._sttReady=false; throw new Error('stt-not-configured'); }   // Groq 키 미설정
+  if(res.status===501||res.status===404||res.status===401){ window._sttReady=false; throw new Error('stt-not-ready '+res.status); }   // 키미설정/경로없음/인증
   if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('stt http '+res.status+' '+t.slice(0,120)); }
   window._sttReady=true;
   var j=await res.json();
   return (j&&j.text||'').trim();
 }
-// 앱 시작 시 STT 서버(Groq 키) 준비 여부 확인 — 녹음 UI 를 미리 맞추기 위해.
-// 501=키 미설정, 그 외(400 empty audio 등)=키 있음.
+// 앱 시작 시 STT 서버(Groq 키 + /stt 경로) 준비 여부 확인 — 녹음 UI 를 미리 맞춤.
+// 빈 오디오를 보내 응답 코드로 판정:
+//   400 (empty audio — 경로·키 정상) 또는 2xx = 준비됨
+//   404(구버전 워커 /stt 없음)·501(키 없음)·401(인증)·5xx = 안 됨
 async function checkSttReady(){
   try{
     if(typeof r2==='undefined' || !r2.enabled){ window._sttReady=false; return; }
     var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':'audio/mp4'},body:new Uint8Array(0)});
-    window._sttReady = (res.status!==501 && res.status!==401);
+    window._sttReady = (res.status===400 || (res.status>=200 && res.status<300));
     if(typeof render==='function' && S.showLiveSession){ try{render();}catch(e){} }
-  }catch(e){ /* 네트워크 실패 — 판정 보류(undefined). 녹음 버튼 표시하고 시도 시 실패하면 안내 */ }
+  }catch(e){ /* 네트워크 실패 — 판정 보류(undefined). 녹음 버튼 표시, 시도 시 실패하면 안내로 전환 */ }
 }
 
 // Claude API 키 — 이 기기(브라우저)에만 저장. git/서버 어디에도 안 올라감.
