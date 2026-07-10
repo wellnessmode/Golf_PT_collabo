@@ -55,6 +55,48 @@ export default {
     }
     // ────────────────────────────────────────────────────────
 
+    // ── DB 쓰기 프록시 (/db) — Supabase 서비스 키로 실행(RLS 우회) ─────────
+    // anon 은 읽기전용으로 조이고, 모든 쓰기는 이 프록시 경유(APP_API_KEY 인증).
+    // body: { op:'upsert'|'delete'|'update', table, rows?, values?, filters?:[{col,op,val}] }
+    if (url.pathname === '/db') {
+      if (request.method !== 'POST') return json({ error: 'use POST' }, 405);
+      const apiKey = request.headers.get('X-API-Key');
+      if (!env.APP_API_KEY || apiKey !== env.APP_API_KEY) return json({ error: 'unauthorized' }, 401);
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return json({ error: 'db-proxy-not-configured' }, 501);
+      let b;
+      try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: 'bad json' }, 400); }
+      const ALLOWED = { members:1, assessments:1, sessions:1, shot_events:1, active_sessions:1, bays:1, reports:1 };
+      if (!ALLOWED[b.table]) return json({ error: 'table not allowed' }, 403);
+      const base = env.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/' + b.table;
+      const H = { 'apikey': env.SUPABASE_SERVICE_KEY, 'Authorization': 'Bearer ' + env.SUPABASE_SERVICE_KEY, 'Content-Type': 'application/json' };
+      const OPS = { eq:'eq', neq:'neq', in:'in', lt:'lt', gt:'gt' };
+      function qs(filters){
+        if (!filters || !filters.length) return '';
+        return '?' + filters.map(f => {
+          const op = OPS[f.op] || 'eq';
+          if (op === 'in') return encodeURIComponent(f.col) + '=in.(' + (Array.isArray(f.val)?f.val:[f.val]).map(v=>encodeURIComponent(v)).join(',') + ')';
+          return encodeURIComponent(f.col) + '=' + op + '.' + encodeURIComponent(f.val);
+        }).join('&');
+      }
+      try {
+        let up;
+        if (b.op === 'upsert') {
+          up = await fetch(base, { method:'POST', headers:{...H, 'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify(b.rows||[]) });
+        } else if (b.op === 'update') {
+          up = await fetch(base + qs(b.filters), { method:'PATCH', headers:{...H, 'Prefer':'return=minimal'}, body: JSON.stringify(b.values||{}) });
+        } else if (b.op === 'delete') {
+          if (!b.filters || !b.filters.length) return json({ error: 'delete requires filters' }, 400);
+          up = await fetch(base + qs(b.filters), { method:'DELETE', headers:{...H, 'Prefer':'return=minimal'} });
+        } else {
+          return json({ error: 'unknown op' }, 400);
+        }
+        const txt = await up.text();
+        if (!up.ok) return json({ error: 'supabase ' + up.status, detail: txt.slice(0,300) }, 502);
+        return json({ ok: true }, 200);
+      } catch (e) { return json({ error: String(e && e.message || e) }, 500); }
+    }
+    // ────────────────────────────────────────────────────────
+
     // ── 음성 → 텍스트 (/stt) — Groq Whisper, 한국어 ─────────
     if (url.pathname === '/stt') {
       if (request.method !== 'POST') return json({ error: 'use POST' }, 405);

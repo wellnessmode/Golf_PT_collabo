@@ -15,5 +15,6 @@
   "intervalSec": 5,
   "verbose": true,
   "processExisting": false,
-  "backfillMinutes": 0
+  "backfillMinutes": 0,
+  "useDbProxy": false
 }

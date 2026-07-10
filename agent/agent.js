@@ -99,7 +99,16 @@ function httpRequest(urlStr, opts, body){
 }
 
 // ---- Supabase: shot_events insert ----
+// useDbProxy=true 면 워커 /db 경유(RLS 읽기전용 전환 후). 아니면 anon 직접(하위호환).
 async function pushShot(shot){
+  if (CFG.useDbProxy && CFG.R2_WORKER_URL && CFG.R2_API_KEY){
+    var purl = CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/db';
+    var pres = await httpRequest(purl, { method:'POST', headers:{ 'X-API-Key':CFG.R2_API_KEY, 'Content-Type':'application/json' } },
+      JSON.stringify({ op:'upsert', table:'shot_events', rows:[shot] }));
+    if (pres.status >= 200 && pres.status < 300) return true;
+    log('  ! DB프록시 insert 실패 ' + pres.status + ' ' + pres.body.toString().slice(0,200));
+    return false;
+  }
   var url = CFG.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/shot_events';
   var res = await httpRequest(url, {
     method: 'POST',
