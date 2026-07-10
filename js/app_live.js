@@ -716,7 +716,9 @@ async function stopBayRec(bayId){
 }
 async function sttTranscribe(blob){
   if(!r2.enabled) throw new Error('worker 미설정');
-  var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob});
+  // 직전 세그먼트 끝부분을 힌트로 넘겨 문맥 연결 + 골프 용어 정확도↑
+  var hint=(_rec&&_rec.tx)?String(_rec.tx).slice(-180):'';
+  var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream','X-STT-Prompt':encodeURIComponent('골프 레슨. '+hint).slice(0,900)},body:blob});
   if(res.status===501||res.status===404||res.status===401){ window._sttReady=false; throw new Error('stt-not-ready '+res.status); }   // 키미설정/경로없음/인증
   if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('stt http '+res.status+' '+t.slice(0,120)); }
   window._sttReady=true;
@@ -763,21 +765,35 @@ function setAnthropicKey(){
   liveToast(v?'🤖 AI 정리 켜짐 (이 기기 전용)':'AI 정리 꺼짐 (내장 정리 사용)','ok');
 }
 
-// Claude Haiku 정리 — 1순위: R2 워커 프록시(키 서버에만), 2순위: 브라우저 직접(기기 키), 실패 시 null→로컬 폴백
+// Claude 정리 — 골프 특화 구조화. 1순위 워커 프록시, 2순위 브라우저 직접, 실패 시 null→로컬 폴백.
 async function aiSummarizeWithClaude(transcript, author){
   try{
     var cfg=window.APP_CONFIG||{};
     var role=(typeof getRole==='function')?getRole(author):'trainer';
-    var roleLabel=role==='pro'?'골프 프로':'PT 트레이너';
-    var system='당신은 골프 레슨 세션카드 작성 보조 AI입니다. '+roleLabel+'이 레슨 중 말한 내용을 구조화된 한국어 세션카드로 정리합니다. '
-      +'반드시 아래 형식을 지키세요:\n'
-      +'[AI 자동 정리]\n- 핵심 포인트 (5-8개 불릿)\n- 각 불릿은 25자 이내, 명확한 동사형\n- 중복 제거, 시간 순서 유지\n- 운동/드릴/교정 포인트가 있으면 우선 추출\n'
-      +'추가 텍스트(설명·인사·확률표현) 금지. 형식만 출력.';
+    var isPro=role==='pro';
+    var roleLabel=isPro?'골프 프로':'골프 PT 트레이너';
+    // 원문 길이에 따라 출력 토큰·요약 밀도 조절 (50분 레슨도 담기게)
+    var words=(transcript||'').split(/\s+/).length;
+    var maxTok = words>2500?2600 : words>1200?1800 : 1100;
+    var system=
+      '당신은 '+roleLabel+'의 레슨 녹음(음성인식 원문)을 신뢰도 높은 한국어 세션 일지로 정리하는 전문 AI다.\n'
+      +'음성인식 특성상 띄어쓰기·오탈자·중복·말버릇("어","그","자","이제")이 많다. 이를 자연스럽게 교정하되 내용은 절대 창작·과장하지 않는다.\n'
+      +(isPro
+        ? '골프 스윙 도메인 지식으로 용어를 바로잡아라(예: 샬로잉/코킹/힌징/라그/온플레인/히프턴/체중이동/임팩트/릴리스/페이스앵글/어택앵글 등).\n'
+        : '골프 피지컬·기능성 트레이닝 지식으로 용어를 바로잡아라(가동성/안정성/코어/회전/체중이동/유연성/근력).\n')
+      +'\n다음 마크다운 형식을 반드시 지켜 출력한다(빈 섹션은 생략):\n'
+      +'## 📋 오늘의 핵심\n2~3문장으로 이번 레슨의 주제·결론.\n\n'
+      +'## 🎯 교정 포인트\n- **[부위/동작]** 문제점 → 교정 방법 (실제 언급된 것만, 각 1줄)\n\n'
+      +'## 🏌️ 드릴·연습\n- **[드릴명]** 방법/횟수/의도\n\n'
+      +'## 📈 트랙맨·수치 (원문에 언급 시)\n- 클럽/캐리/구질 등 실제 말한 수치만\n\n'
+      +'## 📝 다음 과제\n- 회원이 집/다음까지 할 것\n\n'
+      +'## 💬 특이사항\n- 통증·컨디션·멘탈·요청 등\n\n'
+      +'규칙: (1) 원문에 없는 내용 금지 (2) 애매하면 넣지 말고 생략 (3) 실제 말한 교정/드릴은 빠뜨리지 말 것 (4) 확률·추측 표현("~인 것 같습니다") 금지 (5) 코치가 회원에게 지시한 핵심은 최대한 보존.';
     var payload={
       model:cfg.ANTHROPIC_MODEL||'claude-haiku-4-5',
-      max_tokens:600,
+      max_tokens:maxTok,
       system:system,
-      messages:[{role:'user',content:'다음 받아쓴 원문을 세션카드로 정리해주세요:\n\n'+transcript}]
+      messages:[{role:'user',content:'다음은 '+roleLabel+'의 레슨 녹음 원문이다. 위 형식으로 정리하라:\n\n"""\n'+transcript+'\n"""'}]
     };
     var parse=function(data){ var t=(data&&data.content&&data.content[0]&&data.content[0].text)||''; return t.trim()||null; };
     // 1순위: 워커 프록시 (Anthropic 키가 Cloudflare 시크릿에만 존재)
@@ -846,16 +862,18 @@ function openVoiceDraft(memberId, author, transcript){
   }
   S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
   var localStructured=structureTranscript(transcript,author);
-  S.newSession={ date:today(), author:author, content:localStructured+summary, media:[], mediaUrls:['',''] };
+  // rawTranscript = 받아쓴 전문(원문). 신뢰도 담보용 — 세션에 함께 저장, 화면에선 접어둠.
+  S.newSession={ date:today(), author:author, content:localStructured+summary, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''] };
   S.showAddSession=true;
-  // Claude 키 있으면 백그라운드로 더 정교한 정리 시도 — 응답 오면 자동 교체
   if(aiEnabled()){
+    S.newSession._aiPending=true;
     aiSummarizeWithClaude(transcript,author).then(function(better){
       if(better && S.showAddSession && S.newSession){
         S.newSession.content = better + summary;
-        try{ liveToast('🤖 Claude AI 정리 완료','ok'); }catch(e){}
+        S.newSession._aiPending=false;
+        try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
         try{ render(); }catch(e){}
-      }
+      } else if(S.newSession){ S.newSession._aiPending=false; try{render();}catch(e){} }
     });
   }
   return true;

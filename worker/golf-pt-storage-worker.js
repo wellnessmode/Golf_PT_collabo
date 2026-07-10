@@ -118,6 +118,11 @@ export default {
       fd.append('language', 'ko');
       fd.append('response_format', 'json');
       fd.append('temperature', '0');
+      // 골프 레슨 도메인 힌트 — Whisper 가 골프 용어를 정확히 받아쓰도록 유도.
+      // (헤더 prompt 는 URL 인코딩되어 옴 → 디코드. 없으면 기본 골프 사전)
+      let bodyPrompt = '';
+      try { const raw = request.headers.get('X-STT-Prompt'); if (raw) bodyPrompt = decodeURIComponent(raw); } catch (e) {}
+      fd.append('prompt', bodyPrompt || '골프 레슨입니다. 그립, 어드레스, 셋업, 정렬, 백스윙, 탑, 전환, 다운스윙, 임팩트, 릴리스, 팔로우스루, 피니시, 템포, 리듬, 스윙 플레인, 온플레인, 샬로잉, 코킹, 힌징, 라그, 캐스팅, 오버더탑, 인아웃, 아웃인, 스웨이, 슬라이드, 히프턴, 체중이동, 로테이션, 클럽페이스, 페이스앵글, 어택앵글, 로프트, 다이나믹로프트, 스매시팩터, 볼스피드, 클럽스피드, 캐리, 토탈, 스핀, 런치앵글, 드로우, 페이드, 훅, 슬라이스, 뒤땅, 탑볼, 생크, 드라이버, 우드, 유틸리티, 아이언, 웨지, 퍼터, 어프로치, 치핑, 피칭, 벙커샷, 퍼팅.');
       const up = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + env.GROQ_API_KEY },

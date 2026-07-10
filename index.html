@@ -20,6 +20,15 @@
 
 <div class="app" id="root"></div>
 
+<!-- 버전 배지 — 어느 화면에서든 우하단에 작게 (SW 버전 갱신 확인용) -->
+<div id="app-ver-badge" onclick="try{if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(function(r){if(r)r.update();});location.reload();}catch(e){location.reload();}" title="탭하면 최신 버전 확인·새로고침"></div>
+<script>
+  (function(){
+    function setVer(){ try{ var b=document.getElementById('app-ver-badge'); if(b && typeof APP_VERSION!=='undefined'){ b.textContent = APP_VERSION.version; } }catch(e){} }
+    if(document.readyState!=='loading') setTimeout(setVer,300); else document.addEventListener('DOMContentLoaded',function(){setTimeout(setVer,300);});
+  })();
+</script>
+
 <!-- 흰 화면 안전망: 처리 안 된 에러로 화면이 비면 복구 패널 표시 -->
 <script>
 (function(){

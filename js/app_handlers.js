@@ -707,6 +707,7 @@ function addSession(){
     date: ns.date,
     author: ns.author,
     content: ns.content.trim(),
+    rawTranscript: (ns.rawTranscript||'').trim() || undefined,   // 녹음 원문(신뢰도 담보)
     media: media.length>0 ? media : undefined,
     _addedAt: new Date().toISOString()
   };
