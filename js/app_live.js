@@ -1055,9 +1055,12 @@ async function deleteSelectedShots(){
   // 2) 폴링 정지 + Supabase 일괄(IN) + R2 백그라운드 병렬
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
-  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
+  _liveLastIds = null;   // 폴링 비교 기준 리셋 — 재개 후 서버 상태를 새로 반영
+  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(ok){
     targets.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
-    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
+    if(!ok){ liveToastSafe('⚠️ 서버 삭제 일부 실패 — 다시 시도해주세요'); }
+    // 삭제 완료된 뒤에 폴링 재개(그 전엔 서버에 남아있어 다시 뜰 수 있음)
+    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 800);
   });
 }
 async function purgeUnassignedShots(){

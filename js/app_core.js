@@ -329,8 +329,9 @@ const cloud = {
   async deleteShot(id){if(!this.enabled) return;try{const {error}=await this.client.from('shot_events').delete().eq('id',id);if(error) throw error;}catch(e){console.warn('[cloud] deleteShot fail:',e);}},
   // 샷 전체 삭제 (DB만 — 트랙맨 PC 영상 원본과 무관)
   async deleteAllShots(){if(!this.enabled) return false;try{const {error}=await this.client.from('shot_events').delete().neq('id','');if(error) throw error;return true;}catch(e){console.warn('[cloud] deleteAllShots fail:',e);return false;}},
-  // 일괄 삭제 (IN 절) — 한 건씩 직렬 호출 대신 한 요청으로. 100건도 1초 이내.
-  async deleteShotsBulk(ids){if(!this.enabled||!ids||!ids.length) return false;try{const {error}=await this.client.from('shot_events').delete().in('id',ids);if(error) throw error;return true;}catch(e){console.warn('[cloud] deleteShotsBulk fail:',e);return false;}}
+  // 일괄 삭제 — 80개씩 청크로. IN 절에 수백 개 ID 를 한 번에 넣으면 URL 길이
+  // 초과(414)로 삭제가 조용히 실패 → 폴링이 다시 불러와 "지웠는데 다시 뜸".
+  async deleteShotsBulk(ids){if(!this.enabled||!ids||!ids.length) return false;try{var CHUNK=80;var okAll=true;for(var i=0;i<ids.length;i+=CHUNK){var part=ids.slice(i,i+CHUNK);const {error}=await this.client.from('shot_events').delete().in('id',part);if(error){console.warn('[cloud] deleteShotsBulk chunk fail:',error);okAll=false;}}return okAll;}catch(e){console.warn('[cloud] deleteShotsBulk fail:',e);return false;}}
 };
 
 // 에이전트가 넣은 샷(member 비어있음)을 같은 베이의 활성세션 회원에게 자동 귀속.
