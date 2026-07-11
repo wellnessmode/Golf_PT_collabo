@@ -1377,6 +1377,19 @@ body.role-select .app{background:#0d1117}
 /* 성과 리포트 — 베스트샷 KPI 보조 */
 .pv-shotcount{font-size:12px;color:var(--tx-3,#7a8089);text-align:center;margin-top:10px}
 .pv-shotcount strong{color:var(--ac-2,#00a070)}
+/* 레슨 기록 · 세션 스윙 영상 (측정 샷 없는 회원용 리포트 섹션) */
+.pv-sess-vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.pv-sess-vid{border-radius:10px;overflow:hidden;background:#0b0d10;border:1px solid var(--brd,#e7e9ee)}
+.pv-sess-vid video{width:100%;display:block;aspect-ratio:9/16;object-fit:cover;background:#000}
+.pv-sess-vlabel{font-size:10.5px;color:var(--tx-3,#7a8089);padding:5px 8px;background:var(--bg-3,#f6f8fa);text-align:center}
+.pv-lessons{display:flex;flex-direction:column;gap:6px}
+.pv-lesson-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-3,#f6f8fa);border-radius:8px}
+.pv-lesson-date{font-size:11px;color:var(--tx-3,#7a8089);white-space:nowrap;min-width:74px}
+.pv-lesson-tag{font-size:8.5px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.pv-lesson-tag.pro{background:rgba(56,104,214,.1);color:#3868d6}
+.pv-lesson-tag.trainer{background:rgba(0,184,132,.1);color:#00a070}
+.pv-lesson-tag.admin{background:rgba(120,130,140,.12);color:#6a727c}
+.pv-lesson-txt{font-size:12px;color:var(--tx-2,#57606a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;word-break:keep-all}
 /* 영상 썸네일 표시 */
 .pv-vhasvid{position:absolute;top:7px;right:7px;font-size:13px;z-index:2}
 /* 샷 모달 실제 영상 */
