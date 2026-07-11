@@ -1,6 +1,18 @@
-// 랜딩 2단계: 브랜드/사진 랜딩 → [입장하기] → 로그인(역할 선택)
-function enterHero(){ S.heroEntered=true; render(); try{ var c=document.querySelector('.role-hero'); if(c) c.scrollTop=c.scrollHeight; }catch(e){} }
-function exitHero(){ S.heroEntered=false; render(); }
+// 랜딩 인트로 몬타주: 사진이 0.5초 간격 페이드로 지나가고(그동안 터치 불가·로그인 UI 없음),
+// 마지막 장에서 2초 후 로그인(역할 선택) 화면이 페이드 인. 페이지 로드당 1회만 재생.
+function heroIntroAdvance(){
+  var intro=window.__heroIntro; if(!intro||intro.done) return;
+  var wrap=document.getElementById('hero-photos');
+  var slides=wrap?wrap.querySelectorAll('.hero-photo'):null;
+  // 사진이 사라졌거나(비정상) 마지막 장 대기까지 끝났으면 → 몬타주 종료, 로그인 노출
+  if(!slides || !slides.length || intro.idx>=slides.length-1){
+    intro.done=true; window.__heroIntroPlayed=true; render(); return;
+  }
+  intro.idx++;
+  for(var i=0;i<slides.length;i++) slides[i].classList.toggle('on', i===intro.idx);
+  // 마지막 장에 도달하면 2초 머문 뒤 종료, 아니면 0.5초 뒤 다음 장
+  intro.timer=setTimeout(heroIntroAdvance, intro.idx>=slides.length-1 ? 2000 : 500);
+}
 function renderRoleSelector(){
   var root=document.getElementById('root');
   var pros=INSTRUCTORS.filter(function(i){return i.role==='pro';});
@@ -9,6 +21,9 @@ function renderRoleSelector(){
   var heroImgs=(brand.heroImages||[]).filter(Boolean);
   var _tp=String(brand.name||'').trim().split(/\s+/);
   var titleHtml=_tp.length>1 ? (_tp.slice(0,-1).join(' ')+' <span>'+_tp.slice(-1)[0]+'</span>') : (brand.name||'');
+  // 인트로 몬타주 재생 중 여부 — 사진이 2장 이상이고 이번 페이지 로드에서 아직 안 끝났으면 재생 중.
+  // 재생 중엔 로그인(역할 카드)·버전 버튼을 숨기고 터치를 막는다(introing 클래스가 CSS로 처리).
+  var introing = heroImgs.length>1 && !window.__heroIntroPlayed;
   // 시네마틱 배경은 항상 베이스로 깔고, 사진은 그 위에 겹침 —
   // 사진 URL 이 죽거나 느려도 빈 화면 없이 프리미엄 배경이 유지된다.
   var photosHtml = heroImgs.length
@@ -25,7 +40,7 @@ function renderRoleSelector(){
   var roleBtn=function(cls,role,user,title,desc){
     return '<button class="hero-role '+cls+'" onclick="setRole(\''+role+'\',\''+user+'\')"><span class="hr-txt"><span class="hr-title">'+title+'</span>'+(desc?'<span class="hr-desc">'+desc+'</span>':'')+'</span><span class="hr-arrow">→</span></button>';
   };
-  root.innerHTML=`<div class="role-hero">
+  root.innerHTML=`<div class="role-hero${introing?' introing':''}">
     <div class="hero-bg">${bgHtml}${photosHtml}</div>
     <div class="hero-scrim"></div>
     <div class="hero-top">
@@ -36,20 +51,13 @@ function renderRoleSelector(){
       </div>
       <button class="hero-ver" onclick="var n=this.closest('.role-hero').querySelector('.update-notice');if(n){n.classList.toggle('open');n.scrollIntoView({behavior:'smooth',block:'end'});}">${APP_VERSION.version}</button>
     </div>
-    <div class="hero-content${S.heroEntered?' entered':''}">
-      ${S.heroEntered ? `
+    <div class="hero-content">
       <div class="hero-roles">
         <div class="hero-rgroup"><span class="hero-rlabel">센터 관리</span>${roleBtn('rc-infodesk','infodesk','인포데스크','인포데스크','회원 등록 · 관리')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">골프 프로</span>${pros.map(function(inst){return roleBtn('rc-pro','pro',inst.name,inst.name,'');}).join('')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">골프 PT</span>${trainers.map(function(inst){return roleBtn('rc-trainer','trainer',inst.name,inst.name,'');}).join('')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">시스템</span>${roleBtn('rc-admin','admin','관리자','관리자','관리자 모드')}</div>
       </div>
-      <button class="hero-back" onclick="exitHero()">← 처음으로</button>
-      ` : `
-      <button class="hero-enter" onclick="enterHero()">입장하기<span>→</span></button>
-      <div class="hero-enter-hint">담당자 계정으로 로그인</div>
-      `}
-      ${heroImgs.length>1?'<div class="hero-dots" id="hero-dots">'+heroImgs.map(function(_,i){return '<span'+(i===0?' class="on"':'')+' onclick="heroGoto('+i+')"></span>';}).join('')+'</div>':''}
       <div class="update-notice collapsed">
         <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
           <span>${APP_VERSION.version} · ${APP_VERSION.date} · 업데이트 내역</span>
@@ -59,22 +67,23 @@ function renderRoleSelector(){
       </div>
     </div>
   </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div>'+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+S.bioError+'</div>':'')+(!bio.available?'<label class="pw-trust"><input type="checkbox" '+(S.trustDevice?'checked':'')+' onchange="S.trustDevice=this.checked"><span>이 기기에서 자동 로그인<small>다음부터 비밀번호 없이 바로 입장 (스튜디오 공용 기기용)</small></span></label>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">생체 로그인 등록</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+S.bioError+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
-  // 히어로 배경 사진이 여러 장이면 2.8초마다 크로스페이드 (+ 하단 점 인디케이터 동기화)
+  // 인트로 몬타주 시작/정리. 재렌더 때마다 기존 타이머는 먼저 정리한다.
   try{ if(window.__heroRot){ clearInterval(window.__heroRot); window.__heroRot=null; } }catch(e){}
-  if(heroImgs.length>1){
-    window.__heroRot=setInterval(function(){ heroGoto(-1); }, 2800);
+  if(introing){
+    if(window.__heroIntro && !window.__heroIntro.done){
+      // 이미 몬타주 진행 중인데 재렌더로 DOM만 새로 그려진 경우 —
+      // 현재 인덱스를 그대로 반영하고 타이머는 건드리지 않는다(끊김 방지).
+      var _iv=window.__heroIntro.idx||0;
+      var _w=document.getElementById('hero-photos');
+      if(_w){ var _s=_w.querySelectorAll('.hero-photo'); for(var _i=0;_i<_s.length;_i++) _s[_i].classList.toggle('on', _i===_iv); }
+    } else {
+      window.__heroIntro={ idx:0, done:false, timer:null };
+      window.__heroIntro.timer=setTimeout(heroIntroAdvance, 500);
+    }
+  } else {
+    try{ if(window.__heroIntro && window.__heroIntro.timer) clearTimeout(window.__heroIntro.timer); }catch(e){}
+    window.__heroIntro=null;
   }
-}
-// 히어로 슬라이드 전환 — idx 지정(점 탭) 또는 -1(다음 장). 점 인디케이터 함께 갱신.
-function heroGoto(idx){
-  var wrap=document.getElementById('hero-photos'); if(!wrap) return;
-  var slides=wrap.querySelectorAll('.hero-photo'); if(slides.length<2) return;
-  var cur=wrap.querySelector('.hero-photo.on'); var curIdx=Array.prototype.indexOf.call(slides,cur); if(curIdx<0) curIdx=0;
-  var next=(idx>=0&&idx<slides.length)?idx:(curIdx+1)%slides.length;
-  if(next===curIdx) return;
-  slides[curIdx].classList.remove('on'); slides[next].classList.add('on');
-  var dots=document.querySelectorAll('#hero-dots span');
-  for(var i=0;i<dots.length;i++) dots[i].classList.toggle('on', i===next);
 }
 
 // 흰 화면 방지 + 스크롤 자동 보존:

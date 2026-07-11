@@ -39,20 +39,21 @@ window.APP_CONFIG = {
     tagline: 'COLLABORATIVE COACHING PLATFORM', // 로그인 화면 태그라인
     reportSub: 'GOLF PT · PERFORMANCE',         // 성과 리포트 헤더 서브
     measuredBy: 'TRACKMAN iO',                  // 측정 장비 표기 (리포트 신뢰도 라인)
-    // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스 (여러 장이면 5초 크로스페이드).
-    // 사진이 로드 안 되면 시네마틱 배경이 자동으로 받쳐줌. 센터 실제 사진으로 교체 가능.
-    // ※ 현재: AI 생성 캠페인 컷(힉스필드 Soul, 2026-07). 골프복+골프모자, 브랜드 로고 없음.
-    //   립 트레이너 컷은 실제 제품(한쪽 끝 번지코드 저항 바) 구조 반영.
+    // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스.
+    // 앱 실행 시 인트로 몬타주로 0.5초마다 한 장씩 페이드로 넘어가고, 마지막 장에서
+    // 2초 후 로그인 화면이 페이드 인. 사진이 로드 안 되면 시네마틱 배경이 자동으로 받쳐줌.
+    // ※ 현재: AI 생성 캠페인 컷(nano_banana_2, 2026-07). 골프복+골프모자, 브랜드 로고 없음.
+    //   순서는 [립트레이너 → 케틀벨 → 골프스윙]. 골프스윙이 마지막(로그인 배경)이라
+    //   로그인 화면이 가장 오래 머무는 대표 컷이 되고, 립트레이너 컷은 0.5초만 스쳐 지나감.
+    //   립 트레이너 컷은 실제 제품(한쪽 끝 번지코드 저항 바) 구조를 명시 프롬프트로 반영.
     //   대체 후보(같은 무드 B컷):
-    //   골프B        https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_d1891851-bacb-4ea0-bfbe-ac9675894e3f_min.webp
-    //   립트레이너B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091235_7dfd5c44-9db3-4bf3-a546-ef2be7b03e34_min.webp
-    //   립트레이너 스윙A https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091545_55edee71-ad90-44e8-8504-f0dfcf12a0c9_min.webp
-    //   립트레이너 스윙B https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091545_c80fa9c4-5fe3-4690-83a3-2cdd98138177_min.webp
-    //   케틀벨B      https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_44e26c48-7ff8-49da-b7b0-608c88b2ed68_min.webp
+    //   립트레이너B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095816_5c0317c7-c7b7-455b-b2a5-6aafd8ca3505_min.webp
+    //   케틀벨B      https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095853_8c89527d-4ace-4aed-b1a2-e89050e1eecb_min.webp
+    //   골프스윙B    https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095836_3d3a35f1-092f-473f-b9b4-3847eb99d9e4_min.webp
     heroImages: [
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_253ec3ec-6bc9-49d8-8b87-e22e4a5814e0_min.webp',
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091236_39e72d7b-9e2f-4457-ab93-9e24f7e80d2b_min.webp',
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_c243708d-ab6c-46f2-ad1a-b9e2747a83b2_min.webp'
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095816_83803d82-86ea-4c1b-98af-835340f818ba_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095853_b80a39e5-faa3-4ed7-ac1c-1bb3bb721715_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095835_b93abc73-8191-464f-b788-8a2215ee00f9_min.webp'
     ],
     // 랜딩 히어로 하단 카피(한 줄). 비우면 기본 문구.
     heroCopy: '골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
