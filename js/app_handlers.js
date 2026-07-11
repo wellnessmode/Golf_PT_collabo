@@ -605,6 +605,12 @@ function approveDelete(id){
   // 세션 tombstone 도 같이 남겨 다른 기기 캐시가 세션을 되살리지 못하게
   if(!S.deletedSessionIds) S.deletedSessionIds={};
   (S.sessions[id]||[]).forEach(function(s){ S.deletedSessionIds[s.id]=Date.now(); });
+  // R2 정리 — 이 회원의 세션 첨부 영상/사진 + 저장된 샷 영상(mkv+mp4)을 모두 삭제.
+  // (기존엔 DB 행만 지우고 R2 객체는 남겨 삭제 회원의 영상이 영구 고아로 쌓이던 누수)
+  try{
+    (S.sessions[id]||[]).forEach(function(s){ (s.media||[]).forEach(function(m){ var k=m.r2Key||m.mediaId; if(k && typeof r2!=='undefined' && r2.enabled){ try{ r2.remove(k); }catch(e){} } if(m.mediaId){ try{ mediaDB.del(m.mediaId); }catch(e){} } }); });
+    (S.shotEvents||[]).filter(function(s){ return s.memberId===id; }).forEach(r2RemoveShotVideos);
+  }catch(e){ console.warn('[r2] 회원삭제 정리 실패', e); }
   // 회원 tombstone — 부팅 머지가 삭제된 회원을 재업로드해 부활시키는 것 차단
   if(!S.deletedMemberIds) S.deletedMemberIds={};
   S.deletedMemberIds[id]=Date.now();
@@ -673,6 +679,118 @@ function renderTranscriptVault(){
           +'<div class="raw-transcript-body">'+String(s.rawTranscript).replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div></details>';
       }).join(''))
     +'<div class="modal-actions"><button class="btn" onclick="closeTranscriptVault()">닫기</button></div>'
+  +'</div></div>';
+}
+
+// ============ 스토리지 진단·정리 (관리자 전용) ============
+// R2 버킷 전체를 훑어 구성(용량·개수)을 보여주고, mp4 재생본이 이미 있는
+// 중복 mkv 원본을 안전하게 정리(삭제)할 수 있게 한다. — 워커 /__list 라우트 필요.
+function _fmtBytes(b){
+  b = b||0;
+  if(b >= 1073741824) return (b/1073741824).toFixed(2)+' GB';
+  if(b >= 1048576) return (b/1048576).toFixed(1)+' MB';
+  if(b >= 1024) return (b/1024).toFixed(0)+' KB';
+  return b+' B';
+}
+async function openStorageAudit(){
+  if(S.currentRole!=='admin'){ alert('관리자 전용 기능입니다'); return; }
+  if(typeof r2==='undefined' || !r2.enabled){ alert('R2 스토리지가 설정되지 않았습니다'); return; }
+  S.storageAudit = { loading:true, error:'', data:null }; S.sidebarOpen=false; render();
+  logAudit('system','스토리지 진단 열람','',{});
+  try{
+    var objects=[], cursor=null, pages=0;
+    do{
+      var res=await r2.list(cursor);
+      if(!res){ throw new Error('목록 조회 실패 — 워커에 /__list 라우트가 배포됐는지 확인하세요 (worker/golf-pt-storage-worker.js 최신본을 Cloudflare 에 붙여넣기)'); }
+      (res.objects||[]).forEach(function(o){ objects.push(o); });
+      cursor=res.cursor; pages++;
+    }while(cursor && pages<60);   // 최대 6만 객체 안전 상한
+    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects), truncated: !!cursor };
+  }catch(e){
+    S.storageAudit={ loading:false, error:String(e&&e.message||e), data:null };
+  }
+  render();
+}
+function closeStorageAudit(){ S.storageAudit=null; render(); }
+function analyzeStorage(objects){
+  var cat={ mkv:{n:0,b:0}, mp4:{n:0,b:0}, rec:{n:0,b:0}, manual:{n:0,b:0}, other:{n:0,b:0} };
+  var total={ n:objects.length, b:0 };
+  var mp4Bases={};
+  objects.forEach(function(o){
+    total.b += o.size||0;
+    if(/_scene\.mp4$/i.test(o.key)) mp4Bases[o.key.replace(/_scene\.mp4$/i,'')]=1;
+  });
+  var reclaim={ n:0, b:0 }, reclaimKeys=[];
+  objects.forEach(function(o){
+    var k=o.key, s=o.size||0;
+    if(/_scene\.mkv$/i.test(k)){
+      cat.mkv.n++; cat.mkv.b+=s;
+      if(mp4Bases[k.replace(/_scene\.mkv$/i,'')]){ reclaim.n++; reclaim.b+=s; reclaimKeys.push(k); }
+    } else if(/_scene\.mp4$/i.test(k)){ cat.mp4.n++; cat.mp4.b+=s; }
+    else if(/^rec\//i.test(k)){ cat.rec.n++; cat.rec.b+=s; }
+    else if(/^m_/i.test(k)){ cat.manual.n++; cat.manual.b+=s; }
+    else { cat.other.n++; cat.other.b+=s; }
+  });
+  return { total:total, cat:cat, reclaim:reclaim, reclaimKeys:reclaimKeys };
+}
+// mp4 재생본이 이미 존재하는 mkv 원본만 삭제 — 재생본은 유지되므로 재생에 영향 없음(안전).
+async function purgeReclaimableMkv(){
+  var A=S.storageAudit; var a=A&&A.data;
+  if(!a || !a.reclaimKeys || !a.reclaimKeys.length){ return; }
+  if(!confirm('mp4 재생본이 이미 있는 중복 mkv 원본 '+a.reclaim.n+'개('+_fmtBytes(a.reclaim.b)+')를 삭제합니다.\n\n· 재생본(mp4)은 그대로 유지 → 영상 재생에는 전혀 영향 없음\n· 되돌릴 수 없습니다\n\n계속할까요?')) return;
+  A.purging={ done:0, total:a.reclaimKeys.length, fail:0, finished:false }; render();
+  for(var i=0;i<a.reclaimKeys.length;i++){
+    var ok=false; try{ ok=await r2.remove(a.reclaimKeys[i]); }catch(e){}
+    if(!ok) A.purging.fail++;
+    A.purging.done++;
+    if(i%15===0) render();
+  }
+  A.purging.finished=true; render();
+  logAudit('system','스토리지 mkv 원본 정리','',{count:a.reclaim.n, bytes:a.reclaim.b, fail:A.purging.fail});
+  liveToastSafe && liveToastSafe('🧹 mkv 원본 '+(a.reclaim.n-A.purging.fail)+'개 정리 완료 — 대시보드에 반영까지 잠시 걸립니다');
+  setTimeout(openStorageAudit, 800);   // 재조회로 결과 갱신
+}
+function renderStorageAudit(){
+  var A=S.storageAudit; if(!A || S.currentRole!=='admin') return '';
+  var body;
+  if(A.loading){
+    body='<div style="padding:30px 0;text-align:center;color:var(--tx-2)">R2 버킷 목록을 불러오는 중…<div style="font-size:11px;color:var(--tx-3);margin-top:6px">객체가 많으면 몇 초 걸립니다</div></div>';
+  } else if(A.error){
+    body='<div style="padding:18px;background:#fdecec;border-radius:10px;color:#993c1d;font-size:13px;line-height:1.7">'+String(A.error).replace(/</g,'&lt;')+'</div>';
+  } else if(A.data){
+    var d=A.data, c=d.cat;
+    var row=function(label,o,hint){ return '<tr><td style="padding:7px 4px">'+label+(hint?'<div style="font-size:10.5px;color:var(--tx-3)">'+hint+'</div>':'')+'</td><td style="text-align:right;padding:7px 4px;white-space:nowrap">'+o.n.toLocaleString()+'개</td><td style="text-align:right;padding:7px 4px;white-space:nowrap;font-weight:700">'+_fmtBytes(o.b)+'</td></tr>'; };
+    body=''
+      +'<div style="font-size:13px;color:var(--tx-2);margin-bottom:10px">전체 <b>'+d.total.n.toLocaleString()+'개</b> · <b>'+_fmtBytes(d.total.b)+'</b>'+(A.truncated?' <span style="color:#b8791d">(상한 도달 — 일부만 집계)</span>':'')+'</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--line);color:var(--tx-3);font-size:11px"><th style="text-align:left;padding:4px">유형</th><th style="text-align:right;padding:4px">개수</th><th style="text-align:right;padding:4px">용량</th></tr></thead><tbody>'
+      +row('🎥 스윙영상 mkv 원본', c.mkv, 'TrackMan 원본 (iOS 재생 불가)')
+      +row('📱 스윙영상 mp4 재생본', c.mp4, '앱에서 실제 재생되는 버전')
+      +row('🎙 음성 백업(rec/)', c.rec, 'STT 실패분 백업')
+      +row('📎 세션 첨부(수동 업로드)', c.manual, '사진·영상 첨부')
+      +row('❓ 기타', c.other, '')
+      +'</tbody></table>';
+    if(d.reclaim.n>0){
+      body+='<div style="margin-top:16px;padding:14px;background:#eafaf3;border:1px solid #b6ead2;border-radius:12px">'
+        +'<div style="font-weight:800;font-size:13.5px;color:#0f7a52;margin-bottom:4px">✅ 안전하게 정리 가능: '+d.reclaim.n.toLocaleString()+'개 · '+_fmtBytes(d.reclaim.b)+'</div>'
+        +'<div style="font-size:12px;color:var(--tx-2);line-height:1.6;margin-bottom:10px">mp4 재생본이 <b>이미 있는</b> mkv 원본입니다. 삭제해도 재생본은 그대로라 영상 재생엔 영향이 없고, 저장 용량만 줄어듭니다.</div>';
+      if(A.purging){
+        var p=A.purging;
+        body+='<div style="font-size:12.5px;color:'+(p.finished?'#0f7a52':'var(--tx-2)')+'">'+(p.finished?'완료 — ':'삭제 중 ')+p.done+' / '+p.total+(p.fail?(' · 실패 '+p.fail):'')+'</div>';
+      } else {
+        body+='<button class="btn primary" style="width:100%" onclick="purgeReclaimableMkv()">🧹 중복 mkv 원본 '+_fmtBytes(d.reclaim.b)+' 정리</button>';
+      }
+      body+='</div>';
+    } else {
+      body+='<div style="margin-top:16px;padding:12px;background:var(--bg-2);border-radius:10px;font-size:12px;color:var(--tx-2);line-height:1.6">중복 mkv 원본이 발견되지 않았습니다. (에이전트 mp4 변환이 꺼져 있거나 이미 정리된 상태)</div>';
+    }
+    body+='<div style="margin-top:14px;font-size:11px;color:var(--tx-3);line-height:1.7">· rec/ 오래된 음성 백업과 미완료 업로드는 Cloudflare 대시보드의 <b>라이프사이클 규칙</b>으로 자동 정리하세요 (docs/R2-비용-절감.md 참고).<br>· DB에서 사라진 회원/세션의 고아 영상 정리는 안전을 위해 별도 스크립트로 진행합니다 (문서 참고).</div>';
+  } else {
+    body='<div style="padding:20px;color:var(--tx-2)">데이터 없음</div>';
+  }
+  return '<div class="modal-overlay" onclick="if(event.target===this)closeStorageAudit()"><div class="modal" style="width:520px;max-height:92vh;overflow-y:auto">'
+    +'<div class="modal-title">🧹 스토리지 진단·정리 <span style="font-size:11px;font-weight:400;color:var(--tx-3)">관리자 전용 · R2</span></div>'
+    +body
+    +'<div class="modal-actions"><button class="btn" onclick="closeStorageAudit()">닫기</button>'+(A.data?'<button class="btn" onclick="openStorageAudit()">새로고침</button>':'')+'</div>'
   +'</div></div>';
 }
 function exportAuditLog(user){

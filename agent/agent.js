@@ -172,6 +172,21 @@ async function uploadVideo(key, buf, contentType){
     }catch(e){ resolve(false); }
   });
 }
+// R2 객체 삭제 — mp4 변환본 확보 후 용량 2배인 mkv 원본을 지워 저장비를 절반으로.
+async function deleteVideo(key){
+  if (!CFG.R2_WORKER_URL || !CFG.R2_API_KEY) return false;
+  return new Promise(function(resolve){
+    try{
+      var u = new URL(CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/' + encodeURIComponent(key));
+      var req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'DELETE', port:443,
+        headers:{ 'X-API-Key': CFG.R2_API_KEY } },
+        function(res){ res.on('data',function(){}); res.on('end',function(){ resolve(res.statusCode>=200&&res.statusCode<300); }); });
+      req.setTimeout(30000, function(){ req.destroy(new Error('R2 삭제 타임아웃')); });
+      req.on('error', function(e){ log('  ! R2 삭제 오류 '+e.message); resolve(false); });
+      req.end();
+    }catch(e){ resolve(false); }
+  });
+}
 
 // ---- 베이 매핑: TrackingUnit → bay_id ----
 function resolveBay(trackingUnit){
@@ -227,7 +242,11 @@ async function handleFtmf(filePath){
             if (mp4buf && mp4buf.length){
               var mp4key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mp4';
               var ok2 = await uploadVideo(mp4key, mp4buf, 'video/mp4');
-              if (ok2){ videoMp4Key = mp4key; log('  MP4 변환·업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key); }
+              if (ok2){ videoMp4Key = mp4key; log('  MP4 변환·업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key);
+                // mp4 재생본이 확보되면 용량 2배인 mkv 원본은 R2에서 제거 → 저장비 절반.
+                // (iOS Safari 는 mkv 재생 불가 + 앱은 mp4 를 우선 재생하므로 서빙에 영향 없음)
+                try{ if (await deleteVideo(key)){ videoKey = null; log('  원본 mkv 삭제(저장비 절감) ' + key); } }catch(e){ log('  mkv 삭제 스킵: ' + e.message); }
+              }
             }
           }catch(e){ log('  MP4 변환 스킵: ' + e.message); }
         }

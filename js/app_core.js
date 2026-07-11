@@ -78,9 +78,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.9',
+  version:'v9.10',
   date:'2026-07-11',
   changes:[
+    'R2 저장비 절감 — 삭제 시 mkv 원본+mp4 변환본을 함께 제거(고아 누수 차단), 저장된 샷 삭제가 실제로 영상을 지우도록 수정, 회원 삭제 시 영상까지 정리',
+    'R2 저장비 절감 — 에이전트가 mp4 변환 성공 시 용량 2배인 mkv 원본을 자동 삭제(신규 스윙 약 절반)',
+    '관리자 🧹 스토리지 진단·정리 — 버킷 구성(mkv/mp4/음성/첨부) 분석 + mp4 재생본이 있는 중복 mkv 원본 안전 정리(수백 GB 회수)',
     '립 트레이너 컷 — 실제 TRX 제품 사진을 레퍼런스로 직접 첨부해 재생성 (포즈·장비 배치가 원본과 동일)',
     '인트로 타이밍 조정 — 1·2번째 사진 1.5초씩, 마지막 사진 3초 후 로그인 버튼들이 2초에 걸쳐 페이드 인',
     '첫 사진이 너무 빨리 넘어가던 문제 수정 — 스플래시가 사라지고 첫 사진 로딩이 끝난 뒤에야 노출시간 카운트 시작(로딩시간에 잠식되지 않음)',
@@ -517,8 +520,17 @@ const r2 = {
   },
   async download(key){if(!this.enabled) return null;try{const res=await fetch(this.url(key));if(!res.ok) return null;return await res.blob();}catch(e){console.warn('[r2] download fail:',e);return null;}},
   async head(key){if(!this.enabled||!key) return false;try{const res=await fetch(this.url(key),{method:'HEAD'});return res.ok;}catch(e){return false;}},
-  async remove(key){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'DELETE',headers:{'X-API-Key':this.apiKey}});return res.ok;}catch(e){console.warn('[r2] delete fail:',e);return false;}}
+  async remove(key){if(!this.enabled) return false;try{const res=await fetch(this.url(key),{method:'DELETE',headers:{'X-API-Key':this.apiKey}});return res.ok;}catch(e){console.warn('[r2] delete fail:',e);return false;}},
+  // R2 객체 목록 (관리자 스토리지 진단용) — 워커 /__list 라우트. cursor 로 페이지네이션.
+  async list(cursor){if(!this.enabled) return null;try{const u=this.workerUrl+'/__list'+(cursor?('?cursor='+encodeURIComponent(cursor)):'');const res=await fetch(u,{headers:{'X-API-Key':this.apiKey}});if(!res.ok) return null;return await res.json();}catch(e){console.warn('[r2] list fail:',e);return null;}}
 };
+// 저장된 샷 하나의 R2 영상 파일을 모두 삭제 — mkv 원본 + mp4 변환본 둘 다.
+// (기존엔 videoR2Key(mkv)만 지워 data.videoMp4R2Key(mp4)가 영구 고아로 남던 버그 수정)
+function r2RemoveShotVideos(s){
+  if(!s || typeof r2==='undefined' || !r2.enabled) return;
+  try{ if(s.videoR2Key) r2.remove(s.videoR2Key); }catch(e){}
+  try{ if(s.data && s.data.videoMp4R2Key) r2.remove(s.data.videoMp4R2Key); }catch(e){}
+}
 
 // ============ 상태 ============
 let S = {
@@ -896,7 +908,7 @@ async function syncLocalMediaToR2(){
       continue;
     }
     p.m.r2Status='uploading'; render();
-    var ok=await r2.upload(p.m.mediaId, rec.blob);
+    var ok=await r2.upload(key, rec.blob);
     if(ok){
       p.m.r2Status='synced';
       p.m.r2Key=p.m.r2Key || p.m.mediaId;
