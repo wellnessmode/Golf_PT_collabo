@@ -39,11 +39,15 @@ window.APP_CONFIG = {
     tagline: 'COLLABORATIVE COACHING PLATFORM', // 로그인 화면 태그라인
     reportSub: 'GOLF PT · PERFORMANCE',         // 성과 리포트 헤더 서브
     measuredBy: 'TRACKMAN iO',                  // 측정 장비 표기 (리포트 신뢰도 라인)
-    // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스 스튜디오 실제 사진 권장.
-    // 넣으면 나이키 앱처럼 풀블리드 사진 배경(여러 장이면 5초마다 크로스페이드).
-    // 비우면 프리미엄 시네마틱 배경(골프 탄도 모티프)으로 자동 표시.
-    // 예: ['assets/hero-golf.jpg', 'assets/hero-fitness.jpg']
-    heroImages: [],
+    // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스 (여러 장이면 5초 크로스페이드).
+    // 사진이 로드 안 되면 시네마틱 배경이 자동으로 받쳐줌. 센터 실제 사진으로 교체 가능.
+    // ※ 현재: AI 생성 캠페인 컷(힉스필드 Soul, 2026-07). 대체 후보:
+    //   골프B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_073734_48f7ae5c-f3f9-404c-bc5d-1141102156b8_min.webp
+    //   피트니스B https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_074214_6d211690-5d03-4b86-a42e-1cf28512463e_min.webp
+    heroImages: [
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_073734_4350e926-bc04-49da-b6ed-b0b5f926869c_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_074214_3d6426ba-a180-4c22-9054-6e6daf38f2c5_min.webp'
+    ],
     // 랜딩 히어로 하단 카피(한 줄). 비우면 기본 문구.
     heroCopy: '골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
   },
