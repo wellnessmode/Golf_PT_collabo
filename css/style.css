@@ -588,10 +588,15 @@ body.role-select .app{background:#0d1117}
   background:#0a0d10;color:#fff;display:flex;flex-direction:column}
 .role-hero .hero-bg{position:fixed;inset:0;z-index:0}
 .role-hero .hero-photos,.role-hero .hero-cine{position:absolute;inset:0}
-.hero-photo{position:absolute;inset:0;background-size:cover;background-position:center top;opacity:0;transition:opacity 1.4s ease;will-change:opacity,transform}
-.hero-photo.on{opacity:1;animation:heroKen 9s ease-out forwards}
-@keyframes heroKen{from{transform:scale(1.1)}to{transform:scale(1.02)}}
+.hero-photo{position:absolute;inset:0;background-size:cover;background-position:center top;opacity:0;transition:opacity .8s ease;will-change:opacity,transform}
+.hero-photo.on{opacity:1;animation:heroKen 4s ease-out forwards}
+@keyframes heroKen{from{transform:scale(1.08)}to{transform:scale(1.01)}}
 @media (prefers-reduced-motion:reduce){.hero-photo.on{animation:none}}
+/* 슬라이드 점 인디케이터 — 사진 여러 장임을 즉시 인지 + 탭 이동 */
+.hero-dots{display:flex;justify-content:center;gap:3px;margin-top:12px}
+.hero-dots span{width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.28);cursor:pointer;transition:all .3s;
+  padding:7px;background-clip:content-box;box-sizing:content-box}  /* 시각 6px, 터치 20px */
+.hero-dots span.on{width:18px;background:#00d29a;background-clip:content-box}
 .hero-cine{background:
   radial-gradient(72% 52% at 80% 16%, rgba(0,210,154,.20), transparent 60%),
   radial-gradient(62% 46% at 12% 88%, rgba(63,123,255,.16), transparent 60%),

@@ -41,14 +41,17 @@ window.APP_CONFIG = {
     measuredBy: 'TRACKMAN iO',                  // 측정 장비 표기 (리포트 신뢰도 라인)
     // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스 (여러 장이면 5초 크로스페이드).
     // 사진이 로드 안 되면 시네마틱 배경이 자동으로 받쳐줌. 센터 실제 사진으로 교체 가능.
-    // ※ 현재: AI 생성 캠페인 컷(힉스필드 Soul, 2026-07). 골프복 착용, 브랜드 로고 없음.
+    // ※ 현재: AI 생성 캠페인 컷(힉스필드 Soul, 2026-07). 골프복+골프모자, 브랜드 로고 없음.
+    //   립 트레이너 컷은 실제 제품(한쪽 끝 번지코드 저항 바) 구조 반영.
     //   대체 후보(같은 무드 B컷):
-    //   골프B     https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_d1891851-bacb-4ea0-bfbe-ac9675894e3f_min.webp
-    //   TRX B     https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085743_63a78c0b-4c38-42e6-8bba-4233dc0f45b7_min.webp
-    //   케틀벨B   https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_44e26c48-7ff8-49da-b7b0-608c88b2ed68_min.webp
+    //   골프B        https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_d1891851-bacb-4ea0-bfbe-ac9675894e3f_min.webp
+    //   립트레이너B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091235_7dfd5c44-9db3-4bf3-a546-ef2be7b03e34_min.webp
+    //   립트레이너 스윙A https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091545_55edee71-ad90-44e8-8504-f0dfcf12a0c9_min.webp
+    //   립트레이너 스윙B https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091545_c80fa9c4-5fe3-4690-83a3-2cdd98138177_min.webp
+    //   케틀벨B      https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_44e26c48-7ff8-49da-b7b0-608c88b2ed68_min.webp
     heroImages: [
       'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_253ec3ec-6bc9-49d8-8b87-e22e4a5814e0_min.webp',
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085743_55a132aa-7176-4831-a26e-e5b21ade2644_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_091236_39e72d7b-9e2f-4457-ab93-9e24f7e80d2b_min.webp',
       'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_c243708d-ab6c-46f2-ad1a-b9e2747a83b2_min.webp'
     ],
     // 랜딩 히어로 하단 카피(한 줄). 비우면 기본 문구.
