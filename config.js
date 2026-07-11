@@ -41,12 +41,15 @@ window.APP_CONFIG = {
     measuredBy: 'TRACKMAN iO',                  // 측정 장비 표기 (리포트 신뢰도 라인)
     // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스 (여러 장이면 5초 크로스페이드).
     // 사진이 로드 안 되면 시네마틱 배경이 자동으로 받쳐줌. 센터 실제 사진으로 교체 가능.
-    // ※ 현재: AI 생성 캠페인 컷(힉스필드 Soul, 2026-07). 대체 후보:
-    //   골프B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_073734_48f7ae5c-f3f9-404c-bc5d-1141102156b8_min.webp
-    //   피트니스B https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_074214_6d211690-5d03-4b86-a42e-1cf28512463e_min.webp
+    // ※ 현재: AI 생성 캠페인 컷(힉스필드 Soul, 2026-07). 골프복 착용, 브랜드 로고 없음.
+    //   대체 후보(같은 무드 B컷):
+    //   골프B     https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_d1891851-bacb-4ea0-bfbe-ac9675894e3f_min.webp
+    //   TRX B     https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085743_63a78c0b-4c38-42e6-8bba-4233dc0f45b7_min.webp
+    //   케틀벨B   https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_44e26c48-7ff8-49da-b7b0-608c88b2ed68_min.webp
     heroImages: [
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_073734_4350e926-bc04-49da-b6ed-b0b5f926869c_min.webp',
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_074214_3d6426ba-a180-4c22-9054-6e6daf38f2c5_min.webp'
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085838_253ec3ec-6bc9-49d8-8b87-e22e4a5814e0_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085743_55a132aa-7176-4831-a26e-e5b21ade2644_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_085806_c243708d-ab6c-46f2-ad1a-b9e2747a83b2_min.webp'
     ],
     // 랜딩 히어로 하단 카피(한 줄). 비우면 기본 문구.
     heroCopy: '골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
