@@ -216,7 +216,7 @@ function recoverApp(){
   try{
     S.showLiveSession=false; S.showPerformance=false; S.showReport=false;
     S.showAddSession=false; S.showAddMember=false; S.perfShotModal=null;
-    S.liveToast=null; S.showPwModal=false; S.bioEnrollFor=null; S.showTranscriptVault=false;
+    S.liveToast=null; S.showPwModal=false; S.bioEnrollFor=null; S.showTranscriptVault=false; S.storageAudit=null;
     render();
     var root=document.getElementById('root');
     if(!root || !root.children || root.children.length===0 || root.querySelector('.recovery-panel')){
@@ -293,6 +293,7 @@ function _render(){
       ${bio.available?'<button class="mp-btn'+(bio.isRegistered(S.currentRole,S.currentUser)?' bio-on':'')+'" onclick="event.stopPropagation();bioToggleSelf()">🆔 '+(bio.isRegistered(S.currentRole,S.currentUser)?'생체 로그인 켜짐':'생체 로그인 등록')+'</button>':''}
       <button class="mp-btn" onclick="openPasswordChange()">비밀번호 변경</button>
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openTranscriptVault()">🎙 녹음 원문 보관함</button>':''}
+      ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openStorageAudit()">🧹 스토리지 진단·정리</button>':''}
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">감사 로그</button>':''}
       ${isInfo?'<button class="mp-btn" onclick="event.stopPropagation();window.open(\'manual.html\',\'_blank\')">사용 매뉴얼</button>':''}
       <div class="mp-version" onclick="event.stopPropagation();reloadApp&&reloadApp()" title="탭하면 최신 버전으로 새로고침">버전 ${APP_VERSION.version} · ${APP_VERSION.date}</div>
@@ -444,6 +445,7 @@ function _render(){
   ${renderHandoverModal()}
   ${renderReportModal()}
   ${renderTranscriptVault()}
+  ${renderStorageAudit()}
   ${renderImageCardModal()}
   ${renderPerformance()}
   `;

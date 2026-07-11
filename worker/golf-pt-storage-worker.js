@@ -135,6 +135,23 @@ export default {
     }
     // ────────────────────────────────────────────────────────
 
+    // ── R2 객체 목록 (/__list) — 관리자 스토리지 진단·고아 파일 정리용. 인증 필수 ──
+    // 응답: { objects:[{key,size}], truncated, cursor }
+    if (url.pathname === '/__list') {
+      if (request.method !== 'GET') return json({ error: 'use GET' }, 405);
+      const apiKey = request.headers.get('X-API-Key');
+      if (!env.APP_API_KEY || apiKey !== env.APP_API_KEY) return json({ error: 'unauthorized' }, 401);
+      const cursor = url.searchParams.get('cursor') || undefined;
+      const prefix = url.searchParams.get('prefix') || undefined;
+      const listed = await env.BUCKET.list({ cursor, prefix, limit: 1000 });
+      return json({
+        objects: listed.objects.map(function (o) { return { key: o.key, size: o.size }; }),
+        truncated: !!listed.truncated,
+        cursor: listed.truncated ? listed.cursor : null,
+      }, 200);
+    }
+    // ────────────────────────────────────────────────────────
+
     const key = decodeURIComponent(url.pathname.slice(1));
     if (!key) {
       return json({ error: 'missing key' }, 400);

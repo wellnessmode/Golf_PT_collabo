@@ -219,7 +219,7 @@ function purgeStaleUnassigned(){
   S.shotEvents = (S.shotEvents||[]).filter(function(s){ return ids.indexOf(s.id)===-1; });
   try{ save(); }catch(e){}
   Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
-    stale.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    stale.forEach(r2RemoveShotVideos);
     console.warn('[live] 오래된 미배정 '+ids.length+'건 자동 정리');
     try{ liveToastSafe('🧹 오래된 미배정 '+ids.length+'개 자동 정리됨'); }catch(e){}
   });
@@ -325,7 +325,7 @@ async function purgeAllShots(){
   window._shotsDeleting = true;
   // 3) Supabase 한방 + R2 영상 백그라운드 병렬 — await 안 함, 사용자 안 기다림
   Promise.resolve(cloud.deleteAllShots()).then(function(ok){
-    snapshot.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    snapshot.forEach(r2RemoveShotVideos);
     logAudit('session','샷 전체삭제','',{count:n, cloud:ok});
     window._shotsDeleting = false;
     if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
@@ -505,6 +505,7 @@ function deleteShot(shotId){
   var shot = S.shotEvents.find(function(s){ return s.id===shotId; });
   if(!shot) return;
   if(!confirm(shot.memberName+'님의 저장된 샷을 삭제할까요?\n(영상·데이터가 함께 삭제됩니다)')) return;
+  r2RemoveShotVideos(shot);   // R2 영상(mkv+mp4) 실제 삭제 — 확인문구대로 함께 제거(고아 방지)
   S.shotEvents = S.shotEvents.filter(function(s){ return s.id!==shotId; });
   if(S.liveReassignShot===shotId) S.liveReassignShot=null;
   save();
@@ -1194,7 +1195,7 @@ async function deleteSelectedShots(){
   window._shotsDeleting = true;
   var op = wipeAll ? cloud.deleteAllShots() : cloud.deleteShotsBulk(ids);
   Promise.resolve(op).then(function(ok){
-    targets.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    targets.forEach(r2RemoveShotVideos);
     if(!ok){ liveToastSafe('⚠️ 서버 삭제 실패 — 다시 시도해주세요'); }
     else if(wipeAll){ liveToastSafe('✓ 전체 삭제 완료'); }
     window._shotsDeleting = false;
@@ -1217,7 +1218,7 @@ async function purgeUnassignedShots(){
   _liveLastIds = null;
   window._shotsDeleting = true;
   Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
-    un.forEach(function(s){ if(s.videoR2Key){ try{ r2.remove(s.videoR2Key); }catch(e){} } });
+    un.forEach(r2RemoveShotVideos);
     window._shotsDeleting = false;
     if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
   });
