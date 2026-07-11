@@ -20,7 +20,7 @@ const CORS = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS });
@@ -162,6 +162,21 @@ export default {
         // 없으면 브라우저가 파일 전체를 받아야 재생돼 매우 느리고,
         // iOS Safari 는 206 응답이 아니면 영상 재생을 거부한다.
         const rangeHeader = request.headers.get('range');
+
+        // ── 엣지 캐시 조회 (속도) ──────────────────────────────
+        // Cloudflare Cache API 는 캐시된 전체(200) 응답에서 Range 를 잘라 206 으로 준다.
+        // 워밍업된 영상은 R2 원본까지 안 가고 엣지에서 바로 재생 → 대기시간 대폭 감소.
+        const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
+        const cacheKey = new Request(url.toString(), { method: 'GET' });
+        if (cache && request.method === 'GET') {
+          try {
+            const hit = await cache.match(request);
+            // 안전장치: Range 요청인데 캐시가 206 으로 안 잘라주면(전체 200) iOS 재생 실패 우려 →
+            // 그 경우엔 캐시를 무시하고 아래 R2 경로로 정상 206 스트리밍한다(재생 회귀 방지).
+            if (hit && (!rangeHeader || hit.status === 206)) return hit;
+          } catch (e) {}
+        }
+
         let r2range;
         if (rangeHeader) {
           const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
@@ -181,9 +196,32 @@ export default {
         obj.writeHttpMetadata(headers);
         headers.set('etag', obj.httpEtag);
         headers.set('accept-ranges', 'bytes');
-        headers.set('cache-control', 'private, max-age=31536000');
+        // 공개 캐시 허용 — GET 은 이미 URL 만 알면 열리는 공개 경로라 노출 범위 변화 없음,
+        // 대신 브라우저·엣지가 캐시해 반복/워밍업 재생이 빨라진다. 키별 콘텐츠는 불변(immutable).
+        headers.set('cache-control', 'public, max-age=31536000, immutable');
         const total = obj.size;                       // 항상 전체 파일 크기
         const body = request.method === 'HEAD' ? null : obj.body;
+
+        // 미스 시 백그라운드로 "전체 객체" 를 엣지에 적재 → 다음 요청부터 캐시 히트.
+        // (지금 응답은 아래에서 Range 그대로 스트리밍하므로 사용자 대기엔 영향 없음)
+        if (cache && request.method === 'GET' && ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil((async () => {
+            try {
+              const already = await cache.match(cacheKey);
+              if (already) return;
+              const full = await env.BUCKET.get(key);
+              if (!full) return;
+              const fh = new Headers(CORS);
+              full.writeHttpMetadata(fh);
+              fh.set('etag', full.httpEtag);
+              fh.set('accept-ranges', 'bytes');
+              fh.set('cache-control', 'public, max-age=31536000, immutable');
+              fh.set('content-length', String(full.size));
+              await cache.put(cacheKey, new Response(full.body, { status: 200, headers: fh }));
+            } catch (e) {}
+          })());
+        }
+
         if (rangeHeader && obj.range) {
           let off, len;
           if (obj.range.suffix != null) { len = obj.range.suffix; off = total - len; }
