@@ -1,3 +1,6 @@
+// 랜딩 2단계: 브랜드/사진 랜딩 → [입장하기] → 로그인(역할 선택)
+function enterHero(){ S.heroEntered=true; render(); try{ var c=document.querySelector('.role-hero'); if(c) c.scrollTop=c.scrollHeight; }catch(e){} }
+function exitHero(){ S.heroEntered=false; render(); }
 function renderRoleSelector(){
   var root=document.getElementById('root');
   var pros=INSTRUCTORS.filter(function(i){return i.role==='pro';});
@@ -29,16 +32,22 @@ function renderRoleSelector(){
       <div class="hero-wordmark">${titleHtml}<i>${(brand.sub||'').replace(/&/g,'&amp;')}</i></div>
       <button class="hero-ver" onclick="var n=this.closest('.role-hero').querySelector('.update-notice');if(n){n.classList.toggle('open');n.scrollIntoView({behavior:'smooth',block:'end'});}">${APP_VERSION.version}</button>
     </div>
-    <div class="hero-content">
+    <div class="hero-content${S.heroEntered?' entered':''}">
       <div class="hero-kicker">GOLF × FITNESS · POWERED BY ${brand.measuredBy||'TRACKMAN'}</div>
       <h1 class="hero-title">${titleHtml}</h1>
       <p class="hero-copy">${(brand.heroCopy||'').replace(/</g,'&lt;')}</p>
+      ${S.heroEntered ? `
       <div class="hero-roles">
         <div class="hero-rgroup"><span class="hero-rlabel">센터 관리</span>${roleBtn('rc-infodesk','infodesk','인포데스크','인포데스크','회원 등록 · 관리')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">골프 프로</span>${pros.map(function(inst){return roleBtn('rc-pro','pro',inst.name,inst.name,'');}).join('')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">골프 PT</span>${trainers.map(function(inst){return roleBtn('rc-trainer','trainer',inst.name,inst.name,'');}).join('')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">시스템</span>${roleBtn('rc-admin','admin','관리자','관리자','관리자 모드')}</div>
       </div>
+      <button class="hero-back" onclick="exitHero()">← 처음으로</button>
+      ` : `
+      <button class="hero-enter" onclick="enterHero()">입장하기<span>→</span></button>
+      <div class="hero-enter-hint">담당자 계정으로 로그인</div>
+      `}
       <div class="update-notice collapsed">
         <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
           <span>${APP_VERSION.version} · ${APP_VERSION.date} · 업데이트 내역</span>
