@@ -588,8 +588,10 @@ body.role-select .app{background:#0d1117}
   background:#0a0d10;color:#fff;display:flex;flex-direction:column}
 .role-hero .hero-bg{position:fixed;inset:0;z-index:0}
 .role-hero .hero-photos,.role-hero .hero-cine{position:absolute;inset:0}
-.hero-photo{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease}
-.hero-photo.on{opacity:1}
+.hero-photo{position:absolute;inset:0;background-size:cover;background-position:center top;opacity:0;transition:opacity 1.4s ease;will-change:opacity,transform}
+.hero-photo.on{opacity:1;animation:heroKen 9s ease-out forwards}
+@keyframes heroKen{from{transform:scale(1.1)}to{transform:scale(1.02)}}
+@media (prefers-reduced-motion:reduce){.hero-photo.on{animation:none}}
 .hero-cine{background:
   radial-gradient(72% 52% at 80% 16%, rgba(0,210,154,.20), transparent 60%),
   radial-gradient(62% 46% at 12% 88%, rgba(63,123,255,.16), transparent 60%),

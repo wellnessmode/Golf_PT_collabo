@@ -6,9 +6,12 @@ function renderRoleSelector(){
   var heroImgs=(brand.heroImages||[]).filter(Boolean);
   var _tp=String(brand.name||'').trim().split(/\s+/);
   var titleHtml=_tp.length>1 ? (_tp.slice(0,-1).join(' ')+' <span>'+_tp.slice(-1)[0]+'</span>') : (brand.name||'');
-  var bgHtml = heroImgs.length
+  // 시네마틱 배경은 항상 베이스로 깔고, 사진은 그 위에 겹침 —
+  // 사진 URL 이 죽거나 느려도 빈 화면 없이 프리미엄 배경이 유지된다.
+  var photosHtml = heroImgs.length
     ? '<div class="hero-photos" id="hero-photos">'+heroImgs.map(function(u,i){return '<div class="hero-photo'+(i===0?' on':'')+'" style="background-image:url(\''+String(u).replace(/'/g,'%27')+'\')"></div>';}).join('')+'</div>'
-    : '<div class="hero-cine">'
+    : '';
+  var bgHtml = '<div class="hero-cine">'
       +'<svg class="hero-arc" viewBox="0 0 400 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
       +'<defs><linearGradient id="haArc" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#00d29a" stop-opacity="0.04"/><stop offset="50%" stop-color="#00d29a" stop-opacity="0.85"/><stop offset="100%" stop-color="#3f7bff" stop-opacity="0.08"/></linearGradient></defs>'
       +'<path d="M-40,820 Q150,140 480,330" fill="none" stroke="url(#haArc)" stroke-width="2.6" stroke-linecap="round"/>'
@@ -20,7 +23,7 @@ function renderRoleSelector(){
     return '<button class="hero-role '+cls+'" onclick="setRole(\''+role+'\',\''+user+'\')"><span class="hr-txt"><span class="hr-title">'+title+'</span>'+(desc?'<span class="hr-desc">'+desc+'</span>':'')+'</span><span class="hr-arrow">→</span></button>';
   };
   root.innerHTML=`<div class="role-hero">
-    <div class="hero-bg">${bgHtml}</div>
+    <div class="hero-bg">${bgHtml}${photosHtml}</div>
     <div class="hero-scrim"></div>
     <div class="hero-top">
       <div class="hero-wordmark">${titleHtml}<i>${(brand.sub||'').replace(/&/g,'&amp;')}</i></div>
