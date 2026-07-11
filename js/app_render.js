@@ -29,13 +29,14 @@ function renderRoleSelector(){
     <div class="hero-bg">${bgHtml}${photosHtml}</div>
     <div class="hero-scrim"></div>
     <div class="hero-top">
-      <div class="hero-wordmark">${titleHtml}<i>${(brand.sub||'').replace(/&/g,'&amp;')}</i></div>
+      <div class="hero-headline">
+        <div class="hero-kicker">GOLF × FITNESS · POWERED BY ${brand.measuredBy||'TRACKMAN'}</div>
+        <h1 class="hero-title">${titleHtml}</h1>
+        <p class="hero-copy">${(brand.heroCopy||'').replace(/</g,'&lt;')}</p>
+      </div>
       <button class="hero-ver" onclick="var n=this.closest('.role-hero').querySelector('.update-notice');if(n){n.classList.toggle('open');n.scrollIntoView({behavior:'smooth',block:'end'});}">${APP_VERSION.version}</button>
     </div>
     <div class="hero-content${S.heroEntered?' entered':''}">
-      <div class="hero-kicker">GOLF × FITNESS · POWERED BY ${brand.measuredBy||'TRACKMAN'}</div>
-      <h1 class="hero-title">${titleHtml}</h1>
-      <p class="hero-copy">${(brand.heroCopy||'').replace(/</g,'&lt;')}</p>
       ${S.heroEntered ? `
       <div class="hero-roles">
         <div class="hero-rgroup"><span class="hero-rlabel">센터 관리</span>${roleBtn('rc-infodesk','infodesk','인포데스크','인포데스크','회원 등록 · 관리')}</div>
