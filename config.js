@@ -38,7 +38,14 @@ window.APP_CONFIG = {
     sub: 'GOLF & PT',                           // 브랜드 서브 타이틀
     tagline: 'COLLABORATIVE COACHING PLATFORM', // 로그인 화면 태그라인
     reportSub: 'GOLF PT · PERFORMANCE',         // 성과 리포트 헤더 서브
-    measuredBy: 'TRACKMAN iO'                   // 측정 장비 표기 (리포트 신뢰도 라인)
+    measuredBy: 'TRACKMAN iO',                  // 측정 장비 표기 (리포트 신뢰도 라인)
+    // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스 스튜디오 실제 사진 권장.
+    // 넣으면 나이키 앱처럼 풀블리드 사진 배경(여러 장이면 5초마다 크로스페이드).
+    // 비우면 프리미엄 시네마틱 배경(골프 탄도 모티프)으로 자동 표시.
+    // 예: ['assets/hero-golf.jpg', 'assets/hero-fitness.jpg']
+    heroImages: [],
+    // 랜딩 히어로 하단 카피(한 줄). 비우면 기본 문구.
+    heroCopy: '골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
   },
   // 지도자 명단 — null 이면 기본값(내셔널짐 4인). 센터 배포 시 여기만 교체.
   // 예: [{name:'홍길동 프로', role:'pro'}, {name:'김코치 트레이너', role:'trainer'}]

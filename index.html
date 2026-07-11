@@ -20,6 +20,66 @@
 
 <div class="app" id="root"></div>
 
+<!-- 브랜드 스플래시 (KREAM 스타일) — 로드 즉시 표시 후 페이드아웃 -->
+<div id="app-splash">
+  <div class="sp-mark">
+    <div class="sp-word" id="sp-word">NATIONAL<em>GYM</em></div>
+    <div class="sp-sub" id="sp-sub">GOLF · PT · PERFORMANCE</div>
+  </div>
+  <div class="sp-load"><span></span></div>
+</div>
+<style>
+#app-splash{position:fixed;inset:0;z-index:2147483600;background:#0a0d10;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .55s ease;opacity:1}
+#app-splash.hide{opacity:0;pointer-events:none}
+#app-splash .sp-mark{display:flex;flex-direction:column;align-items:center;
+  transform:translateY(-2%);animation:spRise .7s cubic-bezier(.16,.84,.44,1) both}
+#app-splash .sp-word{font-family:-apple-system,'Helvetica Neue','Inter',sans-serif;
+  font-weight:900;font-style:italic;font-size:clamp(30px,9vw,46px);letter-spacing:-.03em;
+  color:#fff;line-height:1;display:flex;gap:.14em;text-transform:uppercase}
+#app-splash .sp-word em{font-style:italic;color:#00d29a}
+#app-splash .sp-sub{margin-top:14px;font-size:clamp(9px,2.6vw,11px);font-weight:800;
+  letter-spacing:.42em;color:rgba(255,255,255,.44);padding-left:.42em;
+  opacity:0;animation:spFade .5s .35s ease forwards}
+#app-splash .sp-load{margin-top:34px;width:120px;height:2px;border-radius:2px;
+  background:rgba(255,255,255,.09);overflow:hidden;opacity:0;animation:spFade .4s .5s ease forwards}
+#app-splash .sp-load span{display:block;height:100%;width:40%;border-radius:2px;
+  background:linear-gradient(90deg,transparent,#00d29a,transparent);animation:spSlide 1.1s .5s linear infinite}
+@keyframes spRise{from{opacity:0;transform:translateY(6%)}to{opacity:1;transform:translateY(-2%)}}
+@keyframes spFade{to{opacity:1}}
+@keyframes spSlide{from{transform:translateX(-120px)}to{transform:translateX(300px)}}
+@media (prefers-reduced-motion:reduce){#app-splash *{animation:none!important;opacity:1!important}}
+</style>
+<script>
+(function(){
+  // 브랜드 텍스트를 config 에서 반영 (화이트라벨)
+  try{
+    var b=(window.APP_CONFIG&&window.APP_CONFIG.BRAND)||{};
+    if(b.name){var w=document.getElementById('sp-word');var parts=String(b.name).trim().split(/\s+/);
+      w.innerHTML = parts.length>1 ? (parts.slice(0,-1).join(' ')+'<em>'+parts.slice(-1)[0]+'</em>') : b.name;}
+    if(b.reportSub){document.getElementById('sp-sub').textContent=String(b.reportSub).replace(/·/g,'·');}
+  }catch(e){}
+  // 최소 1.1초 노출 후, 앱이 그려졌으면 페이드아웃 (실패해도 2.4초 뒤 강제 제거)
+  var start=Date.now(), done=false;
+  function appReady(){var r=document.getElementById('root');return r&&r.children&&r.children.length>0;}
+  function hide(){
+    if(done)return; done=true;
+    var el=document.getElementById('app-splash'); if(!el)return;
+    el.classList.add('hide');
+    setTimeout(function(){ if(el&&el.parentNode) el.parentNode.removeChild(el); }, 600);
+  }
+  function tick(){
+    var waited=Date.now()-start;
+    if(waited>=1100 && appReady()){ hide(); return; }
+    if(waited>=2400){ hide(); return; }      // 실패 안전망
+    setTimeout(tick, 120);
+  }
+  if(document.readyState==='complete'||document.readyState==='interactive') setTimeout(tick,120);
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(tick,120); });
+})();
+</script>
+
 <!-- 버전 배지 — 어느 화면에서든 우하단에 작게 (SW 버전 갱신 확인용) -->
 <div id="app-ver-badge" onclick="try{if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(function(r){if(r)r.update();});location.reload();}catch(e){location.reload();}" title="탭하면 최신 버전 확인·새로고침"></div>
 <script>

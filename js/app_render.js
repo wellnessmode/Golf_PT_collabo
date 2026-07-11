@@ -2,49 +2,59 @@ function renderRoleSelector(){
   var root=document.getElementById('root');
   var pros=INSTRUCTORS.filter(function(i){return i.role==='pro';});
   var trainers=INSTRUCTORS.filter(function(i){return i.role==='trainer';});
-  root.innerHTML=`<div class="role-selector">
-    <div class="role-header">
-      <img class="role-app-icon" src="assets/icon-512.png" alt="Golf PT">
-      <h1 class="role-brand">${APP_BRAND.name}</h1>
-      <div class="role-brand-sub">${APP_BRAND.sub.replace(/&/g,'&amp;')}</div>
-      <div class="role-tagline">${APP_BRAND.tagline}</div>
+  var brand=APP_BRAND;
+  var heroImgs=(brand.heroImages||[]).filter(Boolean);
+  var _tp=String(brand.name||'').trim().split(/\s+/);
+  var titleHtml=_tp.length>1 ? (_tp.slice(0,-1).join(' ')+' <span>'+_tp.slice(-1)[0]+'</span>') : (brand.name||'');
+  var bgHtml = heroImgs.length
+    ? '<div class="hero-photos" id="hero-photos">'+heroImgs.map(function(u,i){return '<div class="hero-photo'+(i===0?' on':'')+'" style="background-image:url(\''+String(u).replace(/'/g,'%27')+'\')"></div>';}).join('')+'</div>'
+    : '<div class="hero-cine">'
+      +'<svg class="hero-arc" viewBox="0 0 400 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+      +'<defs><linearGradient id="haArc" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#00d29a" stop-opacity="0.04"/><stop offset="50%" stop-color="#00d29a" stop-opacity="0.85"/><stop offset="100%" stop-color="#3f7bff" stop-opacity="0.08"/></linearGradient></defs>'
+      +'<path d="M-40,820 Q150,140 480,330" fill="none" stroke="url(#haArc)" stroke-width="2.6" stroke-linecap="round"/>'
+      +'<path d="M-40,842 Q180,235 480,432" fill="none" stroke="rgba(0,210,154,0.16)" stroke-width="1.4" stroke-dasharray="2 9" stroke-linecap="round"/>'
+      +'<path d="M-40,864 Q210,330 480,520" fill="none" stroke="rgba(63,123,255,0.11)" stroke-width="1.2" stroke-dasharray="2 12"/>'
+      +'<circle cx="150" cy="384" r="3.4" fill="#00d29a"/><circle cx="150" cy="384" r="12" fill="none" stroke="rgba(0,210,154,0.32)" stroke-width="1"/>'
+      +'</svg></div>';
+  var roleBtn=function(cls,role,user,title,desc){
+    return '<button class="hero-role '+cls+'" onclick="setRole(\''+role+'\',\''+user+'\')"><span class="hr-txt"><span class="hr-title">'+title+'</span>'+(desc?'<span class="hr-desc">'+desc+'</span>':'')+'</span><span class="hr-arrow">→</span></button>';
+  };
+  root.innerHTML=`<div class="role-hero">
+    <div class="hero-bg">${bgHtml}</div>
+    <div class="hero-scrim"></div>
+    <div class="hero-top">
+      <div class="hero-wordmark">${titleHtml}<i>${(brand.sub||'').replace(/&/g,'&amp;')}</i></div>
+      <button class="hero-ver" onclick="var n=this.closest('.role-hero').querySelector('.update-notice');if(n){n.classList.toggle('open');n.scrollIntoView({behavior:'smooth',block:'end'});}">${APP_VERSION.version}</button>
     </div>
-    <div class="role-section">
-      <div class="role-section-label">센터 관리</div>
-      <div class="role-row">
-        <div class="role-card rc-infodesk" onclick="setRole('infodesk','인포데스크')">
-          <div class="role-card-title">인포데스크</div><div class="role-card-desc">회원 등록 · 관리</div>
+    <div class="hero-content">
+      <div class="hero-kicker">GOLF × FITNESS · POWERED BY ${brand.measuredBy||'TRACKMAN'}</div>
+      <h1 class="hero-title">${titleHtml}</h1>
+      <p class="hero-copy">${(brand.heroCopy||'').replace(/</g,'&lt;')}</p>
+      <div class="hero-roles">
+        <div class="hero-rgroup"><span class="hero-rlabel">센터 관리</span>${roleBtn('rc-infodesk','infodesk','인포데스크','인포데스크','회원 등록 · 관리')}</div>
+        <div class="hero-rgroup"><span class="hero-rlabel">골프 프로</span>${pros.map(function(inst){return roleBtn('rc-pro','pro',inst.name,inst.name,'');}).join('')}</div>
+        <div class="hero-rgroup"><span class="hero-rlabel">골프 PT</span>${trainers.map(function(inst){return roleBtn('rc-trainer','trainer',inst.name,inst.name,'');}).join('')}</div>
+        <div class="hero-rgroup"><span class="hero-rlabel">시스템</span>${roleBtn('rc-admin','admin','관리자','관리자','관리자 모드')}</div>
+      </div>
+      <div class="update-notice collapsed">
+        <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span>${APP_VERSION.version} · ${APP_VERSION.date} · 업데이트 내역</span>
+          <span class="update-chevron">▾</span>
         </div>
+        <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
       </div>
-    </div>
-    <div class="role-section">
-      <div class="role-section-label">골프 프로</div>
-      <div class="role-row">${pros.map(function(inst){
-        return '<div class="role-card rc-pro" onclick="setRole(\'pro\',\''+inst.name+'\')">'+'<div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 레슨 기록</div></div>';
-      }).join('')}</div>
-    </div>
-    <div class="role-section">
-      <div class="role-section-label">골프 PT</div>
-      <div class="role-row">${trainers.map(function(inst){
-        return '<div class="role-card rc-trainer" onclick="setRole(\'trainer\',\''+inst.name+'\')">'+'<div class="role-card-title">'+inst.name+'</div><div class="role-card-desc">골프 PT 기록</div></div>';
-      }).join('')}</div>
-    </div>
-    <div class="role-section">
-      <div class="role-section-label">시스템 관리</div>
-      <div class="role-row">
-        <div class="role-card rc-admin" onclick="setRole('admin','관리자')">
-          <div class="role-card-title">관리자</div><div class="role-card-desc">관리자 모드</div>
-        </div>
-      </div>
-    </div>
-    <div class="update-notice">
-      <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
-        <span>${APP_VERSION.version} 업데이트 · ${APP_VERSION.date}</span>
-        <span class="update-chevron">▼</span>
-      </div>
-      <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
     </div>
   </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?S.pendingRole.user:'')+'</div>'+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">비밀번호가 일치하지 않습니다</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+S.bioError+'</div>':'')+(!bio.available?'<label class="pw-trust"><input type="checkbox" '+(S.trustDevice?'checked':'')+' onchange="S.trustDevice=this.checked"><span>이 기기에서 자동 로그인<small>다음부터 비밀번호 없이 바로 입장 (스튜디오 공용 기기용)</small></span></label>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">생체 로그인 등록</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+S.bioError+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
+  // 히어로 배경 사진이 여러 장이면 5초마다 크로스페이드
+  try{ if(window.__heroRot){ clearInterval(window.__heroRot); window.__heroRot=null; } }catch(e){}
+  if(heroImgs.length>1){
+    window.__heroRot=setInterval(function(){
+      var wrap=document.getElementById('hero-photos'); if(!wrap){ try{clearInterval(window.__heroRot);}catch(e){} return; }
+      var slides=wrap.querySelectorAll('.hero-photo'); if(slides.length<2) return;
+      var cur=wrap.querySelector('.hero-photo.on'); var idx=Array.prototype.indexOf.call(slides,cur); if(idx<0) idx=0;
+      slides[idx].classList.remove('on'); slides[(idx+1)%slides.length].classList.add('on');
+    }, 5000);
+  }
 }
 
 // 흰 화면 방지 + 스크롤 자동 보존:
