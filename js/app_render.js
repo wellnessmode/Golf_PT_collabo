@@ -1,5 +1,7 @@
-// 랜딩 인트로 몬타주: 사진이 0.5초 간격 페이드로 지나가고(그동안 터치 불가·로그인 UI 없음),
-// 마지막 장에서 2초 후 로그인(역할 선택) 화면이 페이드 인. 페이지 로드당 1회만 재생.
+// 랜딩 인트로 몬타주: 사진이 1.5초씩 페이드로 지나가고(그동안 터치 불가·로그인 UI 없음),
+// 마지막 장에서 3초 후 로그인(역할 선택) 화면이 2초 페이드 인. 페이지 로드당 1회만 재생.
+// 첫 장의 카운트는 스플래시가 완전히 사라지고 + 첫 사진 로딩이 끝난 뒤에야 시작 —
+// 앱 구동 직후 로딩·스플래시 시간이 첫 사진 노출시간을 잡아먹지 않게.
 function heroIntroAdvance(){
   var intro=window.__heroIntro; if(!intro||intro.done) return;
   var wrap=document.getElementById('hero-photos');
@@ -10,8 +12,8 @@ function heroIntroAdvance(){
   }
   intro.idx++;
   for(var i=0;i<slides.length;i++) slides[i].classList.toggle('on', i===intro.idx);
-  // 마지막 장에 도달하면 2초 머문 뒤 종료, 아니면 0.5초 뒤 다음 장
-  intro.timer=setTimeout(heroIntroAdvance, intro.idx>=slides.length-1 ? 2000 : 500);
+  // 마지막 장에 도달하면 3초 머문 뒤 종료, 아니면 1.5초 뒤 다음 장
+  intro.timer=setTimeout(heroIntroAdvance, intro.idx>=slides.length-1 ? 3000 : 1500);
 }
 function renderRoleSelector(){
   var root=document.getElementById('root');
@@ -24,6 +26,9 @@ function renderRoleSelector(){
   // 인트로 몬타주 재생 중 여부 — 사진이 2장 이상이고 이번 페이지 로드에서 아직 안 끝났으면 재생 중.
   // 재생 중엔 로그인(역할 카드)·버전 버튼을 숨기고 터치를 막는다(introing 클래스가 CSS로 처리).
   var introing = heroImgs.length>1 && !window.__heroIntroPlayed;
+  // 몬타주 종료 직후 첫 렌더에서만 로그인 2초 페이드 인 — 이후 재렌더(비번 모달 등)에선 재생 안 함
+  var reveal = !introing && heroImgs.length>1 && !window.__heroLoginRevealed;
+  if(reveal) window.__heroLoginRevealed=true;
   // 시네마틱 배경은 항상 베이스로 깔고, 사진은 그 위에 겹침 —
   // 사진 URL 이 죽거나 느려도 빈 화면 없이 프리미엄 배경이 유지된다.
   var photosHtml = heroImgs.length
@@ -40,7 +45,7 @@ function renderRoleSelector(){
   var roleBtn=function(cls,role,user,title,desc){
     return '<button class="hero-role '+cls+'" onclick="setRole(\''+role+'\',\''+user+'\')"><span class="hr-txt"><span class="hr-title">'+title+'</span>'+(desc?'<span class="hr-desc">'+desc+'</span>':'')+'</span><span class="hr-arrow">→</span></button>';
   };
-  root.innerHTML=`<div class="role-hero${introing?' introing':''}">
+  root.innerHTML=`<div class="role-hero${introing?' introing':(reveal?' reveal':'')}">
     <div class="hero-bg">${bgHtml}${photosHtml}</div>
     <div class="hero-scrim"></div>
     <div class="hero-top">
@@ -77,8 +82,28 @@ function renderRoleSelector(){
       var _w=document.getElementById('hero-photos');
       if(_w){ var _s=_w.querySelectorAll('.hero-photo'); for(var _i=0;_i<_s.length;_i++) _s[_i].classList.toggle('on', _i===_iv); }
     } else {
-      window.__heroIntro={ idx:0, done:false, timer:null };
-      window.__heroIntro.timer=setTimeout(heroIntroAdvance, 500);
+      var intro={ idx:0, done:false, timer:null, started:false };
+      window.__heroIntro=intro;
+      // 첫 장 1.5초 카운트는 (1) 스플래시가 DOM 에서 제거되고 (2) 첫 사진 로딩 완료 후 시작.
+      var imgReady=false, splashGone=false;
+      var startClock=function(){
+        if(intro.started||intro.done||window.__heroIntro!==intro) return;
+        if(!imgReady||!splashGone) return;
+        intro.started=true;
+        intro.timer=setTimeout(heroIntroAdvance, 1500);
+      };
+      var first=new Image();
+      first.onload=first.onerror=function(){ imgReady=true; startClock(); };
+      first.src=heroImgs[0];
+      (function waitSplash(){
+        if(window.__heroIntro!==intro||intro.done) return;
+        if(!document.getElementById('app-splash')){ splashGone=true; startClock(); return; }
+        setTimeout(waitSplash, 100);
+      })();
+      // 안전망 — 5초가 지나면 조건과 무관하게 시작 (사진 URL 불량·스플래시 잔존 대비)
+      setTimeout(function(){ imgReady=true; splashGone=true; startClock(); }, 5000);
+      // 나머지 사진도 미리 받아둬서 페이드 시점에 공백이 없게
+      for(var pi=1;pi<heroImgs.length;pi++){ var pim=new Image(); pim.src=heroImgs[pi]; }
     }
   } else {
     try{ if(window.__heroIntro && window.__heroIntro.timer) clearTimeout(window.__heroIntro.timer); }catch(e){}
