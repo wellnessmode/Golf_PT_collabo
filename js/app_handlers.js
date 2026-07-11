@@ -268,7 +268,7 @@ function _drawImageCard(m){
   ctx.fillStyle='#f5f5f0'; ctx.fillRect(0,0,720,960);
   ctx.fillStyle='#1a3d2b'; ctx.fillRect(0,0,720,120);
   ctx.fillStyle='#fff'; ctx.font='bold 28px -apple-system,sans-serif';
-  ctx.fillText('내셔널짐 Golf Lesson',40,50);
+  ctx.fillText(APP_BRAND.nameKo+' Golf Lesson',40,50);
   ctx.font='16px -apple-system,sans-serif';
   ctx.fillText('월간 레슨 리포트 · '+today(),40,85);
   var y=160;
@@ -302,7 +302,7 @@ function _drawImageCard(m){
   ctx.fillStyle='#fff'; ctx.font='bold 12px -apple-system,sans-serif';
   ctx.fillText(Math.round(pct*100)+'%',40+640*pct/2-10,y+15); y+=45;
   ctx.fillStyle='#999'; ctx.font='13px -apple-system,sans-serif';
-  ctx.fillText('내셔널짐 Golf PT Collaboration · '+today(),40,920);
+  ctx.fillText(APP_BRAND.nameKo+' Golf PT Collaboration · '+today(),40,920);
   return canvas;
 }
 function _imageCardFilename(m){ return m.name+'_레슨카드_'+today()+'.png'; }
@@ -380,7 +380,7 @@ function openReport(){
       videos:(s.media||[]).filter(function(mm){var mt=mm.mimeType||inferMime(mm.name);return mt.indexOf('video/')!==-1 && (mm.r2Key||mm.mediaId);}).map(function(mm){return {key:mm.r2Key||mm.mediaId, view:mm.view||'other'};})
     };
   });
-  S.reportDraft = {sessions:cleaned, step:'review', link:''};
+  S.reportDraft = {mid:mid, sessions:cleaned, step:'review', link:''};
   S.showReport = true; render();
 }
 function closeReport(){S.showReport=false; S.reportDraft=null; render();}
@@ -447,7 +447,7 @@ function updateReportSession(idx, val){if(S.reportDraft&&S.reportDraft.sessions[
 function toggleReportApprove(idx){if(S.reportDraft&&S.reportDraft.sessions[idx]){S.reportDraft.sessions[idx].approved=!S.reportDraft.sessions[idx].approved;render();}}
 function approveAllReport(){if(S.reportDraft){S.reportDraft.sessions.forEach(function(s){s.approved=true;});S.reportDraft.step='approved';render();}}
 async function generateShareLink(){
-  var mid = S.selectedMember;
+  var mid = (S.reportDraft&&S.reportDraft.mid) || S.perfMember || S.selectedMember;
   var m = S.members.find(function(x){return x.id===mid;});
   if(!m || !cloud.enabled || !S.reportDraft) return;
   var st = stats(mid);
@@ -456,10 +456,41 @@ async function generateShareLink(){
     return {date:s.date, author:s.author, role:s.role, content:s.cleaned, ai:s.ai, videos:s.videos};
   });
   var allSess = S.sessions[mid]||[];
+  // 트랙맨 측정 요약 — 회원 공유 리포트에 실측 데이터·영상 포함
+  var trackman=null;
+  try{
+    var perf = buildPerfData(mid);
+    if(perf && perf.shots && perf.shots.length){
+      var avgs=_buildClubAverages(perf.shots);
+      var clubs=['driver','wood','iron','wedge'].map(function(g){return avgs[g];}).filter(function(a){return a.n>0;})
+        .map(function(a){return {name:a.name,n:a.n,metric:!!a._metric,clubSpeed:a.clubSpeed,ballSpeed:a.ballSpeed,smash:a.smash,carry:a.carry,total:a.total,launch:a.launch,spin:a.spin};});
+      var best=null,bc=-1; perf.shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bc){bc=c;best=s;}});
+      // 추이는 드라이버 우선 — 클럽 혼합 추이는 오해를 부른다 (부족하면 전 클럽 fallback)
+      var trendSrc=(perf.golf||[]).filter(function(g){return _carryM(g)!=null && _clubGroup(g.club)==='driver';});
+      if(trendSrc.length<2) trendSrc=(perf.golf||[]).filter(function(g){return _carryM(g)!=null;});
+      var trend=trendSrc.map(function(g){return {date:g.date, carryM:Math.round(_carryM(g)*10)/10};});
+      var trendClub=trendSrc.length? (_clubKo(trendSrc[trendSrc.length-1].club)||'') : '';
+      // 영상: 아이폰 재생 보장되는 mp4 변환본 우선, mkv 원본은 후순위 + 플래그
+      var vids=perf.shots.filter(function(s){return s.videoR2Key||(s.data&&s.data.videoMp4R2Key);})
+        .sort(function(a,b){
+          var am=!!(a.data&&a.data.videoMp4R2Key), bm=!!(b.data&&b.data.videoMp4R2Key);
+          if(am!==bm) return am?-1:1;
+          return String(b.ts).localeCompare(String(a.ts));
+        }).slice(0,6)
+        .map(function(s){
+          var key=(s.data&&s.data.videoMp4R2Key)||s.videoR2Key;
+          return {ts:s.ts, club:s.data&&s.data.club, carry:s.data&&s.data.carry, metric:_isMetricShot(s.data), key:key, mkv:/\.mkv$/i.test(String(key||''))};
+        });
+      trackman={shotCount:perf.shots.length, clubs:clubs,
+        best:best?{ts:best.ts,club:best.data.club,carry:best.data.carry,ballSpeed:best.data.ballSpeed,smash:best.data.smash,metric:_isMetricShot(best.data)}:null,
+        trend:trend, trendClub:trendClub, videos:vids, measuredBy:APP_BRAND.measuredBy};
+    }
+  }catch(e){ console.warn('[report] trackman summary skip:', e); }
   var content = {
     member:{name:m.name, phone:m.phone||'', registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
     totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
-    sessions:sessions
+    sessions:sessions, trackman:trackman,
+    brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, measuredBy:APP_BRAND.measuredBy}
   };
   try{
     var {error} = await cloud.client.from('reports').upsert({
@@ -486,7 +517,7 @@ function copyReportLink(){
 }
 function renderReportModal(){
   if(!S.showReport || !S.reportDraft) return '';
-  var mid = S.selectedMember;
+  var mid = S.reportDraft.mid || S.selectedMember;
   var m = S.members.find(function(x){return x.id===mid;});
   if(!m) return '';
   var d = S.reportDraft;
@@ -606,6 +637,44 @@ function submitPasswordChange(){
   render();
 }
 function openAuditLog(){S.showAuditLog=true; S.auditFilter=S.auditFilter||'all'; S.auditUserSelected=null; render();}
+
+// ============ 녹음 원문 보관함 (관리자 전용) ============
+// 레슨 녹음 원문은 지도자 화면에는 남기지 않고(당사자 프라이버시),
+// 관리자만 이 보관함에서 신뢰도 검증용으로 열람한다.
+function openTranscriptVault(){
+  if(S.currentRole!=='admin'){alert('관리자 전용 기능입니다'); return;}
+  S.showTranscriptVault=true; S.vaultAuthorFilter='all'; S.sidebarOpen=false;
+  logAudit('system','녹음 원문 보관함 열람','',{});
+  render();
+}
+function closeTranscriptVault(){S.showTranscriptVault=false; render();}
+function renderTranscriptVault(){
+  if(!S.showTranscriptVault || S.currentRole!=='admin') return '';
+  var rows=[];
+  S.members.forEach(function(m){
+    (S.sessions[m.id]||[]).forEach(function(s){
+      if(s.rawTranscript && s.rawTranscript.trim()) rows.push({member:m.name, s:s});
+    });
+  });
+  rows.sort(function(a,b){return String(b.s.date||'').localeCompare(String(a.s.date||''));});
+  var authors={}; rows.forEach(function(r){authors[r.s.author||'?']=(authors[r.s.author||'?']||0)+1;});
+  var filt=S.vaultAuthorFilter||'all';
+  var shown=filt==='all'?rows:rows.filter(function(r){return (r.s.author||'?')===filt;});
+  return '<div class="modal-overlay" onclick="if(event.target===this)closeTranscriptVault()"><div class="modal" style="width:680px;max-height:92vh;overflow-y:auto">'
+    +'<div class="modal-title">🎙 녹음 원문 보관함 <span style="font-size:11px;font-weight:400;color:var(--tx-3)">관리자 전용 · '+rows.length+'건</span></div>'
+    +'<div style="font-size:12px;color:var(--tx-2);margin-bottom:12px;padding:10px 14px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">레슨 녹음 원문은 지도자·회원 화면에는 표시되지 않습니다. AI 일지 정리가 정확했는지 검증할 때만 열람하세요.</div>'
+    +'<div class="audit-filter" style="margin-bottom:10px"><button class="audit-filter-btn'+(filt==='all'?' active':'')+'" onclick="S.vaultAuthorFilter=\'all\';render()">전체 '+rows.length+'</button>'
+    +Object.keys(authors).map(function(a){return '<button class="audit-filter-btn'+(filt===a?' active':'')+'" onclick="S.vaultAuthorFilter=\''+a.replace(/'/g,'')+'\';render()">'+a+' '+authors[a]+'</button>';}).join('')
+    +'</div>'
+    +(shown.length===0?'<div class="empty-state" style="padding:30px">녹음 원문이 저장된 세션이 없습니다</div>':
+      shown.map(function(r){
+        var s=r.s;
+        return '<details class="raw-transcript" style="margin-bottom:8px"><summary>'+s.date+' · <b>'+r.member+'</b> 회원 · '+(s.author||'')+' · '+s.rawTranscript.trim().length+'자</summary>'
+          +'<div class="raw-transcript-body">'+String(s.rawTranscript).replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div></details>';
+      }).join(''))
+    +'<div class="modal-actions"><button class="btn" onclick="closeTranscriptVault()">닫기</button></div>'
+  +'</div></div>';
+}
 function exportAuditLog(user){
   var entries = user ? S.auditLog.filter(function(e){return e.user===user;}) : S.auditLog;
   var rows = [['시간','카테고리','사용자','역할','액션','대상','메타']];

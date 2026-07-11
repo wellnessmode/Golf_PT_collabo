@@ -42,6 +42,24 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(
 .si-video{margin-top:10px;border-radius:10px;overflow:hidden;background:#000}
 .si-video video{width:100%;display:block;max-height:400px;object-fit:contain}
 .si-video-label{font-size:10px;color:var(--tx3);padding:6px 10px;background:var(--bg)}
+.tm-card{background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;margin-bottom:16px}
+.tm-title{font-size:14px;font-weight:800;margin-bottom:2px}
+.tm-sub{font-size:11px;color:var(--tx3);margin-bottom:14px}
+.tm-best{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tm-best-cell{text-align:center;padding:12px 6px;background:var(--bg);border-radius:10px}
+.tm-best-val{font-size:19px;font-weight:800}
+.tm-best-val.green{color:var(--ac)}
+.tm-best-lbl{font-size:10px;color:var(--tx3);margin-top:2px}
+.tm-chart{margin:6px 0 14px}
+.tm-chart svg{width:100%;height:auto;display:block}
+.tm-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tm-tbl th{font-size:10px;color:var(--tx3);font-weight:700;text-align:left;padding:6px 8px;border-bottom:1px solid var(--brd)}
+.tm-tbl td{padding:7px 8px;border-bottom:1px dashed var(--brd)}
+.tm-tbl tr:last-child td{border-bottom:none}
+.tm-vids{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.tm-vid{border-radius:10px;overflow:hidden;background:#000}
+.tm-vid video{width:100%;display:block;max-height:260px;object-fit:contain}
+.tm-vid-label{font-size:10px;color:var(--tx3);padding:5px 8px;background:var(--bg)}
 .report-footer{text-align:center;padding:30px 0;color:var(--tx3);font-size:11px;border-top:1px solid var(--brd)}
 .loading{text-align:center;padding:80px 20px;color:var(--tx3)}
 .loading-spinner{width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
@@ -78,9 +96,33 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(
     if(error||!data) throw new Error('리포트를 찾을 수 없습니다.');
     var c = data.content;
     var r2url = cfg.R2_WORKER_URL||'';
+    var BR = Object.assign({name:'NATIONAL GYM', nameKo:'내셔널짐', measuredBy:'TRACKMAN iO'}, cfg.BRAND||{}, (c&&c.brand)||{});
+    try{ document.title = data.member_name+' 리포트 — '+BR.nameKo; }catch(e){}
+
+    // 거리/속도 표시 — 저장값을 m 기준으로 정규화 (metric 플래그: true=m·㎧, false=yd·mph)
+    function distM(v, metric){ if(v==null||isNaN(v)) return null; return metric? v : v*0.9144; }
+    function fmt(v, dec){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec!=null?dec:0); }
+    // 미니 라인차트 (외부 라이브러리 없음)
+    function miniLine(vals, labels){
+      var W=560, H=150, pad={t:14,r:14,b:22,l:36}, n=vals.length;
+      if(n<2) return '';
+      var min=Math.min.apply(null,vals), max=Math.max.apply(null,vals);
+      if(min===max){min-=1;max+=1;}
+      var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+      var X=function(i){return pad.l+iw*i/(n-1);}, Y=function(v){return pad.t+ih*(1-(v-min)/(max-min));};
+      var pts=vals.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1);}).join(' ');
+      var dots=vals.map(function(v,i){var last=i===n-1;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(last?4:2.4)+'" fill="'+(last?'#00b884':'#fff')+'" stroke="#00b884" stroke-width="'+(last?0:1.8)+'"/>';}).join('');
+      var idxs=n<=5?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
+      var xLab=idxs.map(function(i){var anc=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+anc+'" font-size="9" fill="#9094a0">'+labels[i]+'</text>';}).join('');
+      return '<svg viewBox="0 0 '+W+' '+H+'">'
+        +'<text x="'+(pad.l-5)+'" y="'+(pad.t+4)+'" text-anchor="end" font-size="9" fill="#9094a0">'+Math.round(max)+'</text>'
+        +'<text x="'+(pad.l-5)+'" y="'+(pad.t+ih)+'" text-anchor="end" font-size="9" fill="#9094a0">'+Math.round(min)+'</text>'
+        +'<polyline fill="none" stroke="#00b884" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="'+pts+'"/>'
+        +dots+xLab+'</svg>';
+    }
 
     var html = '<div class="report-header">'+
-      '<img class="report-logo" src="assets/logo.png" alt="내셔널짐">'+
+      '<img class="report-logo" src="assets/logo.png" alt="'+BR.nameKo+'">'+
       '<div class="report-title">'+data.member_name+' 회원님 레슨 리포트</div>'+
       '<div class="report-sub">작성: '+data.created_by+' · '+(data.created_at||'').slice(0,10)+'</div>'+
     '</div>';
@@ -98,6 +140,41 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(
           '<div class="rm-stat"><div class="rm-stat-val green">'+(c.trainerSessions||0)+'</div><div class="rm-stat-lbl">골프 PT</div></div>'+
         '</div>'+
       '</div>';
+    }
+
+    // ===== 트랙맨 측정 리포트 =====
+    if(c.trackman && c.trackman.shotCount>0){
+      var t=c.trackman;
+      html+='<div class="tm-card">'+
+        '<div class="tm-title">📊 '+(t.measuredBy||BR.measuredBy)+' 측정 리포트</div>'+
+        '<div class="tm-sub">총 '+t.shotCount+'개 샷 실측 · 세션 평균 기준</div>';
+      if(t.best){
+        html+='<div class="tm-best">'+
+          '<div class="tm-best-cell"><div class="tm-best-val green">'+fmt(distM(t.best.carry,t.best.metric))+'<small style="font-size:11px"> m</small></div><div class="tm-best-lbl">베스트 캐리 ('+(t.best.club||'')+')</div></div>'+
+          '<div class="tm-best-cell"><div class="tm-best-val">'+fmt(t.best.metric?t.best.ballSpeed:(t.best.ballSpeed!=null?t.best.ballSpeed*0.44704:null),1)+'<small style="font-size:11px"> ㎧</small></div><div class="tm-best-lbl">볼 스피드</div></div>'+
+          '<div class="tm-best-cell"><div class="tm-best-val">'+(t.best.smash!=null?t.best.smash:'—')+'</div><div class="tm-best-lbl">스매시 팩터</div></div>'+
+        '</div>';
+      }
+      if(t.trend && t.trend.length>=2){
+        html+='<div class="tm-chart">'+miniLine(t.trend.map(function(x){return x.carryM;}), t.trend.map(function(x){return x.date;}))+'</div>'+
+          '<div class="tm-sub" style="margin-top:-8px">세션별 '+(t.trendClub?t.trendClub+' ':'')+'캐리 추이 (m)</div>';
+      }
+      if(t.clubs && t.clubs.length){
+        html+='<table class="tm-tbl"><thead><tr><th>클럽</th><th>샷</th><th>캐리(m)</th><th>토탈(m)</th><th>볼(㎧)</th><th>스매시</th></tr></thead><tbody>'+
+          t.clubs.map(function(a){
+            var sp=function(v){return v==null?null:(a.metric?v:v*0.44704);};
+            return '<tr><td><b>'+a.name+'</b></td><td>'+a.n+'</td><td>'+fmt(distM(a.carry,a.metric))+'</td><td>'+fmt(distM(a.total,a.metric))+'</td><td>'+fmt(sp(a.ballSpeed),1)+'</td><td>'+(a.smash!=null?Number(a.smash).toFixed(2):'—')+'</td></tr>';
+          }).join('')+'</tbody></table>';
+      }
+      if(t.videos && t.videos.length && r2url){
+        html+='<div class="tm-vids">'+t.videos.map(function(v){
+          var src=r2url+'/'+encodeURIComponent(v.key);
+          var mkvNote=v.mkv?'<div class="tm-vid-label" style="color:#d97706">⚠️ 원본(MKV) — 일부 폰에서 재생이 안 되면 <a href="'+src+'" download>다운로드</a>해서 보세요</div>':'';
+          return '<div class="tm-vid"><video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video>'+
+            '<div class="tm-vid-label">'+String(v.ts||'').slice(5,10)+' · '+(v.club||'')+(v.carry!=null?' · '+fmt(distM(v.carry,v.metric))+'m':'')+'</div>'+mkvNote+'</div>';
+        }).join('')+'</div>';
+      }
+      html+='</div>';
     }
 
     if(c.sessions && c.sessions.length>0){
@@ -140,7 +217,7 @@ body{font-family:-apple-system,'Inter','Noto Sans KR',sans-serif;background:var(
       html+='</div>';
     }
 
-    html+='<div class="report-footer">내셔널짐 Golf PT · Collaborative Coaching Platform</div>';
+    html+='<div class="report-footer">'+BR.nameKo+' Golf PT · Collaborative Coaching Platform<br>본 리포트의 탄도 데이터는 '+BR.measuredBy+' 로 측정되었습니다</div>';
     document.getElementById('report').innerHTML=html;
   }catch(e){
     document.getElementById('loading').innerHTML='<div class="error">'+e.message+'</div>';

@@ -382,11 +382,36 @@ async function handleFileUploadSingle(file, view){
       r2.upload(mediaId, blob).then(function(ok){
         item.r2Status = ok ? 'synced' : 'failed';
         render();
+        // 세션이 이미 저장된 뒤 업로드가 끝났으면 세션 메타를 재동기화 (r2Key 반영)
+        try{
+          var sid = S.selectedMember;
+          var stored = sid && (S.sessions[sid]||[]).find(function(x){
+            return (x.media||[]).some(function(mm){return mm.mediaId===mediaId;});
+          });
+          if(stored) syncSessionUp(sid, stored);
+        }catch(e){}
       });
     })(mediaItem, processed);
   }
   S.newSession.media.push(mediaItem);
   render();
+}
+// 업로드 실패 영상 수동 재업로드 (세션카드 배지에서 호출)
+async function retryMediaUpload(sid, mi){
+  var mid = S.selectedMember;
+  var sess = (S.sessions[mid]||[]).find(function(x){return x.id===sid;});
+  var item = sess && sess.media && sess.media[mi];
+  if(!item) return;
+  if(!item.mediaId){ alert('로컬 원본이 없어 재업로드할 수 없습니다'); return; }
+  var rec = await mediaDB.get(item.mediaId);
+  if(!rec || !rec.blob){ alert('이 기기에 원본이 없습니다.\n업로드했던 기기에서 앱을 열면 자동 재업로드됩니다.'); return; }
+  item.r2Status='uploading'; render();
+  var ok = await r2.upload(item.r2Key||item.mediaId, rec.blob);
+  item.r2Status = ok ? 'synced' : 'failed';
+  if(ok){ item.r2Key = item.r2Key||item.mediaId; syncSessionUp(mid, sess); }
+  try{save();}catch(e){}
+  render();
+  liveToastSafe(ok ? '☁ 영상 업로드 완료 — 다른 기기에서도 보입니다' : '업로드 실패 — 네트워크 확인 후 다시 시도');
 }
 async function removeMediaFile(idx){
   var m = S.newSession.media[idx];

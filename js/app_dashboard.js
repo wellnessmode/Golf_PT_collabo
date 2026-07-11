@@ -120,6 +120,38 @@ function svgRing(pct, opt){
     '</svg>';
 }
 
+// 탄착군 산점도 (dispersion) — x: 좌우 편차, y: 캐리. GDR/트랙맨 리포트의 표준 문법.
+function svgDispersion(pts, opt){
+  opt=opt||{};
+  var W=opt.w||340, H=opt.h||230, pad={t:18,r:16,b:26,l:40};
+  if(!pts||pts.length<3) return '';
+  var xs=pts.map(function(p){return p.x;}), ys=pts.map(function(p){return p.y;});
+  var xAbs=Math.max(10, Math.ceil(Math.max.apply(null, xs.map(Math.abs))*1.15));
+  var yMin=Math.floor(Math.min.apply(null,ys)*0.94), yMax=Math.ceil(Math.max.apply(null,ys)*1.05);
+  if(yMin===yMax){yMin-=5;yMax+=5;}
+  var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+  var X=function(v){return pad.l+iw*(v+xAbs)/(2*xAbs);};
+  var Y=function(v){return pad.t+ih*(1-(v-yMin)/(yMax-yMin));};
+  // 타깃 라인(중앙) + 격자
+  var cx=X(0).toFixed(1);
+  var grid='<line x1="'+cx+'" y1="'+pad.t+'" x2="'+cx+'" y2="'+(pad.t+ih)+'" stroke="rgba(0,0,0,.18)" stroke-width="1.2" stroke-dasharray="4 3"/>';
+  [0.5].forEach(function(f){
+    var gx1=X(-xAbs*f).toFixed(1), gx2=X(xAbs*f).toFixed(1);
+    grid+='<line x1="'+gx1+'" y1="'+pad.t+'" x2="'+gx1+'" y2="'+(pad.t+ih)+'" stroke="rgba(0,0,0,.05)"/>'
+        +'<line x1="'+gx2+'" y1="'+pad.t+'" x2="'+gx2+'" y2="'+(pad.t+ih)+'" stroke="rgba(0,0,0,.05)"/>';
+  });
+  for(var g=0;g<=2;g++){var gy=(pad.t+ih*g/2).toFixed(1);grid+='<line x1="'+pad.l+'" y1="'+gy+'" x2="'+(pad.l+iw)+'" y2="'+gy+'" stroke="rgba(0,0,0,.05)"/>';}
+  var dots=pts.map(function(p){
+    return '<circle cx="'+X(p.x).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+'" r="'+(p.best?5:3.4)+'" fill="'+(p.best?'#d97706':'rgba(0,184,132,.75)')+'" stroke="#fff" stroke-width="1"/>';
+  }).join('');
+  var labs='<text x="'+(pad.l-6)+'" y="'+(pad.t+4)+'" text-anchor="end" class="cax">'+yMax+'</text>'
+    +'<text x="'+(pad.l-6)+'" y="'+(pad.t+ih)+'" text-anchor="end" class="cax">'+yMin+'</text>'
+    +'<text x="'+pad.l+'" y="'+(H-8)+'" text-anchor="start" class="cax">← 좌 '+xAbs+'</text>'
+    +'<text x="'+(pad.l+iw)+'" y="'+(H-8)+'" text-anchor="end" class="cax">우 '+xAbs+' →</text>'
+    +'<text x="'+cx+'" y="'+(H-8)+'" text-anchor="middle" class="cax">타깃</text>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" class="chart" preserveAspectRatio="xMidYMid meet">'+grid+dots+labs+'</svg>';
+}
+
 // 레이더 (전/후 2계열)
 function svgRadar(axes, seriesA, seriesB, opt){
   opt=opt||{};
@@ -182,16 +214,16 @@ var DEMO_PERF = {
   ],
   assess:[{date:'03-01', score:62},{date:'04-05', score:71},{date:'05-23', score:83}],
   shots:[
-    {id:'d1', memberId:'demo', memberName:'김서연', ts:'2026-03-08T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:94.2,ballSpeed:134,smash:1.42,carry:182,total:196,launch:11.8,spin:3250,clubPath:-3.1,faceAngle:2.4,attack:-1.8}},
-    {id:'d2', memberId:'demo', memberName:'김서연', ts:'2026-04-05T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:97.1,ballSpeed:140,smash:1.44,carry:194,total:210,launch:13.0,spin:2950,clubPath:-1.8,faceAngle:1.5,attack:-0.6}},
-    {id:'d3', memberId:'demo', memberName:'김서연', ts:'2026-04-19T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:98.6,ballSpeed:143,smash:1.45,carry:200,total:217,launch:13.5,spin:2820,clubPath:-1.2,faceAngle:1.1,attack:0.2}},
-    {id:'d4', memberId:'demo', memberName:'김서연', ts:'2026-05-03T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:100.2,ballSpeed:147,smash:1.467,carry:207,total:225,launch:13.9,spin:2740,clubPath:-0.6,faceAngle:0.8,attack:1.1}},
-    {id:'d5', memberId:'demo', memberName:'김서연', ts:'2026-05-17T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:101.4,ballSpeed:150,smash:1.479,carry:213,total:231,launch:14.2,spin:2690,clubPath:-0.2,faceAngle:0.5,attack:1.8}},
-    {id:'d6', memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:102.3,ballSpeed:152,smash:1.486,carry:217,total:236,launch:14.4,spin:2650,clubPath:0.1,faceAngle:0.3,attack:2.3}},
-    {id:'w1', memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:05:00Z', source:'mock', data:{club:'5번 우드',clubSpeed:96,ballSpeed:140,smash:1.46,carry:200,total:212,launch:14.9,spin:3420,clubPath:0.4,faceAngle:0.5}},
-    {id:'i1', memberId:'demo', memberName:'김서연', ts:'2026-05-17T05:10:00Z', source:'mock', data:{club:'7번 아이언',clubSpeed:82,ballSpeed:110,smash:1.34,carry:148,total:156,launch:18.2,spin:6210,clubPath:-0.5,faceAngle:0.3}},
-    {id:'i2', memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:12:00Z', source:'mock', data:{club:'7번 아이언',clubSpeed:82.5,ballSpeed:110.3,smash:1.34,carry:152,total:160,launch:18.4,spin:6180,clubPath:-0.4,faceAngle:0.2}},
-    {id:'wd1',memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:15:00Z', source:'mock', data:{club:'피칭웨지',clubSpeed:74,ballSpeed:92.4,smash:1.25,carry:105,total:108,launch:26.4,spin:8540,clubPath:1.0,faceAngle:0.5}}
+    {id:'d1', memberId:'demo', memberName:'김서연', ts:'2026-03-08T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:94.2,ballSpeed:134,smash:1.42,carry:182,total:196,launch:11.8,spin:3250,clubPath:-3.1,faceAngle:2.4,attack:-1.8,carrySide:-18}},
+    {id:'d2', memberId:'demo', memberName:'김서연', ts:'2026-04-05T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:97.1,ballSpeed:140,smash:1.44,carry:194,total:210,launch:13.0,spin:2950,clubPath:-1.8,faceAngle:1.5,attack:-0.6,carrySide:-12}},
+    {id:'d3', memberId:'demo', memberName:'김서연', ts:'2026-04-19T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:98.6,ballSpeed:143,smash:1.45,carry:200,total:217,launch:13.5,spin:2820,clubPath:-1.2,faceAngle:1.1,attack:0.2,carrySide:9}},
+    {id:'d4', memberId:'demo', memberName:'김서연', ts:'2026-05-03T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:100.2,ballSpeed:147,smash:1.467,carry:207,total:225,launch:13.9,spin:2740,clubPath:-0.6,faceAngle:0.8,attack:1.1,carrySide:-6}},
+    {id:'d5', memberId:'demo', memberName:'김서연', ts:'2026-05-17T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:101.4,ballSpeed:150,smash:1.479,carry:213,total:231,launch:14.2,spin:2690,clubPath:-0.2,faceAngle:0.5,attack:1.8,carrySide:4}},
+    {id:'d6', memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:00:00Z', source:'mock', data:{club:'드라이버',clubSpeed:102.3,ballSpeed:152,smash:1.486,carry:217,total:236,launch:14.4,spin:2650,clubPath:0.1,faceAngle:0.3,attack:2.3,carrySide:-2}},
+    {id:'w1', memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:05:00Z', source:'mock', data:{club:'5번 우드',clubSpeed:96,ballSpeed:140,smash:1.46,carry:200,total:212,launch:14.9,spin:3420,clubPath:0.4,faceAngle:0.5,carrySide:6}},
+    {id:'i1', memberId:'demo', memberName:'김서연', ts:'2026-05-17T05:10:00Z', source:'mock', data:{club:'7번 아이언',clubSpeed:82,ballSpeed:110,smash:1.34,carry:148,total:156,launch:18.2,spin:6210,clubPath:-0.5,faceAngle:0.3,carrySide:-4}},
+    {id:'i2', memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:12:00Z', source:'mock', data:{club:'7번 아이언',clubSpeed:82.5,ballSpeed:110.3,smash:1.34,carry:152,total:160,launch:18.4,spin:6180,clubPath:-0.4,faceAngle:0.2,carrySide:3}},
+    {id:'wd1',memberId:'demo', memberName:'김서연', ts:'2026-05-24T05:15:00Z', source:'mock', data:{club:'피칭웨지',clubSpeed:74,ballSpeed:92.4,smash:1.25,carry:105,total:108,launch:26.4,spin:8540,clubPath:1.0,faceAngle:0.5,carrySide:-2}}
   ]
 };
 
@@ -204,7 +236,8 @@ function buildPerfData(memberId){
   sess.forEach(function(s){
     var md=(s.date||'').slice(5); // MM-DD
     if(s.golfMetrics && (s.golfMetrics.carry||s.golfMetrics.clubSpeed||s.golfMetrics.ballSpeed)){
-      golf.push(Object.assign({date:md}, s.golfMetrics));
+      // 수동 입력 골프 지표는 yd/mph 가정 (_metric:false). _d = 페이스 계산용 전체 날짜.
+      golf.push(Object.assign({date:md, _d:s.date, _metric:false}, s.golfMetrics));
     }
     if(s.ptSets && s.ptSets.length){
       pt.push({date:md, sets:s.ptSets});
@@ -219,10 +252,11 @@ function buildPerfData(memberId){
     Object.keys(byDate).sort().forEach(function(d){
       var md=d.slice(5); if(existDates[md]) return;
       var arr=byDate[d];
-      var drv=arr.filter(function(s){return (s.data&&s.data.club)==='드라이버';});
+      // 트랙맨 에이전트는 club 을 영문('Driver','7Iron')으로 저장 — 그룹 분류로 매칭 (한글/영문 모두)
+      var drv=arr.filter(function(s){return _clubGroup(s.data&&s.data.club)==='driver';});
       var use=drv.length?drv:arr;
       var avg=function(f){var v=use.map(function(s){return parseFloat(s.data&&s.data[f]);}).filter(function(x){return !isNaN(x);}); return v.length?Math.round((v.reduce(function(a,b){return a+b;},0)/v.length)*100)/100:null;};
-      golf.push({date:md, club:(drv.length?'드라이버':((use[0].data&&use[0].data.club)||'')),
+      golf.push({date:md, _d:d, _metric:_isMetricShot(use[0].data), club:(drv.length?'드라이버':((use[0].data&&use[0].data.club)||'')),
         clubSpeed:avg('clubSpeed'), ballSpeed:avg('ballSpeed'), smash:avg('smash'),
         carry:avg('carry'), total:avg('total'), spin:avg('spin'),
         clubPath:avg('clubPath'), faceAngle:avg('faceAngle'), attack:avg('attack'), _shots:use.length});
@@ -260,12 +294,75 @@ function pfSpdFrom(v, srcMetric){
 }
 function pfDist(v){ if(v==null||isNaN(v)) return v; return S.perfUnitDist==='m'? v*0.9144 : v; }
 function pfSpd(v){ if(v==null||isNaN(v)) return v; return S.perfUnitSpd==='ms'? v*0.44704 : v; }
+// 미터 원본 → 표시 단위 (골프 지표를 m 로 통일해 계산할 때 사용)
+function pfDistM(vM){ if(vM==null||isNaN(vM)) return vM; return S.perfUnitDist==='m'? vM : vM/0.9144; }
+// golf[] 세션 지표 한 건의 캐리를 미터로 정규화 (_metric 플래그 기준)
+function _carryM(g){ var c=g&&parseFloat(g.carry); if(c==null||isNaN(c)) return null; return g._metric? c : c*0.9144; }
+// 회원 목표 문자열에서 목표 거리 추출 — "드라이버 220m 돌파", "230야드" 등 → 미터
+function _parseGoalDist(goal){
+  var m=String(goal||'').match(/(\d{2,3})\s*(m(?![a-z])|미터|yd|야드)/i);
+  if(!m) return null;
+  var v=parseFloat(m[1]);
+  if(!isFinite(v)||v<50||v>400) return null;
+  return /yd|야드/i.test(m[2]) ? v*0.9144 : v;
+}
 function pfDistU(){ return S.perfUnitDist==='m'?'m':'yd'; }
 function pfSpdU(){ return S.perfUnitSpd==='ms'?'m/s':'mph'; }
 function setPerfDist(u){ S.perfUnitDist=u; render(); }
 function setPerfSpd(u){ S.perfUnitSpd=u; render(); }
 function setPerfTextScale(t){ S.perfTextScale=t; render(); }
 function printPerf(){ try{ window.print(); }catch(e){} }
+// 샷 데이터 CSV 내보내기 — 회원/센터의 데이터 소유권 보장 (B2B 요구사항, SkyTrak 벤치마킹)
+function exportShotsCsv(){
+  var data = S.perfDemo ? DEMO_PERF : buildPerfData(S.perfMember);
+  if(!data || !data.shots || !data.shots.length){ alert('내보낼 측정 샷이 없습니다'); return; }
+  var keys=['clubSpeed','ballSpeed','smash','carry','total','launch','spin','clubPath','faceAngle','attack','carrySide','totalSide','spinAxis','landAngle'];
+  var rows=[['시각','클럽','단위계','클럽스피드','볼스피드','스매시','캐리','토탈','발사각','스핀','클럽패스','페이스앵글','어택앵글','캐리좌우','토탈좌우','스핀축','낙하각']];
+  data.shots.slice().sort(function(a,b){return String(a.ts).localeCompare(String(b.ts));}).forEach(function(s){
+    var d=s.data||{};
+    rows.push([String(s.ts).replace('T',' ').slice(0,19), _clubKo(d.club)||'', _isMetricShot(d)?'m·m/s':'yd·mph']
+      .concat(keys.map(function(k){return d[k]!=null?d[k]:'';})));
+  });
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download=(data.member.name||'member')+'_shots_'+today()+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},200);
+}
+// 성과 요약 공유 — Web Share(카톡 등 OS 공유시트) → 미지원 시 클립보드 복사
+function sharePerfSummary(){
+  var data = S.perfDemo ? DEMO_PERF : buildPerfData(S.perfMember);
+  if(!data || !data.member) return;
+  var m=data.member;
+  var lines=[APP_BRAND.nameKo+' 성과 리포트 — '+m.name+' 회원님'];
+  var shots=data.shots||[];
+  if(shots.length){
+    var best=null,bc=-1; shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bc){bc=c;best=s;}});
+    if(best){var bm2=_isMetricShot(best.data); lines.push('🏆 베스트 '+_clubKo(best.data.club)+' 캐리 '+_fmtNum(pfDistFrom(bc,bm2))+' '+pfDistU());}
+    var sessCount=S.perfDemo? (DEMO_PERF.golf.length+DEMO_PERF.pt.length) : ((S.sessions[m.id]||[]).length);
+    lines.push('📊 측정 샷 '+shots.length+'개 · 세션 '+sessCount+'회');
+  }
+  var ba=shots.length? _findBeforeAfter(shots) : null;
+  if(ba){
+    var b=parseFloat(ba.before.data&&ba.before.data.carry)||0, a=parseFloat(ba.after.data&&ba.after.data.carry)||0;
+    var bM=_isMetricShot(ba.before.data)?b:b*0.9144, aM=_isMetricShot(ba.after.data)?a:a*0.9144;
+    if(aM>bM) lines.push('📈 첫 측정 대비 캐리 +'+_fmtNum(pfDistM(aM-bM))+' '+pfDistU());
+  }
+  if(m.goal) lines.push('🎯 목표: '+m.goal);
+  var text=lines.join('\n');
+  try{
+    if(navigator.share){ navigator.share({title:m.name+' 성과 리포트', text:text}).catch(function(){}); return; }
+  }catch(e){}
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ alert('리포트 요약이 복사되었습니다 — 카카오톡에 붙여넣기 하세요'); });
+      return;
+    }
+  }catch(e){}
+  alert(text);
+}
 function _assessScore(items){
   try{return calcFitness(items||{}).score;}catch(e){return 0;}
 }
@@ -347,23 +444,33 @@ function renderPerformance(){
   var m=data.member;
   var ts=S.perfTextScale||1;
   var locked=_buildLockIn(m, S.sessions[m.id]||[], data.shots||[]);
+  // 공용 계산 — 클럽별 평균 · 목표 (여러 섹션에서 재사용)
+  var avgs = (data.shots&&data.shots.length) ? _buildClubAverages(data.shots) : null;
+  var goalM = _parseGoalDist(m.goal), goalAuto=false;
+  if(goalM==null && data.golf && data.golf.length){
+    var bestTrendM=0; data.golf.forEach(function(g){var c=_carryM(g); if(c!=null&&c>bestTrendM) bestTrendM=c;});
+    if(bestTrendM>0){ goalM=Math.ceil(bestTrendM*1.05/5)*5; goalAuto=true; }   // 목표 미설정 시: 베스트+5% 자동
+  }
+  var secNo=0; var _sn=function(){ secNo++; return (secNo<10?'0':'')+secNo; };
   var html='<div class="perf-overlay perf-light"><div class="perf-shell perf-v3" style="font-size:'+(15*ts)+'px">';
 
   // ===== 헤더 =====
   html+='<div class="pv-hd">'
     +'<div class="pv-hd-top">'
-      +'<div class="pv-brand">NATIONAL GYM<small>GOLF PT · PERFORMANCE</small></div>'
+      +'<div class="pv-brand">'+APP_BRAND.name+'<small>'+APP_BRAND.reportSub+'</small></div>'
       +'<div class="pv-ctrls">'
         +'<div class="pv-cg"><span class="pv-l">단위</span><div class="pv-seg"><button class="'+(S.perfUnitDist==='yd'?'on':'')+'" onclick="setPerfDist(\'yd\')">yd</button><button class="'+(S.perfUnitDist==='m'?'on':'')+'" onclick="setPerfDist(\'m\')">m</button></div></div>'
         +'<div class="pv-cg"><span class="pv-l">속도</span><div class="pv-seg"><button class="'+(S.perfUnitSpd==='mph'?'on':'')+'" onclick="setPerfSpd(\'mph\')">mph</button><button class="'+(S.perfUnitSpd==='ms'?'on':'')+'" onclick="setPerfSpd(\'ms\')">m/s</button></div></div>'
         +'<div class="pv-cg"><span class="pv-l">글씨</span><div class="pv-seg"><button class="'+(ts===1?'on':'')+'" onclick="setPerfTextScale(1)">가</button><button class="'+(ts>1&&ts<1.3?'on':'')+'" onclick="setPerfTextScale(1.18)">가+</button><button class="'+(ts>=1.3?'on':'')+'" onclick="setPerfTextScale(1.4)">가++</button></div></div>'
         +'<button class="pv-icbtn pv-report-btn" onclick="openReport()" title="AI 리포트">🤖 리포트</button>'
+        +'<button class="pv-icbtn" onclick="exportShotsCsv()" title="샷 데이터 CSV 다운로드 (데이터 소유권)">⬇ CSV</button>'
         +'<button class="pv-icbtn" onclick="printPerf()" title="인쇄">🖨</button>'
         +'<button class="pv-closebtn" onclick="closePerformance()">닫기</button>'
       +'</div>'
     +'</div>'
     +'<div class="pv-title">PERFORMANCE <span>REPORT</span>'+(S.perfDemo?'<span class="pv-demo">DEMO</span>':'')+'</div>'
-    +'<div class="pv-meta">'+(m.registeredDate||'')+' – 현재 · MEASURED BY TRACKMAN iO</div>'
+    +'<div class="pv-meta">'+(m.registeredDate||'')+' – 현재 · MEASURED BY '+APP_BRAND.measuredBy+'</div>'
+    +(S.perfDemo?'<div class="pv-meta" style="color:#d97706;font-weight:700">※ 상담용 데모 데이터입니다 — 실제 회원 측정값이 아닙니다</div>':'')
   +'</div>';
 
   // ===== 선수 + 매몰 카운터 (Lock-in #1) =====
@@ -375,7 +482,7 @@ function renderPerformance(){
       +(m.goal?'<div class="pv-ptags"><div>🎯 '+m.goal+'</div></div>':'')
     +'</div>'
     +'<div class="pv-invest">'
-      +'<div class="pv-iv-label">⏱ 내셔널짐과 함께한 시간</div>'
+      +'<div class="pv-iv-label">⏱ '+APP_BRAND.nameKo+'과 함께한 시간</div>'
       +'<div class="pv-iv-grid">'
         +'<div class="pv-iv-cell"><div class="pv-iv-v">'+locked.weeks+'<span class="u">주</span></div><div class="pv-iv-l">함께한 기간</div></div>'
         +'<div class="pv-iv-cell"><div class="pv-iv-v">'+locked.sessions+'</div><div class="pv-iv-l">완료 세션</div></div>'
@@ -391,7 +498,7 @@ function renderPerformance(){
     var best=null, bestC=-1;
     data.shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bestC){bestC=c;best=s;}});
     var bd=(best&&best.data)||{}; var bm=_isMetricShot(bd);
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>01</i>베스트 샷</div><div class="pv-sec-x">'+(best?_clubKo(bd.club)+' · '+String(best.ts).slice(5,10):'')+'</div></div>'
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>베스트 샷</div><div class="pv-sec-x">'+(best?_clubKo(bd.club)+' · '+String(best.ts).slice(5,10):'')+'</div></div>'
       +'<div class="pv-kgrid">'
         +'<div class="pv-k hi"><div class="pv-k-l">Carry</div><div class="pv-k-v">'+(bd.carry!=null?_fmtNum(pfDistFrom(bd.carry,bm)):'—')+'<span class="pv-k-u">'+pfDistU()+'</span></div></div>'
         +'<div class="pv-k"><div class="pv-k-l">Ball Speed</div><div class="pv-k-v">'+(bd.ballSpeed!=null?_fmtNum(pfSpdFrom(bd.ballSpeed,bm)):'—')+'<span class="pv-k-u">'+pfSpdU()+'</span></div></div>'
@@ -402,27 +509,65 @@ function renderPerformance(){
       +'</div>';
   }
 
-  // ===== 목표 진척 (Lock-in #2) =====
-  if(data.golf&&data.golf.length){
-    var gL2=data.golf[data.golf.length-1];
-    var goalCarry=250, curCarry=gL2.carry||200;
-    var pct=Math.min(100, Math.max(0, Math.round((curCarry/goalCarry)*100)));
-    var rest=Math.max(0, goalCarry-curCarry);
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>02</i>목표 진척</div><div class="pv-sec-x">12주 사이클</div></div>'
-      +'<div class="pv-gl"><div class="pv-gl-h">🎯 다음 단계까지</div>'
-        +'<div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">드라이버 평균 비거리 '+_fmtNum(pfDist(goalCarry))+' '+pfDistU()+' 돌파</span><span class="pv-gl-val">'+_fmtNum(pfDist(curCarry))+'<span class="un"> '+pfDistU()+'</span></span></div>'
-          +'<div class="pv-gl-bar"><div class="pv-gl-fill" style="width:'+pct+'%"></div></div>'
-          +'<div class="pv-gl-rest">'+_fmtNum(pfDist(rest))+' '+pfDistU()+' 남음 · 현재 페이스 유지 시 6주 내 달성 예상</div>'
-        +'</div>'
-        +(m.avgScore?'<div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">평균 스코어 90타 깨기</span><span class="pv-gl-val">'+m.avgScore+'<span class="un"> 타</span></span></div><div class="pv-gl-bar"><div class="pv-gl-fill" style="width:'+Math.min(100,Math.max(0,Math.round(100-(parseFloat(m.avgScore)-90)*8)))+'%"></div></div><div class="pv-gl-rest">숏게임 정확도 보강으로 달성 가능</div></div>':'')
-      +'</div></div>';
+  // ===== 성장 그래프 — 세션별 드라이버 캐리 추이 (실측) =====
+  // 드라이버 데이터가 부족하면 "전 클럽 혼합"이 아니라 최다 측정 단일 클럽 그룹으로 대체
+  // (혼합 추이는 클럽 간 거리 차이가 성장으로 오표시되므로 금지)
+  var trendPts=(data.golf||[]).filter(function(g){return _carryM(g)!=null && _clubGroup(g.club)==='driver';});
+  if(trendPts.length<2){
+    var _byGrp={};
+    (data.golf||[]).forEach(function(g){ if(_carryM(g)==null) return; var k=_clubGroup(g.club); (_byGrp[k]=_byGrp[k]||[]).push(g); });
+    var _bestK=Object.keys(_byGrp).sort(function(a,b){return _byGrp[b].length-_byGrp[a].length;})[0];
+    trendPts=_bestK? _byGrp[_bestK] : [];
+  }
+  if(trendPts.length>=2){
+    var tVals=trendPts.map(function(g){return Math.round(pfDistM(_carryM(g))*10)/10;});
+    var tLabs=trendPts.map(function(g){return g.date;});
+    var tFirst=tVals[0], tLast=tVals[tVals.length-1], tDiff=Math.round((tLast-tFirst)*10)/10;
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>성장 그래프</div><div class="pv-sec-x">'+(_clubKo(trendPts[trendPts.length-1].club)||'드라이버')+' Carry · 세션 평균</div></div>'
+      +'<div class="pv-chart">'+svgLine(tVals,tLabs,{w:560,h:170,color:'#00b884',unit:pfDistU()})+'</div>'
+      +(tDiff!==0?'<div class="pv-shotcount">첫 측정 대비 <strong>'+(tDiff>0?'+':'')+_fmtNum(tDiff)+' '+pfDistU()+'</strong> 변화 · '+trendPts.length+'회 측정 기준</div>':'')
+      +'</div>';
   }
 
+  // ===== 목표 진척 — 회원 목표 + 실측 페이스 =====
+  (function(){
+    var gAll=(data.golf||[]).filter(function(g){return _carryM(g)!=null && _clubGroup(g.club)==='driver';});
+    var grpIsDriver=gAll.length>0;
+    if(!grpIsDriver) gAll=(data.golf||[]).filter(function(g){return _carryM(g)!=null;});
+    if(!gAll.length || !goalM) return;
+    // 회원이 직접 적은 목표(대개 드라이버 기준)에 다른 클럽 수치를 대입하지 않는다
+    if(!grpIsDriver && !goalAuto) return;
+    var grpLabel=grpIsDriver?'드라이버':(_clubLabel(_clubGroup(gAll[gAll.length-1].club))||'클럽');
+    var curM=_carryM(gAll[gAll.length-1]);
+    if(curM==null) return;
+    var pct=Math.min(100, Math.max(0, Math.round((curM/goalM)*100)));
+    var restM=Math.max(0, goalM-curM);
+    // 페이스 예측 — 3회 이상 측정 + 2주 이상 간격 + 상승 추세일 때만 (근거 없는 예측 금지)
+    var paceLine='';
+    if(restM<=0){ paceLine='🎉 목표 달성 — 담당 지도자와 다음 목표를 설정하세요'; }
+    else if(gAll.length>=3 && gAll[0]._d && gAll[gAll.length-1]._d){
+      var firstM=_carryM(gAll[0]);
+      var days=(new Date(gAll[gAll.length-1]._d)-new Date(gAll[0]._d))/86400000;
+      if(firstM!=null && days>=14 && curM>firstM){
+        var perWeek=(curM-firstM)/(days/7);
+        var wks=Math.ceil(restM/perWeek);
+        if(perWeek>=0.2 && wks<=52) paceLine='최근 페이스(주당 +'+_fmtNum(pfDistM(perWeek))+' '+pfDistU()+') 유지 시 약 '+wks+'주 내 달성 예상';
+      }
+    }
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>목표 진척</div><div class="pv-sec-x">'+(goalAuto?'자동 목표 (베스트 +5%)':'회원 목표 기준')+'</div></div>'
+      +'<div class="pv-gl"><div class="pv-gl-h">🎯 '+(m.goal?String(m.goal).replace(/</g,'&lt;'):'다음 단계까지')+'</div>'
+        +'<div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">'+grpLabel+' 캐리 '+_fmtNum(pfDistM(goalM))+' '+pfDistU()+' 돌파</span><span class="pv-gl-val">'+_fmtNum(pfDistM(curM))+'<span class="un"> '+pfDistU()+'</span></span></div>'
+          +'<div class="pv-gl-bar"><div class="pv-gl-fill" style="width:'+pct+'%"></div></div>'
+          +'<div class="pv-gl-rest">'+(restM>0?_fmtNum(pfDistM(restM))+' '+pfDistU()+' 남음':'')+(paceLine?(restM>0?' · ':'')+paceLine:'')+'</div>'
+        +'</div>'
+        +(m.avgScore?'<div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">평균 스코어</span><span class="pv-gl-val">'+m.avgScore+'<span class="un"> 타</span></span></div><div class="pv-gl-rest">회원 프로필 기준 — 라운드 후 업데이트하면 추이가 기록됩니다</div></div>':'')
+      +'</div></div>';
+  })();
+
   // ===== 클럽별 평균 (탭) =====
-  if(data.shots&&data.shots.length){
-    var avgs=_buildClubAverages(data.shots);
+  if(avgs){
     var curG=S.perfClub||'driver'; if(!avgs[curG]||avgs[curG].n===0){curG=['driver','wood','iron','wedge'].find(function(g){return avgs[g]&&avgs[g].n>0;})||'driver';}
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>03</i>클럽별 평균</div><div class="pv-sec-x">TrackMan 측정값</div></div>'
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>클럽별 평균</div><div class="pv-sec-x">'+APP_BRAND.measuredBy+' 측정값</div></div>'
       +'<div class="pv-tabs">';
     ['driver','wood','iron','wedge'].forEach(function(g){
       var a=avgs[g], dis=a.n===0?' dis':'';
@@ -445,6 +590,40 @@ function renderPerformance(){
         +rowfn('Face Angle', a.faceAngle, '°',1)
         +'</tbody></table>';
     } else { html+='<div class="pv-empty">해당 클럽 측정 데이터가 아직 없습니다</div>'; }
+    // 탄착군 산점도 — 선택된 클럽, carrySide 데이터 있는 샷 3개 이상일 때 (GDR '탄착 분석' 벤치마킹)
+    (function(){
+      var grpShots=(data.shots||[]).filter(function(s){
+        if(_clubGroup(s.data&&s.data.club)!==curG) return false;
+        var side=parseFloat(s.data&&s.data.carrySide), c=parseFloat(s.data&&s.data.carry);
+        return !isNaN(side)&&!isNaN(c);
+      });
+      if(grpShots.length<3) return;
+      var bestC=-1; grpShots.forEach(function(s){var c=parseFloat(s.data.carry); if(c>bestC)bestC=c;});
+      var pts=grpShots.map(function(s){
+        var met=_isMetricShot(s.data);
+        return { x:Math.round(pfDistFrom(parseFloat(s.data.carrySide),met)*10)/10,
+                 y:Math.round(pfDistFrom(parseFloat(s.data.carry),met)),
+                 best:parseFloat(s.data.carry)>=bestC*0.99 };
+      });
+      // 판정은 항상 미터 기준(15/30m) — 표시 단위 토글에 따라 등급이 바뀌면 안 된다
+      var xsM=grpShots.map(function(s){var met=_isMetricShot(s.data); var v=parseFloat(s.data.carrySide); return met? v : v*0.9144;});
+      var spreadM=Math.max.apply(null,xsM)-Math.min.apply(null,xsM);
+      var spreadDisp=_fmtNum(pfDistM(spreadM))+' '+pfDistU();
+      var judge=spreadM<=15?'탄착군이 '+spreadDisp+' 폭 — 상급자 수준의 일관성입니다':
+                spreadM<=30?'좌우 분산 '+spreadDisp+' — 방향 일관성이 잡혀가는 중입니다':
+                '좌우 분산 '+spreadDisp+' — 페이스 컨트롤이 다음 과제입니다';
+      html+='<div class="pv-chart" style="margin-top:10px">'+svgDispersion(pts,{w:560,h:240})+'</div>'
+        +'<div class="pv-shotcount">🎯 '+_clubLabel(curG)+' 탄착군 ('+grpShots.length+'샷) · '+judge+'</div>';
+    })();
+    // 클럽별 평균 캐리 한눈 비교 (GDR 스타일 클럽 비거리 차트)
+    var barClubs=['driver','wood','iron','wedge'].map(function(g){return avgs[g];}).filter(function(x){return x.n>0&&x.carry!=null;});
+    if(barClubs.length>=2){
+      html+='<div class="pv-chart" style="margin-top:10px">'+svgBars(
+        barClubs.map(function(x){return Math.round(pfDistFrom(x.carry,x._metric));}),
+        barClubs.map(function(x){return x.name;}),
+        {w:560,h:150})+'</div>'
+        +'<div class="pv-shotcount">클럽별 평균 캐리 ('+pfDistU()+') — 클럽 간 거리 갭 확인용</div>';
+    }
     html+='</div>';
   }
 
@@ -458,7 +637,7 @@ function renderPerformance(){
     else if(filt==='month'){list=list.filter(function(s){return (now-new Date(s.ts))/86400000<=31;});}
     else if(filt==='best'){list=list.filter(function(s){return (parseFloat(s.data&&s.data.carry)||0)>=maxCarry*0.95;});}
     else if(['driver','wood','iron','wedge'].indexOf(filt)!==-1){list=list.filter(function(s){return _clubGroup(s.data&&s.data.club)===filt;});}
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>04</i>측정 샷 · 영상</div><div class="pv-sec-x">'+list.length+'개 표시</div></div>'
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>측정 샷 · 영상</div><div class="pv-sec-x">'+list.length+'개 표시</div></div>'
       +'<div class="pv-filt">'
         +['all:전체','week:이번주','month:이번달','best:⭐ 베스트','driver:드라이버','iron:아이언'].map(function(o){var k=o.split(':')[0],l=o.split(':')[1];return '<button class="pv-chip'+(filt===k?' on':'')+'" onclick="setPerfVidFilter(\''+k+'\')">'+l+'</button>';}).join('')
       +'</div>';
@@ -474,7 +653,7 @@ function renderPerformance(){
         var club=_clubKo(d.club)||'';
         var isBest=(parseFloat(d.carry)||0)>=maxCarry*0.97;
         var dateStr=String(s.ts).slice(5,10);
-        var hasVid=!!s.videoR2Key;
+        var hasVid=!!(s.videoR2Key || d.videoMp4R2Key);
         html+='<div class="pv-vcard" onclick="openPerfShot('+idx+')"><div class="pv-vthumb">'
           +(isBest?'<span class="pv-vbest">BEST</span>':'')
           +(hasVid?'<span class="pv-vhasvid">🎬</span>':'')
@@ -489,21 +668,26 @@ function renderPerformance(){
     html+='</div>';
   }
 
-  // ===== 비포/애프터 (Lock-in #3) =====
+  // ===== 비포/애프터 (Lock-in #3) — 카드 탭 시 해당 샷·영상 모달 =====
   var ba=data.shots? _findBeforeAfter(data.shots) : null;
   if(ba){
+    var bMet=_isMetricShot(ba.before.data), aMet=_isMetricShot(ba.after.data);
     var bC=parseFloat(ba.before.data&&ba.before.data.carry)||0, aC=parseFloat(ba.after.data&&ba.after.data.carry)||0;
-    var diff=aC-bC, pctChg=bC>0?Math.round((diff/bC)*100*10)/10:0;
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>05</i>변화의 증거</div><div class="pv-sec-x">처음 vs 현재</div></div>'
+    var bCm=bMet?bC:bC*0.9144, aCm=aMet?aC:aC*0.9144;   // m 로 정규화해 비교
+    var diffM=aCm-bCm, pctChg=bCm>0?Math.round((diffM/bCm)*100*10)/10:0;
+    var bIdx=data.shots.indexOf(ba.before), aIdx=data.shots.indexOf(ba.after);
+    var bVid=!!(ba.before.videoR2Key||(ba.before.data&&ba.before.data.videoMp4R2Key));
+    var aVid=!!(ba.after.videoR2Key||(ba.after.data&&ba.after.data.videoMp4R2Key));
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>변화의 증거</div><div class="pv-sec-x">처음 vs 현재 · 탭하면 상세</div></div>'
       +'<div class="pv-bna-h">⏮ BEFORE  ·  AFTER ⏭</div>'
       +'<div class="pv-bna">'
-        +'<div class="pv-bna-col"><div class="pv-bna-thumb"><span class="pv-bna-tag">BEFORE</span><div class="pv-vplay">▶</div></div>'
-          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.before.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDist(bC))+' <span>'+pfDistU()+'</span></div></div></div>'
+        +'<div class="pv-bna-col" onclick="openPerfShot('+bIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">BEFORE</span>'+(bVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
+          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.before.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(bCm))+' <span>'+pfDistU()+'</span></div></div></div>'
         +'<div class="pv-bna-arr">→</div>'
-        +'<div class="pv-bna-col after"><div class="pv-bna-thumb"><span class="pv-bna-tag">AFTER</span><div class="pv-vplay">▶</div></div>'
-          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.after.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDist(aC))+' <span>'+pfDistU()+'</span></div></div></div>'
+        +'<div class="pv-bna-col after" onclick="openPerfShot('+aIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">AFTER</span>'+(aVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
+          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.after.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(aCm))+' <span>'+pfDistU()+'</span></div></div></div>'
       +'</div>'
-      +(diff>0?'<div class="pv-bna-delta"><span>드라이버 캐리 변화</span><b>+'+_fmtNum(pfDist(diff))+' '+pfDistU()+' · +'+pctChg+'%</b></div>':'')
+      +(diffM>0?'<div class="pv-bna-delta"><span>드라이버 캐리 변화</span><b>+'+_fmtNum(pfDistM(diffM))+' '+pfDistU()+' · +'+pctChg+'%</b></div>':'')
     +'</div>';
   }
 
@@ -513,7 +697,7 @@ function renderPerformance(){
     var exList=Object.keys(exNames).slice(0,4);
     var ptLabels=data.pt.map(function(x){return x.date;});
     function exWeight(sess,ex){var f=(sess.sets||[]).find(function(st){return st.exercise===ex;});return f?f.weight:null;}
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>06</i>근력 향상 · Golf PT</div></div>';
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>근력 향상 · Golf PT</div></div>';
     if(exList.length>0){
       var series=exList.map(function(ex,i){return {name:ex, color:['#0a0c0f','#5b616a','#9aa0a8','#c8cdd3'][i%4], values:data.pt.map(function(s){return exWeight(s,ex)||0;})};});
       html+='<div class="pv-chart">'+svgMultiLine(series,ptLabels,{w:560,h:180})+'</div>';
@@ -521,26 +705,32 @@ function renderPerformance(){
     html+='</div>';
   }
 
-  // ===== 다음 사이클 (Lock-in #6) =====
-  html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>07</i>다음 12주 계획</div></div>'
-    +'<div class="pv-next">'
-      +'<div class="pv-nx-h">시즌 챌린지 · 진행 중</div>'
-      +'<div class="pv-nx-grid">'
-        +'<div class="pv-nx"><div class="v">'+_fmtNum(pfDist(250))+'<span class="u"> '+pfDistU()+'</span></div><div class="l">드라이버 평균</div></div>'
-        +'<div class="pv-nx"><div class="v">89<span class="u"> 타</span></div><div class="l">평균 스코어</div></div>'
-        +'<div class="pv-nx"><div class="v">±1<span class="u">°</span></div><div class="l">Face to Path</div></div>'
-      +'</div>'
-      +'<div class="pv-nx-note">권장 일정 · 골프 PT <b>주 2회 × 12주 = 24회</b> · 트랙맨 측정 <b>월 1회 정밀</b>.</div>'
-    +'</div></div>';
+  // ===== 시즌 목표 — 실데이터·회원 프로필 기반 (없으면 타일 생략) =====
+  (function(){
+    var tiles=[];
+    if(goalM) tiles.push('<div class="pv-nx"><div class="v">'+_fmtNum(pfDistM(goalM))+'<span class="u"> '+pfDistU()+'</span></div><div class="l">드라이버 캐리 목표'+(goalAuto?' (자동)':'')+'</div></div>');
+    if(avgs && avgs.driver && avgs.driver.n>0 && avgs.driver.faceAngle!=null && avgs.driver.clubPath!=null){
+      var f2p=Math.abs(avgs.driver.faceAngle-avgs.driver.clubPath);
+      tiles.push('<div class="pv-nx"><div class="v">'+_fmtNum(f2p)+'<span class="u">°</span></div><div class="l">Face to Path (목표 ±1°)</div></div>');
+    }
+    if(m.avgScore) tiles.push('<div class="pv-nx"><div class="v">'+m.avgScore+'<span class="u"> 타</span></div><div class="l">평균 스코어</div></div>');
+    if(!tiles.length && !m.goal) return;
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>시즌 목표</div><div class="pv-sec-x">담당 지도자와 설정</div></div>'
+      +'<div class="pv-next">'
+        +'<div class="pv-nx-h">'+(m.goal?'🎯 '+String(m.goal).replace(/</g,'&lt;'):'시즌 챌린지 · 진행 중')+'</div>'
+        +(tiles.length?'<div class="pv-nx-grid">'+tiles.join('')+'</div>':'')
+        +'<div class="pv-nx-note">권장 일정 · 골프 PT <b>주 2회 × 12주 = 24회</b> · '+APP_BRAND.measuredBy+' 측정 <b>월 1회 정밀</b>.</div>'
+      +'</div></div>';
+  })();
 
-  // ===== CTA (Lock-in #5, #7) =====
+  // ===== CTA — 실동작 (공유 · 인쇄) =====
   html+='<div class="pv-sec"><div class="pv-cta-wrap">'
-    +'<div class="pv-cta primary"><div class="pv-cta-ic">📅</div><div><div class="pv-cta-t">다음 레슨 예약</div><div class="pv-cta-s">담당 지도자에게 안내</div></div></div>'
-    +'<div class="pv-cta"><div class="pv-cta-ic">📤</div><div><div class="pv-cta-t">친구에게 공유</div><div class="pv-cta-s">변화 자랑하기</div></div></div>'
+    +'<div class="pv-cta primary" onclick="sharePerfSummary()"><div class="pv-cta-ic">📤</div><div><div class="pv-cta-t">리포트 공유</div><div class="pv-cta-s">요약을 카카오톡 등으로 전송</div></div></div>'
+    +'<div class="pv-cta" onclick="printPerf()"><div class="pv-cta-ic">🖨</div><div><div class="pv-cta-t">인쇄 · PDF 저장</div><div class="pv-cta-s">상담용 출력</div></div></div>'
   +'</div></div>';
 
   // ===== 푸터 =====
-  html+='<div class="pv-foot">본 리포트의 모든 탄도 데이터는 <b>TRACKMAN iO</b> 로 측정되었으며 담당 지도자 분석과 함께 작성되었습니다.<br><span>측정 베이스라인 · 영상 자산 · 코칭 이력은 <b>내셔널짐</b>에 누적되어 회원님의 다음 단계 진단에 활용됩니다.</span></div>';
+  html+='<div class="pv-foot">본 리포트의 모든 탄도 데이터는 <b>'+APP_BRAND.measuredBy+'</b> 로 측정되었으며 담당 지도자 분석과 함께 작성되었습니다.<br><span>측정 베이스라인 · 영상 자산 · 코칭 이력은 <b>'+APP_BRAND.nameKo+'</b>에 누적되어 회원님의 다음 단계 진단에 활용됩니다.</span></div>';
   html+='</div></div>';
 
   // ===== 샷 상세 모달 (개별 샷 — 실제 영상 + 전체 트랙맨 지표) =====
