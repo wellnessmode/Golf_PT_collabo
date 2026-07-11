@@ -581,6 +581,60 @@ body.role-select .app{background:#0d1117}
 .rc-infodesk{flex-basis:100%}
 .rc-admin{flex-basis:100%}
 
+/* ============================================================
+   랜딩 히어로 (Nike Run Club / KREAM 벤치마킹) — 풀블리드 + 굵은 타이포
+   ============================================================ */
+.role-hero{position:relative;height:100dvh;min-height:100vh;width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:#0a0d10;color:#fff;display:flex;flex-direction:column}
+.role-hero .hero-bg{position:fixed;inset:0;z-index:0}
+.role-hero .hero-photos,.role-hero .hero-cine{position:absolute;inset:0}
+.hero-photo{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease}
+.hero-photo.on{opacity:1}
+.hero-cine{background:
+  radial-gradient(72% 52% at 80% 16%, rgba(0,210,154,.20), transparent 60%),
+  radial-gradient(62% 46% at 12% 88%, rgba(63,123,255,.16), transparent 60%),
+  linear-gradient(180deg,#0d1116 0%,#0a0d10 55%,#070a0c 100%)}
+.hero-cine::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:46px 46px;-webkit-mask-image:radial-gradient(85% 65% at 72% 28%,#000,transparent 78%);mask-image:radial-gradient(85% 65% at 72% 28%,#000,transparent 78%);opacity:.55}
+.hero-arc{position:absolute;inset:0;width:100%;height:100%}
+.role-hero .hero-scrim{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(8,11,13,.5) 0%,rgba(8,11,13,.12) 26%,rgba(8,11,13,.6) 58%,rgba(6,8,10,.94) 88%,#070a0c 100%)}
+.hero-top{position:relative;z-index:3;display:flex;align-items:flex-start;justify-content:space-between;
+  padding:max(18px,calc(env(safe-area-inset-top) + 14px)) 22px 0}
+.hero-wordmark{font-weight:900;font-style:italic;font-size:18px;letter-spacing:-.02em;line-height:1.05;text-transform:uppercase;display:flex;flex-direction:column;gap:4px}
+.hero-wordmark span{color:#00d29a}
+.hero-wordmark i{font-style:normal;font-weight:800;font-size:8px;letter-spacing:.32em;color:rgba(255,255,255,.48)}
+.hero-ver{font-size:10.5px;font-weight:800;letter-spacing:.02em;color:rgba(255,255,255,.72);background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:5px 11px;cursor:pointer;backdrop-filter:blur(6px)}
+.hero-ver:active{transform:scale(.96)}
+.hero-content{position:relative;z-index:3;margin-top:auto;width:100%;max-width:560px;align-self:center;
+  padding:22vh 22px max(26px,calc(env(safe-area-inset-bottom) + 22px))}
+.hero-kicker{font-size:9.5px;font-weight:800;letter-spacing:.24em;color:#00d29a;margin-bottom:13px;text-transform:uppercase}
+.hero-title{font-weight:900;font-style:italic;font-size:clamp(36px,12vw,58px);line-height:.94;letter-spacing:-.038em;text-transform:uppercase;margin:0 0 13px;color:#fff}
+.hero-title span{color:#00d29a}
+.hero-copy{font-size:14px;line-height:1.55;color:rgba(255,255,255,.64);margin:0 0 24px;font-weight:500;word-break:keep-all;max-width:23em}
+.hero-roles{display:flex;flex-direction:column;gap:15px}
+.hero-rgroup{display:flex;gap:9px;flex-wrap:wrap;align-items:stretch}
+.hero-rlabel{width:100%;font-size:9px;font-weight:800;letter-spacing:.14em;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:-5px}
+.hero-role{flex:1 1 44%;min-width:0;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:16px;
+  background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(10px);
+  color:#fff;cursor:pointer;transition:transform .16s,background .16s,border-color .16s;text-align:left;position:relative;overflow:hidden}
+.hero-role::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ac,#00b884);opacity:.9}
+.hero-role.rc-pro::before{background:#3f7bff}
+.hero-role.rc-trainer::before{background:#00d29a}
+.hero-role.rc-admin::before{background:#f0a13a}
+.hero-role.rc-infodesk::before{background:#9aa4b0}
+.hero-role.rc-infodesk,.hero-role.rc-admin{flex-basis:100%}
+.hero-role:hover{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.22)}
+.hero-role:active{transform:scale(.98)}
+.hero-role .hr-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hero-role .hr-title{font-size:15px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-role .hr-desc{font-size:11px;color:rgba(255,255,255,.5)}
+.hero-role .hr-arrow{margin-left:auto;color:rgba(255,255,255,.35);font-weight:700;font-size:15px}
+.hero-content .update-notice{margin-top:22px;max-width:none}
+@media(max-width:380px){ .hero-role{flex-basis:100%} }
+
 /* Update notice (다크) */
 .update-notice{width:100%;max-width:460px;margin-top:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:var(--r-lg);overflow:hidden}
 .update-head{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:12px;font-weight:700;color:rgba(255,255,255,.7)}

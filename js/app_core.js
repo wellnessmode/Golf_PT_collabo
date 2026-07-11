@@ -31,7 +31,8 @@ const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 const APP_BRAND = Object.assign({
   name:'NATIONAL GYM', nameKo:'내셔널짐', sub:'GOLF & PT',
   tagline:'COLLABORATIVE COACHING PLATFORM',
-  reportSub:'GOLF PT · PERFORMANCE', measuredBy:'TRACKMAN iO'
+  reportSub:'GOLF PT · PERFORMANCE', measuredBy:'TRACKMAN iO',
+  heroImages:[], heroCopy:'골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
 }, (window.APP_CONFIG && window.APP_CONFIG.BRAND) || {});
 
 const INSTRUCTORS = (window.APP_CONFIG && Array.isArray(window.APP_CONFIG.INSTRUCTORS) && window.APP_CONFIG.INSTRUCTORS.length)
@@ -77,9 +78,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.0',
+  version:'v9.1',
   date:'2026-07-11',
   changes:[
+    '시작 화면 리뉴얼 — 브랜드 스플래시(KREAM 스타일) 후 나이키 앱풍 풀블리드 랜딩(골프×피트니스). config 로 스튜디오 실제 사진 교체 가능',
     '대시보드 상단이 아이폰 상태바/노치에 가려지던 문제 수정(safe-area) + 세로 스크롤',
     '버전 정보를 마이페이지·대시보드 상단에 상시 표시(탭하면 새로고침)',
     '영상 재생 — R2 Range 스트리밍 + 엣지 캐싱(워커 재배포 필요)',
