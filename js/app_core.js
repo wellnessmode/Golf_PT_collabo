@@ -78,10 +78,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.6',
+  version:'v9.7',
   date:'2026-07-11',
   changes:[
-    '랜딩 인트로 몬타주 — 점 인디케이터 제거, 사진이 0.5초마다 한 장씩 페이드로 지나가고(그동안 터치 불가·로그인 숨김) 마지막 사진에서 2초 후 로그인 화면이 페이드 인',
+    '인트로 타이밍 조정 — 1·2번째 사진 1.5초씩, 마지막 사진 3초 후 로그인 버튼들이 2초에 걸쳐 페이드 인',
+    '첫 사진이 너무 빨리 넘어가던 문제 수정 — 스플래시가 사라지고 첫 사진 로딩이 끝난 뒤에야 노출시간 카운트 시작(로딩시간에 잠식되지 않음)',
+    '랜딩 인트로 몬타주 — 점 인디케이터 제거, 사진이 한 장씩 페이드로 지나가고(그동안 터치 불가·로그인 숨김) 마지막 사진 후 로그인 화면이 페이드 인',
     '립 트레이너 컷 재교정 — TRX 실제 제품(직선 바 + 한쪽 끝 번지코드) 구조를 명시 프롬프트로 재생성, 골프채 헤드 오류 제거. 립트레이너는 첫 0.5초만 스쳐가고 골프스윙이 로그인 배경',
     '립 트레이너 컷 교정 — 실제 제품(끝단 번지코드 저항 바) 구조·골프모자 반영',
     '랜딩 슬라이드 개선 — 2.8초로 빠르게 + 점 인디케이터(탭 이동) 추가, 여러 장임을 바로 인지',
@@ -798,9 +800,9 @@ async function bioToggleSelf(){
   }
 }
 function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}
-  // 로그아웃하면 랜딩 인트로 몬타주를 다시 처음부터 재생
+  // 로그아웃하면 랜딩 인트로 몬타주를 다시 처음부터 재생 (로그인 페이드 인 포함)
   try{ if(window.__heroIntro && window.__heroIntro.timer) clearTimeout(window.__heroIntro.timer); }catch(e){}
-  window.__heroIntro=null; window.__heroIntroPlayed=false;
+  window.__heroIntro=null; window.__heroIntroPlayed=false; window.__heroLoginRevealed=false;
   // 로그아웃 시 자동 로그인 해제 → 역할 선택 화면을 쓸 수 있게 (다음 로그인 때 재설정 가능)
   setDeviceTrust(false);
   S.trustDevice=false;

@@ -637,10 +637,12 @@ body.role-select .app{background:#0d1117}
 /* 인트로 몬타주 재생 중 — 로그인(역할 카드)·버전 버튼 숨김 + 아무것도 못 누르게 */
 .role-hero.introing .hero-content{opacity:0;pointer-events:none;visibility:hidden}
 .role-hero.introing .hero-ver{opacity:0;pointer-events:none}
-/* 몬타주가 끝나면 로그인 화면이 아래에서 부드럽게 페이드 인 */
-.role-hero:not(.introing) .hero-content{animation:heroLoginIn .7s cubic-bezier(.16,.84,.44,1) both}
-@keyframes heroLoginIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.role-hero:not(.introing) .hero-content{animation:none}}
+/* 몬타주 종료 직후 1회 — 로그인 화면이 2초에 걸쳐 부드럽게 페이드 인 (reveal 클래스는 첫 렌더에만) */
+.role-hero.reveal .hero-content{animation:heroLoginIn 2s cubic-bezier(.22,.68,.36,1) both}
+.role-hero.reveal .hero-ver{animation:heroFadeIn 2s ease both}
+@keyframes heroLoginIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes heroFadeIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.role-hero.reveal .hero-content,.role-hero.reveal .hero-ver{animation:none}}
 
 /* Update notice (다크) */
 .update-notice{width:100%;max-width:460px;margin-top:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:var(--r-lg);overflow:hidden}
