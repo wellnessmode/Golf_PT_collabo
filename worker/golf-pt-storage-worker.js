@@ -140,8 +140,8 @@ export default {
       return json({ error: 'missing key' }, 400);
     }
 
-    // Auth check (skip only for GET to allow <video src> direct playback)
-    if (request.method !== 'GET') {
+    // Auth check (skip for GET/HEAD to allow <video src> direct playback + 존재확인)
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
       const apiKey = request.headers.get('X-API-Key');
       if (!env.APP_API_KEY || apiKey !== env.APP_API_KEY) {
         return json({ error: 'unauthorized' }, 401);
@@ -157,14 +157,43 @@ export default {
         return json({ ok: true, key }, 200);
       }
 
-      if (request.method === 'GET') {
-        const obj = await env.BUCKET.get(key);
+      if (request.method === 'GET' || request.method === 'HEAD') {
+        // Range 요청 지원 — <video> 스트리밍/탐색에 필수.
+        // 없으면 브라우저가 파일 전체를 받아야 재생돼 매우 느리고,
+        // iOS Safari 는 206 응답이 아니면 영상 재생을 거부한다.
+        const rangeHeader = request.headers.get('range');
+        let r2range;
+        if (rangeHeader) {
+          const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+          if (m) {
+            const start = m[1] === '' ? undefined : parseInt(m[1], 10);
+            const end   = m[2] === '' ? undefined : parseInt(m[2], 10);
+            if (start !== undefined && end !== undefined) r2range = { offset: start, length: end - start + 1 };
+            else if (start !== undefined) r2range = { offset: start };
+            else if (end !== undefined) r2range = { suffix: end };
+          }
+        }
+        const obj = r2range
+          ? await env.BUCKET.get(key, { range: r2range })
+          : await env.BUCKET.get(key);
         if (!obj) return json({ error: 'not found' }, 404);
         const headers = new Headers(CORS);
         obj.writeHttpMetadata(headers);
         headers.set('etag', obj.httpEtag);
+        headers.set('accept-ranges', 'bytes');
         headers.set('cache-control', 'private, max-age=31536000');
-        return new Response(obj.body, { headers });
+        const total = obj.size;                       // 항상 전체 파일 크기
+        const body = request.method === 'HEAD' ? null : obj.body;
+        if (rangeHeader && obj.range) {
+          let off, len;
+          if (obj.range.suffix != null) { len = obj.range.suffix; off = total - len; }
+          else { off = obj.range.offset || 0; len = (obj.range.length != null) ? obj.range.length : (total - off); }
+          headers.set('content-range', 'bytes ' + off + '-' + (off + len - 1) + '/' + total);
+          headers.set('content-length', String(len));
+          return new Response(body, { status: 206, headers });
+        }
+        headers.set('content-length', String(total));
+        return new Response(body, { status: 200, headers });
       }
 
       if (request.method === 'DELETE') {
