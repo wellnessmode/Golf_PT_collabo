@@ -78,9 +78,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.2',
+  version:'v9.3',
   date:'2026-07-11',
   changes:[
+    '시작 시 랜딩을 먼저 보여줌 — 부팅 자동로그인(Face ID/자동입장) 제거, [입장하기] 탭 후 로그인. 힘들게 만든 랜딩이 안 보이던 문제 해결',
     '랜딩 히어로에 시네마틱 캠페인 사진 적용(골프 스윙 + 골프 피트니스, 5초 크로스페이드 + 켄번즈) — 로드 실패 시 시네마틱 배경 자동 유지',
     '시작 화면 리뉴얼 — 브랜드 스플래시(KREAM 스타일) 후 나이키 앱풍 풀블리드 랜딩(골프×피트니스). config 로 스튜디오 실제 사진 교체 가능',
     '대시보드 상단이 아이폰 상태바/노치에 가려지던 문제 수정(safe-area) + 세로 스크롤',
@@ -575,7 +576,10 @@ function save(){
 function estimateStorageSize(){try{return JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,lastSeen:S.lastSeen}).length;}catch(e){return 0;}}
 function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=CONFIG_BAYS_SET?BAYS_DEFAULT.slice():((p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice());S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};S.deletedMemberIds=p.deletedMemberIds||{};S._dirtyAssess=p._dirtyAssess||{};S._draftSession=p._draftSession||null;S._draftMember=p._draftMember||null;}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();if(S.members.length>0&&!S.selectedMember) S.selectedMember=S.members[0].id;}
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}}
-function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
+function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);
+  // 신뢰기기(생체 미지원 + '이 기기 자동 로그인' 허용) → 랜딩에서 역할 탭 즉시 입장(비번 생략)
+  if(!bio.available && deviceTrusted()){ activateRole(role,user); return; }
+  var pw=getPassword(key);if(pw){S.pendingRole={role:role,user:user};S.showPwModal=true;S.pwError=false;S.pwInput='';S.bioError='';render();bioAutoTry();return;}activateRole(role,user);}
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{window.__authed=true;}catch(e){}try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;if(role==='pro'||role==='trainer'){var accessible=S.members.filter(function(m){return m.assignedTo&&m.assignedTo.indexOf(user)!==-1;});var stillAccessible=S.selectedMember&&accessible.some(function(m){return m.id===S.selectedMember;});if(!stillAccessible){S.selectedMember=accessible.length>0?accessible[0].id:null;}}render();}
 // 유령 세션 강제 정리 — 삭제했는데 옛 기기/브라우저 캐시가 되살려놓은 기록.
 // 발견 즉시: 로컬 제거 + tombstone + 서버 삭제. (2026-06 확인분: 로버트 회원 테스트 기록 2건)
@@ -787,7 +791,7 @@ async function bioToggleSelf(){
     if(e&&e.name!=='NotAllowedError') alert('등록 실패: '+(e.message||e));
   }
 }
-function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}
+function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;S.heroEntered=false;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}
   // 로그아웃 시 자동 로그인 해제 → 역할 선택 화면을 쓸 수 있게 (다음 로그인 때 재설정 가능)
   setDeviceTrust(false);
   S.trustDevice=false;
@@ -803,20 +807,10 @@ async function init(){
   if(allMedia.length>0) render();
   r2.init();
   try{ if(typeof checkSttReady==='function') checkSttReady(); }catch(e){}   // 녹음 서버 준비 여부 미리 확인
-  bio.init().then(function(){
-    render();
-    // 앱 시작 시 자동 로그인
-    if(S.currentRole) return; // 이미 로그인되어 있으면(세션복원) 스킵
-    var last; try{ last=JSON.parse(localStorage.getItem('golf_pt_last_user')||'null'); }catch(e){}
-    if(!last || !last.role || !last.user) return;
-    if(bio.available && bio.isRegistered(last.role,last.user)){
-      // 생체 등록된 기기 → Face ID/지문 자동 트리거
-      setRole(last.role, last.user);
-    } else if(!bio.available && deviceTrusted()){
-      // 생체 미지원 기기(구형 아이패드 등) + '이 기기 자동 로그인' 허용 → 비번 없이 입장
-      activateRole(last.role, last.user);
-    }
-  });
+  // 시작하자마자 Face ID/자동로그인으로 대시보드로 넘어가지 않도록 부팅 자동로그인 제거.
+  // 랜딩(입장) 화면을 항상 먼저 보여주고, 생체/신뢰기기 로그인은 사용자가 랜딩에서
+  // 역할을 탭하는 순간 실행된다(setRole → bioAutoTry / 신뢰기기 즉시입장).
+  bio.init().then(function(){ render(); });
   if(cloud.init()){
     S.cloudSync='loading';render();
     const localSnap={members:S.members.map(m=>({...m})),assessments:JSON.parse(JSON.stringify(S.assessments||{})),sessions:JSON.parse(JSON.stringify(S.sessions||{}))};
