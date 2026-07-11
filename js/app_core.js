@@ -78,9 +78,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.5',
+  version:'v9.6',
   date:'2026-07-11',
   changes:[
+    '랜딩 인트로 몬타주 — 점 인디케이터 제거, 사진이 0.5초마다 한 장씩 페이드로 지나가고(그동안 터치 불가·로그인 숨김) 마지막 사진에서 2초 후 로그인 화면이 페이드 인',
+    '립 트레이너 컷 재교정 — TRX 실제 제품(직선 바 + 한쪽 끝 번지코드) 구조를 명시 프롬프트로 재생성, 골프채 헤드 오류 제거. 립트레이너는 첫 0.5초만 스쳐가고 골프스윙이 로그인 배경',
     '립 트레이너 컷 교정 — 실제 제품(끝단 번지코드 저항 바) 구조·골프모자 반영',
     '랜딩 슬라이드 개선 — 2.8초로 빠르게 + 점 인디케이터(탭 이동) 추가, 여러 장임을 바로 인지',
     '랜딩 사진 전면 교체 — 타사 로고 제거, 골프복 착용 TRX 립 트레이너·케틀벨·골프스윙 3컷 로테이션',
@@ -795,7 +797,10 @@ async function bioToggleSelf(){
     if(e&&e.name!=='NotAllowedError') alert('등록 실패: '+(e.message||e));
   }
 }
-function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;S.heroEntered=false;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}
+function switchRole(){if(S.currentUser) logAudit('auth','로그아웃',S.currentUser,{});S.currentRole=null;S.currentUser=null;location.hash='';try{sessionStorage.removeItem('golf_pt_auth');}catch(e){}
+  // 로그아웃하면 랜딩 인트로 몬타주를 다시 처음부터 재생
+  try{ if(window.__heroIntro && window.__heroIntro.timer) clearTimeout(window.__heroIntro.timer); }catch(e){}
+  window.__heroIntro=null; window.__heroIntroPlayed=false;
   // 로그아웃 시 자동 로그인 해제 → 역할 선택 화면을 쓸 수 있게 (다음 로그인 때 재설정 가능)
   setDeviceTrust(false);
   S.trustDevice=false;
