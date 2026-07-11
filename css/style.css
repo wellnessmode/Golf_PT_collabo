@@ -204,6 +204,8 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 /* Sidebar Footer */
 .sidebar-mypage{padding:8px 10px;border-top:1px solid var(--brd);margin-top:4px}
 .mp-label{font-size:9px;font-weight:700;color:var(--tx-3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;padding-left:4px}
+.mp-version{font-size:10.5px;color:var(--tx-3);text-align:center;margin-top:8px;padding:6px;opacity:.7;cursor:pointer;user-select:none}
+.mp-version:active{opacity:1}
 .mp-btn{
   display:block;width:100%;text-align:left;padding:8px 12px;
   border:1px solid var(--brd);border-radius:var(--r);
@@ -684,9 +686,10 @@ body.role-select .app{background:#0d1117}
 /* ================================================================
    DASHBOARD
    ================================================================ */
-.dashboard{padding:20px 24px}
-.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.dashboard{padding:20px 24px;padding-top:max(20px,calc(env(safe-area-inset-top, 0px) + 16px));height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:10px;flex-wrap:wrap}
 .dash-header h2{font-size:20px;color:var(--tx);margin:0;letter-spacing:-.02em}
+.dash-ver{font-size:11px;color:var(--tx-3);font-weight:600;margin-left:auto;white-space:nowrap}
 .dash-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
 .dash-stat{background:var(--bg-2);border:1px solid var(--brd);border-radius:var(--r-lg);padding:16px 12px;text-align:center;transition:all var(--t-fast)}
 .dash-stat:hover{border-color:var(--brd-2);transform:translateY(-1px)}

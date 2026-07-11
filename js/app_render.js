@@ -231,6 +231,7 @@ function _render(){
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openTranscriptVault()">🎙 녹음 원문 보관함</button>':''}
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">감사 로그</button>':''}
       ${isInfo?'<button class="mp-btn" onclick="event.stopPropagation();window.open(\'manual.html\',\'_blank\')">사용 매뉴얼</button>':''}
+      <div class="mp-version" onclick="event.stopPropagation();reloadApp&&reloadApp()" title="탭하면 최신 버전으로 새로고침">버전 ${APP_VERSION.version} · ${APP_VERSION.date}</div>
     </div>
     ${syncBadge()}
   </div>
