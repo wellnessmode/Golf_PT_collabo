@@ -45,14 +45,14 @@ window.APP_CONFIG = {
     // ※ 현재: AI 생성 캠페인 컷(nano_banana_2, 2026-07). 골프복+골프모자, 브랜드 로고 없음.
     //   순서는 [립트레이너 → 케틀벨 → 골프스윙]. 골프스윙이 마지막(로그인 배경)이라
     //   로그인 화면이 가장 오래 머무는 대표 컷이 되고, 립트레이너 컷은 0.5초만 스쳐 지나감.
-    //   립 트레이너 컷은 실제 제품 사진의 포즈(로우 자세 — 바를 허리 높이 수평으로 잡고
-    //   한쪽 끝 번지코드가 위쪽 앵커로 팽팽하게 당겨지는 자세)를 반영해 재생성.
+    //   립 트레이너 컷은 실제 TRX 제품 사진을 레퍼런스 이미지로 직접 첨부해 재생성 —
+    //   포즈·바 그립·번지코드 배치가 원본 사진과 동일 (의상만 골프복, 배경만 다크 짐).
     //   대체 후보(같은 무드 B컷):
-    //   립트레이너B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_114142_1fa0786f-ab6f-4569-a620-f374b7f7760b_min.webp
+    //   립트레이너B  https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_115455_45b9dbcb-5aed-471d-b4b6-7a2a7056147c_min.webp
     //   케틀벨B      https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095853_8c89527d-4ace-4aed-b1a2-e89050e1eecb_min.webp
     //   골프스윙B    https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095836_3d3a35f1-092f-473f-b9b4-3847eb99d9e4_min.webp
     heroImages: [
-      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_114142_fd490190-78a7-4f2a-b0fa-62785b13fbae_min.webp',
+      'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_115455_576382f9-f36d-44ca-9068-4bd5f86c4988_min.webp',
       'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095853_b80a39e5-faa3-4ed7-ac1c-1bb3bb721715_min.webp',
       'https://d8j0ntlcm91z4.cloudfront.net/user_3DclnJIoK5GfFNglNnflZBOE6EU/hf_20260711_095835_b93abc73-8191-464f-b788-8a2215ee00f9_min.webp'
     ],
