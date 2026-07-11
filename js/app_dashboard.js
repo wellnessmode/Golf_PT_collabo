@@ -435,7 +435,12 @@ function renderPerformance(){
   if(!S.showPerformance) return '';
   var data = S.perfDemo ? DEMO_PERF : buildPerfData(S.perfMember);
   if(!data) return '';
-  var hasData = (data.golf&&data.golf.length) || (data.pt&&data.pt.length) || (data.shots&&data.shots.length);
+  // 측정 샷/지표뿐 아니라 세션 기록·체형평가·스윙 영상도 리포트 콘텐츠로 인정.
+  // (트랙맨을 안 쓰는 골프 레슨/PT 회원도 리포트가 뜨도록 — 로버트처럼 텍스트 세션만 있는 경우)
+  var _sess = (S.sessions[data.member.id]||[]);
+  var _sessVids = [];
+  _sess.forEach(function(s){ (s.media||[]).forEach(function(mm){ var mt=String(mm.mimeType||inferMime(mm.name||'')||''); if(mt.indexOf('video')!==-1 && (mm.r2Key||mm.mediaId)) _sessVids.push({s:s, m:mm}); }); });
+  var hasData = (data.golf&&data.golf.length) || (data.pt&&data.pt.length) || (data.shots&&data.shots.length) || _sess.length>0 || (data.assess&&data.assess.length);
   if(!hasData && !S.perfDemo){
     return '<div class="perf-overlay perf-light"><div class="perf-shell"><div class="perf-topbar"><div class="perf-brand"><img src="assets/logo.png" class="perf-logo" alt="">PERFORMANCE REPORT</div><button class="perf-close" onclick="closePerformance()">닫기</button></div>'+
       '<div class="perf-empty"><div class="pe-icon">📊</div><div class="pe-title">'+data.member.name+' 회원님 측정 데이터가 아직 없습니다</div><div class="pe-sub">라이브 세션에서 샷을 저장하면<br>이 화면에 성장 리포트가 자동으로 그려집니다.</div><button class="perf-demo-btn" onclick="openDemoPerformance()">상담용 데모 데이터로 미리보기 →</button></div>'+
@@ -689,6 +694,43 @@ function renderPerformance(){
       +'</div>'
       +(diffM>0?'<div class="pv-bna-delta"><span>드라이버 캐리 변화</span><b>+'+_fmtNum(pfDistM(diffM))+' '+pfDistU()+' · +'+pctChg+'%</b></div>':'')
     +'</div>';
+  }
+
+  // ===== 체형 기능 평가 추이 (측정 샷 없어도 표시) =====
+  if(data.assess && data.assess.length){
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>체형 기능 평가</div><div class="pv-sec-x">'+(data.assess.length>1?data.assess.length+'회 기록':'현재')+'</div></div>';
+    if(data.assess.length>=2){
+      html+='<div class="pv-chart">'+svgLine(data.assess.map(function(a){return a.score;}), data.assess.map(function(a){return a.date;}), {w:560,h:150,color:'#3868d6',unit:'점'})+'</div>';
+      var _af=data.assess[0].score, _al=data.assess[data.assess.length-1].score;
+      html+='<div class="pv-shotcount">체형 기능 점수 '+((_al-_af)>=0?'+':'')+(_al-_af)+'점 변화 · 100점 만점(높을수록 양호)</div>';
+    } else {
+      html+='<div class="pv-kgrid"><div class="pv-k hi"><div class="pv-k-l">체형 기능 점수</div><div class="pv-k-v">'+data.assess[0].score+'<span class="pv-k-u">/100</span></div></div></div>'
+        +'<div class="pv-shotcount">애프터 평가를 한 번 더 기록하면 점수 추이 그래프가 그려집니다.</div>';
+    }
+    html+='</div>';
+  }
+
+  // ===== 레슨 기록 · 스윙 영상 (세션 데이터 기반 — 측정 샷 없어도 리포트가 채워짐) =====
+  if(_sess.length){
+    var _recent=_sess.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>레슨 기록'+(_sessVids.length?' · 스윙 영상':'')+'</div><div class="pv-sec-x">최근 '+Math.min(_recent.length,6)+' / 총 '+_sess.length+'회</div></div>';
+    if(_sessVids.length){
+      html+='<div class="pv-sess-vids">'+_sessVids.slice(0,6).map(function(v){
+        var mm=v.m; var src=(mm.mediaId&&S.mediaUrls[mm.mediaId])?S.mediaUrls[mm.mediaId]:((typeof r2!=='undefined'&&r2.enabled&&(mm.r2Key||mm.mediaId))?r2.url(mm.r2Key||mm.mediaId):'');
+        if(!src) return '';
+        var label=(mm.view==='front'?'정면':mm.view==='side'?'측면':'스윙');
+        return '<div class="pv-sess-vid"><video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video><div class="pv-sess-vlabel">'+esc(v.s.date)+' · '+label+'</div></div>';
+      }).join('')+'</div>';
+    }
+    html+='<div class="pv-lessons">'+_recent.slice(0,6).map(function(s){
+      var r=getRole(s.author); var tag=r==='pro'?'GOLF PRO':(r==='trainer'?'GOLF PT':'관리자');
+      var txt=String(s.content||'').replace(/\s+/g,' ').trim();
+      return '<div class="pv-lesson-row"><span class="pv-lesson-date">'+esc(s.date)+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span><span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span></div>';
+    }).join('')+'</div>';
+    if(!(data.shots&&data.shots.length)){
+      html+='<div class="pv-shotcount">🎯 트랙맨 라이브 수업에서 샷을 저장하면 비거리·구질·성장 그래프가 이 리포트에 자동으로 더해집니다.</div>';
+    }
+    html+='</div>';
   }
 
   // ===== PT 보조 (보존: 기존 기능) =====
