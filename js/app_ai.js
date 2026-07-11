@@ -181,6 +181,7 @@ function renderDashboard(){
   <div class="dashboard">
     <div class="dash-header">
       <h2>대시보드</h2>
+      <span class="dash-ver">${APP_VERSION.version} · ${APP_VERSION.date}</span>
       <button class="btn" onclick="closeDashboard()">닫기</button>
     </div>
     <div class="dash-stats">
