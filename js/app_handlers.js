@@ -135,7 +135,7 @@ function saveMemberEdit(){
 function generateHandover(memberId, removedInstructors, addedInstructors){
   var m = S.members.find(function(x){return x.id===memberId;});
   if(!m) return;
-  var allSess = (S.sessions[memberId]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var allSess = (S.sessions[memberId]||[]).slice().sort(sessionCompare);
   var assess = S.assessments[memberId]||{};
   var recentSessions = allSess.slice(0,10).map(function(s){
     return s.date+' ('+s.author+'): '+s.content.slice(0,80)+(s.content.length>80?'…':'');
@@ -259,7 +259,7 @@ function openImageCard(){S.showImageCard=true;render();}
 function closeImageCard(){S.showImageCard=false;render();}
 function _drawImageCard(m){
   var mid=m.id;
-  var allSess=(S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var allSess=(S.sessions[mid]||[]).slice().sort(sessionCompare);
   var thisMonth=today().slice(0,7);
   var monthSess=allSess.filter(function(s){return s.date.slice(0,7)===thisMonth;});
   var canvas=document.createElement('canvas');
@@ -370,7 +370,7 @@ function openReport(){
   var mid = S.perfMember || S.selectedMember;
   var m = S.members.find(function(x){return x.id===mid;});
   if(!m){ alert('리포트를 만들 회원이 선택되지 않았습니다.'); return; }
-  var allSess = (S.sessions[mid]||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);}).slice(0,10);
+  var allSess = (S.sessions[mid]||[]).slice().sort(sessionCompare).slice(0,10);
   var cleaned = allSess.map(function(s){
     return {
       id:s.id, date:s.date, author:s.author, role:getRole(s.author),
@@ -808,6 +808,26 @@ function exportAuditLog(user){
   setTimeout(function(){URL.revokeObjectURL(url);}, 100);
 }
 function updateNS(k,v){S.newSession[k]=v; if(k==='author'||k==='date') render();}
+// ── 레슨 시간 유틸 ─────────────────────────────────────────
+// 세션에 레슨 시각(time:'HH:MM')을 붙여 같은 날 여러 레슨을 순서대로 정렬한다.
+function nowHalfHour(){ try{ var d=new Date(); var h=d.getHours(); var m=d.getMinutes()<30?'00':'30'; return (h<10?'0'+h:h)+':'+m; }catch(e){ return ''; } }
+function timeLabel(t){ if(!t) return ''; var p=String(t).split(':'); var h=parseInt(p[0],10); var m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h<12?'오전':'오후'; var hh=h%12; if(hh===0) hh=12; return ap+' '+hh+':'+m; }
+function sessionTimeOptions(sel){
+  sel=sel||'';
+  var out='<option value=""'+(sel?'':' selected')+'>시간 미지정</option>';
+  for(var h=6;h<=23;h++){ for(var mi=0;mi<60;mi+=30){ var v=(h<10?'0'+h:h)+':'+(mi===0?'00':'30'); out+='<option value="'+v+'"'+(sel===v?' selected':'')+'>'+timeLabel(v)+'</option>'; } }
+  return out;
+}
+// 세션 정렬 — 날짜 최신순(내림차순). 같은 날은 레슨 시간 오름차순(먼저 한 레슨이 위).
+// 시간 없는 세션은 시간 있는 세션보다 뒤로, 둘 다 없으면 기존 순서 유지(안정 정렬).
+function sessionCompare(a,b){
+  var dc=String(b.date||'').localeCompare(String(a.date||''));
+  if(dc!==0) return dc;
+  var ta=a.time||'', tb=b.time||'';
+  if(ta&&tb) return ta.localeCompare(tb);
+  if(ta) return -1; if(tb) return 1;
+  return 0;
+}
 
 function updateAssess(key, field, val){
   const mid = S.selectedMember;
@@ -856,7 +876,7 @@ function toggleSession(id){
   if(!S.openSessions) S.openSessions = {};
   var mid = S.selectedMember;
   var sess = (S.sessions[mid]||[]);
-  var cur = (S.openSessions[id]!==undefined) ? S.openSessions[id] : (sess.length>0 && sess.slice().sort(function(a,b){return b.date.localeCompare(a.date);})[0].id===id);
+  var cur = (S.openSessions[id]!==undefined) ? S.openSessions[id] : (sess.length>0 && sess.slice().sort(sessionCompare)[0].id===id);
   var willOpen = !cur;
   S.openSessions[id] = willOpen;
   var sc = document.querySelector('.content'); var top = sc ? sc.scrollTop : 0;
@@ -892,6 +912,7 @@ function addSession(){
   const s = {
     id: suid(),
     date: ns.date,
+    time: ns.time || undefined,
     author: ns.author,
     content: ns.content.trim(),
     rawTranscript: (ns.rawTranscript||'').trim() || undefined,   // 녹음 원문(신뢰도 담보)

@@ -238,7 +238,7 @@ function _render(){
   }
   const mid = S.selectedMember;
   const member = mid ? S.members.find(m => m.id===mid) : null;
-  const allSess = mid ? (S.sessions[mid]||[]).slice().sort((a,b) => b.date.localeCompare(a.date)) : [];
+  const allSess = mid ? (S.sessions[mid]||[]).slice().sort(sessionCompare) : [];
   const sessions = S.filterAuthor==='all' ? allSess : allSess.filter(s => getRole(s.author)===S.filterAuthor);
   const assess = mid ? (S.assessments[mid]||{}) : {};
   const st = mid ? stats(mid) : null;
@@ -365,7 +365,7 @@ function _render(){
               <div class="session-hd ${(function(r){return r==='pro'?'pro':r==='trainer'?'trainer':'admin';})(getRole(s.author))}" onclick="toggleSession('${s.id}')">
                 <div class="role-tag ${(function(r){return r==='pro'?'pro':r==='trainer'?'trainer':'admin';})(getRole(s.author))}">${(function(r){return r==='pro'?'GOLF PRO':r==='trainer'?'GOLF PT':'관리자';})(getRole(s.author))}</div>
                 <div class="session-author">${s.author}</div>
-                <div class="session-date">${s.date}</div>
+                <div class="session-date">${s.date}${s.time?' · '+timeLabel(s.time):''}</div>
                 ${s.author!==S.currentUser&&s._addedAt&&s._addedAt>(S.lastSeen[S.currentUser]||'')?'<span class="new-badge">NEW</span>':''}
                 ${(function(){var mm=s.media||[];var nv=mm.filter(function(x){var t=x.mimeType||inferMime(x.name||'')||(x.data||'');return String(t).indexOf('video')!==-1;}).length;var ni=mm.length-nv;var b='';if(nv>0)b+='<span class="media-chip vid">🎬'+(nv>1?nv:'')+'</span>';if(ni>0)b+='<span class="media-chip img">📷'+(ni>1?ni:'')+'</span>';return b;})()}
                 <div class="session-chevron">▼</div>
@@ -393,7 +393,10 @@ function _render(){
   <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal">
       <div class="modal-title">${S.editSessionId?'세션 기록 수정':'세션 기록 추가'} — ${member?member.name+' 회원님':''}</div>
-      <div class="form-group"><label class="form-label">날짜</label><input type="date" class="form-input" value="${S.newSession.date}" onchange="updateNS('date',this.value)"></div>
+      <div class="member-info-row">
+        <div class="form-group"><label class="form-label">날짜</label><input type="date" class="form-input" value="${S.newSession.date}" onchange="updateNS('date',this.value)"></div>
+        <div class="form-group"><label class="form-label">레슨 시간</label><select class="form-input" onchange="updateNS('time',this.value)">${sessionTimeOptions(S.newSession.time)}</select></div>
+      </div>
       <div class="form-group"><label class="form-label">담당자</label><div class="radio-group">${INSTRUCTORS.map(function(inst){var canPick=inst.name===S.currentUser||S.currentRole==='admin';var sel=S.newSession.author===inst.name?(inst.role==='pro'?' sel-pro':' sel-trainer'):'';if(!canPick) return '<div class="radio-opt disabled" style="opacity:0.4;pointer-events:none">'+inst.name+'</div>';return '<div class="radio-opt'+sel+'" onclick="updateNS(\'author\',\''+inst.name+'\')">'+ inst.name+'</div>';}).join('')}</div></div>
       ${S.newSession._aiPending?'<div class="ai-pending">🤖 AI가 골프 레슨 내용을 정리하는 중... (몇 초)</div>':''}
       <div class="form-group"><label class="form-label">${getRole(S.newSession.author)==='trainer'?'PT레슨 내용':'골프레슨 내용'} ${getRole(S.newSession.author)==='trainer'?'<button type="button" class="ex-add-btn" onclick="openExercisePicker()">+ 운동 빠른추가</button>':'<button type="button" class="ex-add-btn" onclick="openGolfLessonPicker()">+ 레슨 빠른추가</button>'}</label><textarea class="form-textarea" style="min-height:200px" placeholder="${getRole(S.newSession.author)==='trainer'?'웨이트 트레이닝, 기능성 훈련, 모빌리티, 코어 안정화 등':'오늘 진행한 레슨 내용을 입력하세요'}" oninput="updateNS('content',this.value)">${S.newSession.content}</textarea></div>
@@ -465,7 +468,7 @@ function selectMember(id){
 function toggleAssess(){S.assessOpen=!S.assessOpen; render();}
 function toggleWarningBanner(){S.warningBannerCollapsed=!S.warningBannerCollapsed; render();}
 function setFilter(f){S.filterAuthor=f; render();}
-function openAddSession(){S.newSession={date:today(),author:S.currentUser||'',content:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
+function openAddSession(){S.newSession={date:today(),time:nowHalfHour(),author:S.currentUser||'',content:'',media:[],mediaUrls:['','']}; S.showAddSession=true; render();}
 
 // ============ 운동 빠른추가 픽커 ============
 function openExercisePicker(){S.exercisePicker={open:true,query:'',category:'all',selected:[]};render();setTimeout(function(){var inp=document.querySelector('.ex-picker-search input');if(inp) inp.focus();},50);}

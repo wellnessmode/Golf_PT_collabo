@@ -78,9 +78,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.11',
+  version:'v9.12',
   date:'2026-07-11',
   changes:[
+    '세션 기록에 레슨 시간 드롭다운 추가 — 같은 날 골프·PT를 순서대로(먼저 한 레슨이 위로) 정렬. 세션카드에 시각 표시, 라이브 세션은 현재 시각 자동 입력',
     '랜딩 인트로 배경 — 데스크탑·태블릿 가로에서 세로 컷이 잘려 빈 화면처럼 보이던 것 수정: 블러 배경 위에 원본 전체를 중앙 표시(프리미엄 레터박스). 세로(모바일)는 기존 풀블리드 유지',
     'R2 저장비 절감 — 삭제 시 mkv 원본+mp4 변환본을 함께 제거(고아 누수 차단), 저장된 샷 삭제가 실제로 영상을 지우도록 수정, 회원 삭제 시 영상까지 정리',
     'R2 저장비 절감 — 에이전트가 mp4 변환 성공 시 용량 2배인 mkv 원본을 자동 삭제(신규 스윙 약 절반)',
@@ -374,12 +375,14 @@ const cloud = {
     this.enabled=true;return true;}catch(e){console.warn('[cloud] init fail:',e);return false;}},
   // 쓰기 실행기 — 프록시 켜져 있으면 워커 /db, 아니면 supabase-js 직접(하위호환).
   async _w(op, table, opts){
+    opts = opts || {};
+    var wantErr = opts._returnError; if(wantErr){ opts=Object.assign({},opts); delete opts._returnError; }
     if(this.dbProxy){
       try{
         var res=await fetch(this.dbProxy+'/db',{method:'POST',headers:{'X-API-Key':this.dbKey,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({op:op,table:table},opts))});
-        if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} console.warn('[cloud] proxy '+op+' '+table+' fail',res.status,t.slice(0,150)); return false; }
+        if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} console.warn('[cloud] proxy '+op+' '+table+' fail',res.status,t.slice(0,150)); return wantErr?(t||('http '+res.status)):false; }
         return true;
-      }catch(e){ console.warn('[cloud] proxy '+op+' '+table+' err',e&&e.message); return false; }
+      }catch(e){ console.warn('[cloud] proxy '+op+' '+table+' err',e&&e.message); return wantErr?String(e&&e.message||e):false; }
     }
     try{
       var q=this.client.from(table);
@@ -387,15 +390,26 @@ const cloud = {
       else if(op==='update'){ var qq=q.update(opts.values); (opts.filters||[]).forEach(function(f){ qq=qq[f.op||'eq'](f.col,f.val); }); var r1=await qq; if(r1.error) throw r1.error; }
       else if(op==='delete'){ var qd=q.delete(); (opts.filters||[]).forEach(function(f){ qd=qd[f.op||'eq'](f.col,f.val); }); var r2=await qd; if(r2.error) throw r2.error; }
       return true;
-    }catch(e){ console.warn('[cloud] '+op+' '+table+' fail',e&&e.message); return false; }
+    }catch(e){ console.warn('[cloud] '+op+' '+table+' fail',e&&e.message); return wantErr?String(e&&e.message||e):false; }
   },
   async loadAll(){if(!this.enabled) return null;try{const [mRes,aRes,sRes]=await Promise.all([this.client.from('members').select('*').order('created_at',{ascending:true}),this.client.from('assessments').select('*'),this.client.from('sessions').select('*').order('date',{ascending:true})]);if(mRes.error) throw mRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const members=(mRes.data||[]).map(r=>{var extra=r.data||{};return Object.assign({id:r.id,name:r.name,color:r.color||'av-green'},extra);});const assessments={};(aRes.data||[]).forEach(r=>{if(!assessments[r.member_id]) assessments[r.member_id]={};assessments[r.member_id][r.item_key]={result:r.result||'미검사',note:r.note||''};});// 녹음 원문(supplement 컬럼)은 관리자 기기에만 내려받는다.
 // 트레이너·프로 기기에는 원문을 아예 싣지 않아, 본인 레슨 대화가 남지 않는다.
 var _admRaw=(S.currentRole==='admin');
-const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) sessions[r.member_id]=[];sessions[r.member_id].push({id:r.id,date:r.date,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:Array.isArray(r.media)?r.media:(r.media?r.media:[])});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
+const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) sessions[r.member_id]=[];sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:Array.isArray(r.media)?r.media:(r.media?r.media:[])});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
   async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
-  async upsertSession(memberId,s){if(!this.enabled) return false;var mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});return await this._w('upsert','sessions',{rows:[{id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.rawTranscript||s.supplement||'',media:mediaMeta}]});},
+  async upsertSession(memberId,s){if(!this.enabled) return false;var mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});
+    var row={id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.rawTranscript||s.supplement||'',media:mediaMeta};
+    if(s.time) row.time=s.time;
+    if(!row.time) return await this._w('upsert','sessions',{rows:[row]});
+    // time 컬럼이 아직 없는 배포(마이그레이션 전)에서도 세션 동기화가 끊기지 않게:
+    // 실패 사유가 time 컬럼 문제면 time 만 빼고 재시도한다.
+    var r=await this._w('upsert','sessions',{rows:[row], _returnError:true});
+    if(r===true) return true;
+    if(typeof r==='string' && /time/i.test(r) && (/PGRST204/i.test(r)||/column/i.test(r)||/schema cache/i.test(r))){
+      delete row.time; return await this._w('upsert','sessions',{rows:[row]});
+    }
+    return false;},
   async deleteSession(id){if(!this.enabled) return;await this._w('delete','sessions',{filters:[{col:'id',op:'eq',val:id}]});},
   // 회원 영구 삭제 — 서버에서 회원 + 연관 데이터(세션·평가·샷) 함께 제거. 성공 여부 반환.
   async deleteMember(id){if(!this.enabled) return false;
