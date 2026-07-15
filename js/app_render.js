@@ -31,8 +31,10 @@ function renderRoleSelector(){
   if(reveal) window.__heroLoginRevealed=true;
   // 시네마틱 배경은 항상 베이스로 깔고, 사진은 그 위에 겹침 —
   // 사진 URL 이 죽거나 느려도 빈 화면 없이 프리미엄 배경이 유지된다.
+  // 각 슬라이드 = hp-fill(꽉 채움/넓은 화면에선 블러 배경) + hp-fit(넓은 화면에서만 원본 전체 중앙 표시).
+  // 세로 화면은 hp-fill 커버만 보이고, 가로(데스크탑·태블릿)는 블러 배경 위에 hp-fit 이 겹쳐 원본이 잘리지 않음.
   var photosHtml = heroImgs.length
-    ? '<div class="hero-photos" id="hero-photos">'+heroImgs.map(function(u,i){return '<div class="hero-photo'+(i===0?' on':'')+'" style="background-image:url(\''+String(u).replace(/'/g,'%27')+'\')"></div>';}).join('')+'</div>'
+    ? '<div class="hero-photos" id="hero-photos">'+heroImgs.map(function(u,i){var bg='background-image:url(\''+String(u).replace(/'/g,'%27')+'\')';return '<div class="hero-photo'+(i===0?' on':'')+'"><div class="hp-fill" style="'+bg+'"></div><div class="hp-fit" style="'+bg+'"></div></div>';}).join('')+'</div>'
     : '';
   var bgHtml = '<div class="hero-cine">'
       +'<svg class="hero-arc" viewBox="0 0 400 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
