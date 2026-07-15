@@ -902,7 +902,7 @@ function renderLiveSession(){
   }
   if(canCoach){
     html += '<div class="class-actions">'
-         +  '<button class="btn primary class-live-btn" onclick="openClassPick(\'live\')">🎯 라이브 수업<small>베이 배정 · 샷 자동 저장</small></button>'
+         +  '<button class="btn primary class-live-btn" onclick="openClassPick(\'live\')">🏌️ 타석 레슨<small>베이 배정 · 샷 자동 저장</small></button>'
          +  (role==='pro'||role==='trainer' ? '<button class="btn class-journal-btn" onclick="openClassPick(\'journal\')">✏️ 일지만 기록<small>샷 없이 바로 작성</small></button>' : '')
          +  '</div>';
   }
@@ -946,7 +946,7 @@ function renderClassPickModal(){
     return true;
   });
   return '<div class="modal-overlay" onclick="if(event.target===this)closeClassPick()"><div class="modal">'
-    + '<div class="modal-title">'+(journal?'✏️ 일지만 기록':'🎯 라이브 수업')+' — 회원 선택</div>'
+    + '<div class="modal-title">'+(journal?'✏️ 일지만 기록':'🏌️ 타석 레슨')+' — 회원 선택</div>'
     + (journal?'<div class="classpick-note">샷 저장 없이 수업 일지만 작성합니다</div>':'')
     + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="filterPickRows(this.value,&apos;classPickQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
