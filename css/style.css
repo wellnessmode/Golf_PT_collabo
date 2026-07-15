@@ -588,10 +588,21 @@ body.role-select .app{background:#0d1117}
   background:#0a0d10;color:#fff;display:flex;flex-direction:column}
 .role-hero .hero-bg{position:fixed;inset:0;z-index:0}
 .role-hero .hero-photos,.role-hero .hero-cine{position:absolute;inset:0}
-.hero-photo{position:absolute;inset:0;background-size:cover;background-position:center top;opacity:0;transition:opacity .5s ease;will-change:opacity,transform}
-.hero-photo.on{opacity:1;animation:heroKen 4s ease-out forwards}
+.hero-photo{position:absolute;inset:0;opacity:0;transition:opacity .5s ease;will-change:opacity}
+.hero-photo.on{opacity:1}
+/* 세로(모바일·태블릿 세로): 사진을 화면에 꽉 채우는 풀블리드 커버 — hp-fill 만 보임 */
+.hp-fill,.hp-fit{position:absolute;inset:0;background-size:cover;background-position:center top;background-repeat:no-repeat;will-change:transform}
+.hero-photo.on .hp-fill{animation:heroKen 4s ease-out forwards}
+.hp-fit{display:none}
 @keyframes heroKen{from{transform:scale(1.08)}to{transform:scale(1.01)}}
-@media (prefers-reduced-motion:reduce){.hero-photo.on{animation:none}}
+@media (prefers-reduced-motion:reduce){.hero-photo.on .hp-fill{animation:none}}
+/* 데스크탑·태블릿 가로(넓은 화면): 세로 컷을 잘라 빈 하늘만 보이던 것 → 블러 배경 위에
+   원본 전체(골퍼)를 중앙에 선명하게. 풀블리드 대신 프리미엄 레터박스. */
+@media (min-aspect-ratio:1/1){
+  .hp-fill{background-size:cover;background-position:center;filter:blur(40px) brightness(.5);transform:scale(1.15)}
+  .hero-photo.on .hp-fill{animation:none}
+  .hp-fit{display:block;background-size:contain;background-position:center}
+}
 .hero-cine{background:
   radial-gradient(72% 52% at 80% 16%, rgba(0,210,154,.20), transparent 60%),
   radial-gradient(62% 46% at 12% 88%, rgba(63,123,255,.16), transparent 60%),
