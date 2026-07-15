@@ -91,6 +91,7 @@ function openEditSession(sid){
   S.editSessionId = sid;
   S.newSession = {
     date: sess.date,
+    time: sess.time || '',
     author: sess.author,
     content: sess.content,
     media: (sess.media||[]).slice(),
@@ -105,6 +106,7 @@ function saveEditSession(){
   if(!sess) return;
   if(!S.newSession.content.trim()){alert('내용을 입력하세요');return;}
   sess.date = S.newSession.date;
+  sess.time = S.newSession.time || undefined;
   sess.content = S.newSession.content.trim();
   sess.media = (S.newSession.media||[]).slice();
   logActivity('세션 수정', mid, sess.content.slice(0,40));

@@ -38,11 +38,16 @@ create table if not exists public.sessions (
   id          text        primary key,
   member_id   text        not null references public.members(id) on delete cascade,
   date        date        not null,
+  time        text        default null,            -- 레슨 시각 'HH:MM' (같은 날 여러 레슨 순서 정렬용)
   author      text        not null,                -- '정P' 또는 '최T'
   content     text        not null default '',
   supplement  text        default '',              -- 상대 담당자에게 전달할 보완점
+  media       jsonb       default '[]'::jsonb,     -- 첨부(영상/사진/URL) 메타 배열
   created_at  timestamptz not null default now()
 );
+-- 기존 DB 마이그레이션(sessions 테이블이 이미 있는 경우 재실행 시 안전) — 레슨 시각/첨부 컬럼 추가
+alter table public.sessions add column if not exists time  text;
+alter table public.sessions add column if not exists media jsonb default '[]'::jsonb;
 
 -- ---------- 4) 조회 성능 인덱스 ------------------------------------------
 create index if not exists idx_sessions_member       on public.sessions     (member_id, date desc);

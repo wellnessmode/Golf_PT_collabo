@@ -443,7 +443,7 @@ function endLiveSession(bayId){
   } else {
     // 음성 없음 → 회원 선택 후 빈 세션카드 모달 (수기 입력)
     S.selectedMember = memberId;
-    S.newSession = {date:today(), author:author||S.currentUser||'', content:'', media:[], mediaUrls:['','']};
+    S.newSession = {date:today(), time:nowHalfHour(), author:author||S.currentUser||'', content:'', media:[], mediaUrls:['','']};
     S.showAddSession = true;
     liveToast('⏹ '+bay.name+' 세션 종료 — 세션 카드를 작성하세요','ok');
   }
@@ -864,7 +864,7 @@ function openVoiceDraft(memberId, author, transcript){
   S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
   var localStructured=structureTranscript(transcript,author);
   // rawTranscript = 받아쓴 전문(원문). 신뢰도 담보용 — 세션에 함께 저장, 화면에선 접어둠.
-  S.newSession={ date:today(), author:author, content:localStructured+summary, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''] };
+  S.newSession={ date:today(), time:nowHalfHour(), author:author, content:localStructured+summary, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''] };
   S.showAddSession=true;
   if(aiEnabled()){
     S.newSession._aiPending=true;
