@@ -646,6 +646,21 @@ function _startSegment(){
 // '이어붙이기'가 아니라 '전체 덮어쓰기'라서, 폴링 등 무엇이 act 를 갈아끼워도
 // 다음 세그먼트가 지금까지의 전문을 다시 써 넣는다 — 텍스트 유실 원천 차단.
 function _recFullText(){ return ((_rec.txBase||'')+' '+(_rec.tx||'')).trim(); }
+// Whisper 환각 필터 — 무음/잡음 구간에서 유튜브 자막 문구 등을 지어내는 유명 버그.
+// 실제 레슨 일지에 "자막 제공 및 광고는..." 같은 문장이 섞여 저장되는 것을 차단.
+var _STT_HALLU = [
+  /자막\s*(제공|제작|정보)[^.]*/g, /광고\s*(문의|포함|는)[^.]*/g, /윗?방송을?\s*확인[^.]*/g,
+  /구독[과와]?\s*좋아요[^.]*/g, /구독\s*부탁[^.]*/g, /좋아요[와과]?\s*구독[^.]*/g, /알림\s*설정[^.]*/g,
+  /시청해\s*주?셔서\s*감사[^.]*/g, /시청\s*감사[^.]*/g, /다음\s*(영상|시간)에서?\s*만나[^.]*/g,
+  /(MBC|KBS|SBS|JTBC|YTN)\s*뉴스[^.]*/g, /뉴스\s*[가-힣]{2,4}입니다[^.]*/g,
+  /이\s*영상은\s*유료\s*광고[^.]*/g, /한글\s*자막\s*by[^.]*/gi, /www\.[a-z0-9.\-]+/gi
+];
+function sttFilterHallucination(text){
+  var t=String(text||'');
+  _STT_HALLU.forEach(function(re){ t=t.replace(re,' '); });
+  t=t.replace(/\s{2,}/g,' ').trim();
+  return t.length<2 ? '' : t;
+}
 async function _handleSegment(blob, isFinal){
   var bayId=_rec.bayId || _rec._lastBay;
   _rec.pendingStt++;
@@ -661,6 +676,7 @@ async function _handleSegment(blob, isFinal){
     try{ r2.upload('rec/'+bayId+'_'+Date.now()+'_'+_rec.segIdx+(String(blob.type).indexOf('mp4')!==-1?'.m4a':'.webm'), blob); }catch(_){}
   }
   _rec.pendingStt--;
+  text=sttFilterHallucination(text);   // 무음 구간 환각 문장("자막 제공..." 등) 제거
   if(text){
     _rec.tx=((_rec.tx||'')+' '+text).trim();     // 녹음기 버퍼 — 폴링과 무관하게 절대 안 사라짐
     var act=S.activeSessions[bayId];
@@ -769,6 +785,8 @@ function setAnthropicKey(){
 // Claude 정리 — 골프 특화 구조화. 1순위 워커 프록시, 2순위 브라우저 직접, 실패 시 null→로컬 폴백.
 async function aiSummarizeWithClaude(transcript, author){
   try{
+    transcript=sttFilterHallucination(transcript);   // 환각 문장("자막 제공..." 등) 제거 후 AI에 전달
+    if(!transcript) return null;
     var cfg=window.APP_CONFIG||{};
     var role=(typeof getRole==='function')?getRole(author):'trainer';
     var isPro=role==='pro';
@@ -831,22 +849,32 @@ async function aiSummarizeWithClaude(transcript, author){
   }
 }
 
-// 받아쓴 원문 → 불릿 세션카드 (로컬 AI 키워드 태깅)
+// 받아쓴 원문 → 임시 메모 카드 (AI 정리 전 프리필 / AI 실패 시 폴백)
+// ※ 가짜 "[AI 자동 정리]" 라벨 금지 — AI 정리는 aiSummarizeWithClaude 성공 시에만.
+// STT 조각("자 다시", "하나 했다가")을 그대로 불릿으로 나열하지 않고,
+// 짧은 조각은 앞 문장에 이어붙이고 필러만 있는 조각은 버려 읽을 수 있는 메모로 만든다.
+var _STT_FILLER = /^(네|예|자|어|음|그|이제|좋아요|좋습니다|오케이|그렇죠|그쵸|맞아요|다시|한\s*번\s*더|자\s*다시|다시\s*한\s*번(\s*더)?|하나|둘|셋|넷|다섯)[.!?\s]*$/;
 function structureTranscript(transcript, author){
-  var t=(transcript||'').replace(/\s+/g,' ').trim();
+  var t=sttFilterHallucination((transcript||'').replace(/\s+/g,' ').trim());
   if(!t) return '';
-  var parts=t.split(/(?:다\.|요\.|음\.|죠\.|\.|!|\?|\n|,|\s그리고\s|\s그다음\s|\s그\s다음\s|\s이어서\s)/);
+  var parts=t.split(/(?:다\.|요\.|음\.|죠\.|\.|!|\?|\n)/);
   var lines=[];
-  parts.forEach(function(p){ p=p.trim(); if(p.length>=4 && lines.indexOf(p)===-1) lines.push(p); });
+  parts.forEach(function(p){
+    p=p.trim();
+    if(!p || _STT_FILLER.test(p)) return;                    // 필러/구령만 있는 조각은 버림
+    if(p.length<12 && lines.length){ lines[lines.length-1]+=' '+p; return; }  // 짧은 조각은 앞 문장에 병합
+    if(p.length<6) return;
+    if(lines.indexOf(p)===-1) lines.push(p);
+  });
   if(lines.length===0) lines=[t];
-  var bullets=lines.slice(0,14).map(function(l){ return '- '+l; });
+  var bullets=lines.slice(0,10).map(function(l){ return '- '+l; });
   var tags=[];
   try{
     var dict = getRole(author)==='pro' ? GOLF_KEYWORDS : PT_KEYWORDS;
     var low=t.toLowerCase();
     Object.keys(dict).forEach(function(cat){ if((dict[cat].keywords||[]).some(function(w){return low.indexOf(w)!==-1;})) tags.push(cat); });
   }catch(e){}
-  return '[AI 자동 정리'+(tags.length?' · '+tags.slice(0,4).join('·'):'')+']\n'+bullets.join('\n');
+  return '[레슨 녹음 메모'+(tags.length?' · '+tags.slice(0,4).join('·'):'')+' — AI 정리 대기]\n'+bullets.join('\n');
 }
 // 종료 시: 구조화 + 트랙맨 요약 → 기존 세션카드 모달에 프리필 (트레이너 검토 후 저장)
 function openVoiceDraft(memberId, author, transcript){
@@ -863,21 +891,60 @@ function openVoiceDraft(memberId, author, transcript){
   }
   S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
   var localStructured=structureTranscript(transcript,author);
+  var prefill=localStructured+summary;
   // rawTranscript = 받아쓴 전문(원문). 신뢰도 담보용 — 세션에 함께 저장, 화면에선 접어둠.
-  S.newSession={ date:today(), time:nowHalfHour(), author:author, content:localStructured+summary, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''] };
+  S.newSession={ date:today(), time:nowHalfHour(), author:author, content:prefill, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''], _tmSummary:summary };
   S.showAddSession=true;
   if(aiEnabled()){
     S.newSession._aiPending=true;
     aiSummarizeWithClaude(transcript,author).then(function(better){
-      if(better && S.showAddSession && S.newSession){
-        S.newSession.content = better + summary;
-        S.newSession._aiPending=false;
-        try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
-        try{ render(); }catch(e){}
-      } else if(S.newSession){ S.newSession._aiPending=false; try{render();}catch(e){} }
+      if(!S.newSession) return;
+      S.newSession._aiPending=false;
+      if(better && S.showAddSession){
+        if(S.newSession.content===prefill){
+          // 사용자가 아직 손 안 댐 → AI 정리로 교체
+          S.newSession.content = better + summary;
+          try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
+        } else {
+          // 사용자가 수정 중 → 덮어쓰지 않고 보관, 버튼으로 교체 가능
+          S.newSession._aiAlt = better + summary;
+          try{ liveToast('🤖 AI 정리 완료 — 수정 중이어서 자동 반영 안 함 (버튼으로 교체 가능)','ok'); }catch(e){}
+        }
+      } else if(!better){
+        // AI 실패를 눈에 보이게 — 조용히 받아쓰기 메모로 저장되는 사고 방지
+        S.newSession._aiFailed=true;
+        try{ liveToast('⚠️ AI 정리 실패 — 받아쓰기 메모 상태입니다. [AI 정리 다시 시도]를 눌러주세요','err'); }catch(e){}
+      }
+      try{ render(); }catch(e){}
     });
   }
   return true;
+}
+// AI 정리 재시도 (일지 작성 폼의 버튼) — 워커 AI 설정을 고친 뒤나 일시 오류 때 사용
+function retryAiSummarize(){
+  var ns=S.newSession;
+  if(!ns || !ns.rawTranscript || ns._aiPending) return;
+  if(!aiEnabled()){ alert('AI 정리가 설정되지 않았습니다.\n워커에 ANTHROPIC_API_KEY 시크릿을 등록하거나(권장), 관리자 모드의 AI 설정에서 키를 입력하세요.'); return; }
+  ns._aiPending=true; ns._aiFailed=false; render();
+  aiSummarizeWithClaude(ns.rawTranscript, ns.author).then(function(better){
+    if(!S.newSession) return;
+    S.newSession._aiPending=false;
+    if(better){
+      S.newSession.content = better + (S.newSession._tmSummary||'');
+      S.newSession._aiAlt=null;
+      try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
+    } else {
+      S.newSession._aiFailed=true;
+      try{ liveToast('⚠️ AI 정리 실패 — 워커 AI 설정(ANTHROPIC_API_KEY)을 확인하세요','err'); }catch(e){}
+    }
+    try{ render(); }catch(e){}
+  });
+}
+// AI 정리 결과로 교체 (사용자 수정 중이라 자동 반영 안 된 경우의 버튼)
+function applyAiAlt(){
+  var ns=S.newSession;
+  if(!ns || !ns._aiAlt) return;
+  ns.content=ns._aiAlt; ns._aiAlt=null; render();
 }
 
 // ============ 렌더 ============

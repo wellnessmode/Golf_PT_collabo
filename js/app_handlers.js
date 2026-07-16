@@ -905,6 +905,7 @@ function updateAssessDate(val){
 function addSession(){
   const ns = S.newSession;
   if(!ns.content.trim()){alert('운동/레슨 내용을 입력하세요'); return;}
+  if(ns._aiPending && !confirm('🤖 AI 정리가 아직 진행 중입니다.\n지금 저장하면 받아쓰기 메모 상태로 저장됩니다.\n\n그래도 저장할까요? (취소 후 몇 초 기다리면 AI 정리가 반영됩니다)')) return;
   const mid = S.selectedMember;
   if(!S.sessions[mid]) S.sessions[mid] = [];
   var media = (ns.media||[]).slice();

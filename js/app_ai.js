@@ -25,6 +25,9 @@ var PT_KEYWORDS = {
 function generateLocalSummary(memberId, session){
   if(session._ai) return;
   if(!session.content || session.content.trim().length<5) return;
+  // 요약 인용에는 헤더([레슨 녹음 메모...] 등)·마크다운 기호·불릿 대시를 걷어낸 본문만 사용
+  var plain = session.content.replace(/^\[[^\]]*\]\s*/,'').replace(/^#+\s.*$/gm,'').replace(/^[-•*]\s*/gm,'').replace(/\*\*/g,'').replace(/\s+/g,' ').trim();
+  if(plain.length<5) plain=session.content.trim();
   var content = session.content.toLowerCase();
   var role = getRole(session.author);
   var detected = [];
@@ -52,7 +55,7 @@ function generateLocalSummary(memberId, session){
     });
     if(ptRecs.length===0) ptRecs=['코어 안정화 훈련','흉추 모빌리티','힙 파워 트레이닝'];
     session._ai = {
-      summary: detected.length>0 ? detected.join(' · ')+' 관련 레슨 진행. '+session.content.slice(0,60)+(session.content.length>60?'...':'') : session.content.slice(0,80)+(session.content.length>80?'...':''),
+      summary: detected.length>0 ? detected.join(' · ')+' 관련 레슨 진행. '+plain.slice(0,60)+(plain.length>60?'...':'') : plain.slice(0,80)+(plain.length>80?'...':''),
       golf_drills: drills.length>0 ? drills.slice(0,3) : ['기본 스윙 드릴','숏게임 연습','퍼팅 루틴'],
       weight_training: ptRecs.slice(0,3),
       next_focus: detected.length>0 ? detected[0]+' 심화 연습 권장' : '기본기 반복 훈련'
@@ -74,7 +77,7 @@ function generateLocalSummary(memberId, session){
     if(detected.indexOf('모빌리티')!==-1) golfRecs.push('백스윙 플레인 체크','숄더 턴 드릴');
     if(golfRecs.length===0) golfRecs=['스윙 템포 연습','숏게임 연습','퍼팅 드릴'];
     session._ai = {
-      summary: detected.length>0 ? detected.join(' · ')+' 훈련 진행. '+session.content.slice(0,60)+(session.content.length>60?'...':'') : session.content.slice(0,80)+(session.content.length>80?'...':''),
+      summary: detected.length>0 ? detected.join(' · ')+' 훈련 진행. '+plain.slice(0,60)+(plain.length>60?'...':'') : plain.slice(0,80)+(plain.length>80?'...':''),
       golf_drills: golfRecs.slice(0,3),
       weight_training: exercises.length>0 ? exercises.slice(0,3) : ['코어 안정화','하체 근력 훈련','모빌리티 루틴'],
       next_focus: detected.length>0 ? detected[0]+' 강화 훈련 지속' : '전신 밸런스 훈련'
