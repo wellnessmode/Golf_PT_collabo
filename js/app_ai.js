@@ -97,6 +97,7 @@ function openEditSession(sid){
     time: sess.time || '',
     author: sess.author,
     content: sess.content,
+    rawTranscript: sess.rawTranscript || '',   // 녹음 원문 — 저장된 일지도 AI로 다시 정리할 수 있게
     media: (sess.media||[]).slice(),
     mediaUrls:['','']
   };
