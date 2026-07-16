@@ -815,6 +815,7 @@ async function aiSummarizeWithClaude(transcript, author){
       messages:[{role:'user',content:'다음은 '+roleLabel+'의 레슨 녹음 원문이다. 위 형식으로 정리하라:\n\n"""\n'+transcript+'\n"""'}]
     };
     var parse=function(data){ var t=(data&&data.content&&data.content[0]&&data.content[0].text)||''; return t.trim()||null; };
+    window.__aiLastError='';
     // 1순위: 워커 프록시 (Anthropic 키가 Cloudflare 시크릿에만 존재)
     // AI_WORKER_URL 있으면 그쪽, 없으면 R2_WORKER_URL 재사용
     var wbase=cfg.AI_WORKER_URL||cfg.R2_WORKER_URL;
@@ -823,14 +824,23 @@ async function aiSummarizeWithClaude(transcript, author){
       try{
         var wurl=String(wbase).replace(/\/+$/,'')+'/claude';
         var wres=await fetch(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)});
-        if(wres.ok){ var wt=parse(await wres.json()); if(wt) return wt; }
-        else console.warn('[claude] worker http', wres.status);
-      }catch(e){ console.warn('[claude] worker fail:', e&&e.message); }
-      // 워커 실패 → 아래 직접 키 폴백 시도
+        var wbodyText=''; try{ wbodyText=await wres.text(); }catch(_){}
+        if(wres.ok){
+          var wj=null; try{ wj=JSON.parse(wbodyText); }catch(_){}
+          var wt=parse(wj); if(wt) return wt;
+          // 200인데 본문에 error(예: Anthropic {type:'error'})가 담겨오는 경우
+          window.__aiLastError='워커 200이지만 응답 이상: '+String((wj&&wj.error&&(wj.error.message||wj.error.type))||wbodyText).slice(0,200);
+        } else {
+          var wmsg=wbodyText; try{ var we=JSON.parse(wbodyText); wmsg=(we.error&&(we.error.message||we.error.type))||we.detail||we.error||wbodyText; }catch(_){}
+          window.__aiLastError='워커 '+wres.status+': '+String(wmsg).slice(0,200);
+          console.warn('[claude] worker http', wres.status, String(wbodyText).slice(0,200));
+        }
+      }catch(e){ window.__aiLastError='워커 통신 오류: '+(e&&e.message||e); console.warn('[claude] worker fail:', e&&e.message); }
+      // 워커 실패 → 아래 직접 키 폴백 시도(있으면)
     }
     // 2순위: 브라우저 직접 호출 (이 기기 localStorage 키)
     var key=getAnthropicKey();
-    if(!key) return null;
+    if(!key){ if(!window.__aiLastError) window.__aiLastError='AI 정리 미설정 (워커 프록시·기기 키 모두 없음)'; return null; }
     var res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{
@@ -841,9 +851,10 @@ async function aiSummarizeWithClaude(transcript, author){
       },
       body:JSON.stringify(payload)
     });
-    if(!res.ok){ console.warn('[claude] http',res.status); return null; }
+    if(!res.ok){ var dt=''; try{dt=await res.text();}catch(_){} window.__aiLastError='직접호출 '+res.status+': '+String(dt).slice(0,200); console.warn('[claude] http',res.status); return null; }
     return parse(await res.json());
   }catch(e){
+    window.__aiLastError='예외: '+(e&&e.message||e);
     console.warn('[claude] fail:', e&&e.message);
     return null;
   }
@@ -913,6 +924,7 @@ function openVoiceDraft(memberId, author, transcript){
       } else if(!better){
         // AI 실패를 눈에 보이게 — 조용히 받아쓰기 메모로 저장되는 사고 방지
         S.newSession._aiFailed=true;
+        S.newSession._aiFailReason=window.__aiLastError||'';
         try{ liveToast('⚠️ AI 정리 실패 — 받아쓰기 메모 상태입니다. [AI 정리 다시 시도]를 눌러주세요','err'); }catch(e){}
       }
       try{ render(); }catch(e){}
@@ -935,7 +947,8 @@ function retryAiSummarize(){
       try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
     } else {
       S.newSession._aiFailed=true;
-      try{ liveToast('⚠️ AI 정리 실패 — 워커 AI 설정(ANTHROPIC_API_KEY)을 확인하세요','err'); }catch(e){}
+      S.newSession._aiFailReason=window.__aiLastError||'';
+      try{ liveToast('⚠️ AI 정리 실패 — '+(window.__aiLastError||'워커 AI 설정 확인'),'err'); }catch(e){}
     }
     try{ render(); }catch(e){}
   });
@@ -945,6 +958,17 @@ function applyAiAlt(){
   var ns=S.newSession;
   if(!ns || !ns._aiAlt) return;
   ns.content=ns._aiAlt; ns._aiAlt=null; render();
+}
+// 관리자 AI 정리 연결 테스트 — 샘플 원문을 워커 /claude 로 보내 결과/오류를 즉시 확인.
+// 레슨을 실제로 녹음하지 않고도 "왜 AI 정리가 안 되나"를 바로 진단할 수 있다.
+async function testAiConnection(){
+  if(S.currentRole!=='admin'){ alert('관리자 전용 기능입니다'); return; }
+  if(!aiEnabled()){ alert('AI 정리 미설정\n\nconfig.js 의 AI_VIA_WORKER / R2_WORKER_URL / R2_API_KEY 를 확인하세요.'); return; }
+  try{ liveToast('🤖 AI 정리 연결 테스트 중... (몇 초)','ok'); }catch(e){}
+  var sample='자 오늘은 드라이버 셋업하고 백스윙 탑에서 손목 코킹 유지하는 거 연습했고, 다운스윙에서 하체 먼저 쓰라고 얘기했어요. 임팩트 때 페이스 스퀘어. 다음엔 릴리스 타이밍 잡아보죠.';
+  var out=null; try{ out=await aiSummarizeWithClaude(sample,'정우진 프로'); }catch(e){ window.__aiLastError='예외: '+(e&&e.message||e); }
+  if(out){ alert('✅ AI 정리 정상 동작합니다.\n\n샘플 결과 미리보기:\n\n'+out.slice(0,500)); }
+  else{ alert('❌ AI 정리 실패\n\n사유: '+(window.__aiLastError||'알 수 없음')+'\n\n확인: (1) 워커 최신본 배포 여부 (2) config.js ANTHROPIC_MODEL 명 (3) 워커 ANTHROPIC_API_KEY 시크릿'); }
 }
 
 // ============ 렌더 ============
