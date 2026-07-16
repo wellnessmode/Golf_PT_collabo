@@ -139,6 +139,8 @@
     if (window.__bioActive) return true;
     // 로그인 전(역할 선택/비번/생체 화면)에도 보류 — 로그인 끝난 뒤 적용
     if (!window.__authed) return true;
+    // 일지/회원 작성 폼이 열려 있으면 보류 — 작성 중 리로드로 내용 날리지 않게
+    try{ if (typeof S!=='undefined' && S && (S.showAddSession || S.showAddMember)) return true; }catch(e){}
     var ae = document.activeElement;
     return ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
   }
@@ -167,11 +169,14 @@
   }).catch(function(e){ console.log('SW registration failed:', e); });
 
   // 포그라운드 복귀/포커스 해제 시 — 업데이트 체크 + 대기중이면 적용
-  function checkUpdate(){ navigator.serviceWorker.getRegistration().then(function(r){ if(r){ r.update(); } applyUpdate(); }).catch(function(){}); }
+  function checkUpdate(){ navigator.serviceWorker.getRegistration().then(function(r){ if(r){ try{r.update();}catch(e){} } applyUpdate(); }).catch(function(){}); }
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkUpdate(); });
   document.addEventListener('focusout', function(){ setTimeout(applyUpdate, 300); });
   window.addEventListener('focus', checkUpdate);
   setInterval(checkUpdate, 60*1000);
+  // 로그인 직후 앱 코드에서 즉시 호출 → 대기 중인 새 버전을 그 자리에서 적용(리로드).
+  // 프로가 앱을 껐다 켜지 않아도, 로그인하는 순간 최신본으로 자동 갱신된다.
+  window.__checkAppUpdate = checkUpdate;
 })();
 </script>
 </body>
