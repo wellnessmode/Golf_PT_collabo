@@ -22,6 +22,9 @@ window.APP_CONFIG = {
   // 권장: AI_VIA_WORKER=true 로 R2 워커 프록시 사용 (키는 Cloudflare 시크릿에만, 브라우저·깃에 노출 0).
   //   → worker/README.md 참고해서 워커에 /claude 추가 + `wrangler secret put ANTHROPIC_API_KEY` 후 true 로.
   // 대안: 키를 각 기기 앱에서 "🤖 AI 정리 설정"으로 입력(localStorage). 이 경우 아래는 비워둠.
+  // 샷 영상 보관일수 — 앱에서 저장(선별)하지 않은 샷의 영상은 이 일수 후 자동 삭제.
+  // (측정 수치·성과 그래프는 유지, 영상 파일만 삭제. 선별 저장 샷은 영구 보관)
+  SHOT_VIDEO_KEEP_DAYS: 3,
   AI_VIA_WORKER: true,
   AI_WORKER_URL: '',   // Claude 프록시 워커 주소. 비우면 R2_WORKER_URL 사용. (예: https://ng-claude.ceo-5ef.workers.dev)
   AI_WORKER_KEY: '',   // 워커 인증용 키(시크릿 아님, 게이트용). 비우면 R2_API_KEY 사용.

@@ -224,6 +224,33 @@ function purgeStaleUnassigned(){
     try{ liveToastSafe('🧹 오래된 미배정 '+ids.length+'개 자동 정리됨'); }catch(e){}
   });
 }
+// 영상 보관 정책 — "앱에서 저장(선별)한 샷"만 영상 영구 보관.
+// 연습모드 자동귀속 샷의 영상은 SHOT_VIDEO_KEEP_DAYS(기본 3일) 후 자동 삭제.
+// 측정 데이터(수치·행)는 유지되므로 성과 리포트 그래프는 그대로 나온다.
+var _vidRetentionDone = false;
+function purgeOldShotVideos(){
+  if(_vidRetentionDone) return;                     // 세션당 1회
+  if(S.currentRole!=='admin') return;               // 관리자 기기에서만 (다기기 경합 방지)
+  _vidRetentionDone = true;
+  var days = (window.APP_CONFIG && APP_CONFIG.SHOT_VIDEO_KEEP_DAYS) || 3;
+  var cutoff = Date.now() - days*24*3600*1000;
+  var targets = (S.shotEvents||[]).filter(function(s){
+    if(s.data && s.data._kept) return false;                                   // 선별 저장 샷 보호
+    if(!(s.videoR2Key || (s.data && s.data.videoMp4R2Key))) return false;      // 영상 없는 샷
+    var t = Date.parse(s.ts);
+    return !isNaN(t) && t < cutoff;
+  });
+  if(!targets.length) return;
+  targets.forEach(function(s){
+    r2RemoveShotVideos(s);                          // R2 삭제 (키 지우기 전에!)
+    s.videoR2Key = null;
+    if(s.data) delete s.data.videoMp4R2Key;
+    try{ cloud.clearShotVideo(s); }catch(e){}       // 다른 기기에도 "영상 없음" 전파
+  });
+  try{ save(); }catch(e){}
+  console.warn('[live] 보관정책: 미보관 샷 영상 '+targets.length+'건 정리(데이터 유지)');
+  try{ liveToastSafe('🎞 '+days+'일 지난 미보관 샷 영상 '+targets.length+'개 자동 정리(수치는 유지)'); }catch(e){}
+}
 
 async function _livePollTick(){
   if(!S.showLiveSession) { stopLivePolling(); return; }
@@ -259,6 +286,7 @@ async function _livePollTick(){
     });
     if(typeof reconcileAgentShots==='function') reconcileAgentShots();
     purgeStaleUnassigned();   // 첫 폴링에서 24h+ 미배정 노이즈 자동 청소(관리자)
+    purgeOldShotVideos();     // 보관정책: 미보관 샷 영상 3일 후 자동 삭제(관리자, 데이터 유지)
     // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
     if(!changed) return;
     try{save();}catch(e){}
@@ -347,15 +375,19 @@ function saveLessonShot(shotId, bayId){
   var act=S.activeSessions[bayId]; if(!act){ liveToast('활성 세션이 없습니다','err'); return; }
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
   s.memberId=act.memberId; s.memberName=act.memberName; s.author=act.author; delete s._pendingBay;
+  if(!s.data) s.data={};
+  s.data._kept=1;   // 선별 저장 = 영상 영구 보관 (보관 정책에서 제외)
   save();
-  try{ cloud.reassignShot(s.id, act.memberId, act.memberName); }catch(e){}
+  try{ cloud.reassignShot(s.id, act.memberId, act.memberName); cloud.updateShotData(s); }catch(e){}
   logActivity('레슨 샷 저장', act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
   render();
   liveToast('✓ '+act.memberName+'님에게 저장','ok');
   if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(e){} }
 }
-// 레슨 모드: 이 샷 버림 (화면+서버에서 제거)
+// 레슨 모드: 이 샷 버림 (화면+서버+R2 영상까지 제거 — 영상만 남는 고아 방지)
 function dropLessonShot(shotId){
+  var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;});
+  if(s) r2RemoveShotVideos(s);
   S.shotEvents=(S.shotEvents||[]).filter(function(x){return x.id!==shotId;});
   save();
   try{ cloud.deleteShot(shotId); }catch(e){}
