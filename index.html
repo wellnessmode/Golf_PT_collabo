@@ -141,6 +141,8 @@
     if (!window.__authed) return true;
     // 일지/회원 작성 폼이 열려 있으면 보류 — 작성 중 리로드로 내용 날리지 않게
     try{ if (typeof S!=='undefined' && S && (S.showAddSession || S.showAddMember)) return true; }catch(e){}
+    // 스토리지 정리(대량 삭제) 진행 중에도 보류 — 리로드가 정리를 끊지 않게
+    try{ if (typeof S!=='undefined' && S && S.storageAudit && S.storageAudit.purging && !S.storageAudit.purging.finished) return true; }catch(e){}
     var ae = document.activeElement;
     return ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
   }

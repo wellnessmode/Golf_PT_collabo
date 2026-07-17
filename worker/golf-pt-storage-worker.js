@@ -145,7 +145,9 @@ export default {
       const prefix = url.searchParams.get('prefix') || undefined;
       const listed = await env.BUCKET.list({ cursor, prefix, limit: 1000 });
       return json({
-        objects: listed.objects.map(function (o) { return { key: o.key, size: o.size }; }),
+        objects: listed.objects.map(function (o) {
+          return { key: o.key, size: o.size, uploaded: o.uploaded ? new Date(o.uploaded).getTime() : null };
+        }),
         truncated: !!listed.truncated,
         cursor: listed.truncated ? listed.cursor : null,
       }, 200);

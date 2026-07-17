@@ -272,6 +272,16 @@ async function handleFtmf(filePath){
   var ok = await pushShot(shot);
   if (ok){
     log('✓ 샷 전송 ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm total=' + parsed.data.total + 'm] bay=' + bayId);
+    // 파일 확정 지연 진단 — 샷 시각(measuredAt) 대비 파일이 언제 감지됐는지.
+    // "다음 샷을 쳐야 이전 샷이 뜬다"면 TPS가 파일을 늦게 확정하는 것 → 이 값으로 검증.
+    try{
+      var _ms = Date.parse(parsed.eventTime);
+      if(!isNaN(_ms)) log('  샷→전송 지연: ' + Math.round((Date.now()-_ms)/1000) + '초 (샷시각 ' + parsed.eventTime + ')');
+    }catch(e){}
+    // 클럽 진단 — 선택 클럽 vs 레이더 감지 클럽. TPS에서 고른 클럽과 비교용.
+    var cc = parsed.clubCandidates || {};
+    var ccs = Object.keys(cc).filter(function(k){ return cc[k]; }).map(function(k){ return k+'='+cc[k]; });
+    if (ccs.length) log('  클럽 후보 → ' + ccs.join(', ') + ' | 채택=' + (parsed.data.club||'?'));
     // 토탈 키 진단 — TPS 화면 값과 비교용. 비어있지 않은 후보만 출력.
     var tc = parsed.data._totalCandidates || {};
     var nonNull = Object.keys(tc).filter(function(k){ return tc[k] != null; }).map(function(k){ return k+'='+tc[k]; });

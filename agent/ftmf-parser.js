@@ -102,9 +102,45 @@ function parseFtmf(ftmfBuffer){
 
   function num(v){ return (v==null||isNaN(v)) ? null : Math.round(v*1000)/1000; }
 
+  // ---- 클럽: "사용자가 TPS에서 선택한 클럽"을 최우선으로 찾는다 ----
+  // DetectedClubCategory 는 레이더가 스윙 데이터로 '추측'한 클럽이라 자주 틀린다
+  // (52도 웨지→Iron, 7아이언→Driver 오인 사례). 선택 클럽 후보를 전체 JSON에서 수집.
+  var clubCands = {};
+  function collectClubCandidates(obj, pathStr, depth){
+    if (!obj || typeof obj !== 'object' || depth > 6) return;
+    Object.keys(obj).forEach(function(k){
+      var v = obj[k];
+      var p = pathStr ? pathStr + '.' + k : k;
+      if (/club/i.test(k) && !/speed|path|category/i.test(k)){
+        if (typeof v === 'string' && v.trim()) clubCands[p] = v.trim();
+        else if (v && typeof v === 'object' && typeof v.Name === 'string' && v.Name.trim()) clubCands[p + '.Name'] = v.Name.trim();
+      }
+      if (v && typeof v === 'object') collectClubCandidates(v, p, depth + 1);
+    });
+  }
+  try {
+    fusionJson.forEach(function(m, i){ collectClubCandidates(m, 'msg' + i, 0); });
+    collectClubCandidates(tmfInfo, 'tmf', 0);
+  } catch (e) {}
+  // 선택 클럽 우선순위: Measurement.Club(문자열) → TmfInfo.Club → 후보 중 '.Club'/'ClubName' 끝나는 첫 값
+  var selectedClub = null;
+  if (typeof meas.Club === 'string' && meas.Club.trim()) selectedClub = meas.Club.trim();
+  else if (meas.Club && typeof meas.Club === 'object' && typeof meas.Club.Name === 'string') selectedClub = meas.Club.Name.trim();
+  else if (typeof tmfInfo.Club === 'string' && tmfInfo.Club.trim()) selectedClub = tmfInfo.Club.trim();
+  else {
+    var ck = Object.keys(clubCands).find(function(p){ return /(\.|^)(Club|ClubName|SelectedClub)(\.Name)?$/i.test(p); });
+    if (ck) selectedClub = clubCands[ck];
+  }
+  // 후보 로그용으로 감지값도 포함 (최대 8개만)
+  clubCands._Detected = meas.DetectedClubCategory || null;
+  var candKeys = Object.keys(clubCands).slice(0, 8);
+  var clubCandsSmall = {}; candKeys.forEach(function(k){ clubCandsSmall[k] = clubCands[k]; });
+
   // 트랙맨 원본 단위: 거리=m, 속도=m/s, 각도=°, 스핀=rpm
   var data = {
-    club: meas.DetectedClubCategory || null,
+    club: selectedClub || meas.DetectedClubCategory || null,
+    _clubDetected: meas.DetectedClubCategory || null,
+    _clubSelected: selectedClub || null,
     dexterity: meas.PlayerDexterity || null,
     // 클럽
     clubSpeed: num(meas.ClubSpeed),
@@ -152,6 +188,7 @@ function parseFtmf(ftmfBuffer){
     eventTime: eventTime,
     data: data,
     videos: videos,                 // ftmf 내부 영상 경로(상대)
+    clubCandidates: clubCandsSmall, // 클럽 후보 진단 (agent.log 확인용)
     raw: { tmfInfo: tmfInfo }
   };
 }
