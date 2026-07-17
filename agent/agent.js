@@ -145,6 +145,7 @@ async function fetchShotData(shotId){
 async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData){
   var cur = await fetchShotData(shotId);
   var data = Object.assign({}, fallbackData, cur || {});   // 서버 최신 data 우선(그 사이 앱 변경 보존)
+  delete data._videoPending;                               // 업로드 종료(성공/실패) → 진행 표시 해제
   if (mp4Key) data.videoMp4R2Key = mp4Key;
   var values = { video_r2_key: videoKey, data: data };
   if (CFG.useDbProxy && CFG.R2_WORKER_URL && CFG.R2_API_KEY){
@@ -278,7 +279,9 @@ async function handleFtmf(filePath){
     member_name: '',
     author: '',
     ts: nowIso,
-    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime }, parsed.data),
+    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime,
+      // 앱이 "영상 업로드 중" 진행 표시를 띄울 수 있게 예고 — 업로드 완료/실패 시 해제됨
+      _videoPending: (CFG.uploadVideo && parsed.videos && parsed.videos.length) ? 1 : undefined }, parsed.data),
     video_r2_key: null,
     source: 'agent'
   };
@@ -309,6 +312,8 @@ async function handleFtmf(filePath){
   saveState();
 
   // ── 2단계: 영상 업로드 → 행에 영상 키 붙이기 (데이터 표시와 무관하게 진행) ──
+  // mp4 우선: 변환 성공 시 mp4 만 업로드. (기존 "mkv 23MB 업로드→변환→mp4 업로드→mkv 삭제"
+  // 구조는 업로드량 2.5배 + 준비시간 2배 — 제거. mkv 는 변환 불가 시에만 원본 보존용으로 업로드)
   if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
     var videoKey = null, videoMp4Key = null;
     try{
@@ -316,29 +321,31 @@ async function handleFtmf(filePath){
       var sceneName = require('./ftmf-parser.js').findEntry(outer, '_scene.mkv');
       if (sceneName){
         var vbuf = require('./ftmf-parser.js').extractEntry(buf, outer[sceneName]);
-        var key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mkv';
-        var okV = await uploadVideo(key, vbuf, 'video/x-matroska');
-        if (okV){ videoKey = key; log('  영상 업로드 ' + (vbuf.length/1e6).toFixed(1) + 'MB → ' + key); }
-        // MP4 변환 (옵션) — ffmpegPath 설정 시 같은 영상의 mp4 도 업로드 → iPhone Safari 재생 OK
-        if (okV && CFG.ffmpegPath){
-          try{
-            var mp4buf = await convertMkvToMp4(vbuf, CFG.ffmpegPath);
-            if (mp4buf && mp4buf.length){
-              var mp4key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mp4';
-              var ok2 = await uploadVideo(mp4key, mp4buf, 'video/mp4');
-              if (ok2){ videoMp4Key = mp4key; log('  MP4 변환·업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key);
-                // mp4 재생본이 확보되면 용량 2배인 mkv 원본은 R2에서 제거 → 저장비 절반.
-                try{ if (await deleteVideo(key)){ videoKey = null; log('  원본 mkv 삭제(저장비 절감) ' + key); } }catch(e){ log('  mkv 삭제 스킵: ' + e.message); }
-              }
-            }
-          }catch(e){ log('  MP4 변환 스킵: ' + e.message); }
+        var base = bayId + '/' + (parsed.measurementId || shotId);
+        var mp4buf = null;
+        if (CFG.ffmpegPath){
+          try{ mp4buf = await convertMkvToMp4(vbuf, CFG.ffmpegPath); }
+          catch(e){ log('  MP4 변환 실패: ' + e.message); }
         }
-        if (videoKey || videoMp4Key){
-          var okU = await attachShotVideo(shotId, videoKey, videoMp4Key, shot.data);
-          if (okU) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey));
+        if (mp4buf && mp4buf.length){
+          var mp4key = base + '_scene.mp4';
+          if (await uploadVideo(mp4key, mp4buf, 'video/mp4')){
+            videoMp4Key = mp4key; log('  MP4 업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key);
+          }
+        }
+        if (!videoMp4Key){
+          var key = base + '_scene.mkv';
+          if (await uploadVideo(key, vbuf, 'video/x-matroska')){
+            videoKey = key; log('  영상 업로드(원본 mkv) ' + (vbuf.length/1e6).toFixed(1) + 'MB → ' + key);
+          }
         }
       }
     }catch(e){ log('  영상 업로드 스킵: ' + e.message); }
+    // 성공이든 실패든 행 갱신 — 영상 키 부착 + _videoPending 해제(앱 진행표시 종료)
+    try{
+      var okU = await attachShotVideo(shotId, videoKey, videoMp4Key, shot.data);
+      if (okU && (videoKey || videoMp4Key)) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey));
+    }catch(e){ log('  영상 연결 실패: ' + (e && e.message || e)); }
   }
 }
 

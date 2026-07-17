@@ -106,6 +106,47 @@ function stopLivePolling(){
   if(_livePollTimer){ clearInterval(_livePollTimer); _livePollTimer=null; }
   _liveLastIds = null;
 }
+// ===== 샷 영상 상태 칩 — 업로드 진행(%) 표시 + 준비되면 그 자리에서 바로 재생 =====
+// 데이터가 먼저 오고 영상은 20~40초 뒤 붙는 구조라, 그 사이 "영상이 왜 없지?" 혼란 방지.
+function _vidChip(s){
+  var d = s.data||{};
+  var key = d.videoMp4R2Key || s.videoR2Key;
+  if (key) return '<button class="small-btn vid-view-btn" onclick="event.stopPropagation();openShotVideo(\''+s.id+'\')">🎬 보기</button>';
+  if (d._videoPending){
+    var t0 = s._rcvAt || Date.parse(d.measuredAt || s.ts) || 0;
+    if (t0 && Date.now()-t0 < 5*60000){
+      var pct = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/30000*100)));
+      return '<span class="vid-uploading">🎞 <span class="vid-pct" data-t0="'+t0+'">'+pct+'%</span></span>';
+    }
+  }
+  return '';
+}
+// 진행률 틱커 — 1.5초마다 화면의 % 만 직접 갱신 (재렌더 없이). 약 30초 기준 추정치.
+if (!window.__vidPctTimer){
+  window.__vidPctTimer = setInterval(function(){
+    try{
+      var els = document.querySelectorAll('.vid-pct[data-t0]');
+      for (var i=0;i<els.length;i++){
+        var t0 = parseInt(els[i].getAttribute('data-t0'),10)||0; if(!t0) continue;
+        els[i].textContent = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/30000*100))) + '%';
+      }
+    }catch(e){}
+  }, 1500);
+}
+// 라이브 화면에서 샷 영상 즉시 재생 (오버레이)
+function openShotVideo(shotId){
+  var s = (S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
+  var d = s.data||{}; var key = d.videoMp4R2Key || s.videoR2Key;
+  if(!key || typeof r2==='undefined' || !r2.enabled) return;
+  var url = r2.url(key);
+  var div = document.createElement('div'); div.className='media-overlay';
+  div.onclick = function(e){ if(e.target===div) div.remove(); };
+  div.innerHTML = '<div style="width:min(94vw,560px)">'
+    + '<video src="'+url+'" controls autoplay playsinline style="width:100%;max-height:78vh;border-radius:12px;background:#000"></video>'
+    + '<div style="text-align:center;margin-top:10px"><button onclick="this.closest(\'.media-overlay\').remove()" style="padding:9px 22px;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;font-weight:700">닫기</button></div></div>';
+  document.body.appendChild(div);
+}
+
 // 베이카드 '방금 친 샷' HTML 생성 (renderBayCard 와 _patchLivePartials 공용)
 function _buildPendingShotsHTML(bayId){
   var pend = (typeof pendingShotsForBay==='function') ? pendingShotsForBay(bayId) : [];
@@ -127,7 +168,7 @@ function _buildPendingShotsHTML(bayId){
     if(ball!=null) bits.push('<span class="psb">볼 '+ball+'m/s</span>');
     if(spin!=null) bits.push('<span class="psb">스핀 '+spin+'</span>');
     html += '<div class="ps-card'+fresh+'" data-shot="'+s.id+'">'
-          + '<div class="psc-hd"><span class="psc-club">'+club+'</span><span class="psc-time">'+when+'</span></div>'
+          + '<div class="psc-hd"><span class="psc-club">'+club+'</span>'+_vidChip(s)+'<span class="psc-time">'+when+'</span></div>'
           + '<div class="psc-metrics">'+bits.join('')+'</div>'
           + '<div class="psc-actions">'
           + '<button class="ps-save big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\')">＋ 저장</button>'
@@ -274,7 +315,14 @@ async function _livePollTick(){
     var actBefore = JSON.stringify(Object.keys(S.activeSessions||{}).sort());
     var actAfter  = JSON.stringify(Object.keys(live.activeSessions||{}).sort());
     var countChanged = !prev || curIds.length !== prev.length;
-    var changed = hasNew || (actBefore!==actAfter) || countChanged;
+    // 영상 상태 변화 감지 — 데이터 먼저 오고 영상이 나중에 붙는 구조라, 영상 키/업로드중
+    // 플래그가 바뀌면 재렌더해야 "업로드중 → 🎬 보기" 전환이 화면에 반영된다.
+    var vidSig = (live.shotEvents||[]).slice(-80).map(function(s){
+      var d=s.data||{}; return s.id+(d.videoMp4R2Key?'v':(s.videoR2Key?'k':(d._videoPending?'p':'-')));
+    }).join('');
+    var vidChanged = (window._liveLastVidSig!==undefined) && (window._liveLastVidSig!==vidSig);
+    window._liveLastVidSig = vidSig;
+    var changed = hasNew || (actBefore!==actAfter) || countChanged || vidChanged;
     _liveLastIds = curIds;
     if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
     // _isNew/_rcvAt 보존하며 머지
@@ -1292,6 +1340,7 @@ function renderShotLog(isAdmin){
         + '<span class="shot-member">'+(s.memberName||'<span class="unassigned-tag">미배정</span>')+'</span>'
         + '<span class="shot-club">'+(d.club||'')+'</span>'
         + '<span class="shot-metric">'+carry+'</span>'
+        + _vidChip(s)
         + '<span class="shot-time">'+_shotTimeLabel(s)+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
         + (!selMode && isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')

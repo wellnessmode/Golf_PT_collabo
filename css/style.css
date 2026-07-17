@@ -1005,6 +1005,12 @@ body.role-select .app{background:#0d1117}
 .shot-metric{color:var(--tx-2)}
 .shot-time{color:var(--tx-3);margin-left:auto;font-variant-numeric:tabular-nums}
 .shot-mock{font-size:10px;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:1px 6px;border-radius:12px}
+/* 샷 영상 상태 칩 — 업로드 진행(%) / 준비되면 🎬 보기 */
+.vid-uploading{font-size:10.5px;font-weight:700;color:#7a5b12;background:#fdf3d9;padding:2px 8px;border-radius:12px;white-space:nowrap;animation:vidPulse 1.6s ease-in-out infinite}
+@keyframes vidPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.vid-view-btn{background:#0f7a52;color:#fff;border:none;white-space:nowrap}
+.vid-view-btn:active{transform:scale(.96)}
+.psc-hd .vid-uploading,.psc-hd .vid-view-btn{margin-left:8px}
 .shot-move{margin-left:4px}
 
 .live-member-list{max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:4px 0 10px}
