@@ -78,9 +78,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.17',
+  version:'v9.18',
   date:'2026-07-16',
   changes:[
+    '영상 보관 정책 도입 — 앱에서 저장(선별)한 샷 영상만 영구 보관. 연습 중 자동으로 쌓인 미보관 샷 영상은 3일 후 자동 삭제(측정 수치·성과 그래프는 유지). 스토리지 진단에 [미저장 샷 영상 정리] 일괄 버튼 추가',
+    '레슨 모드 [버림] 버그 수정 — 버린 샷의 영상이 R2에 남던 것을 함께 삭제',
     '스토리지 정리 속도 개선 — 중복 mkv 삭제를 병렬(청크 8)로 처리해 수천 개도 몇 분 내 완료. 중간에 끊겨도 다시 실행하면 이어짐',
     '로그인 시 자동 최신화 — 프로가 앱을 껐다 켜지 않아도 로그인하는 순간 대기 중인 새 버전이 자동 적용(리로드). 일지 작성 중엔 미루고, 세션은 그대로 복원',
     '저장된 일지 AI 재정리 — 급하게 저장돼 조각으로 남은 녹음 일지를, 보관된 원문으로 다시 AI 정리(수정 화면의 [🤖 AI로 다시 정리]). 원문 보유한 관리자 기기에서 가능',
@@ -437,6 +439,10 @@ const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) session
   async endActiveSession(bayId){if(!this.enabled) return;await this._w('delete','active_sessions',{filters:[{col:'bay_id',op:'eq',val:bayId}]});},
   async insertShot(shot){if(!this.enabled) return;await this._w('upsert','shot_events',{rows:[{id:shot.id,bay_id:shot.bayId,member_id:shot.memberId,member_name:shot.memberName,author:shot.author||'',ts:shot.ts,data:shot.data||{},video_r2_key:shot.videoR2Key||null,source:shot.source||'mock'}]});},
   async reassignShot(shotId,memberId,memberName){if(!this.enabled) return;await this._w('update','shot_events',{values:{member_id:memberId,member_name:memberName},filters:[{col:'id',op:'eq',val:shotId}]});},
+  // 샷 data 갱신 (보관 플래그 _kept 등) — 다른 기기에도 전파되도록 서버 반영
+  async updateShotData(shot){if(!this.enabled||!shot) return;await this._w('update','shot_events',{values:{data:shot.data||{}},filters:[{col:'id',op:'eq',val:shot.id}]});},
+  // 샷 영상 키 해제 — 영상은 삭제했지만 측정 데이터(행·그래프)는 유지
+  async clearShotVideo(shot){if(!this.enabled||!shot) return;await this._w('update','shot_events',{values:{video_r2_key:null,data:shot.data||{}},filters:[{col:'id',op:'eq',val:shot.id}]});},
   async deleteShot(id){if(!this.enabled) return;await this._w('delete','shot_events',{filters:[{col:'id',op:'eq',val:id}]});},
   // 샷 전체 삭제 (DB만 — 트랙맨 PC 영상 원본과 무관)
   async deleteAllShots(){if(!this.enabled) return false;return await this._w('delete','shot_events',{filters:[{col:'id',op:'neq',val:'00000000-0000-0000-0000-000000000000'}]});},

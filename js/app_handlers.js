@@ -705,14 +705,26 @@ async function openStorageAudit(){
       (res.objects||[]).forEach(function(o){ objects.push(o); });
       cursor=res.cursor; pages++;
     }while(cursor && pages<60);   // 최대 6만 객체 안전 상한
-    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects), truncated: !!cursor };
+    // 보관해야 할 샷 영상 키 = 선별 저장(_kept) 샷 + 최근 KEEP_DAYS 이내 샷의 영상
+    var days=(window.APP_CONFIG&&APP_CONFIG.SHOT_VIDEO_KEEP_DAYS)||3;
+    var recentCut=Date.now()-days*24*3600*1000;
+    var keep={};
+    (S.shotEvents||[]).forEach(function(s){
+      var t=Date.parse(s.ts);
+      var protect=(s.data&&s.data._kept) || (!isNaN(t)&&t>=recentCut);
+      if(!protect) return;
+      if(s.videoR2Key) keep[s.videoR2Key]=1;
+      if(s.data&&s.data.videoMp4R2Key) keep[s.data.videoMp4R2Key]=1;
+    });
+    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects, keep), truncated: !!cursor };
   }catch(e){
     S.storageAudit={ loading:false, error:String(e&&e.message||e), data:null };
   }
   render();
 }
 function closeStorageAudit(){ S.storageAudit=null; render(); }
-function analyzeStorage(objects){
+function analyzeStorage(objects, keepKeys){
+  keepKeys = keepKeys || {};
   var cat={ mkv:{n:0,b:0}, mp4:{n:0,b:0}, rec:{n:0,b:0}, manual:{n:0,b:0}, other:{n:0,b:0} };
   var total={ n:objects.length, b:0 };
   var mp4Bases={};
@@ -720,9 +732,12 @@ function analyzeStorage(objects){
     total.b += o.size||0;
     if(/_scene\.mp4$/i.test(o.key)) mp4Bases[o.key.replace(/_scene\.mp4$/i,'')]=1;
   });
-  var reclaim={ n:0, b:0 }, reclaimKeys=[];
+  var reclaim={ n:0, b:0 }, reclaimKeys=[];          // mp4 재생본이 있는 중복 mkv
+  var unkept={ n:0, b:0 }, unkeptKeys=[];            // 앱에서 저장(선별)하지 않은 샷 영상 (mkv+mp4)
   objects.forEach(function(o){
     var k=o.key, s=o.size||0;
+    var isScene=/_scene\.(mkv|mp4)$/i.test(k);
+    if(isScene && !keepKeys[k]){ unkept.n++; unkept.b+=s; unkeptKeys.push(k); }
     if(/_scene\.mkv$/i.test(k)){
       cat.mkv.n++; cat.mkv.b+=s;
       if(mp4Bases[k.replace(/_scene\.mkv$/i,'')]){ reclaim.n++; reclaim.b+=s; reclaimKeys.push(k); }
@@ -731,25 +746,38 @@ function analyzeStorage(objects){
     else if(/^m_/i.test(k)){ cat.manual.n++; cat.manual.b+=s; }
     else { cat.other.n++; cat.other.b+=s; }
   });
-  return { total:total, cat:cat, reclaim:reclaim, reclaimKeys:reclaimKeys };
+  return { total:total, cat:cat, reclaim:reclaim, reclaimKeys:reclaimKeys, unkept:unkept, unkeptKeys:unkeptKeys };
+}
+// 공용 병렬 삭제 루프 (청크 8) — 진행률은 S.storageAudit.purging 에 기록
+async function _purgeKeyList(keys){
+  var A=S.storageAudit; if(!A) return;
+  A.purging={ done:0, total:keys.length, fail:0, finished:false }; render();
+  var CHUNK=8, chunkIdx=0;
+  for(var i=0;i<keys.length;i+=CHUNK){
+    var batch=keys.slice(i,i+CHUNK);
+    await Promise.all(batch.map(function(k){
+      return r2.remove(k).then(function(ok){ if(!ok) A.purging.fail++; }, function(){ A.purging.fail++; }).then(function(){ A.purging.done++; });
+    }));
+    if((++chunkIdx % 4)===0) render();
+  }
+  A.purging.finished=true; render();
+}
+// 앱에서 저장(선별)하지 않은 샷 영상 일괄 정리 — 측정 데이터(성과 그래프)는 유지, 영상 파일만 삭제
+async function purgeUnkeptShotVideos(){
+  var A=S.storageAudit; var a=A&&A.data;
+  if(!a || !a.unkeptKeys || !a.unkeptKeys.length) return;
+  if(!confirm('앱에서 저장(선별)하지 않은 샷 영상 '+a.unkept.n+'개('+_fmtBytes(a.unkept.b)+')를 삭제합니다.\n\n· 측정 수치·성과 그래프는 그대로 유지 (영상 파일만 삭제)\n· 선별 저장한 샷·최근 며칠 영상·일지 첨부는 보호됨\n· 되돌릴 수 없습니다\n\n계속할까요?')) return;
+  await _purgeKeyList(a.unkeptKeys);
+  logAudit('system','미보관 샷 영상 정리','',{count:a.unkept.n, bytes:a.unkept.b, fail:A.purging.fail});
+  liveToastSafe && liveToastSafe('🎞 미보관 샷 영상 '+(a.unkept.n-A.purging.fail)+'개 정리 완료');
+  setTimeout(openStorageAudit, 800);
 }
 // mp4 재생본이 이미 존재하는 mkv 원본만 삭제 — 재생본은 유지되므로 재생에 영향 없음(안전).
 async function purgeReclaimableMkv(){
   var A=S.storageAudit; var a=A&&A.data;
   if(!a || !a.reclaimKeys || !a.reclaimKeys.length){ return; }
   if(!confirm('mp4 재생본이 이미 있는 중복 mkv 원본 '+a.reclaim.n+'개('+_fmtBytes(a.reclaim.b)+')를 삭제합니다.\n\n· 재생본(mp4)은 그대로 유지 → 영상 재생에는 전혀 영향 없음\n· 되돌릴 수 없습니다\n\n계속할까요?')) return;
-  A.purging={ done:0, total:a.reclaimKeys.length, fail:0, finished:false }; render();
-  // 병렬(청크 8개씩)로 삭제 — 순차 대비 몇 배 빠름. 브라우저가 호스트당 동시연결을
-  // 자동 제한하므로 안전. 중간에 끊겨도(앱 종료) 다시 실행하면 남은 것만 재계산해 이어감.
-  var keys=a.reclaimKeys.slice(), CHUNK=8, chunkIdx=0;
-  for(var i=0;i<keys.length;i+=CHUNK){
-    var batch=keys.slice(i,i+CHUNK);
-    await Promise.all(batch.map(function(k){
-      return r2.remove(k).then(function(ok){ if(!ok) A.purging.fail++; }, function(){ A.purging.fail++; }).then(function(){ A.purging.done++; });
-    }));
-    if((++chunkIdx % 4)===0) render();   // 4청크(32개)마다 진행률 갱신
-  }
-  A.purging.finished=true; render();
+  await _purgeKeyList(a.reclaimKeys);
   logAudit('system','스토리지 mkv 원본 정리','',{count:a.reclaim.n, bytes:a.reclaim.b, fail:A.purging.fail});
   liveToastSafe && liveToastSafe('🧹 mkv 원본 '+(a.reclaim.n-A.purging.fail)+'개 정리 완료 — 대시보드에 반영까지 잠시 걸립니다');
   setTimeout(openStorageAudit, 800);   // 재조회로 결과 갱신
@@ -786,6 +814,17 @@ function renderStorageAudit(){
       body+='</div>';
     } else {
       body+='<div style="margin-top:16px;padding:12px;background:var(--bg-2);border-radius:10px;font-size:12px;color:var(--tx-2);line-height:1.6">중복 mkv 원본이 발견되지 않았습니다. (에이전트 mp4 변환이 꺼져 있거나 이미 정리된 상태)</div>';
+    }
+    if(d.unkept && d.unkept.n>0){
+      body+='<div style="margin-top:12px;padding:14px;background:#fff7ea;border:1px solid #f0ddb8;border-radius:12px">'
+        +'<div style="font-weight:800;font-size:13.5px;color:#8a5a10;margin-bottom:4px">🎞 앱 미저장 샷 영상: '+d.unkept.n.toLocaleString()+'개 · '+_fmtBytes(d.unkept.b)+'</div>'
+        +'<div style="font-size:12px;color:var(--tx-2);line-height:1.6;margin-bottom:10px">연습 중 자동으로 쌓인, 앱에서 <b>저장(선별)하지 않은</b> 샷 영상입니다. 삭제해도 <b>측정 수치·성과 그래프는 그대로</b>이고 영상 파일만 지워집니다. 선별 저장 샷·최근 며칠 영상·일지 첨부는 보호됩니다.</div>';
+      if(A.purging && !A.purging.finished){
+        body+='<div style="font-size:12.5px;color:var(--tx-2)">삭제 중 '+A.purging.done+' / '+A.purging.total+(A.purging.fail?(' · 실패 '+A.purging.fail):'')+'</div>';
+      } else {
+        body+='<button class="btn" style="width:100%;background:#8a5a10;color:#fff" onclick="purgeUnkeptShotVideos()">🎞 미저장 샷 영상 '+_fmtBytes(d.unkept.b)+' 정리</button>';
+      }
+      body+='</div>';
     }
     body+='<div style="margin-top:14px;font-size:11px;color:var(--tx-3);line-height:1.7">· rec/ 오래된 음성 백업과 미완료 업로드는 Cloudflare 대시보드의 <b>라이프사이클 규칙</b>으로 자동 정리하세요 (docs/R2-비용-절감.md 참고).<br>· DB에서 사라진 회원/세션의 고아 영상 정리는 안전을 위해 별도 스크립트로 진행합니다 (문서 참고).</div>';
   } else {
