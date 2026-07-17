@@ -805,6 +805,8 @@ function renderPerformance(){
         vidHtml += '<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. 아래에서 영상을 내려받아 폰의 동영상 앱으로 보세요.</div>';
       }
       vidHtml += '<div class="pv-vm-dl"><a class="pv-dl-btn" href="'+dlUrl+'" download="'+fname+'" target="_blank" rel="noopener">⬇ 영상 다운로드'+(hasMp4?' (MP4)':' (MKV 원본)')+'</a></div>';
+    } else if(dm._videoPending && (function(){ var t=Date.parse(dm.measuredAt||sm.ts); return !isNaN(t) && Date.now()-t < 5*60000; })()){
+      vidHtml='<div class="pv-vm-novid"><div class="pv-vplay" style="width:54px;height:54px;font-size:18px">🎞</div><div class="pv-vm-novid-t">영상 업로드 중...<br><span style="font-size:11px;opacity:.75">약 30초 뒤 다시 열면 재생됩니다</span></div></div>';
     } else {
       vidHtml='<div class="pv-vm-novid"><div class="pv-vplay" style="width:54px;height:54px;font-size:18px">▶</div><div class="pv-vm-novid-t">영상 없음</div></div>';
     }
