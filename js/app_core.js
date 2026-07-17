@@ -78,9 +78,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.20',
-  date:'2026-07-16',
+  version:'v9.21',
+  date:'2026-07-18',
   changes:[
+    '샷 실시간화 — 에이전트가 데이터를 먼저 보내고(수 초) 영상은 뒤에 붙이는 구조로 재설계(기존엔 영상 업로드·변환 20~30초 후에야 샷이 떠서 "다음 샷 쳐야 이전 샷이 뜨던" 원인). 에이전트 교체 필요',
+    '백로그 유입 차단 — 에이전트 재시작 시 밀려 들어오는 "세션 시작 이전" 옛 샷은 현재 레슨에 귀속·표시하지 않음',
+    '에이전트 로그 한국시간(KST) 표기 + 미완성 파일 20분까지 재시도(늦게 완성되는 샷 유실 방지)',
     '클럽 오인식 수정 — 레이더 추측(DetectedClubCategory) 대신 TPS에서 선택한 클럽을 우선 사용(에이전트 교체 필요). 클럽/거리 후보를 agent.log 에 진단 출력',
     '영상 오삭제 방지 — 스토리지 정리 직전 샷 목록을 서버에서 최신화 + 최근 업로드 파일 무조건 보호(워커 재배포 필요). 정리 진행 중엔 자동 업데이트 리로드 보류',
     '리포트 영상 — 정리·만료된 영상은 깨진 플레이어 대신 안내 문구 표시',
@@ -503,6 +506,11 @@ function reconcileAgentShots(){
     if(!pending) return true;
     var act = S.activeSessions[s.bayId];
     if(act && !isStaleSession(act)){
+      // 백로그 차단 — 세션 시작 "이전에 측정된" 샷(에이전트가 꺼져 있다 재시작하며
+      // 밀어넣는 옛 샷)은 현재 세션에 귀속/대기시키지 않는다. (2분 시계 오차 허용)
+      var mt = Date.parse((s.data && s.data.measuredAt) || s.ts);
+      var st = Date.parse(act.startedAt);
+      if(!isNaN(mt) && !isNaN(st) && mt < st - 120000){ s._unassigned = true; return true; }
       // mode 가 없으면 베이 타입으로 판정 (레슨 전용 베이는 항상 선별저장)
       if(bayMode(s.bayId, act)==='lesson'){
         s._pendingBay = s.bayId;
@@ -520,9 +528,14 @@ function reconcileAgentShots(){
 }
 // 레슨 모드 — 특정 베이의 "미저장 최근 샷" (시간 비교 없음, 베이의 pending agent 샷 전부)
 function pendingShotsForBay(bayId){
+  var act = S.activeSessions[bayId];
+  var st = act ? Date.parse(act.startedAt) : NaN;
   return (S.shotEvents||[]).filter(function(s){
     if(!(s.source==='agent' && s.bayId===bayId)) return false;
     if(!(!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName)) return false;
+    // 세션 시작 이전에 측정된 백로그 샷은 레슨 선별 목록에 안 띄움
+    var mt = Date.parse((s.data && s.data.measuredAt) || s.ts);
+    if(!isNaN(mt) && !isNaN(st) && mt < st - 120000) return false;
     return true;
   }).sort(function(a,b){
     // 수신 시각 우선(없으면 ts) — 시계 어긋나도 도착 순서 유지

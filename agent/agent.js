@@ -48,13 +48,18 @@ var _resume = (_stateMeta && _stateMeta.lastSeenMtime) ? _stateMeta.lastSeenMtim
 var _maxBack = _now - 7*24*3600*1000;
 var AGENT_CUTOFF_MS = Math.max(_maxBack, Math.min(_resume, _now)) - ((CFG && CFG.backfillMinutes ? CFG.backfillMinutes : 0) * 60000);
 
+// 로그 시각 — 한국시간(KST) 표기. (기존 UTC 'Z' 표기가 "시간이 안 맞다"는 혼란을 유발)
+function kstNow(){
+  try { return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }) + ' KST'; }
+  catch (e) { return new Date(Date.now() + 9*3600*1000).toISOString().replace('T',' ').slice(0,19) + ' KST'; }
+}
 function log(msg){
-  var line = '[' + new Date().toISOString() + '] ' + msg;
+  var line = '[' + kstNow() + '] ' + msg;
   try { fs.appendFileSync(LOG_FILE, line + '\n'); } catch (e) {}
   if (CFG.verbose) console.log(line);
 }
 function say(msg){ // verbose 무관 항상 콘솔 + 로그
-  var line = '[' + new Date().toISOString() + '] ' + msg;
+  var line = '[' + kstNow() + '] ' + msg;
   try { fs.appendFileSync(LOG_FILE, line + '\n'); } catch (e) {}
   console.log(line);
 }
@@ -121,6 +126,41 @@ async function pushShot(shot){
   }, JSON.stringify(shot));
   if (res.status >= 200 && res.status < 300) return true;
   log('  ! Supabase insert 실패 ' + res.status + ' ' + res.body.toString().slice(0,200));
+  return false;
+}
+
+// ---- 샷 행에 영상 키를 나중에 붙이기 (데이터 먼저 전송 구조) ----
+// 현재 행 data 를 읽어와 병합 — 그 사이 앱이 저장한 보관 플래그(_kept) 등을 덮어쓰지 않게.
+async function fetchShotData(shotId){
+  try{
+    var url = CFG.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/shot_events?id=eq.' + encodeURIComponent(shotId) + '&select=data';
+    var res = await httpRequest(url, { method:'GET', headers:{ 'apikey':CFG.SUPABASE_ANON_KEY, 'Authorization':'Bearer '+CFG.SUPABASE_ANON_KEY } });
+    if (res.status >= 200 && res.status < 300){
+      var j = JSON.parse(res.body.toString());
+      return (j && j[0] && j[0].data) || null;
+    }
+  }catch(e){}
+  return null;
+}
+async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData){
+  var cur = await fetchShotData(shotId);
+  var data = Object.assign({}, fallbackData, cur || {});   // 서버 최신 data 우선(그 사이 앱 변경 보존)
+  if (mp4Key) data.videoMp4R2Key = mp4Key;
+  var values = { video_r2_key: videoKey, data: data };
+  if (CFG.useDbProxy && CFG.R2_WORKER_URL && CFG.R2_API_KEY){
+    var purl = CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/db';
+    var pres = await httpRequest(purl, { method:'POST', headers:{ 'X-API-Key':CFG.R2_API_KEY, 'Content-Type':'application/json' } },
+      JSON.stringify({ op:'update', table:'shot_events', values:values, filters:[{col:'id',op:'eq',val:shotId}] }));
+    if (pres.status >= 200 && pres.status < 300) return true;
+    log('  ! 영상키 업데이트 실패 ' + pres.status + ' ' + pres.body.toString().slice(0,150));
+    return false;
+  }
+  var url2 = CFG.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/shot_events?id=eq.' + encodeURIComponent(shotId);
+  var res2 = await httpRequest(url2, { method:'PATCH', headers:{
+    'apikey':CFG.SUPABASE_ANON_KEY, 'Authorization':'Bearer '+CFG.SUPABASE_ANON_KEY,
+    'Content-Type':'application/json', 'Prefer':'return=minimal' } }, JSON.stringify(values));
+  if (res2.status >= 200 && res2.status < 300) return true;
+  log('  ! 영상키 업데이트 실패(직접) ' + res2.status);
   return false;
 }
 
@@ -209,11 +249,14 @@ async function handleFtmf(filePath){
   var parsed;
   try { parsed = parseFtmf(buf); }
   catch (e) {
-    // 파싱 실패 = 부분 파일(재부팅/쓰기중)일 수 있음 → 영구 마킹하지 말고 재시도.
-    // 단 5회(약 25초) 넘게 계속 실패하면 '깨진 파일'로 확정하고 스킵.
+    // 파싱 실패 = TPS가 파일을 점진적으로 채우는 중일 수 있음(측정 JSON이 나중에 들어옴).
+    // 영구 마킹하지 말고 최대 240회(스캔 5초 간격 ≈ 20분)까지 재시도 — 늦게 완성되는 샷 유실 방지.
     var pf = _parseFail[fname] = (_parseFail[fname] || 0) + 1;
-    if (pf < 5) { log('파싱 대기(재시도 '+pf+'/5) ' + fname + ': ' + e.message); return; }
-    log('파싱 실패(확정) ' + fname + ': ' + e.message);
+    if (pf < 240) {
+      if (pf <= 3 || pf % 12 === 0) log('파싱 대기(재시도 '+pf+'/240) ' + fname + ': ' + e.message);
+      return;
+    }
+    log('파싱 실패(확정·20분 초과) ' + fname + ': ' + e.message);
     processed[fname] = { err: e.message, t: Date.now() }; saveState(); delete _parseFail[fname]; return;
   }
   delete _parseFail[fname];
@@ -222,41 +265,11 @@ async function handleFtmf(filePath){
   if (!bayId) { log('베이 매핑 없음 (TrackingUnit=' + parsed.trackingUnit + '), 건너뜀'); processed[fname] = { skip:'no-bay', t:Date.now() }; saveState(); return; }
 
   var shotId = 'tm_' + (parsed.measurementId || (Date.now()+''+Math.random().toString(36).slice(2,6)));
-  var videoKey = null;
 
-  var videoMp4Key = null;
-  // 영상 업로드 (옵션) — ftmf 내부 scene.mkv
-  if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
-    try{
-      var outer = require('./ftmf-parser.js').readZipEntries(buf);
-      var sceneName = require('./ftmf-parser.js').findEntry(outer, '_scene.mkv');
-      if (sceneName){
-        var vbuf = require('./ftmf-parser.js').extractEntry(buf, outer[sceneName]);
-        var key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mkv';
-        var ok = await uploadVideo(key, vbuf, 'video/x-matroska');
-        if (ok){ videoKey = key; log('  영상 업로드 ' + (vbuf.length/1e6).toFixed(1) + 'MB → ' + key); }
-        // MP4 변환 (옵션) — ffmpegPath 설정 시 같은 영상의 mp4 도 업로드 → iPhone Safari 재생 OK
-        if (ok && CFG.ffmpegPath){
-          try{
-            var mp4buf = await convertMkvToMp4(vbuf, CFG.ffmpegPath);
-            if (mp4buf && mp4buf.length){
-              var mp4key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mp4';
-              var ok2 = await uploadVideo(mp4key, mp4buf, 'video/mp4');
-              if (ok2){ videoMp4Key = mp4key; log('  MP4 변환·업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key);
-                // mp4 재생본이 확보되면 용량 2배인 mkv 원본은 R2에서 제거 → 저장비 절반.
-                // (iOS Safari 는 mkv 재생 불가 + 앱은 mp4 를 우선 재생하므로 서빙에 영향 없음)
-                try{ if (await deleteVideo(key)){ videoKey = null; log('  원본 mkv 삭제(저장비 절감) ' + key); } }catch(e){ log('  mkv 삭제 스킵: ' + e.message); }
-              }
-            }
-          }catch(e){ log('  MP4 변환 스킵: ' + e.message); }
-        }
-      }
-    }catch(e){ log('  영상 업로드 스킵: ' + e.message); }
-  }
-
-  // shot_events insert (member는 비워두고 서버/앱이 활성세션으로 귀속)
-  // ts = "지금 처리한 시각"(UTC). 샷 친 직후 수 초 내 처리되므로 정확하고,
-  // ftmf 내부 시각의 타임존 혼선을 피한다. 원본 시각은 data.measuredAt에 보존.
+  // ── 1단계: 샷 "데이터"를 먼저 전송 (영상 없이) ─────────────────────────
+  // 기존엔 영상 업로드(20MB+)·MP4 변환이 끝나야 전송해 샷당 20~30초 지연 →
+  // "다음 샷을 쳐야 이전 샷이 뜬다"는 체감의 원인. 데이터를 수 초 내 먼저 보내고
+  // 영상은 준비되는 대로 행에 붙인다(attachShotVideo).
   var nowIso = new Date().toISOString();
   var shot = {
     id: shotId,
@@ -265,32 +278,67 @@ async function handleFtmf(filePath){
     member_name: '',
     author: '',
     ts: nowIso,
-    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime, videoMp4R2Key: videoMp4Key || undefined }, parsed.data),
-    video_r2_key: videoKey,
+    data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime }, parsed.data),
+    video_r2_key: null,
     source: 'agent'
   };
   var ok = await pushShot(shot);
-  if (ok){
-    log('✓ 샷 전송 ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm total=' + parsed.data.total + 'm] bay=' + bayId);
-    // 파일 확정 지연 진단 — 샷 시각(measuredAt) 대비 파일이 언제 감지됐는지.
-    // "다음 샷을 쳐야 이전 샷이 뜬다"면 TPS가 파일을 늦게 확정하는 것 → 이 값으로 검증.
+  if (!ok){ log('전송 실패(다음 주기 재시도): ' + fname); return; }
+
+  log('✓ 샷 전송(데이터) ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm total=' + parsed.data.total + 'm] bay=' + bayId);
+  // 지연 진단 — 샷 측정시각/파일 수정시각 대비 전송이 얼마나 늦었는지.
+  // (에이전트가 꺼져 있던 백로그면 '파일수정 지연'도 크게 나옴 → TPS 지연과 구분 가능)
+  try{
+    var _ms = Date.parse(parsed.eventTime);
+    var _mtDiag = fs.statSync(filePath).mtimeMs;
+    var parts = [];
+    if(!isNaN(_ms)) parts.push('샷측정후 ' + Math.round((Date.now()-_ms)/1000) + '초');
+    if(_mtDiag) parts.push('파일수정후 ' + Math.round((Date.now()-_mtDiag)/1000) + '초');
+    if(parts.length) log('  전송 지연: ' + parts.join(' · '));
+  }catch(e){}
+  // 클럽 진단 — 선택 클럽 vs 레이더 감지 클럽. TPS에서 고른 클럽과 비교용.
+  var cc = parsed.clubCandidates || {};
+  var ccs = Object.keys(cc).filter(function(k){ return cc[k]; }).map(function(k){ return k+'='+cc[k]; });
+  if (ccs.length) log('  클럽 후보 → ' + ccs.join(', ') + ' | 채택=' + (parsed.data.club||'?'));
+  // 토탈 키 진단 — TPS 화면 값과 비교용. 비어있지 않은 후보만 출력.
+  var tc = parsed.data._totalCandidates || {};
+  var nonNull = Object.keys(tc).filter(function(k){ return tc[k] != null; }).map(function(k){ return k+'='+tc[k]; });
+  if (nonNull.length) log('  토탈 후보값들 → ' + nonNull.join(', '));
+  processed[fname] = { id: shotId, mid: parsed.measurementId, t: Date.now() };
+  try{ var _mt=fs.statSync(filePath).mtimeMs; if(_mt> (_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mt; }catch(e){}
+  saveState();
+
+  // ── 2단계: 영상 업로드 → 행에 영상 키 붙이기 (데이터 표시와 무관하게 진행) ──
+  if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
+    var videoKey = null, videoMp4Key = null;
     try{
-      var _ms = Date.parse(parsed.eventTime);
-      if(!isNaN(_ms)) log('  샷→전송 지연: ' + Math.round((Date.now()-_ms)/1000) + '초 (샷시각 ' + parsed.eventTime + ')');
-    }catch(e){}
-    // 클럽 진단 — 선택 클럽 vs 레이더 감지 클럽. TPS에서 고른 클럽과 비교용.
-    var cc = parsed.clubCandidates || {};
-    var ccs = Object.keys(cc).filter(function(k){ return cc[k]; }).map(function(k){ return k+'='+cc[k]; });
-    if (ccs.length) log('  클럽 후보 → ' + ccs.join(', ') + ' | 채택=' + (parsed.data.club||'?'));
-    // 토탈 키 진단 — TPS 화면 값과 비교용. 비어있지 않은 후보만 출력.
-    var tc = parsed.data._totalCandidates || {};
-    var nonNull = Object.keys(tc).filter(function(k){ return tc[k] != null; }).map(function(k){ return k+'='+tc[k]; });
-    if (nonNull.length) log('  토탈 후보값들 → ' + nonNull.join(', '));
-    processed[fname] = { id: shotId, mid: parsed.measurementId, t: Date.now() };
-    try{ var _mt=fs.statSync(filePath).mtimeMs; if(_mt> (_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mt; }catch(e){}
-    saveState();
-  } else {
-    log('전송 실패(다음 주기 재시도): ' + fname);
+      var outer = require('./ftmf-parser.js').readZipEntries(buf);
+      var sceneName = require('./ftmf-parser.js').findEntry(outer, '_scene.mkv');
+      if (sceneName){
+        var vbuf = require('./ftmf-parser.js').extractEntry(buf, outer[sceneName]);
+        var key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mkv';
+        var okV = await uploadVideo(key, vbuf, 'video/x-matroska');
+        if (okV){ videoKey = key; log('  영상 업로드 ' + (vbuf.length/1e6).toFixed(1) + 'MB → ' + key); }
+        // MP4 변환 (옵션) — ffmpegPath 설정 시 같은 영상의 mp4 도 업로드 → iPhone Safari 재생 OK
+        if (okV && CFG.ffmpegPath){
+          try{
+            var mp4buf = await convertMkvToMp4(vbuf, CFG.ffmpegPath);
+            if (mp4buf && mp4buf.length){
+              var mp4key = bayId + '/' + (parsed.measurementId || shotId) + '_scene.mp4';
+              var ok2 = await uploadVideo(mp4key, mp4buf, 'video/mp4');
+              if (ok2){ videoMp4Key = mp4key; log('  MP4 변환·업로드 ' + (mp4buf.length/1e6).toFixed(1) + 'MB → ' + mp4key);
+                // mp4 재생본이 확보되면 용량 2배인 mkv 원본은 R2에서 제거 → 저장비 절반.
+                try{ if (await deleteVideo(key)){ videoKey = null; log('  원본 mkv 삭제(저장비 절감) ' + key); } }catch(e){ log('  mkv 삭제 스킵: ' + e.message); }
+              }
+            }
+          }catch(e){ log('  MP4 변환 스킵: ' + e.message); }
+        }
+        if (videoKey || videoMp4Key){
+          var okU = await attachShotVideo(shotId, videoKey, videoMp4Key, shot.data);
+          if (okU) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey));
+        }
+      }
+    }catch(e){ log('  영상 업로드 스킵: ' + e.message); }
   }
 }
 
