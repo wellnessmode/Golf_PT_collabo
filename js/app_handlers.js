@@ -705,6 +705,9 @@ async function openStorageAudit(){
       (res.objects||[]).forEach(function(o){ objects.push(o); });
       cursor=res.cursor; pages++;
     }while(cursor && pages<60);   // 최대 6만 객체 안전 상한
+    // ⚠️ 오삭제 방지 1 — 정리 계산 직전에 샷 목록을 서버에서 새로 받는다.
+    // (이 기기의 S.shotEvents 가 오래됐으면 방금 친 샷의 영상이 '미보관'으로 잘못 분류됨)
+    try{ var lv=await cloud.loadLive(); if(lv && lv.shotEvents && lv.shotEvents.length) S.shotEvents=lv.shotEvents; }catch(e){}
     // 보관해야 할 샷 영상 키 = 선별 저장(_kept) 샷 + 최근 KEEP_DAYS 이내 샷의 영상
     var days=(window.APP_CONFIG&&APP_CONFIG.SHOT_VIDEO_KEEP_DAYS)||3;
     var recentCut=Date.now()-days*24*3600*1000;
@@ -716,15 +719,17 @@ async function openStorageAudit(){
       if(s.videoR2Key) keep[s.videoR2Key]=1;
       if(s.data&&s.data.videoMp4R2Key) keep[s.data.videoMp4R2Key]=1;
     });
-    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects, keep), truncated: !!cursor };
+    // ⚠️ 오삭제 방지 2 — 업로드된 지 KEEP_DAYS 안 된 파일은 무조건 보호(워커가 uploaded 제공 시)
+    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects, keep, recentCut), truncated: !!cursor };
   }catch(e){
     S.storageAudit={ loading:false, error:String(e&&e.message||e), data:null };
   }
   render();
 }
 function closeStorageAudit(){ S.storageAudit=null; render(); }
-function analyzeStorage(objects, keepKeys){
+function analyzeStorage(objects, keepKeys, recentUploadCut){
   keepKeys = keepKeys || {};
+  recentUploadCut = recentUploadCut || 0;
   var cat={ mkv:{n:0,b:0}, mp4:{n:0,b:0}, rec:{n:0,b:0}, manual:{n:0,b:0}, other:{n:0,b:0} };
   var total={ n:objects.length, b:0 };
   var mp4Bases={};
@@ -737,7 +742,8 @@ function analyzeStorage(objects, keepKeys){
   objects.forEach(function(o){
     var k=o.key, s=o.size||0;
     var isScene=/_scene\.(mkv|mp4)$/i.test(k);
-    if(isScene && !keepKeys[k]){ unkept.n++; unkept.b+=s; unkeptKeys.push(k); }
+    var recentlyUploaded = recentUploadCut && o.uploaded && o.uploaded >= recentUploadCut;   // 방금 올라온 파일 보호
+    if(isScene && !keepKeys[k] && !recentlyUploaded){ unkept.n++; unkept.b+=s; unkeptKeys.push(k); }
     if(/_scene\.mkv$/i.test(k)){
       cat.mkv.n++; cat.mkv.b+=s;
       if(mp4Bases[k.replace(/_scene\.mkv$/i,'')]){ reclaim.n++; reclaim.b+=s; reclaimKeys.push(k); }

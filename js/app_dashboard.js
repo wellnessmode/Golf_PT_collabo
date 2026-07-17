@@ -799,7 +799,8 @@ function renderPerformance(){
     var fname = 'shot_'+(sm.id||'').slice(0,8)+(hasMp4?'.mp4':'.mkv');
     var vidHtml;
     if(vidUrl){
-      vidHtml='<video class="pv-vm-video" src="'+vidUrl+'" controls playsinline preload="metadata"></video>';
+      // 영상 로드 실패(보관정책으로 정리됐거나 만료) 시 깨진 플레이어 대신 안내로 교체
+      vidHtml='<video class="pv-vm-video" src="'+vidUrl+'" controls playsinline preload="metadata" onerror="try{this.parentElement.innerHTML=\'<div class=&quot;pv-vm-novid&quot;><div class=&quot;pv-vm-novid-t&quot;>영상이 만료·정리되어 재생할 수 없습니다<br><span style=&quot;font-size:11px;opacity:.7&quot;>저장(선별)하지 않은 샷 영상은 보관 기간 후 자동 정리됩니다. 측정 데이터는 유지됩니다.</span></div></div>\';}catch(e){}"></video>';
       if(isMkvOnly){
         vidHtml += '<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. 아래에서 영상을 내려받아 폰의 동영상 앱으로 보세요.</div>';
       }
