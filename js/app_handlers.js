@@ -739,11 +739,15 @@ async function purgeReclaimableMkv(){
   if(!a || !a.reclaimKeys || !a.reclaimKeys.length){ return; }
   if(!confirm('mp4 재생본이 이미 있는 중복 mkv 원본 '+a.reclaim.n+'개('+_fmtBytes(a.reclaim.b)+')를 삭제합니다.\n\n· 재생본(mp4)은 그대로 유지 → 영상 재생에는 전혀 영향 없음\n· 되돌릴 수 없습니다\n\n계속할까요?')) return;
   A.purging={ done:0, total:a.reclaimKeys.length, fail:0, finished:false }; render();
-  for(var i=0;i<a.reclaimKeys.length;i++){
-    var ok=false; try{ ok=await r2.remove(a.reclaimKeys[i]); }catch(e){}
-    if(!ok) A.purging.fail++;
-    A.purging.done++;
-    if(i%15===0) render();
+  // 병렬(청크 8개씩)로 삭제 — 순차 대비 몇 배 빠름. 브라우저가 호스트당 동시연결을
+  // 자동 제한하므로 안전. 중간에 끊겨도(앱 종료) 다시 실행하면 남은 것만 재계산해 이어감.
+  var keys=a.reclaimKeys.slice(), CHUNK=8, chunkIdx=0;
+  for(var i=0;i<keys.length;i+=CHUNK){
+    var batch=keys.slice(i,i+CHUNK);
+    await Promise.all(batch.map(function(k){
+      return r2.remove(k).then(function(ok){ if(!ok) A.purging.fail++; }, function(){ A.purging.fail++; }).then(function(){ A.purging.done++; });
+    }));
+    if((++chunkIdx % 4)===0) render();   // 4청크(32개)마다 진행률 갱신
   }
   A.purging.finished=true; render();
   logAudit('system','스토리지 mkv 원본 정리','',{count:a.reclaim.n, bytes:a.reclaim.b, fail:A.purging.fail});
