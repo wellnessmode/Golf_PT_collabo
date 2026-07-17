@@ -284,6 +284,7 @@ async function _livePollTick(){
       if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; }
       return s;
     });
+    autoEndOverdueSessions(); // 2시간 넘게 켜진 세션 자동 종료 — 이후 샷이 계속 귀속되는 것 차단
     if(typeof reconcileAgentShots==='function') reconcileAgentShots();
     purgeStaleUnassigned();   // 첫 폴링에서 24h+ 미배정 노이즈 자동 청소(관리자)
     purgeOldShotVideos();     // 보관정책: 미보관 샷 영상 3일 후 자동 삭제(관리자, 데이터 유지)
@@ -451,7 +452,41 @@ function confirmLiveStart(){
   liveToast('▶ '+c.memberName+'님 · '+bay.name+' 세션 시작','ok');
 }
 
-// ============ 세션 종료 (수동만) ============
+// ============ 세션 자동 종료 (2시간 초과) ============
+// 레슨은 한 타임 최대 ~50분. 종료를 잊고 두면 다음 이용자의 샷까지 그 회원에게
+// 계속 귀속되므로, SESSION_AUTO_END_HOURS(기본 2시간) 초과 세션은 자동 종료한다.
+// 담당자 기기에 받아쓴 녹음이 있으면 일지 초안으로 살려서 열어준다(내용 유실 방지).
+function autoEndOverdueSessions(){
+  var hours=(window.APP_CONFIG && APP_CONFIG.SESSION_AUTO_END_HOURS)||2;
+  var limit=hours*3600*1000;
+  var ended=[];
+  Object.keys(S.activeSessions||{}).forEach(function(bayId){
+    var act=S.activeSessions[bayId]; if(!act||!act.startedAt) return;
+    var t=new Date(act.startedAt).getTime(); if(isNaN(t)) return;
+    if(Date.now()-t < limit) return;
+    if(typeof _rec!=='undefined' && _rec.bayId===bayId) return;   // 이 기기에서 녹음 진행 중이면 보류
+    if(act._sttBusy) return;                                       // 음성 변환 중이면 보류
+    var transcript=(act._transcript||'').trim();
+    var memberId=act.memberId, author=act.author, memberName=act.memberName, bayName=getBay(bayId).name;
+    if(S.voiceBay===bayId){ try{ stopVoice(bayId); }catch(e){} }
+    delete S.activeSessions[bayId];
+    try{ cloud.endActiveSession(bayId); }catch(e){}
+    logActivity('세션 자동 종료('+hours+'시간 초과)', memberId, bayName);
+    logAudit('session','세션 자동 종료('+hours+'시간 초과)', memberName, {bay:bayName, author:author});
+    ended.push(bayName+' · '+memberName+'님');
+    // 담당자 본인 기기 + 받아쓴 내용 있음 → 일지 초안으로 복구 (조용히 버리지 않음)
+    if(transcript && author===S.currentUser){
+      try{ openVoiceDraft(memberId, author, transcript); }catch(e){}
+    }
+  });
+  if(ended.length){
+    try{ save(); }catch(e){}
+    try{ liveToastSafe('⏱ 2시간 경과 — '+ended.join(', ')+' 세션 자동 종료됨'); }catch(e){}
+    try{ render(); }catch(e){}
+  }
+}
+
+// ============ 세션 종료 (수동) ============
 function endLiveSession(bayId){
   var act = S.activeSessions[bayId]; if(!act) return;
   if(typeof _rec!=='undefined' && _rec.bayId===bayId){ liveToast('🎙 녹음 [종료·글변환]을 먼저 눌러주세요','err'); return; }

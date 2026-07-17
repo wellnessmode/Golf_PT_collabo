@@ -25,6 +25,9 @@ window.APP_CONFIG = {
   // 샷 영상 보관일수 — 앱에서 저장(선별)하지 않은 샷의 영상은 이 일수 후 자동 삭제.
   // (측정 수치·성과 그래프는 유지, 영상 파일만 삭제. 선별 저장 샷은 영구 보관)
   SHOT_VIDEO_KEEP_DAYS: 3,
+  // 활성 세션(타석 이용) 자동 종료 — 이 시간(시간 단위) 넘게 켜져 있으면 자동 종료.
+  // 레슨 한 타임은 최대 ~50분. 종료를 잊어도 다음 이용자 샷이 계속 귀속되지 않게.
+  SESSION_AUTO_END_HOURS: 2,
   AI_VIA_WORKER: true,
   AI_WORKER_URL: '',   // Claude 프록시 워커 주소. 비우면 R2_WORKER_URL 사용. (예: https://ng-claude.ceo-5ef.workers.dev)
   AI_WORKER_KEY: '',   // 워커 인증용 키(시크릿 아님, 게이트용). 비우면 R2_API_KEY 사용.
