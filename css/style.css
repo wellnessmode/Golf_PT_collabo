@@ -6,66 +6,72 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
 :root{
-  /* Surface layers (lightest → darkest) */
-  --bg-0:#fafafa;
+  /* ===== Design System v10 — "Performance Studio" =====
+     랜딩(다크 프리미엄 × 그린)의 감성을 작업 화면 전체로 확장.
+     쿨-뉴트럴 표면 + 딥그린 액센트 + 부드러운 레이어드 엘리베이션. */
+
+  /* Surface layers (lightest → darkest) — 쿨 뉴트럴 틴트 */
+  --bg-0:#f6f7f9;
   --bg-1:#ffffff;
-  --bg-2:#fbfbfc;
-  --bg-3:#f5f6f8;
-  --bg-4:#eef0f3;
-  --bg-5:#e3e6ea;
+  --bg-2:#fafbfc;
+  --bg-3:#f2f4f7;
+  --bg-4:#eaedf1;
+  --bg-5:#dfe3e9;
 
-  /* Borders */
-  --brd:rgba(0,0,0,.06);
-  --brd-2:rgba(0,0,0,.1);
-  --brd-3:rgba(0,0,0,.15);
+  /* Borders — 헤어라인 + 그림자 조합용 */
+  --brd:rgba(13,20,28,.07);
+  --brd-2:rgba(13,20,28,.11);
+  --brd-3:rgba(13,20,28,.17);
 
-  /* Text */
-  --tx:#0d0d10;
-  --tx-2:#4a4d57;
-  --tx-3:#9094a0;
-  --tx-dim:rgba(0,0,0,.4);
+  /* Text — 잉크 대비 강화 */
+  --tx:#0b0e14;
+  --tx-2:#444b57;
+  --tx-3:#878e9b;
+  --tx-dim:rgba(11,14,20,.4);
 
-  /* Accent: Mint Green */
-  --ac:#00b884;
-  --ac-2:#00a070;
-  --ac-glow:rgba(0,184,132,.12);
-  --ac-glow2:rgba(0,184,132,.05);
+  /* Accent: Deep Performance Green (라이트 표면 대비 확보를 위해 딥하게) */
+  --ac:#00a878;
+  --ac-2:#008f64;
+  --ac-deep:#0b7a56;
+  --ac-glow:rgba(0,168,120,.13);
+  --ac-glow2:rgba(0,168,120,.06);
 
   /* Pro Blue */
-  --pro:#3868d6;
-  --pro-bg:rgba(56,104,214,.08);
+  --pro:#2f63d8;
+  --pro-bg:rgba(47,99,216,.09);
 
   /* Trainer */
-  --tr:#00b884;
-  --tr-bg:rgba(0,184,132,.08);
+  --tr:#00a878;
+  --tr-bg:rgba(0,168,120,.09);
 
   /* Semantic */
-  --warn:#d97706;
-  --warn-bg:rgba(217,119,6,.08);
-  --err:#dc2626;
-  --err-bg:rgba(220,38,38,.08);
-  --info:#3868d6;
+  --warn:#c76a04;
+  --warn-bg:rgba(199,106,4,.09);
+  --err:#d92d20;
+  --err-bg:rgba(217,45,32,.08);
+  --info:#2f63d8;
 
-  /* Radius */
-  --r:8px;
-  --r-lg:14px;
-  --r-xl:20px;
+  /* Radius — 스쿼클 감성으로 확대 */
+  --r:10px;
+  --r-lg:16px;
+  --r-xl:22px;
+  --r-2xl:26px;
 
-  /* Shadow */
-  --sh-sm:0 1px 2px rgba(0,0,0,.04);
-  --sh-md:0 4px 16px rgba(0,0,0,.06);
-  --sh-lg:0 12px 40px rgba(0,0,0,.1);
-  --sh-glow:0 0 20px rgba(0,184,132,.12);
+  /* Shadow — 낮은 채도의 확산형 (헤어라인 보더와 짝) */
+  --sh-sm:0 1px 2px rgba(13,20,28,.05),0 1px 1px rgba(13,20,28,.03);
+  --sh-md:0 2px 6px rgba(13,20,28,.05),0 10px 28px rgba(13,20,28,.07);
+  --sh-lg:0 4px 12px rgba(13,20,28,.06),0 24px 60px rgba(13,20,28,.13);
+  --sh-glow:0 6px 22px rgba(0,168,120,.22);
 
   /* Transitions */
-  --ease:cubic-bezier(.4,0,.2,1);
-  --t-fast:120ms var(--ease);
-  --t-med:200ms var(--ease);
-  --t-slow:350ms var(--ease);
+  --ease:cubic-bezier(.32,.72,.28,1);
+  --t-fast:130ms var(--ease);
+  --t-med:220ms var(--ease);
+  --t-slow:340ms var(--ease);
 
   /* Type */
   --font:-apple-system,BlinkMacSystemFont,'Inter','Noto Sans KR',sans-serif;
-  --mono:'SF Mono','Fira Code',monospace;
+  --mono:'SF Mono','Fira Code',ui-monospace,monospace;
 }
 
 html{font-size:15px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -1705,3 +1711,106 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .session-content .md-p{font-size:13px;line-height:1.65;margin:3px 0;color:var(--tx-2,#37414a)}
 .session-content .md-sp{height:5px}
 .session-content .md-li b,.session-content .md-p b{color:var(--tx,#1a1f26);font-weight:700}
+
+/* ================================================================
+   UI 리프레시 v10 — 컴포넌트 레이어 (2026 트렌드)
+   기존 마크업/클래스 유지, 캐스케이드 후순위 오버라이드.
+   원칙: 44pt 터치타깃 · press 피드백 · 포커스 링 · 바텀시트 모달 ·
+        탭룰러 숫자 · reduced-motion 존중 · 세이프에어리어
+   ================================================================ */
+
+/* ---- 전역 인터랙션 기초 ---- */
+button,.btn,.mp-btn,.small-btn,.filter-btn,.radio-opt,.member-item,.hero-role{touch-action:manipulation;cursor:pointer}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:6px}
+button:focus:not(:focus-visible),.btn:focus:not(:focus-visible){outline:none}
+::selection{background:rgba(0,168,120,.18)}
+
+/* ---- 버튼 시스템 — 높이·라운드 통일 + press 스케일 ---- */
+.btn{border-radius:12px;font-weight:700;min-height:40px;padding:9px 16px;transition:transform var(--t-fast),background var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast),color var(--t-fast)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(180deg,var(--ac),var(--ac-2));border-color:transparent;box-shadow:var(--sh-glow)}
+.btn.primary:hover{background:linear-gradient(180deg,var(--ac-2),var(--ac-deep));transform:translateY(-1px)}
+.btn.primary:active{transform:scale(.97)}
+.btn.danger{border-color:rgba(217,45,32,.22)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.small-btn{border-radius:10px;font-weight:700;min-height:30px;transition:transform var(--t-fast),background var(--t-fast)}
+.small-btn:active{transform:scale(.94)}
+.mp-btn{border-radius:12px;transition:transform var(--t-fast),background var(--t-fast),color var(--t-fast)}
+.mp-btn:active{transform:scale(.98)}
+.filter-btn{min-height:30px;padding:6px 14px}
+.filter-btn.active,.filter-btn.pro-active,.filter-btn.trainer-active{font-weight:800}
+
+/* ---- 카드 — 헤어라인 + 확산 그림자, 호버 리프트(포인터 기기만) ---- */
+.section-card,.session-card{border-radius:var(--r-lg);box-shadow:var(--sh-sm)}
+@media (hover:hover) and (pointer:fine){
+  .session-card{transition:box-shadow var(--t-med),transform var(--t-med)}
+  .session-card:hover{box-shadow:var(--sh-md)}
+}
+.session-card.open{box-shadow:var(--sh-md)}
+
+/* ---- 폼 — 16px(iOS 줌 방지) + 포커스 링 + 최소 높이 ---- */
+.form-input,.form-textarea,.assess-note-input,.sidebar-search,.live-search-input{
+  font-size:16px;border-radius:12px;min-height:44px;
+  transition:border-color var(--t-fast),box-shadow var(--t-fast),background var(--t-fast);
+}
+.form-textarea{min-height:120px;line-height:1.6}
+.form-input:focus,.form-textarea:focus,.assess-note-input:focus,.sidebar-search:focus,.live-search-input:focus{
+  border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-glow);outline:none;background:var(--bg-1);
+}
+.form-label{font-weight:700;letter-spacing:.01em}
+select.form-input{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23878e9b' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.radio-opt{border-radius:11px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-fast),background var(--t-fast),border-color var(--t-fast),color var(--t-fast)}
+.radio-opt:active{transform:scale(.96)}
+
+/* ---- 모달 — 데스크탑은 다이얼로그, 모바일은 바텀시트 ---- */
+.modal-overlay{background:rgba(9,12,16,.52);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.modal{border-radius:var(--r-xl);box-shadow:var(--sh-lg);animation:modalIn .26s var(--ease) both}
+@keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@media (max-width:600px){
+  .modal-overlay{align-items:flex-end!important;padding:0!important}
+  .modal{
+    width:100%!important;max-width:100%!important;
+    border-radius:var(--r-2xl) var(--r-2xl) 0 0;
+    padding-bottom:max(20px,calc(env(safe-area-inset-bottom) + 16px));
+    animation:sheetUp .3s var(--ease) both;
+  }
+  .modal::before{content:"";display:block;width:40px;height:4px;border-radius:4px;background:var(--bg-5);margin:0 auto 12px}
+  @keyframes sheetUp{from{transform:translateY(48px);opacity:.6}to{transform:none;opacity:1}}
+}
+
+/* ---- 사이드바 멤버 행 — 토널 액티브 필 ---- */
+.member-item{border-radius:12px;margin:1px 8px;transition:background var(--t-fast),transform var(--t-fast)}
+.member-item:active{transform:scale(.985)}
+.member-item.active{background:var(--ac-glow2);box-shadow:inset 0 0 0 1px rgba(0,168,120,.18)}
+
+/* ---- 수치 타이포 — 탭룰러 숫자 (레이아웃 흔들림 방지) ---- */
+.shot-metric,.psb-main,.psb,.pv-vmt .v,.pv-vmp b,.ts-tiles,.sec-count,.ho-count,.assess-date-input,.session-date,.vid-pct{font-variant-numeric:tabular-nums}
+
+/* ---- 토스트 — 다크 필 + 블러 + 세이프에어리어 ---- */
+.live-toast{
+  border-radius:999px;background:rgba(16,20,26,.92);color:#fff;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:var(--sh-lg);border:1px solid rgba(255,255,255,.08);
+  bottom:max(18px,calc(env(safe-area-inset-bottom) + 12px));
+  font-weight:600;
+}
+.live-toast.err{background:rgba(120,28,22,.94)}
+
+/* ---- 스크롤바 (데스크탑) ---- */
+@media (hover:hover) and (pointer:fine){
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:rgba(13,20,28,.16);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(13,20,28,.28);border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-track{background:transparent}
+}
+
+/* ---- 상태 칩·배지 라운드 정리 ---- */
+.role-tag,.media-chip,.new-badge,.shot-mock,.vid-uploading{border-radius:999px}
+
+/* ---- 빈 상태 ---- */
+.empty-state{padding:34px 16px;border:1.5px dashed var(--brd-2);border-radius:var(--r-lg);background:var(--bg-2)}
+
+/* ---- 모션 최소화 존중 (전역) ---- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
