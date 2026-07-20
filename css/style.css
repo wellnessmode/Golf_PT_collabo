@@ -1814,3 +1814,10 @@ select.form-input{appearance:none;-webkit-appearance:none;background-image:url("
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+/* ---- 타석 레슨 버튼 가독성 수정 ----
+   v10 의 .btn.primary(1731행, 그라디언트 배경)가 배경을 이기고, 글자색만
+   .btn.live-mini(1418행)의 초록이 남아 "초록 배경 + 초록 글자"로 안 보이던 문제.
+   채워진 CTA 로 확정: 진초록 그라디언트 + 흰 글자. */
+.btn.primary.live-mini{color:#fff}
+.btn.primary.live-mini:hover{color:#fff;background:linear-gradient(180deg,var(--ac-2),var(--ac-deep))}

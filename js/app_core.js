@@ -78,9 +78,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.23',
-  date:'2026-07-19',
+  version:'v9.24',
+  date:'2026-07-20',
   changes:[
+    '레슨 시간 유실 수정 — DB에 time 컬럼이 없으면 저장할 때마다 시간이 조용히 버려지고 동기화 때 사라지던 문제. 시간을 media JSON 에 함께 백업해 어떤 DB 상태에서도 보존(같은 날 골프→PT 정렬도 유지)',
+    '[🏌️ 타석 레슨] 버튼 가독성 — 초록 배경에 초록 글자로 안 보이던 것을 흰 글자로 수정',
     'UI 전면 리프레시 v10 — 딥그린 액센트·쿨뉴트럴 표면·라운드 확대·레이어드 그림자, 모바일 모달은 바텀시트(그랩바), 버튼 press 피드백, 입력 16px+포커스 링, 수치 탭룰러 정렬, 다크 토스트, 접근성(포커스 링·reduced-motion) 강화',
     '샷 영상 진행 표시 — 샷 직후 "🎞 업로드중 N%" 칩이 뜨고, 완료되면 [🎬 보기]로 바뀌어 그 자리에서 바로 재생(라이브·샷 목록). 리포트도 "업로드 중" 안내',
     '영상 준비 시간 절반 — 에이전트가 mkv(23MB) 업로드→삭제 낭비 없이 mp4만 바로 업로드(에이전트 교체 필요)',
@@ -414,10 +416,18 @@ const cloud = {
   async loadAll(){if(!this.enabled) return null;try{const [mRes,aRes,sRes]=await Promise.all([this.client.from('members').select('*').order('created_at',{ascending:true}),this.client.from('assessments').select('*'),this.client.from('sessions').select('*').order('date',{ascending:true})]);if(mRes.error) throw mRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const members=(mRes.data||[]).map(r=>{var extra=r.data||{};return Object.assign({id:r.id,name:r.name,color:r.color||'av-green'},extra);});const assessments={};(aRes.data||[]).forEach(r=>{if(!assessments[r.member_id]) assessments[r.member_id]={};assessments[r.member_id][r.item_key]={result:r.result||'미검사',note:r.note||''};});// 녹음 원문(supplement 컬럼)은 관리자 기기에만 내려받는다.
 // 트레이너·프로 기기에는 원문을 아예 싣지 않아, 본인 레슨 대화가 남지 않는다.
 var _admRaw=(S.currentRole==='admin');
-const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) sessions[r.member_id]=[];sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:Array.isArray(r.media)?r.media:(r.media?r.media:[])});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
+const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) sessions[r.member_id]=[];
+// 레슨 시간: time 컬럼(있으면 우선) → media JSON 에 백업된 _meta 항목에서 복원.
+// (_meta 는 화면에 첨부파일로 안 보이게 media 목록에서 걸러낸다)
+var _mArr=Array.isArray(r.media)?r.media:(r.media?r.media:[]);var _tMeta='';_mArr=_mArr.filter(function(m){if(m&&m.type==='_meta'){if(m.time)_tMeta=m.time;return false;}return true;});
+sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:_mArr});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
   async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
   async upsertSession(memberId,s){if(!this.enabled) return false;var mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});
+    // 레슨 시간을 media JSON 에도 백업 — sessions.time 컬럼이 없는 DB(마이그레이션 전)는
+    // 아래 폴백이 time 만 빼고 재전송해 시간이 조용히 유실됐다("저장해도 사라짐"의 원인).
+    // media 컬럼은 확실히 존재하므로 여기 실으면 어느 DB에서든 시간이 보존된다.
+    if(s.time) mediaMeta.push({type:'_meta', time:s.time});
     var row={id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.rawTranscript||s.supplement||'',media:mediaMeta};
     if(s.time) row.time=s.time;
     if(!row.time) return await this._w('upsert','sessions',{rows:[row]});
