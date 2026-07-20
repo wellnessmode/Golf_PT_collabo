@@ -144,6 +144,7 @@ async function fetchShotData(shotId){
 }
 async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData){
   var cur = await fetchShotData(shotId);
+  if (!cur && !fallbackData) { log('  ! 영상 연결 보류: 서버 data 조회 실패 + 대체 data 없음 (' + shotId + ')'); return false; }
   var data = Object.assign({}, fallbackData, cur || {});   // 서버 최신 data 우선(그 사이 앱 변경 보존)
   delete data._videoPending;                               // 업로드 종료(성공/실패) → 진행 표시 해제
   if (mp4Key) data.videoMp4R2Key = mp4Key;
@@ -178,9 +179,13 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
     return new Promise(function(resolve){
       var p = spawn(ffmpegPath, args, { windowsHide:true });
       var err='';
+      // 하드 타임아웃 — ffmpeg 이 멈추면 죽인다. 시간제한이 없으면 에이전트 전체가
+      // 살아있는 채로 영원히 정지(자동재시작 루프도 프로세스가 죽어야만 작동).
+      var killed = false;
+      var killTimer = setTimeout(function(){ killed = true; try{ p.kill(); }catch(_){} }, 150000);
       p.stderr.on('data', function(d){ err += d.toString(); });
-      p.on('error', function(){ resolve({code:-1, err:err}); });
-      p.on('close', function(code){ resolve({code:code, err:err}); });
+      p.on('error', function(){ clearTimeout(killTimer); resolve({code:-1, err:err}); });
+      p.on('close', function(code){ clearTimeout(killTimer); resolve({code: killed ? -2 : code, err: killed ? 'ffmpeg 타임아웃(150초) — 강제 종료' : err}); });
     });
   }
   try{
@@ -307,21 +312,36 @@ async function handleFtmf(filePath){
   var tc = parsed.data._totalCandidates || {};
   var nonNull = Object.keys(tc).filter(function(k){ return tc[k] != null; }).map(function(k){ return k+'='+tc[k]; });
   if (nonNull.length) log('  토탈 후보값들 → ' + nonNull.join(', '));
-  processed[fname] = { id: shotId, mid: parsed.measurementId, t: Date.now() };
+  processed[fname] = { id: shotId, mid: parsed.measurementId, bay: bayId, t: Date.now() };
+  // ── 2단계: 영상은 "대기열"로 — 데이터 전송을 절대 막지 않는다 ─────────────
+  // 기존엔 영상 변환·업로드(수십 초~수 분)를 파일마다 인라인으로 끝내야 다음 파일로
+  // 넘어갔다 → 백로그가 쌓이면 방금 친 샷의 "데이터"조차 몇 분 뒤에 전송됐다.
+  // 이제 스캔 한 바퀴에서 모든 신규 샷의 데이터를 먼저 다 보내고, 영상은 한 주기에
+  // 하나씩 뒤에서 처리한다. 재시작해도 이어가도록 처리이력에 파일경로(vp)를 남긴다.
+  if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
+    processed[fname].vp = filePath;
+    _videoQueue.push({ fp: filePath, fname: fname, shotId: shotId, bayId: bayId });
+  }
   try{ var _mt=fs.statSync(filePath).mtimeMs; if(_mt> (_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mt; }catch(e){}
   saveState();
+}
 
-  // ── 2단계: 영상 업로드 → 행에 영상 키 붙이기 (데이터 표시와 무관하게 진행) ──
-  // mp4 우선: 변환 성공 시 mp4 만 업로드. (기존 "mkv 23MB 업로드→변환→mp4 업로드→mkv 삭제"
-  // 구조는 업로드량 2.5배 + 준비시간 2배 — 제거. mkv 는 변환 불가 시에만 원본 보존용으로 업로드)
-  if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
-    var videoKey = null, videoMp4Key = null;
+// ---- 영상 대기열 처리 (한 스캔 주기당 1건 — 새 샷 데이터가 항상 먼저) ----
+var _videoQueue = [];
+async function processVideoJob(job){
+  var buf, parsed;
+  try { buf = fs.readFileSync(job.fp); parsed = parseFtmf(buf); }
+  catch(e){ log('영상 단계: 파일 재읽기 실패 ' + job.fname + ': ' + e.message); parsed = null; }
+  var fallbackData = null;
+  if (parsed) fallbackData = Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime }, parsed.data);
+  var videoKey = null, videoMp4Key = null;
+  if (buf){
     try{
       var outer = require('./ftmf-parser.js').readZipEntries(buf);
       var sceneName = require('./ftmf-parser.js').findEntry(outer, '_scene.mkv');
       if (sceneName){
         var vbuf = require('./ftmf-parser.js').extractEntry(buf, outer[sceneName]);
-        var base = bayId + '/' + (parsed.measurementId || shotId);
+        var base = job.bayId + '/' + ((parsed && parsed.measurementId) || job.shotId);
         var mp4buf = null;
         if (CFG.ffmpegPath){
           try{ mp4buf = await convertMkvToMp4(vbuf, CFG.ffmpegPath); }
@@ -341,13 +361,26 @@ async function handleFtmf(filePath){
         }
       }
     }catch(e){ log('  영상 업로드 스킵: ' + e.message); }
-    // 성공이든 실패든 행 갱신 — 영상 키 부착 + _videoPending 해제(앱 진행표시 종료)
-    try{
-      var okU = await attachShotVideo(shotId, videoKey, videoMp4Key, shot.data);
-      if (okU && (videoKey || videoMp4Key)) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey));
-    }catch(e){ log('  영상 연결 실패: ' + (e && e.message || e)); }
   }
+  // 성공이든 실패든 행 갱신 — 영상 키 부착 + _videoPending 해제(앱 진행표시 종료)
+  try{
+    var okU = await attachShotVideo(job.shotId, videoKey, videoMp4Key, fallbackData);
+    if (okU && (videoKey || videoMp4Key)) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey));
+  }catch(e){ log('  영상 연결 실패: ' + (e && e.message || e)); }
+  if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
 }
+// 재시작 시 미완료 영상 작업 복구 — 이전 실행이 데이터만 보내고 영상을 못 붙인 샷들
+(function rebuildVideoQueue(){
+  var names = Object.keys(processed);
+  for (var i = 0; i < names.length; i++){
+    var fn = names[i], p = processed[fn];
+    if (!p || !p.id || typeof p.vp !== 'string') continue;
+    if (fs.existsSync(p.vp)){
+      _videoQueue.push({ fp: p.vp, fname: fn, shotId: p.id, bayId: p.bay || CFG.defaultBay || 'bay3' });
+    } else { delete p.vp; }
+  }
+  if (_videoQueue.length) log('영상 대기열 복구: ' + _videoQueue.length + '건 (이전 실행에서 데이터만 전송됨)');
+})();
 
 // ---- 폴더 스캔 (하위 폴더 2단계까지 재귀 — TPS가 세션/날짜별 하위 폴더에 써도 감지) ----
 function listFtmfFiles(dir, depth){
@@ -364,9 +397,23 @@ function listFtmfFiles(dir, depth){
   }
   return out;
 }
+// ---- 워치독: 12분 이상 아무 진행이 없으면 프로세스를 강제 재시작 ----
+// 오늘(7/20 낮) 증상의 재발 방지 최후 안전망. 각 단계에 개별 타임아웃을 넣었지만,
+// 예상 못 한 지점에서 또 걸리더라도 — 살아있는 채 멈춘 프로세스는 자동재시작 루프가
+// 못 살린다(죽어야 되살림) — 여기서 스스로 죽어서 start-hidden.vbs 가 4초 뒤 되살린다.
+var _lastProgress = Date.now();
+function _watchdogTick(){ _lastProgress = Date.now(); }
+setInterval(function(){
+  if (Date.now() - _lastProgress > 12*60000){
+    say('🚨 워치독: 12분 이상 진행 없음 — 프로세스 강제 재시작 (자동실행 루프가 4초 뒤 되살림)');
+    process.exit(1);
+  }
+}, 60000);
+
 var _lastBeat = 0;
 async function scan(){
   rotateLogIfBig();
+  _watchdogTick();
   var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : [CFG.watchDir];
   // 시작 시점 컷오프 — 에이전트 켠 이후 생성된 ftmf만 처리(과거 연습기록 무시)
   // CFG.processExisting=true 면 과거 것도 처리. backfillMinutes 면 그만큼 과거까지 허용.
@@ -392,7 +439,19 @@ async function scan(){
       }
       try { await handleFtmf(fp); }
       catch (e) { log('처리 오류 ' + fname + ': ' + e.message); }
+      _watchdogTick();
     }
+  }
+  // 영상 대기열 — 한 주기 1건. 다음 주기가 5초 뒤 다시 데이터부터 훑으므로
+  // 백로그 영상이 아무리 쌓여도 "방금 친 샷"의 데이터 전송은 수 초 안에 이뤄진다.
+  if (_videoQueue.length){
+    var vjob = _videoQueue.shift();
+    try { await processVideoJob(vjob); }
+    catch (e) {
+      log('영상 처리 오류 ' + vjob.fname + ': ' + e.message);
+      if (processed[vjob.fname]) { delete processed[vjob.fname].vp; saveState(); }
+    }
+    _watchdogTick();
   }
   // 하트비트 (5분마다) — 감시가 살아있는지 + 에이전트 눈에 보이는 "최신 파일"이 뭔지.
   // 샷을 쳤는데 앱에 안 뜰 때: 이 줄의 최신 파일 시각이 안 올라가면 TPS가 파일을
@@ -404,6 +463,7 @@ async function scan(){
       var rel = newestFp; try{ rel = path.relative(dirs[0]||'', newestFp) || path.basename(newestFp); }catch(e){}
       beat += ', 최신 파일: ' + rel + ' (수정 ' + Math.round((Date.now()-newestMt)/1000) + '초 전)';
     } else { beat += ', 최신 파일: 없음(컷오프 이전 제외)'; }
+    if (_videoQueue.length) beat += ', 영상 대기 ' + _videoQueue.length + '건';
     log(beat);
   }
   saveState();
