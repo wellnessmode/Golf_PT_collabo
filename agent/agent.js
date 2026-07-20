@@ -349,35 +349,62 @@ async function handleFtmf(filePath){
   }
 }
 
-// ---- 폴더 스캔 ----
+// ---- 폴더 스캔 (하위 폴더 2단계까지 재귀 — TPS가 세션/날짜별 하위 폴더에 써도 감지) ----
+function listFtmfFiles(dir, depth){
+  var out = [];
+  var entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
+  for (var i = 0; i < entries.length; i++){
+    var ent = entries[i];
+    var fp = path.join(dir, ent.name);
+    try{
+      if (ent.isDirectory()){ if (depth > 0) out = out.concat(listFtmfFiles(fp, depth - 1)); continue; }
+      if (/\.ftmf$/i.test(ent.name)) out.push(fp);
+    }catch(e){}
+  }
+  return out;
+}
+var _lastBeat = 0;
 async function scan(){
   rotateLogIfBig();
   var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : [CFG.watchDir];
   // 시작 시점 컷오프 — 에이전트 켠 이후 생성된 ftmf만 처리(과거 연습기록 무시)
   // CFG.processExisting=true 면 과거 것도 처리. backfillMinutes 면 그만큼 과거까지 허용.
   var cutoff = AGENT_CUTOFF_MS;
+  var totalCount = 0, newestFp = null, newestMt = 0;
   for (var d = 0; d < dirs.length; d++){
     var dir = dirs[d];
     if (!dir) continue;
-    var files;
-    try { files = fs.readdirSync(dir); } catch (e) { continue; }
-    files = files.filter(function(f){ return /\.ftmf$/i.test(f); });
+    var files = listFtmfFiles(dir, 2);   // 하위 폴더 2단계까지
     files.sort();
+    totalCount += files.length;
     for (var i = 0; i < files.length; i++){
-      var fp = path.join(dir, files[i]);
-      // 파일 생성/수정 시각이 컷오프보다 이전이면 스킵 (단, 이미 처리표시는 남김)
-      if (!CFG.processExisting){
-        try {
-          var mt = fs.statSync(fp).mtimeMs;
-          if (mt < cutoff){
-            if (!processed[files[i]]) { processed[files[i]] = { skip:'before-start', t:Date.now() }; }
-            continue;
-          }
-        } catch(e){}
+      var fp = files[i];
+      var fname = path.basename(fp);
+      // 이미 '과거 파일' 표시된 것은 stat 없이 스킵 (수천 개 폴더 I/O 절감)
+      if (processed[fname] && processed[fname].skip === 'before-start') continue;
+      var mt = 0;
+      try { mt = fs.statSync(fp).mtimeMs; } catch(e){}
+      if (mt > newestMt){ newestMt = mt; newestFp = fp; }
+      if (!CFG.processExisting && mt && mt < cutoff){
+        if (!processed[fname]) { processed[fname] = { skip:'before-start', t:Date.now() }; }
+        continue;
       }
       try { await handleFtmf(fp); }
-      catch (e) { log('처리 오류 ' + files[i] + ': ' + e.message); }
+      catch (e) { log('처리 오류 ' + fname + ': ' + e.message); }
     }
+  }
+  // 하트비트 (5분마다) — 감시가 살아있는지 + 에이전트 눈에 보이는 "최신 파일"이 뭔지.
+  // 샷을 쳤는데 앱에 안 뜰 때: 이 줄의 최신 파일 시각이 안 올라가면 TPS가 파일을
+  // 안 쓰고 있는 것(트랙맨 설정/활동 저장 문제), 올라가는데 처리가 없으면 에이전트 문제.
+  if (Date.now() - _lastBeat > 5*60000){
+    _lastBeat = Date.now();
+    var beat = '감시 중 — ftmf ' + totalCount + '개';
+    if (newestFp){
+      var rel = newestFp; try{ rel = path.relative(dirs[0]||'', newestFp) || path.basename(newestFp); }catch(e){}
+      beat += ', 최신 파일: ' + rel + ' (수정 ' + Math.round((Date.now()-newestMt)/1000) + '초 전)';
+    } else { beat += ', 최신 파일: 없음(컷오프 이전 제외)'; }
+    log(beat);
   }
   saveState();
 }
