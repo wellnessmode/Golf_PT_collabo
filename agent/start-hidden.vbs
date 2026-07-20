@@ -4,7 +4,7 @@
 '  stop: create agent.stop in this folder ( handled by 중지.bat )
 ' ============================================================
 Option Explicit
-Dim fso, sh, scriptDir, stopFile, nodeCmd, p, tf, cands, i, lf
+Dim fso, sh, scriptDir, stopFile, nodeCmd, p, tf, cands, i, lf, crashLog
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh  = CreateObject("WScript.Shell")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
@@ -44,13 +44,26 @@ lf.WriteLine Now & "  launcher start, node=" & nodeCmd
 lf.Close
 On Error GoTo 0
 
+crashLog = scriptDir & "\node-crash.log"
+
 Do
     If fso.FileExists(stopFile) Then
         fso.DeleteFile stopFile
         Exit Do
     End If
+    ' node stdout/stderr -> node-crash.log. without this, a startup crash
+    ' (syntax error / bad config / wrong file) in the hidden window leaves
+    ' NO trace anywhere and the agent silently never runs.
+    On Error Resume Next
+    If fso.FileExists(crashLog) Then
+        If fso.GetFile(crashLog).Size > 1048576 Then fso.DeleteFile crashLog
+    End If
+    Set lf = fso.OpenTextFile(crashLog, 8, True)
+    lf.WriteLine "----- node start " & Now & " -----"
+    lf.Close
+    On Error GoTo 0
     ' 0 = hidden, True = wait until node exits
-    sh.Run nodeCmd & " agent.js", 0, True
+    sh.Run "cmd /s /c """ & nodeCmd & " agent.js >> ""node-crash.log"" 2>&1""", 0, True
     ' node exited (crash/kill) -> wait 4s and restart
     WScript.Sleep 4000
 Loop
