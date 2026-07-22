@@ -16,12 +16,12 @@ if errorlevel 1 (
 )
 echo.
 
-REM --- agent.js 버전 판별 (신버전 마커: _watchdogTick) ---
-findstr /m /c:"_watchdogTick" "%~dp0agent.js" >nul 2>nul
+REM --- agent.js 버전 판별 (최신 마커: autoAddTmfsWatch = stmf 지원) ---
+findstr /m /c:"autoAddTmfsWatch" "%~dp0agent.js" >nul 2>nul
 if errorlevel 1 (
-  echo   agent.js :  [ 구버전!! ]  최신 파일로 교체가 필요합니다.
+  echo   agent.js :  [ 구버전!! ]  최신 agent.js 로 교체가 필요합니다.
 ) else (
-  echo   agent.js :  [ 최신 ]  워치독 포함 버전.
+  echo   agent.js :  [ 최신 ]  stmf 지원 + 워치독 포함.
 )
 echo.
 echo   현재 PC 시각 : %date% %time%
