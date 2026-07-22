@@ -41,12 +41,34 @@ try {
 } catch (e) {}
 var _parseFail = {};   // 부분 파일 파싱 재시도 카운터 (영속 아님)
 // 시작 컷오프: 재시작 때마다 '지금'으로 리셋하면 단절/크래시/재부팅 동안의 샷이 유실된다.
-// → 직전 실행이 마지막으로 처리한 시각을 이어받아, 그 사이 생성된 ftmf 도 처리한다.
-// (단 과도한 소급 방지: 최대 7일 전까지만. backfillMinutes 는 추가 여유.)
+// → 직전 실행이 마지막으로 처리한 시각을 이어받아, 그 사이 생성된 파일도 처리한다.
+// 단, 소급을 30분으로 제한: 그보다 오래 꺼져 있었으면(또는 신버전 첫 실행) 옛
+// 연습샷 수천 개가 한꺼번에 쏟아지는 걸 막는다. 30분 넘는 공백의 지난 샷은 어차피
+// 지금 진행 중인 레슨과 무관하다. backfillMinutes 로 더 넓힐 수 있다.
 var _now = Date.now();
 var _resume = (_stateMeta && _stateMeta.lastSeenMtime) ? _stateMeta.lastSeenMtime : _now;
-var _maxBack = _now - 7*24*3600*1000;
+var _maxBack = _now - 30*60000;   // 최대 30분 소급 (기존 7일 → 대량 유입 방지)
 var AGENT_CUTOFF_MS = Math.max(_maxBack, Math.min(_resume, _now)) - ((CFG && CFG.backfillMinutes ? CFG.backfillMinutes : 0) * 60000);
+
+// ── TrackMan iO "timed_out" stmf 폴더 자동 감시 ────────────────────────────
+// 2026-07-21 카메라 설치 후 TPS가 vision 메시지를 기다리다 시간초과로 측정 stmf를
+// 이 폴더에 버리기 시작 → Data 폴더에 ftmf가 안 생기는 고장. 그 버려진 stmf 안에
+// 측정값·선택클럽(SessionState)이 그대로 있어, 이 폴더도 감시해 샷을 살려낸다.
+// (TrackMan 정상화 시 Data 폴더 ftmf가 부활하면 자동으로 그쪽도 함께 처리된다)
+(function autoAddTmfsWatch(){
+  try {
+    var candidates = [
+      'C:\\ProgramData\\TrackMan\\TrackMan iO\\data\\tracking\\tmfs',
+      process.env.ProgramData ? path.join(process.env.ProgramData, 'TrackMan', 'TrackMan iO', 'data', 'tracking', 'tmfs') : null
+    ].filter(Boolean);
+    if (!Array.isArray(CFG.watchDirs)) CFG.watchDirs = CFG.watchDir ? [CFG.watchDir] : [];
+    candidates.forEach(function(dir){
+      try {
+        if (fs.existsSync(dir) && CFG.watchDirs.indexOf(dir) === -1) CFG.watchDirs.push(dir);
+      } catch (e) {}
+    });
+  } catch (e) {}
+})();
 
 // 로그 시각 — 한국시간(KST) 표기. (기존 UTC 'Z' 표기가 "시간이 안 맞다"는 혼란을 유발)
 function kstNow(){
@@ -245,17 +267,26 @@ async function handleFtmf(filePath){
   var fname = path.basename(filePath);
   if (processed[fname]) return;
 
-  // 파일이 아직 쓰이는 중일 수 있어 — 크기 안정될 때까지 대기
-  var size1 = fs.statSync(filePath).size;
-  await new Promise(function(r){ setTimeout(r, 1500); });
-  var size2 = fs.statSync(filePath).size;
-  if (size1 !== size2) { log('아직 쓰는 중, 다음 주기에: ' + fname); return; }
+  // 파일이 아직 쓰이는 중일 수 있어 — 최근(30초 이내) 수정된 파일만 크기 안정 대기.
+  // 오래된 백로그 파일까지 1.5초씩 기다리면 수천 개일 때 수십 분이 걸린다.
+  var _mtNow = 0; try { _mtNow = fs.statSync(filePath).mtimeMs; } catch(e){ return; }
+  if (Date.now() - _mtNow < 30000) {
+    var size1 = fs.statSync(filePath).size;
+    await new Promise(function(r){ setTimeout(r, 1500); });
+    var size2 = fs.statSync(filePath).size;
+    if (size1 !== size2) { log('아직 쓰는 중, 다음 주기에: ' + fname); return; }
+  }
 
   var buf = fs.readFileSync(filePath);
   var parsed;
   try { parsed = parseFtmf(buf); }
   catch (e) {
-    // 파싱 실패 = TPS가 파일을 점진적으로 채우는 중일 수 있음(측정 JSON이 나중에 들어옴).
+    // 'stmf-final' = 고장 상태 timed_out 폴더의 완성된 잡음 파일(측정값 없음).
+    // 재시도해도 영영 안 채워지므로 즉시·영구 스킵 (수천 개 잡음 파일이 20분씩 재시도하는 것 방지).
+    if (/stmf-final/.test(e.message || '')) {
+      processed[fname] = { skip:'no-measurement', t: Date.now() }; saveState(); delete _parseFail[fname]; return;
+    }
+    // 그 외 파싱 실패 = TPS가 파일을 점진적으로 채우는 중일 수 있음(측정 JSON이 나중에 들어옴).
     // 영구 마킹하지 말고 최대 240회(스캔 5초 간격 ≈ 20분)까지 재시도 — 늦게 완성되는 샷 유실 방지.
     var pf = _parseFail[fname] = (_parseFail[fname] || 0) + 1;
     if (pf < 240) {
@@ -382,7 +413,8 @@ async function processVideoJob(job){
   if (_videoQueue.length) log('영상 대기열 복구: ' + _videoQueue.length + '건 (이전 실행에서 데이터만 전송됨)');
 })();
 
-// ---- 폴더 스캔 (하위 폴더 2단계까지 재귀 — TPS가 세션/날짜별 하위 폴더에 써도 감지) ----
+// ---- 폴더 스캔 (하위 폴더 2단계까지 재귀 — TPS 세션/날짜별 하위 폴더 + tmfs/timed_out_<날짜>) ----
+// .ftmf(정상 Data 폴더) 와 .stmf(고장 상태의 timed_out 폴더) 둘 다 수집한다.
 function listFtmfFiles(dir, depth){
   var out = [];
   var entries;
@@ -392,7 +424,7 @@ function listFtmfFiles(dir, depth){
     var fp = path.join(dir, ent.name);
     try{
       if (ent.isDirectory()){ if (depth > 0) out = out.concat(listFtmfFiles(fp, depth - 1)); continue; }
-      if (/\.ftmf$/i.test(ent.name)) out.push(fp);
+      if (/\.(ftmf|stmf)$/i.test(ent.name)) out.push(fp);
     }catch(e){}
   }
   return out;
@@ -428,8 +460,9 @@ async function scan(){
     for (var i = 0; i < files.length; i++){
       var fp = files[i];
       var fname = path.basename(fp);
-      // 이미 '과거 파일' 표시된 것은 stat 없이 스킵 (수천 개 폴더 I/O 절감)
-      if (processed[fname] && processed[fname].skip === 'before-start') continue;
+      // 이미 처리 끝난 파일(성공·과거·잡음·에러)은 stat 없이 스킵 (수천 개 폴더 I/O 절감).
+      // vp(영상 미부착) 표시가 있으면 대기열이 따로 들고 있으니 여기선 넘어가도 안전.
+      if (processed[fname]) continue;
       var mt = 0;
       try { mt = fs.statSync(fp).mtimeMs; } catch(e){}
       if (mt > newestMt){ newestMt = mt; newestFp = fp; }
@@ -458,11 +491,14 @@ async function scan(){
   // 안 쓰고 있는 것(트랙맨 설정/활동 저장 문제), 올라가는데 처리가 없으면 에이전트 문제.
   if (Date.now() - _lastBeat > 5*60000){
     _lastBeat = Date.now();
-    var beat = '감시 중 — ftmf ' + totalCount + '개';
+    var beat = '감시 중 — 파일 ' + totalCount + '개';
+    // 최근 처리한 샷 시각(lastSeenMtime)으로 "살아있고 최근까지 샷을 먹었는지" 표시.
+    var lm = _stateMeta.lastSeenMtime || 0;
+    if (lm) beat += ', 최근 처리 ' + Math.round((Date.now()-lm)/1000) + '초 전';
     if (newestFp){
       var rel = newestFp; try{ rel = path.relative(dirs[0]||'', newestFp) || path.basename(newestFp); }catch(e){}
-      beat += ', 최신 파일: ' + rel + ' (수정 ' + Math.round((Date.now()-newestMt)/1000) + '초 전)';
-    } else { beat += ', 최신 파일: 없음(컷오프 이전 제외)'; }
+      beat += ', 미처리 최신 ' + Math.round((Date.now()-newestMt)/1000) + '초 전';
+    }
     if (_videoQueue.length) beat += ', 영상 대기 ' + _videoQueue.length + '건';
     log(beat);
   }

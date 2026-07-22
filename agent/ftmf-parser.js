@@ -55,20 +55,70 @@ function findEntry(entries, suffix){
   return null;
 }
 
-// ---- 메인: ftmf Buffer → 정규화된 샷 객체 ----
+// TrackMan SessionState 의 ClubType(예: "7Iron","Driver","PitchingWedge","3Wood")을
+// 앱/일지에서 읽기 좋은 한글 라벨로. 못 맞추면 원문을 그대로 둔다(정보 손실 없음).
+function normalizeClub(raw){
+  if (!raw) return null;
+  var s = String(raw).trim();
+  var map = {
+    Driver:'드라이버',
+    '2Wood':'2번 우드','3Wood':'3번 우드','4Wood':'4번 우드','5Wood':'5번 우드','7Wood':'7번 우드',
+    '2Hybrid':'2번 유틸','3Hybrid':'3번 유틸','4Hybrid':'4번 유틸','5Hybrid':'5번 유틸','6Hybrid':'6번 유틸',
+    '1Iron':'1번 아이언','2Iron':'2번 아이언','3Iron':'3번 아이언','4Iron':'4번 아이언','5Iron':'5번 아이언',
+    '6Iron':'6번 아이언','7Iron':'7번 아이언','8Iron':'8번 아이언','9Iron':'9번 아이언',
+    PitchingWedge:'피칭웨지', GapWedge:'갭웨지', ApproachWedge:'어프로치웨지',
+    SandWedge:'샌드웨지', LobWedge:'로브웨지', Putter:'퍼터'
+  };
+  if (map[s]) return map[s];
+  // "48Degree"/"52Degree"/"56Degree" 형태(로프트 표기 웨지)
+  var deg = s.match(/^(\d{2})\s*(?:도|deg|degree)?$/i);
+  if (deg) return deg[1] + '도 웨지';
+  return s;
+}
+
+// ---- 메인: ftmf/stmf Buffer → 정규화된 샷 객체 ----
+// 두 형식 지원:
+//  (a) .ftmf = ZIP( .stmf + 영상 ) — TPS가 Data 폴더에 쓰던 기존 형식
+//  (b) .stmf 그 자체 — TrackMan iO 가 tmfs\timed_out_* 폴더에 버리는 형식.
+//      (7/21 카메라 설치 후 TPS 전달이 시간초과로 전부 실패 → ftmf가 안 생기는
+//       고장의 산물. 내용물은 (a)의 내부와 동일해서 그대로 먹을 수 있다)
 function parseFtmf(ftmfBuffer){
   var outer = readZipEntries(ftmfBuffer);
 
-  // 1) .stmf 찾기 (또 ZIP)
+  // 1) .stmf 찾기 (또 ZIP) — 없으면 이 파일 자체가 stmf 인지 확인
+  var stmfBuf, isDirectStmf = false;
   var stmfName = findEntry(outer, '.stmf');
-  if (!stmfName) throw new Error('no .stmf inside ftmf');
-  var stmfBuf = extractEntry(ftmfBuffer, outer[stmfName]);
+  if (stmfName) {
+    stmfBuf = extractEntry(ftmfBuffer, outer[stmfName]);
+  } else if (findEntry(outer, 'TmfInfo.json') || findEntry(outer, 'Fusion_OutputMessages.json')) {
+    stmfBuf = ftmfBuffer; isDirectStmf = true;
+  } else {
+    throw new Error('no .stmf inside ftmf');
+  }
 
   // 2) stmf 안의 Fusion JSON
+  // direct-stmf 는 완성된 최종 파일 — Fusion 이 없으면 영영 없다(샷이 아닌 잡음
+  // 번들). '(stmf-final)' 마커로 에이전트가 재시도 없이 즉시 스킵하게 한다.
   var inner = readZipEntries(stmfBuf);
   var fusionName = findEntry(inner, 'Fusion_OutputMessages.json');
-  if (!fusionName) throw new Error('no Fusion_OutputMessages.json');
+  if (!fusionName) throw new Error(isDirectStmf ? 'no Fusion_OutputMessages.json (stmf-final)' : 'no Fusion_OutputMessages.json');
   var fusionJson = JSON.parse(extractEntry(stmfBuf, inner[fusionName]).toString('utf8'));
+
+  // 2.5) SessionState.json — TPS에서 사용자가 고른 클럽/볼/플레이어가 그대로 들어있다.
+  // (레이더 추측 DetectedClubCategory 와 달리 이것이 진짜 선택 클럽)
+  var userCond = {};
+  var ssHeader = {};
+  try {
+    var ssName = findEntry(inner, 'SessionState.json');
+    if (ssName) {
+      var ss = JSON.parse(extractEntry(stmfBuf, inner[ssName]).toString('utf8'));
+      var ssLast = Array.isArray(ss) ? ss[ss.length - 1] : ss;
+      if (ssLast) {
+        userCond = ssLast.UserConditions || {};
+        ssHeader = ssLast['#Header'] || {};
+      }
+    }
+  } catch (e) {}
 
   // 3) TmfInfo (시간·MeasurementId)
   var tmfInfo = {};
@@ -89,16 +139,18 @@ function parseFtmf(ftmfBuffer){
       if (m.Measurement && meas == null) meas = m.Measurement;
     });
   }
-  if (!meas) throw new Error('no Measurement in fusion json');
+  // direct-stmf(고장 상태의 timed_out 파일)는 완성본이라 측정이 없으면 영영 없다
+  // → 'stmf-final' 마커로 에이전트가 재시도 없이 즉시·영구 스킵 (수천 개 잡음 방지)
+  if (!meas) throw new Error(isDirectStmf ? 'no Measurement (stmf-final)' : 'no Measurement in fusion json');
 
   // 5) ftmf 내부 영상 파일 목록 (scene/peek mkv)
   var videos = Object.keys(outer).filter(function(k){ return /\.(mkv|mov|mp4)$/i.test(k); });
 
   var measurementId = (meas.Id) || tmfInfo.MeasurementId ||
-    ((fusionJson[0]||{})['#Header']||{}).MeasurementId || null;
-  var trackingUnit = ((fusionJson[0]||{})['#Header']||{}).TrackingUnit || null;
+    ((fusionJson[0]||{})['#Header']||{}).MeasurementId || ssHeader.MeasurementId || null;
+  var trackingUnit = ((fusionJson[0]||{})['#Header']||{}).TrackingUnit || ssHeader.TrackingUnit || null;
   var eventTime = tmfInfo.TimeStart || meas.Time ||
-    ((fusionJson[0]||{})['#Header']||{}).EventTime || null;
+    ((fusionJson[0]||{})['#Header']||{}).EventTime || ssHeader.EventTime || null;
 
   function num(v){ return (v==null||isNaN(v)) ? null : Math.round(v*1000)/1000; }
 
@@ -122,19 +174,27 @@ function parseFtmf(ftmfBuffer){
     fusionJson.forEach(function(m, i){ collectClubCandidates(m, 'msg' + i, 0); });
     collectClubCandidates(tmfInfo, 'tmf', 0);
   } catch (e) {}
-  // 선택 클럽 우선순위: Measurement.Club(문자열) → TmfInfo.Club → 후보 중 '.Club'/'ClubName' 끝나는 첫 값
+  // 선택 클럽 우선순위:
+  //  1) SessionState.UserConditions.ClubType — TPS 화면에서 사용자가 실제 고른 클럽 (최우선·정답)
+  //  2) Measurement.Club(문자열) → TmfInfo.Club → 후보 중 '.Club'/'ClubName' 끝나는 첫 값
   var selectedClub = null;
-  if (typeof meas.Club === 'string' && meas.Club.trim()) selectedClub = meas.Club.trim();
+  if (typeof userCond.ClubType === 'string' && userCond.ClubType.trim()) selectedClub = normalizeClub(userCond.ClubType.trim());
+  else if (typeof meas.Club === 'string' && meas.Club.trim()) selectedClub = meas.Club.trim();
   else if (meas.Club && typeof meas.Club === 'object' && typeof meas.Club.Name === 'string') selectedClub = meas.Club.Name.trim();
   else if (typeof tmfInfo.Club === 'string' && tmfInfo.Club.trim()) selectedClub = tmfInfo.Club.trim();
   else {
     var ck = Object.keys(clubCands).find(function(p){ return /(\.|^)(Club|ClubName|SelectedClub)(\.Name)?$/i.test(p); });
     if (ck) selectedClub = clubCands[ck];
   }
-  // 후보 로그용으로 감지값도 포함 (최대 8개만)
+  // 후보 로그용 — 선택(SessionState)값과 감지값을 나란히
+  clubCands._SessionClub = userCond.ClubType || null;
   clubCands._Detected = meas.DetectedClubCategory || null;
-  var candKeys = Object.keys(clubCands).slice(0, 8);
-  var clubCandsSmall = {}; candKeys.forEach(function(k){ clubCandsSmall[k] = clubCands[k]; });
+  // _SessionClub·_Detected 는 진단에 꼭 필요하니 항상 포함 + 나머지 후보는 6개까지
+  var clubCandsSmall = { _SessionClub: clubCands._SessionClub, _Detected: clubCands._Detected };
+  Object.keys(clubCands).forEach(function(k){
+    if (k==='_SessionClub'||k==='_Detected') return;
+    if (Object.keys(clubCandsSmall).length < 8) clubCandsSmall[k] = clubCands[k];
+  });
 
   // 트랙맨 원본 단위: 거리=m, 속도=m/s, 각도=°, 스핀=rpm
   var data = {
@@ -193,4 +253,4 @@ function parseFtmf(ftmfBuffer){
   };
 }
 
-module.exports = { parseFtmf: parseFtmf, readZipEntries: readZipEntries, extractEntry: extractEntry, findEntry: findEntry };
+module.exports = { parseFtmf: parseFtmf, readZipEntries: readZipEntries, extractEntry: extractEntry, findEntry: findEntry, normalizeClub: normalizeClub };
