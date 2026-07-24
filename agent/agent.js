@@ -32,12 +32,21 @@ catch (e) { console.error('config.json 읽기 실패:', e.message); process.exit
 var STATE_FILE = path.join(__dirname, '.agent-state.json');
 var LOG_FILE = path.join(__dirname, 'agent.log');
 var processed = {};
+// '컷오프 이전' 파일은 여기(별도·비영속)로만 표시하고 processed 에는 넣지 않는다.
+// 이유: 고장 상태 폴더엔 파일이 수천~수만 개라, before-start 를 processed 에 넣으면
+// 4000개 상한에 걸려 계속 축출·재삽입되면서 '이미 보낸 실제 샷' 기록까지 밀려나
+// 같은 샷을 매 스캔 재전송하는 버그가 났다. before-start 는 재전송과 무관하니 분리.
+var _beforeStart = {};
 var _stateMeta = {};
 try {
   var _raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
   // 신형: {__meta:{lastCutoff}, ...processed}. 구형: 그냥 processed 맵.
   if (_raw && _raw.__meta){ _stateMeta = _raw.__meta; delete _raw.__meta; }
   processed = _raw || {};
+  // 구버전이 남긴 before-start 항목은 걷어낸다(상한 오염 방지). 실제 처리분만 유지.
+  Object.keys(processed).forEach(function(k){
+    if (processed[k] && processed[k].skip === 'before-start') { _beforeStart[k] = 1; delete processed[k]; }
+  });
 } catch (e) {}
 var _parseFail = {};   // 부분 파일 파싱 재시도 카운터 (영속 아님)
 // 시작 컷오프: 재시작 때마다 '지금'으로 리셋하면 단절/크래시/재부팅 동안의 샷이 유실된다.
@@ -87,12 +96,14 @@ function say(msg){ // verbose 무관 항상 콘솔 + 로그
 }
 function saveState(){
   try {
-    // 처리이력 무한 증가 방지 — 최근 4000건만 유지(오래된 것부터 정리). 원자적 저장.
+    // 처리이력 무한 증가 방지 — 최근 20000건만 유지(오래된 것부터 정리). 원자적 저장.
+    // (before-start 는 processed 에 안 들어오므로 여기 쌓이는 건 실제 전송/잡음 스킵뿐.
+    //  상한을 크게 둬서 최근 샷 기록이 축출돼 재전송되는 일이 없게 한다)
     var keys = Object.keys(processed);
-    if (keys.length > 4000){
+    if (keys.length > 20000){
       var arr = keys.map(function(k){ return [k, (processed[k] && processed[k].t) || 0]; });
       arr.sort(function(a,b){ return a[1]-b[1]; });
-      for (var i=0;i<arr.length-4000;i++){ delete processed[arr[i][0]]; }
+      for (var i=0;i<arr.length-20000;i++){ delete processed[arr[i][0]]; }
     }
     var tmp = STATE_FILE + '.tmp';
     var out = Object.assign({ __meta: _stateMeta }, processed);
@@ -460,14 +471,13 @@ async function scan(){
     for (var i = 0; i < files.length; i++){
       var fp = files[i];
       var fname = path.basename(fp);
-      // 이미 처리 끝난 파일(성공·과거·잡음·에러)은 stat 없이 스킵 (수천 개 폴더 I/O 절감).
-      // vp(영상 미부착) 표시가 있으면 대기열이 따로 들고 있으니 여기선 넘어가도 안전.
-      if (processed[fname]) continue;
+      // 이미 처리 끝난 파일(성공·잡음·에러) 또는 컷오프 이전 파일은 stat 없이 스킵.
+      if (processed[fname] || _beforeStart[fname]) continue;
       var mt = 0;
       try { mt = fs.statSync(fp).mtimeMs; } catch(e){}
       if (mt > newestMt){ newestMt = mt; newestFp = fp; }
       if (!CFG.processExisting && mt && mt < cutoff){
-        if (!processed[fname]) { processed[fname] = { skip:'before-start', t:Date.now() }; }
+        _beforeStart[fname] = 1;   // processed 아님 — 상한 오염 없이 영구 스킵
         continue;
       }
       try { await handleFtmf(fp); }
