@@ -1070,10 +1070,15 @@ function openVoiceDraft(memberId, author, transcript){
 // AI 정리 재시도 (일지 작성 폼의 버튼) — 워커 AI 설정을 고친 뒤나 일시 오류 때 사용
 function retryAiSummarize(){
   var ns=S.newSession;
-  if(!ns || !ns.rawTranscript || ns._aiPending) return;
+  if(!ns || ns._aiPending) return;
+  // 원문(rawTranscript)이 있으면 그걸로, 없으면(관리자 아닌 기기 등) 현재 메모 내용을 소스로 정리.
+  var src = (ns.rawTranscript && ns.rawTranscript.trim())
+    ? ns.rawTranscript
+    : String(ns.content||'').replace(/^\[레슨 녹음 메모[^\]]*\]\s*/,'').replace(/^[•\-·]\s*/gm,'').replace(/\n\[트랙맨\][\s\S]*$/,'').trim();
+  if(!src){ alert('정리할 내용이 없습니다.'); return; }
   if(!aiEnabled()){ alert('AI 정리가 설정되지 않았습니다.\n워커에 ANTHROPIC_API_KEY 시크릿을 등록하거나(권장), 관리자 모드의 AI 설정에서 키를 입력하세요.'); return; }
   ns._aiPending=true; ns._aiFailed=false; render();
-  aiSummarizeWithClaude(ns.rawTranscript, ns.author).then(function(better){
+  aiSummarizeWithClaude(src, ns.author).then(function(better){
     if(!S.newSession) return;
     S.newSession._aiPending=false;
     if(better){

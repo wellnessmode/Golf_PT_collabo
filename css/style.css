@@ -825,8 +825,10 @@ body.role-select .app{background:#0d1117}
    RESPONSIVE
    ================================================================ */
 @media(max-width:768px){
-  .sidebar{position:fixed;left:-90vw;top:0;bottom:0;z-index:200;width:min(300px,86vw);min-width:auto;transition:left var(--t-slow);box-shadow:none}
+  .sidebar{position:fixed;left:-90vw;top:0;bottom:0;z-index:200;width:min(300px,86vw);min-width:auto;transition:left var(--t-slow);box-shadow:none;
+    overflow-y:auto;-webkit-overflow-scrolling:touch}  /* 모바일: 사이드바 전체가 스크롤 → 회원 목록이 위/아래 버튼에 짓눌리지 않음 */
   .sidebar.open{left:0;box-shadow:var(--sh-lg)}
+  .member-list{flex:0 0 auto;overflow:visible;min-height:auto}  /* 내부 스크롤 대신 자연 높이(사이드바가 통째로 스크롤) */
   .member-item{padding:12px 10px;gap:11px}   /* 모바일에서 살짝 여유 있게 */
   .sidebar-backdrop{position:fixed;inset:0;z-index:190;background:rgba(20,30,40,.4);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity var(--t-med)}
   .sidebar-backdrop.show{opacity:1;pointer-events:auto}
