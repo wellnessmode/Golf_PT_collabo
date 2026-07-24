@@ -116,7 +116,7 @@ export default {
       fd.append('file', new File([buf], 'rec.' + ext, { type: ct }));
       fd.append('model', 'whisper-large-v3-turbo');
       fd.append('language', 'ko');
-      fd.append('response_format', 'json');
+      fd.append('response_format', 'verbose_json');   // 조각별 신뢰도(logprob·no_speech·압축비)를 받아 헛인식 걸러냄
       fd.append('temperature', '0');
       // 골프 레슨 도메인 힌트 — Whisper 가 골프 용어를 정확히 받아쓰도록 유도.
       // (헤더 prompt 는 URL 인코딩되어 옴 → 디코드. 없으면 기본 골프 사전)
@@ -131,7 +131,26 @@ export default {
       const txt = await up.text();
       if (!up.ok) return json({ error: 'groq ' + up.status, detail: txt.slice(0, 300) }, 502);
       let out = {}; try { out = JSON.parse(txt); } catch (e) {}
-      return json({ text: (out.text || '').trim() }, 200);
+      // ── 헛인식(hallucination) 필터 — 조각별 신뢰도로 잡음/무음 파편 제거 ──
+      //   Whisper 는 무음·잡음 구간에서 그럴듯한 문장을 지어냄. verbose_json 의
+      //   조각별 지표로 걸러냄: 무음확률 높음 / 평균 logprob 매우 낮음(불확실) /
+      //   압축비 높음(같은 말 반복 = 전형적 환각). 걸러도 조각이 하나도 안 남으면
+      //   원문 text 로 폴백(진짜 말인데 지표만 나쁠 수 있어 유실 방지).
+      let cleaned = '';
+      if (Array.isArray(out.segments) && out.segments.length) {
+        const kept = out.segments.filter(function (s) {
+          const ns = typeof s.no_speech_prob === 'number' ? s.no_speech_prob : 0;
+          const lp = typeof s.avg_logprob === 'number' ? s.avg_logprob : 0;
+          const cr = typeof s.compression_ratio === 'number' ? s.compression_ratio : 0;
+          if (ns > 0.8 && lp < -0.6) return false;   // 거의 무음인데 불확실 → 버림
+          if (lp < -1.0) return false;               // 인식 신뢰도 매우 낮음 → 버림
+          if (cr > 2.6) return false;                // 같은 말 반복 = 환각 → 버림
+          return true;
+        });
+        cleaned = kept.map(function (s) { return (s.text || '').trim(); }).filter(Boolean).join(' ').trim();
+      }
+      const text = cleaned || (out.text || '').trim();
+      return json({ text: text }, 200);
     }
     // ────────────────────────────────────────────────────────
 
