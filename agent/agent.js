@@ -37,6 +37,20 @@ var processed = {};
 // 4000개 상한에 걸려 계속 축출·재삽입되면서 '이미 보낸 실제 샷' 기록까지 밀려나
 // 같은 샷을 매 스캔 재전송하는 버그가 났다. before-start 는 재전송과 무관하니 분리.
 var _beforeStart = {};
+var _shotBest = {};        // shotId → 지금까지 보낸 측정 완성도 점수(더 완전한 값만 반영)
+var _videoQueuedFor = {};  // shotId → 영상 작업 큐에 넣었는지(샷당 1회만)
+var _recentShots = {};     // bay → [{evMs,id}] 최근 샷(같은 물리적 샷의 여러 stmf 를 시각 근접으로 병합)
+// 같은 물리적 샷의 여러 stmf 를 하나의 shotId 로 — 측정시각 ±1.5초 이내면 같은 샷으로 본다.
+// (초 단위 반올림 버킷은 경계에서 갈라지므로, 근접 비교로 견고하게)
+function dedupShotId(bayId, evMs){
+  if(!_recentShots[bayId]) _recentShots[bayId]=[];
+  var arr=_recentShots[bayId], cut=evMs-180000;
+  for(var i=arr.length-1;i>=0;i--){ if(arr[i].evMs<cut) arr.splice(i,1); }
+  for(var j=0;j<arr.length;j++){ if(Math.abs(arr[j].evMs-evMs)<=1500) return arr[j].id; }
+  var id='tm_'+bayId+'_'+Math.round(evMs/1000);
+  arr.push({evMs:evMs,id:id});
+  return id;
+}
 var _stateMeta = {};
 try {
   var _raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
@@ -237,6 +251,97 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
   }
 }
 
+// 임의 영상 파일(.mkv/.mov 등) → 웹 재생용 mp4(H.264) 버퍼. 리먹스 우선, 실패 시 트랜스코드.
+// (고장 상태에서 TPS가 Videos 폴더에 낱개로 저장하는 아이폰 .mov / 카메라 .mkv 를 붙이기 위함)
+async function convertFileToMp4(inputPath, ffmpegPath){
+  var os = require('os'); var path = require('path'); var fs = require('fs');
+  var { spawn } = require('child_process');
+  var tmpOut = path.join(os.tmpdir(), 'gptv_'+Date.now()+'_'+Math.floor(Math.random()*1e6)+'.mp4');
+  function run(args){
+    return new Promise(function(resolve){
+      var p = spawn(ffmpegPath, args, { windowsHide:true });
+      var err=''; var killed=false;
+      var killTimer = setTimeout(function(){ killed=true; try{ p.kill(); }catch(_){} }, 180000);
+      p.stderr.on('data', function(d){ err += d.toString(); });
+      p.on('error', function(){ clearTimeout(killTimer); resolve({code:-1, err:err}); });
+      p.on('close', function(code){ clearTimeout(killTimer); resolve({code: killed?-2:code, err: killed?'ffmpeg 타임아웃(180초)':err}); });
+    });
+  }
+  try{
+    // 1) 리먹스(재인코딩 X) — 이미 H.264 면 즉시. faststart 로 스트리밍 재생.
+    var r = await run(['-y','-i', inputPath, '-c','copy','-movflags','+faststart', tmpOut]);
+    if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
+      // 2) 트랜스코드 — HEVC(아이폰) 등은 H.264 로. 오디오 없으면 -an 로도 시도.
+      r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
+        r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-an','-movflags','+faststart', tmpOut]);
+        if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
+      }
+    }
+    return fs.readFileSync(tmpOut);
+  } finally {
+    try{ fs.unlinkSync(tmpOut); }catch(_){}
+  }
+}
+
+// TPS Videos 폴더들(감시 Data 폴더의 형제 \Videos) — 자동 도출.
+function videosDirs(){
+  var out = [];
+  var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : (CFG.watchDir ? [CFG.watchDir] : []);
+  dirs.forEach(function(d){
+    if (/\\Data$/i.test(d)) { var v = d.replace(/\\Data$/i, '\\Videos'); if (out.indexOf(v)===-1) out.push(v); }
+  });
+  var std = 'C:\\ProgramData\\TrackMan\\TrackMan Performance Studio\\Videos';
+  if (out.indexOf(std)===-1) out.push(std);
+  return out;
+}
+// 샷(측정시각 evMs)에 해당하는 스윙 영상 파일을 Videos\<날짜>\ 에서 시각 기준으로 찾는다.
+// 우선순위: DL iPhone(다운더라인) → FO iPhone(정면) → Club → Ball. 영상은 샷 직후 저장되므로
+// [evMs-8초, evMs+90초] 창에서 가장 가까운 것을 고른다.
+function findShotVideoFile(evMs){
+  if (!evMs || isNaN(evMs)) return null;
+  var dayLocal = new Date(evMs);
+  // 파일은 로컬시각 폴더명(YYYY-MM-DD). evMs 는 UTC 이므로 로컬 날짜로 변환.
+  function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  var days = [ymd(dayLocal), ymd(new Date(evMs-3600000)), ymd(new Date(evMs+3600000))]; // 경계 보정
+  function rank(name){
+    if (/DL\s*iPhone/i.test(name)) return 4;
+    if (/FO\s*iPhone/i.test(name)) return 3;
+    if (/Club\.(mkv|mp4|mov)$/i.test(name)) return 2;
+    if (/Ball\.(mkv|mp4|mov)$/i.test(name)) return 1;
+    return 0;
+  }
+  var best = null;
+  videosDirs().forEach(function(vroot){
+    days.forEach(function(day){
+      var dir = require('path').join(vroot, day);
+      var ents; try { ents = fs.readdirSync(dir, { withFileTypes:true }); } catch(e){ return; }
+      for (var i=0;i<ents.length;i++){
+        var e = ents[i]; if (e.isDirectory()) continue;
+        if (!/\.(mkv|mov|mp4)$/i.test(e.name)) continue;
+        var r = rank(e.name); if (r===0) continue;
+        var fp = require('path').join(dir, e.name);
+        var mt; try { mt = fs.statSync(fp).mtimeMs; } catch(err){ continue; }
+        var dt = mt - evMs;
+        if (dt < -8000 || dt > 90000) continue;      // 창 밖
+        var absdt = Math.abs(dt);
+        // 우선순위(rank) 큰 것 우선, 같으면 시각 가까운 것
+        if (!best || r > best.rank || (r === best.rank && absdt < best.absdt)) {
+          best = { fp: fp, name: e.name, rank: r, absdt: absdt };
+        }
+      }
+    });
+  });
+  return best;
+}
+// 측정 완성도 점수 — 같은 물리적 샷의 여러 stmf 중 '가장 완전한' 것을 고르기 위함.
+function scoreMeasurement(data){
+  if (!data) return 0;
+  var keys = ['clubSpeed','ballSpeed','smash','carry','total','launch','spin','clubPath','faceAngle','attack','landAngle','spinAxis'];
+  var n = 0; keys.forEach(function(k){ if (data[k] != null) n++; });
+  return n;
+}
+
 async function uploadVideo(key, buf, contentType){
   if (!CFG.R2_WORKER_URL || !CFG.R2_API_KEY) return false;
   return new Promise(function(resolve){
@@ -245,7 +350,7 @@ async function uploadVideo(key, buf, contentType){
       var req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'PUT', port:443,
         headers:{ 'X-API-Key': CFG.R2_API_KEY, 'Content-Type': contentType||'application/octet-stream', 'Content-Length': buf.length } },
         function(res){ res.on('data',function(){}); res.on('end',function(){ resolve(res.statusCode>=200&&res.statusCode<300); }); });
-      req.setTimeout(120000, function(){ req.destroy(new Error('R2 업로드 타임아웃')); });   // 대용량 영상 여유 2분
+      req.setTimeout(180000, function(){ req.destroy(new Error('R2 업로드 타임아웃')); });   // 대용량 영상 여유 3분
       req.on('error', function(e){ log('  ! R2 업로드 오류 '+e.message); resolve(false); });
       req.write(buf); req.end();
     }catch(e){ resolve(false); }
@@ -312,12 +417,33 @@ async function handleFtmf(filePath){
   var bayId = resolveBay(parsed.trackingUnit);
   if (!bayId) { log('베이 매핑 없음 (TrackingUnit=' + parsed.trackingUnit + '), 건너뜀'); processed[fname] = { skip:'no-bay', t:Date.now() }; saveState(); return; }
 
-  var shotId = 'tm_' + (parsed.measurementId || (Date.now()+''+Math.random().toString(36).slice(2,6)));
+  // 물리적 샷 1개당 여러 stmf(예비·부분 측정)가 쏟아진다. 단독 stmf 는
+  // 측정시각(초)+베이 로 shotId 를 만들어 upsert 로 자연 병합 → 앱엔 샷 1개만 뜬다.
+  // 정상 ftmf 는 measurementId 기반(1파일=1샷).
+  var evMs = Date.parse(parsed.eventTime);
+  var shotId;
+  if (parsed.isDirectStmf && evMs && !isNaN(evMs)) {
+    shotId = dedupShotId(bayId, evMs);
+  } else {
+    shotId = 'tm_' + (parsed.measurementId || (Date.now()+''+Math.random().toString(36).slice(2,6)));
+  }
+  // 같은 샷의 여러 측정 중 '가장 완전한' 값만 반영(덜 완전한 게 더 완전한 걸 덮지 않게).
+  var score = scoreMeasurement(parsed.data);
+  var betterOrNew = (_shotBest[shotId] == null) || (score > _shotBest[shotId]);
+
+  if (!betterOrNew) {
+    // 이미 더 완전한 값으로 이 샷을 보냄 → 데이터 재전송 스킵(중복·값 요동 방지).
+    processed[fname] = { id: shotId, mid: parsed.measurementId, bay: bayId, t: Date.now() };
+    if (CFG.uploadVideo && parsed.isDirectStmf && !_videoQueuedFor[shotId]) {
+      _videoQueuedFor[shotId] = 1;
+      _videoQueue.push({ videosFolder:true, shotId: shotId, bayId: bayId, evMs: evMs, fname: fname });
+    }
+    try{ var _mtS=fs.statSync(filePath).mtimeMs; if(_mtS>(_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mtS; }catch(e){}
+    saveState();
+    return;
+  }
 
   // ── 1단계: 샷 "데이터"를 먼저 전송 (영상 없이) ─────────────────────────
-  // 기존엔 영상 업로드(20MB+)·MP4 변환이 끝나야 전송해 샷당 20~30초 지연 →
-  // "다음 샷을 쳐야 이전 샷이 뜬다"는 체감의 원인. 데이터를 수 초 내 먼저 보내고
-  // 영상은 준비되는 대로 행에 붙인다(attachShotVideo).
   var nowIso = new Date().toISOString();
   var shot = {
     id: shotId,
@@ -327,15 +453,16 @@ async function handleFtmf(filePath){
     author: '',
     ts: nowIso,
     data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime,
-      // 앱이 "영상 업로드 중" 진행 표시를 띄울 수 있게 예고 — 업로드 완료/실패 시 해제됨
-      _videoPending: (CFG.uploadVideo && parsed.videos && parsed.videos.length) ? 1 : undefined }, parsed.data),
+      // 앱이 "영상 준비 중" 표시를 띄울 수 있게 예고 — 연결 완료/포기 시 해제됨
+      _videoPending: (CFG.uploadVideo && ((parsed.videos && parsed.videos.length) || parsed.isDirectStmf)) ? 1 : undefined }, parsed.data),
     video_r2_key: null,
     source: 'agent'
   };
   var ok = await pushShot(shot);
   if (!ok){ log('전송 실패(다음 주기 재시도): ' + fname); return; }
+  _shotBest[shotId] = score;
 
-  log('✓ 샷 전송(데이터) ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm total=' + parsed.data.total + 'm] bay=' + bayId);
+  log('✓ 샷 전송(데이터) ' + fname + ' [' + (parsed.data.club||'?') + ' carry=' + parsed.data.carry + 'm total=' + parsed.data.total + 'm] bay=' + bayId + ' id=' + shotId);
   // 지연 진단 — 샷 측정시각/파일 수정시각 대비 전송이 얼마나 늦었는지.
   // (에이전트가 꺼져 있던 백로그면 '파일수정 지연'도 크게 나옴 → TPS 지연과 구분 가능)
   try{
@@ -356,21 +483,65 @@ async function handleFtmf(filePath){
   if (nonNull.length) log('  토탈 후보값들 → ' + nonNull.join(', '));
   processed[fname] = { id: shotId, mid: parsed.measurementId, bay: bayId, t: Date.now() };
   // ── 2단계: 영상은 "대기열"로 — 데이터 전송을 절대 막지 않는다 ─────────────
-  // 기존엔 영상 변환·업로드(수십 초~수 분)를 파일마다 인라인으로 끝내야 다음 파일로
-  // 넘어갔다 → 백로그가 쌓이면 방금 친 샷의 "데이터"조차 몇 분 뒤에 전송됐다.
-  // 이제 스캔 한 바퀴에서 모든 신규 샷의 데이터를 먼저 다 보내고, 영상은 한 주기에
-  // 하나씩 뒤에서 처리한다. 재시작해도 이어가도록 처리이력에 파일경로(vp)를 남긴다.
-  if (CFG.uploadVideo && parsed.videos && parsed.videos.length){
-    processed[fname].vp = filePath;
-    _videoQueue.push({ fp: filePath, fname: fname, shotId: shotId, bayId: bayId });
+  // 정상 ftmf: 파일 내부 embedded 영상 추출. 단독 stmf(고장 상태): 영상이 파일 안에
+  // 없고 TPS Videos 폴더에 낱개로 저장되므로, 측정시각으로 매칭해 붙인다(샷당 1회).
+  if (CFG.uploadVideo){
+    if (parsed.isDirectStmf){
+      if (!_videoQueuedFor[shotId]){
+        _videoQueuedFor[shotId] = 1;
+        processed[fname].vp = filePath;
+        _videoQueue.push({ videosFolder:true, shotId: shotId, bayId: bayId, evMs: evMs, fname: fname });
+      }
+    } else if (parsed.videos && parsed.videos.length){
+      processed[fname].vp = filePath;
+      _videoQueue.push({ fp: filePath, fname: fname, shotId: shotId, bayId: bayId });
+    }
   }
   try{ var _mt=fs.statSync(filePath).mtimeMs; if(_mt> (_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mt; }catch(e){}
   saveState();
 }
 
-// ---- 영상 대기열 처리 (한 스캔 주기당 1건 — 새 샷 데이터가 항상 먼저) ----
+// ---- 영상 대기열 처리 (한 번에 1건, 백그라운드 — 새 샷 데이터가 항상 먼저) ----
 var _videoQueue = [];
+var _videoBusy = false;   // 영상 1건 처리 중이면 다음 건은 다음 주기로 (동시 실행 방지)
 async function processVideoJob(job){
+  // ── 단독 stmf(고장 상태): 파일 안에 영상이 없다 → Videos 폴더에서 시각 매칭해 붙인다 ──
+  if (job.videosFolder){
+    var vf = findShotVideoFile(job.evMs);
+    if (!vf){
+      // 영상은 샷 직후 몇 초~수십 초 뒤 저장될 수 있음 → 잠시 재시도 후 포기.
+      job._tries = (job._tries||0)+1;
+      if (job._tries < 16){ _videoQueue.push(job); return; }
+      log('  영상 매칭 실패(파일 못 찾음) shot=' + job.shotId);
+      try{ await attachShotVideo(job.shotId, null, null, null); }catch(e){}  // _videoPending 해제
+      if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
+      return;
+    }
+    var vmp4=null;
+    if (CFG.ffmpegPath){
+      try{ vmp4 = await convertFileToMp4(vf.fp, CFG.ffmpegPath); }
+      catch(e){ log('  영상 변환 실패(' + vf.name + '): ' + e.message); }
+    }
+    var vk=null, vmp4k=null, vbase = job.bayId + '/' + job.shotId;
+    if (vmp4 && vmp4.length){
+      var mk = vbase + '_scene.mp4';
+      if (await uploadVideo(mk, vmp4, 'video/mp4')){ vmp4k = mk; log('  MP4 업로드 ' + (vmp4.length/1e6).toFixed(1) + 'MB ← ' + vf.name); }
+    }
+    if (!vmp4k){
+      try{
+        var raw = fs.readFileSync(vf.fp);
+        var ext = ((vf.name.match(/\.(mkv|mov|mp4)$/i)||[])[1]||'mp4').toLowerCase();
+        var ct = ext==='mov' ? 'video/quicktime' : (ext==='mkv' ? 'video/x-matroska' : 'video/mp4');
+        var rk = vbase + '_scene.' + ext;
+        if (await uploadVideo(rk, raw, ct)){ vk = rk; log('  원본 영상 업로드 ' + (raw.length/1e6).toFixed(1) + 'MB ← ' + vf.name); }
+      }catch(e){ log('  원본 영상 업로드 스킵: ' + e.message); }
+    }
+    try{ var okv = await attachShotVideo(job.shotId, vk, vmp4k, null); if (okv && (vk||vmp4k)) log('  영상 연결 완료 → ' + (vmp4k||vk)); }
+    catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
+    if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
+    return;
+  }
+
   var buf, parsed;
   try { buf = fs.readFileSync(job.fp); parsed = parseFtmf(buf); }
   catch(e){ log('영상 단계: 파일 재읽기 실패 ' + job.fname + ': ' + e.message); parsed = null; }
@@ -485,16 +656,18 @@ async function scan(){
       _watchdogTick();
     }
   }
-  // 영상 대기열 — 한 주기 1건. 다음 주기가 5초 뒤 다시 데이터부터 훑으므로
-  // 백로그 영상이 아무리 쌓여도 "방금 친 샷"의 데이터 전송은 수 초 안에 이뤄진다.
-  if (_videoQueue.length){
+  // 영상 대기열 — 한 번에 1건, 그리고 "await 하지 않는다"(백그라운드 실행).
+  // 아이폰 .mov 트랜스코드가 수십 초 걸려도 데이터 전송(다음 스캔)은 5초마다 계속 돈다.
+  // → "방금 친 샷의 데이터"가 영상 변환 때문에 밀리는 일이 없다.
+  if (_videoQueue.length && !_videoBusy){
+    _videoBusy = true;
     var vjob = _videoQueue.shift();
-    try { await processVideoJob(vjob); }
-    catch (e) {
-      log('영상 처리 오류 ' + vjob.fname + ': ' + e.message);
-      if (processed[vjob.fname]) { delete processed[vjob.fname].vp; saveState(); }
-    }
-    _watchdogTick();
+    processVideoJob(vjob)
+      .catch(function(e){
+        log('영상 처리 오류 ' + (vjob.fname||vjob.shotId) + ': ' + (e&&e.message||e));
+        if (vjob.fname && processed[vjob.fname]) { delete processed[vjob.fname].vp; saveState(); }
+      })
+      .then(function(){ _videoBusy = false; _watchdogTick(); });
   }
   // 하트비트 (5분마다) — 감시가 살아있는지 + 에이전트 눈에 보이는 "최신 파일"이 뭔지.
   // 샷을 쳤는데 앱에 안 뜰 때: 이 줄의 최신 파일 시각이 안 올라가면 TPS가 파일을
