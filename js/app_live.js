@@ -731,7 +731,7 @@ function updateVoiceText(bayId, val){
 // → R2 에 원본 백업 + /stt(Whisper) 로 한국어 텍스트 변환 → 받아쓰기 칸에 합류
 // → 세션 종료 시 기존 AI 일지 정리 파이프라인 그대로 사용
 var _rec = { bayId:null, stream:null, mr:null, chunks:[], startedAt:0, uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0 };
-var REC_SEG_MS = 15000;   // 15초마다 잘라 변환 → 실시간처럼 아래에 글이 계속 붙음
+var REC_SEG_MS = 20000;   // 20초마다 잘라 변환 — Whisper 30초 창에 가깝게 늘려 단어 중간 절단·헛인식↓ (실시간 표시는 유지)
 function recSupported(){
   try{ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder!=='undefined'); }catch(e){ return false; }
 }
@@ -761,7 +761,7 @@ function _recUpdateUI(){
 // 한 세그먼트(15초) 녹음 시작 — 끝나면 즉시 다음 세그먼트로 이어지고, 이전 조각은 병렬 변환
 function _startSegment(){
   var mime=_recMime();
-  var opts={audioBitsPerSecond:32000}; if(mime) opts.mimeType=mime;
+  var opts={audioBitsPerSecond:48000}; if(mime) opts.mimeType=mime;  // 32k→48k: 잡음 많은 스튜디오에서 말소리 선명도↑ (파일 크기는 여전히 작음)
   var mr=new MediaRecorder(_rec.stream, opts);
   var segChunks=[];
   mr.ondataavailable=function(e){ if(e.data&&e.data.size) segChunks.push(e.data); };
@@ -868,9 +868,10 @@ async function stopBayRec(bayId){
 }
 async function sttTranscribe(blob){
   if(!r2.enabled) throw new Error('worker 미설정');
-  // 직전 세그먼트 끝부분을 힌트로 넘겨 문맥 연결 + 골프 용어 정확도↑
-  var hint=(_rec&&_rec.tx)?String(_rec.tx).slice(-180):'';
-  var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream','X-STT-Prompt':encodeURIComponent('골프 레슨. '+hint).slice(0,900)},body:blob});
+  // ⚠️ 직전 조각 텍스트를 힌트로 넘기지 않음 — 한 조각이 깨지면 그 오류가
+  //    다음 조각 프롬프트로 전파돼 눈덩이처럼 증폭되던 문제(오염 되먹임) 차단.
+  //    프롬프트는 워커의 고정 골프 용어사전을 그대로 사용(빈 힌트 = 사전 사용).
+  var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob});
   if(res.status===501||res.status===404||res.status===401){ window._sttReady=false; throw new Error('stt-not-ready '+res.status); }   // 키미설정/경로없음/인증
   if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('stt http '+res.status+' '+t.slice(0,120)); }
   window._sttReady=true;
