@@ -248,6 +248,7 @@ function parseFtmf(ftmfBuffer){
     eventTime: eventTime,
     data: data,
     videos: videos,                 // ftmf 내부 영상 경로(상대)
+    isDirectStmf: isDirectStmf,      // true = timed_out 단독 stmf(영상 미포함, Videos 폴더에서 매칭 필요)
     clubCandidates: clubCandsSmall, // 클럽 후보 진단 (agent.log 확인용)
     raw: { tmfInfo: tmfInfo }
   };
