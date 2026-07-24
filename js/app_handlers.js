@@ -985,6 +985,34 @@ function addSession(){
   syncSessionUp(mid, s);
   generateLocalSummary(mid, s);
   render();
+  // 녹음 일지를 AI 정리 전(원문 조각 상태)으로 저장했다면 → 백그라운드로 AI 정리해
+  // '저장된 일지'를 자동 교체. 프로가 저장을 빨리 눌러도(또는 AI가 늦어도) 알아서 정리됨.
+  try{
+    if(s.rawTranscript && typeof aiEnabled==='function' && aiEnabled() && String(s.content||'').indexOf('AI 정리 대기')!==-1){
+      bgAiCleanupSaved(mid, s.id, s.rawTranscript, s.author, ns._tmSummary||'');
+    }
+  }catch(e){}
+}
+
+// 저장된 녹음 일지를 백그라운드에서 AI 정리 → 자동 교체 (프로가 저장 후 기다릴 필요 없음)
+function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
+  if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return;
+  if(typeof aiSummarizeWithClaude!=='function') return;
+  aiSummarizeWithClaude(transcript, author).then(function(better){
+    var arr = S.sessions[mid]||[]; var s = arr.find(function(x){return x.id===sessId;});
+    if(!s) return;
+    if(String(s.content||'').indexOf('AI 정리 대기')===-1) return;   // 그 사이 정리됨/사람이 수정 → 건드리지 않음
+    if(!better){
+      // 실패 — 원문 조각 상태 유지. 관리자 기기에서 [🤖 AI로 다시 정리]로 재시도 가능.
+      try{ if(window.__aiLastError) console.warn('[ai] bg cleanup fail:', window.__aiLastError); }catch(e){}
+      return;
+    }
+    s.content = better + (tmSummary||'');
+    try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
+    if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
+    try{ render(); }catch(e){}
+    try{ var nm=(S.members.find(function(m){return m.id===mid;})||{}).name||''; liveToastSafe('🤖 '+nm+' 일지 AI 정리 완료'); }catch(e){}
+  });
 }
 
 // ============ AI 세션 요약 + 운동 추천 ============
