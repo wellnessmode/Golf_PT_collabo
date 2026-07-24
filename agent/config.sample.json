@@ -16,5 +16,6 @@
   "verbose": true,
   "processExisting": false,
   "backfillMinutes": 0,
-  "useDbProxy": false
+  "useDbProxy": false,
+  "requireActiveSession": true
 }

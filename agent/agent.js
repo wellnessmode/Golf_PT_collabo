@@ -189,6 +189,25 @@ async function fetchShotData(shotId){
   }catch(e){}
   return null;
 }
+// ---- 활성(타석 레슨) 세션이 있는 베이 목록 캐시 ----
+// "타석 레슨"을 켜면 앱이 active_sessions 에 행을 만든다. 레슨이 켜진 베이의 샷만
+// 저장 → 연습 샷은 아예 안 들어옴(과금·클러터 방지). anon GET(읽기전용)으로 주기적 갱신.
+var _activeBays = {};       // bay_id → true (활성 세션 있는 베이)
+var _activeBaysAt = 0;      // 마지막 갱신 시각
+var _noSession = {};        // fname → 세션 없어 대기한 횟수(세션이 곧 생길 수 있어 잠시 재확인)
+async function refreshActiveBays(){
+  try{
+    var url = CFG.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/active_sessions?select=bay_id';
+    var res = await httpRequest(url, { method:'GET', headers:{ 'apikey':CFG.SUPABASE_ANON_KEY, 'Authorization':'Bearer '+CFG.SUPABASE_ANON_KEY }, timeoutMs:12000 });
+    if (res.status >= 200 && res.status < 300){
+      var rows = JSON.parse(res.body.toString()); var m = {};
+      (rows||[]).forEach(function(r){ if (r && r.bay_id) m[r.bay_id] = true; });
+      _activeBays = m; _activeBaysAt = Date.now();
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
 async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
   var cur = await fetchShotData(shotId);
   if (!cur && !fallbackData) { log('  ! 영상 연결 보류: 서버 data 조회 실패 + 대체 data 없음 (' + shotId + ')'); return false; }
@@ -413,6 +432,17 @@ async function handleFtmf(filePath){
   var bayId = resolveBay(parsed.trackingUnit);
   if (!bayId) { log('베이 매핑 없음 (TrackingUnit=' + parsed.trackingUnit + '), 건너뜀'); processed[fname] = { skip:'no-bay', t:Date.now() }; saveState(); return; }
 
+  // ── 타석 레슨 게이트 ── "타석 레슨"을 켠 베이(활성 세션 있음)의 샷만 저장한다.
+  // 레슨 안 켜고 친 연습 샷은 아예 저장 안 함(과금·클러터 방지). requireActiveSession=false 면 해제.
+  if (CFG.requireActiveSession !== false && !_activeBays[bayId]) {
+    var ns = _noSession[fname] = (_noSession[fname] || 0) + 1;
+    // 세션이 방금 시작됐을 수 있음(앱 기록 지연) → 최대 12회(≈60초) 재확인 후 영구 스킵.
+    if (ns < 12) { return; }
+    log('타석 레슨 꺼짐 — 연습 샷 저장 안 함: ' + fname + ' bay=' + bayId);
+    processed[fname] = { skip:'no-session', t:Date.now() }; saveState(); delete _noSession[fname]; return;
+  }
+  delete _noSession[fname];
+
   // 물리적 샷 1개당 여러 stmf(예비·부분 측정)가 쏟아진다. 단독 stmf 는
   // 측정시각(초)+베이 로 shotId 를 만들어 upsert 로 자연 병합 → 앱엔 샷 1개만 뜬다.
   // 정상 ftmf 는 measurementId 기반(1파일=1샷).
@@ -632,6 +662,10 @@ var _lastBeat = 0;
 async function scan(){
   rotateLogIfBig();
   _watchdogTick();
+  // 활성(타석 레슨) 세션 목록 갱신 — 8초마다. 게이트 판정에 사용.
+  if (CFG.requireActiveSession !== false && Date.now() - _activeBaysAt > 8000){
+    await refreshActiveBays();
+  }
   var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : [CFG.watchDir];
   // 시작 시점 컷오프 — 에이전트 켠 이후 생성된 ftmf만 처리(과거 연습기록 무시)
   // CFG.processExisting=true 면 과거 것도 처리. backfillMinutes 면 그만큼 과거까지 허용.
@@ -687,6 +721,10 @@ async function scan(){
       beat += ', 미처리 최신 ' + Math.round((Date.now()-newestMt)/1000) + '초 전';
     }
     if (_videoQueue.length) beat += ', 영상 대기 ' + _videoQueue.length + '건';
+    if (CFG.requireActiveSession !== false){
+      var ab = Object.keys(_activeBays);
+      beat += ', 타석 레슨 ' + (ab.length ? 'ON('+ab.join(',')+')' : 'OFF — 연습샷 저장 안 함');
+    }
     log(beat);
   }
   saveState();
@@ -743,7 +781,9 @@ async function checkClock(){
 say('=== Golf PT Bay Agent 시작 === bayMap=' + JSON.stringify(CFG.bayMap||{}) + ' interval=' + (CFG.intervalSec||5) + 's');
 say('PC 로컬시각: ' + new Date().toString());
 say('영상 변환(MP4): ' + (CFG.ffmpegPath ? ('ON → ' + CFG.ffmpegPath) : 'OFF (ffmpegPath 미설정)'));
+say('타석 레슨 게이트: ' + (CFG.requireActiveSession !== false ? 'ON (앱에서 타석 레슨 켠 베이의 샷만 저장 — 연습샷 제외)' : 'OFF (모든 샷 저장)'));
 checkClock().catch(function(e){ say('시계검증 오류: '+e.message); });
+if (CFG.requireActiveSession !== false) refreshActiveBays().catch(function(){});   // 시작 시 1회 선갱신
 (function loop(){
   scan().catch(function(e){ log('scan 오류: ' + e.message); })
         .then(function(){ setTimeout(loop, (CFG.intervalSec || 5) * 1000); });
