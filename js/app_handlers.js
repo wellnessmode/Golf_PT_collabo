@@ -718,6 +718,8 @@ async function openStorageAudit(){
       if(!protect) return;
       if(s.videoR2Key) keep[s.videoR2Key]=1;
       if(s.data&&s.data.videoMp4R2Key) keep[s.data.videoMp4R2Key]=1;
+      if(s.data&&s.data.videoFO) keep[s.data.videoFO]=1;   // 정면 각도도 보호(선별 저장/최근 샷)
+      if(s.data&&s.data.videoDL) keep[s.data.videoDL]=1;
     });
     // ⚠️ 오삭제 방지 2 — 업로드된 지 KEEP_DAYS 안 된 파일은 무조건 보호(워커가 uploaded 제공 시)
     S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects, keep, recentCut), truncated: !!cursor };

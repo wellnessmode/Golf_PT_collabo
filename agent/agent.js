@@ -189,12 +189,13 @@ async function fetchShotData(shotId){
   }catch(e){}
   return null;
 }
-async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData){
+async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
   var cur = await fetchShotData(shotId);
   if (!cur && !fallbackData) { log('  ! 영상 연결 보류: 서버 data 조회 실패 + 대체 data 없음 (' + shotId + ')'); return false; }
   var data = Object.assign({}, fallbackData, cur || {});   // 서버 최신 data 우선(그 사이 앱 변경 보존)
   delete data._videoPending;                               // 업로드 종료(성공/실패) → 진행 표시 해제
   if (mp4Key) data.videoMp4R2Key = mp4Key;
+  if (extra && typeof extra === 'object'){ Object.keys(extra).forEach(function(k){ if (extra[k]!=null) data[k]=extra[k]; }); }
   var values = { video_r2_key: videoKey, data: data };
   if (CFG.useDbProxy && CFG.R2_WORKER_URL && CFG.R2_API_KEY){
     var purl = CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/db';
@@ -284,34 +285,33 @@ async function convertFileToMp4(inputPath, ffmpegPath){
   }
 }
 
-// TPS Videos 폴더들(감시 Data 폴더의 형제 \Videos) — 자동 도출.
+// TPS Videos 폴더들(감시 Data 폴더의 형제 Videos) — 자동 도출. 슬래시(/) · 역슬래시(\) 모두 지원.
 function videosDirs(){
   var out = [];
   var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : (CFG.watchDir ? [CFG.watchDir] : []);
   dirs.forEach(function(d){
-    if (/\\Data$/i.test(d)) { var v = d.replace(/\\Data$/i, '\\Videos'); if (out.indexOf(v)===-1) out.push(v); }
+    var m = /^(.*)[\\\/]Data$/i.exec(d);
+    if (m) { var v = m[1] + path.sep + 'Videos'; if (out.indexOf(v)===-1) out.push(v); }
   });
   var std = 'C:\\ProgramData\\TrackMan\\TrackMan Performance Studio\\Videos';
   if (out.indexOf(std)===-1) out.push(std);
   return out;
 }
-// 샷(측정시각 evMs)에 해당하는 스윙 영상 파일을 Videos\<날짜>\ 에서 시각 기준으로 찾는다.
-// 우선순위: DL iPhone(다운더라인) → FO iPhone(정면) → Club → Ball. 영상은 샷 직후 저장되므로
-// [evMs-8초, evMs+90초] 창에서 가장 가까운 것을 고른다.
-function findShotVideoFile(evMs){
-  if (!evMs || isNaN(evMs)) return null;
-  var dayLocal = new Date(evMs);
-  // 파일은 로컬시각 폴더명(YYYY-MM-DD). evMs 는 UTC 이므로 로컬 날짜로 변환.
+// 샷(측정시각 evMs)에 해당하는 스윙 영상들을 Videos\<날짜>\ 에서 시각 기준으로 찾는다.
+// 각 카테고리(DL=측면·다운더라인, FO=정면, Club, Ball)별로 시각 가장 가까운 것을 하나씩.
+// 영상은 샷 직후 저장되므로 [evMs-8초, evMs+90초] 창에서 고른다.
+function findShotVideos(evMs){
+  var out = { dl:null, fo:null, club:null, ball:null };
+  if (!evMs || isNaN(evMs)) return out;
   function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
-  var days = [ymd(dayLocal), ymd(new Date(evMs-3600000)), ymd(new Date(evMs+3600000))]; // 경계 보정
-  function rank(name){
-    if (/DL\s*iPhone/i.test(name)) return 4;
-    if (/FO\s*iPhone/i.test(name)) return 3;
-    if (/Club\.(mkv|mp4|mov)$/i.test(name)) return 2;
-    if (/Ball\.(mkv|mp4|mov)$/i.test(name)) return 1;
-    return 0;
+  var days = [ymd(new Date(evMs)), ymd(new Date(evMs-3600000)), ymd(new Date(evMs+3600000))]; // 경계 보정
+  function cat(name){
+    if (/DL\s*iPhone/i.test(name)) return 'dl';
+    if (/FO\s*iPhone/i.test(name)) return 'fo';
+    if (/Club\.(mkv|mp4|mov)$/i.test(name)) return 'club';
+    if (/Ball\.(mkv|mp4|mov)$/i.test(name)) return 'ball';
+    return null;
   }
-  var best = null;
   videosDirs().forEach(function(vroot){
     days.forEach(function(day){
       var dir = require('path').join(vroot, day);
@@ -319,20 +319,16 @@ function findShotVideoFile(evMs){
       for (var i=0;i<ents.length;i++){
         var e = ents[i]; if (e.isDirectory()) continue;
         if (!/\.(mkv|mov|mp4)$/i.test(e.name)) continue;
-        var r = rank(e.name); if (r===0) continue;
+        var c = cat(e.name); if (!c) continue;
         var fp = require('path').join(dir, e.name);
         var mt; try { mt = fs.statSync(fp).mtimeMs; } catch(err){ continue; }
-        var dt = mt - evMs;
-        if (dt < -8000 || dt > 90000) continue;      // 창 밖
+        var dt = mt - evMs; if (dt < -8000 || dt > 90000) continue;   // 창 밖
         var absdt = Math.abs(dt);
-        // 우선순위(rank) 큰 것 우선, 같으면 시각 가까운 것
-        if (!best || r > best.rank || (r === best.rank && absdt < best.absdt)) {
-          best = { fp: fp, name: e.name, rank: r, absdt: absdt };
-        }
+        if (!out[c] || absdt < out[c].absdt) out[c] = { fp: fp, name: e.name, absdt: absdt };
       }
     });
   });
-  return best;
+  return out;
 }
 // 측정 완성도 점수 — 같은 물리적 샷의 여러 stmf 중 '가장 완전한' 것을 고르기 위함.
 function scoreMeasurement(data){
@@ -506,9 +502,12 @@ var _videoQueue = [];
 var _videoBusy = false;   // 영상 1건 처리 중이면 다음 건은 다음 주기로 (동시 실행 방지)
 async function processVideoJob(job){
   // ── 단독 stmf(고장 상태): 파일 안에 영상이 없다 → Videos 폴더에서 시각 매칭해 붙인다 ──
+  // 측면(DL)·정면(FO) 둘 다 각각 올린다. 앱은 [측면]/[정면] 전환으로 재생.
   if (job.videosFolder){
-    var vf = findShotVideoFile(job.evMs);
-    if (!vf){
+    var vids = findShotVideos(job.evMs);
+    var dlSrc = vids.dl || vids.club || vids.ball;   // 측면 후보(없으면 카메라 영상)
+    var foSrc = vids.fo;                             // 정면
+    if (!dlSrc && !foSrc){
       // 영상은 샷 직후 몇 초~수십 초 뒤 저장될 수 있음 → 잠시 재시도 후 포기.
       job._tries = (job._tries||0)+1;
       if (job._tries < 16){ _videoQueue.push(job); return; }
@@ -517,27 +516,32 @@ async function processVideoJob(job){
       if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
       return;
     }
-    var vmp4=null;
-    if (CFG.ffmpegPath){
-      try{ vmp4 = await convertFileToMp4(vf.fp, CFG.ffmpegPath); }
-      catch(e){ log('  영상 변환 실패(' + vf.name + '): ' + e.message); }
-    }
-    var vk=null, vmp4k=null, vbase = job.bayId + '/' + job.shotId;
-    if (vmp4 && vmp4.length){
-      var mk = vbase + '_scene.mp4';
-      if (await uploadVideo(mk, vmp4, 'video/mp4')){ vmp4k = mk; log('  MP4 업로드 ' + (vmp4.length/1e6).toFixed(1) + 'MB ← ' + vf.name); }
-    }
-    if (!vmp4k){
+    var vbase = job.bayId + '/' + job.shotId;
+    // 한 소스를 mp4 로 변환/업로드하고 R2 키를 돌려주는 헬퍼
+    async function up(src, suffix){
+      if (!src) return null;
+      var buf = null;
+      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
+      if (buf && buf.length){
+        var mk = vbase + suffix + '.mp4';
+        if (await uploadVideo(mk, buf, 'video/mp4')){ log('  MP4 업로드 ' + (buf.length/1e6).toFixed(1) + 'MB ← ' + src.name); return mk; }
+      }
+      // 변환 실패 → 원본 업로드(확장자 유지)
       try{
-        var raw = fs.readFileSync(vf.fp);
-        var ext = ((vf.name.match(/\.(mkv|mov|mp4)$/i)||[])[1]||'mp4').toLowerCase();
+        var raw = fs.readFileSync(src.fp);
+        var ext = ((src.name.match(/\.(mkv|mov|mp4)$/i)||[])[1]||'mp4').toLowerCase();
         var ct = ext==='mov' ? 'video/quicktime' : (ext==='mkv' ? 'video/x-matroska' : 'video/mp4');
-        var rk = vbase + '_scene.' + ext;
-        if (await uploadVideo(rk, raw, ct)){ vk = rk; log('  원본 영상 업로드 ' + (raw.length/1e6).toFixed(1) + 'MB ← ' + vf.name); }
-      }catch(e){ log('  원본 영상 업로드 스킵: ' + e.message); }
+        var rk = vbase + suffix + '.' + ext;
+        if (await uploadVideo(rk, raw, ct)){ log('  원본 영상 업로드 ' + (raw.length/1e6).toFixed(1) + 'MB ← ' + src.name); return rk; }
+      }catch(e){ log('  원본 영상 업로드 스킵(' + src.name + '): ' + e.message); }
+      return null;
     }
-    try{ var okv = await attachShotVideo(job.shotId, vk, vmp4k, null); if (okv && (vk||vmp4k)) log('  영상 연결 완료 → ' + (vmp4k||vk)); }
-    catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
+    var dlKey = await up(dlSrc, '_scene');   // 측면(주 영상) — 기존 videoMp4R2Key 로 저장(하위호환)
+    var foKey = await up(foSrc, '_fo');      // 정면
+    try{
+      var okv = await attachShotVideo(job.shotId, null, dlKey, null, { videoFO: foKey, videoDL: dlKey });
+      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음'));
+    }catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
     if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
     return;
   }

@@ -1821,3 +1821,11 @@ select.form-input{appearance:none;-webkit-appearance:none;background-image:url("
    채워진 CTA 로 확정: 진초록 그라디언트 + 흰 글자. */
 .btn.primary.live-mini{color:#fff}
 .btn.primary.live-mini:hover{color:#fff;background:linear-gradient(180deg,var(--ac-2),var(--ac-deep))}
+
+/* ---- 샷 영상 측면/정면 전환 탭 (오버레이 상단) ---- */
+.vv-tabs{display:flex;gap:6px;justify-content:center;margin-bottom:8px}
+.vv-tabs .vv-tab{padding:7px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.08);color:#fff;font-weight:700;font-size:13px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:background .15s,border-color .15s}
+.vv-tabs .vv-tab.on{background:var(--ac,#00a878);border-color:transparent}
+.vv-tabs .vv-tab:not(.on):hover{background:rgba(255,255,255,.16)}
