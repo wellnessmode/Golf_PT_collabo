@@ -78,9 +78,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.24',
-  date:'2026-07-20',
+  version:'v9.25',
+  date:'2026-07-24',
   changes:[
+    '샷 영상 측면·정면 동시 지원 — 다운더라인(측면)·정면(FO) 두 각도를 각각 저장하고, 영상 재생창 상단 [측면]/[정면] 탭으로 전환. (트랙맨 고장 우회 중에도 Videos 폴더의 아이폰 영상을 시각 매칭해 붙임)',
     '레슨 시간 유실 수정 — DB에 time 컬럼이 없으면 저장할 때마다 시간이 조용히 버려지고 동기화 때 사라지던 문제. 시간을 media JSON 에 함께 백업해 어떤 DB 상태에서도 보존(같은 날 골프→PT 정렬도 유지)',
     '[🏌️ 타석 레슨] 버튼 가독성 — 초록 배경에 초록 글자로 안 보이던 것을 흰 글자로 수정',
     'UI 전면 리프레시 v10 — 딥그린 액센트·쿨뉴트럴 표면·라운드 확대·레이어드 그림자, 모바일 모달은 바텀시트(그랩바), 버튼 press 피드백, 입력 16px+포커스 링, 수치 탭룰러 정렬, 다크 토스트, 접근성(포커스 링·reduced-motion) 강화',
@@ -588,6 +589,8 @@ function r2RemoveShotVideos(s){
   if(!s || typeof r2==='undefined' || !r2.enabled) return;
   try{ if(s.videoR2Key) r2.remove(s.videoR2Key); }catch(e){}
   try{ if(s.data && s.data.videoMp4R2Key) r2.remove(s.data.videoMp4R2Key); }catch(e){}
+  try{ if(s.data && s.data.videoFO) r2.remove(s.data.videoFO); }catch(e){}   // 정면 각도도 함께 삭제(고아 방지)
+  try{ if(s.data && s.data.videoDL && s.data.videoDL!==s.data.videoMp4R2Key) r2.remove(s.data.videoDL); }catch(e){}
 }
 
 // ============ 상태 ============

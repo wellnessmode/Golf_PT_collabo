@@ -110,7 +110,7 @@ function stopLivePolling(){
 // 데이터가 먼저 오고 영상은 20~40초 뒤 붙는 구조라, 그 사이 "영상이 왜 없지?" 혼란 방지.
 function _vidChip(s){
   var d = s.data||{};
-  var key = d.videoMp4R2Key || s.videoR2Key;
+  var key = d.videoMp4R2Key || d.videoDL || d.videoFO || s.videoR2Key;
   if (key) return '<button class="small-btn vid-view-btn" onclick="event.stopPropagation();openShotVideo(\''+s.id+'\')">🎬 보기</button>';
   if (d._videoPending){
     var t0 = s._rcvAt || Date.parse(d.measuredAt || s.ts) || 0;
@@ -133,18 +133,38 @@ if (!window.__vidPctTimer){
     }catch(e){}
   }, 1500);
 }
-// 라이브 화면에서 샷 영상 즉시 재생 (오버레이)
+// 라이브 화면에서 샷 영상 즉시 재생 (오버레이) — 측면(DL)·정면(FO) 있으면 전환 탭 제공
 function openShotVideo(shotId){
   var s = (S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
-  var d = s.data||{}; var key = d.videoMp4R2Key || s.videoR2Key;
-  if(!key || typeof r2==='undefined' || !r2.enabled) return;
-  var url = r2.url(key);
+  var d = s.data||{};
+  var dl = d.videoDL || d.videoMp4R2Key || s.videoR2Key;   // 측면(주)
+  var fo = d.videoFO || null;                              // 정면
+  if((!dl && !fo) || typeof r2==='undefined' || !r2.enabled) return;
+  var views = [];
+  if(dl) views.push({label:'측면', key:dl});
+  if(fo) views.push({label:'정면', key:fo});
+  var cur = 0;
   var div = document.createElement('div'); div.className='media-overlay';
   div.onclick = function(e){ if(e.target===div) div.remove(); };
+  var tabsHtml = views.length>1
+    ? '<div class="vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===0?' on':'')+'" data-vi="'+i+'">'+v.label+'</button>';}).join('')+'</div>'
+    : '';
   div.innerHTML = '<div style="width:min(94vw,560px)">'
-    + '<video src="'+url+'" controls autoplay playsinline style="width:100%;max-height:78vh;border-radius:12px;background:#000"></video>'
+    + tabsHtml
+    + '<video src="'+r2.url(views[0].key)+'" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
     + '<div style="text-align:center;margin-top:10px"><button onclick="this.closest(\'.media-overlay\').remove()" style="padding:9px 22px;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;font-weight:700">닫기</button></div></div>';
   document.body.appendChild(div);
+  var vid = div.querySelector('video');
+  Array.prototype.forEach.call(div.querySelectorAll('.vv-tab'), function(b){
+    b.onclick = function(){
+      var i = parseInt(b.getAttribute('data-vi'),10)||0; if(i===cur) return; cur=i;
+      Array.prototype.forEach.call(div.querySelectorAll('.vv-tab'), function(x){ x.classList.remove('on'); }); b.classList.add('on');
+      var t = vid.currentTime||0;
+      vid.src = r2.url(views[i].key); vid.load();
+      vid.addEventListener('loadedmetadata', function once(){ try{ vid.currentTime=t; }catch(e){} vid.removeEventListener('loadedmetadata', once); });
+      vid.play().catch(function(){});
+    };
+  });
 }
 
 // 베이카드 '방금 친 샷' HTML 생성 (renderBayCard 와 _patchLivePartials 공용)
@@ -318,7 +338,7 @@ async function _livePollTick(){
     // 영상 상태 변화 감지 — 데이터 먼저 오고 영상이 나중에 붙는 구조라, 영상 키/업로드중
     // 플래그가 바뀌면 재렌더해야 "업로드중 → 🎬 보기" 전환이 화면에 반영된다.
     var vidSig = (live.shotEvents||[]).slice(-80).map(function(s){
-      var d=s.data||{}; return s.id+(d.videoMp4R2Key?'v':(s.videoR2Key?'k':(d._videoPending?'p':'-')));
+      var d=s.data||{}; return s.id+((d.videoMp4R2Key||d.videoDL)?'v':(d.videoFO?'f':(s.videoR2Key?'k':(d._videoPending?'p':'-'))));
     }).join('');
     var vidChanged = (window._liveLastVidSig!==undefined) && (window._liveLastVidSig!==vidSig);
     window._liveLastVidSig = vidSig;
