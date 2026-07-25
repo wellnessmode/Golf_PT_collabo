@@ -201,7 +201,7 @@ function renderHandoverModal(){
 const LESSON_TAGS = ['드라이버','우드','아이언','웨지','퍼팅','숏게임','벙커','어프로치','그립','셋업','백스윙','다운스윙','임팩트','피니시','템포','멘탈'];
 function openQuickNote(){
   S.showQuickNote=true;
-  S.quickNote={date:today(),memo:'',tags:[],author:S.currentUser||''};
+  S.quickNote={date:today(),time:nowHalfHour(),memo:'',tags:[],author:S.currentUser||''};
   render();
 }
 function closeQuickNote(){S.showQuickNote=false;render();}
@@ -216,7 +216,7 @@ function saveQuickNote(){
   if(!S.sessions[mid]) S.sessions[mid]=[];
   var tagStr=S.quickNote.tags.length>0?' #'+S.quickNote.tags.join(' #'):'';
   var s={
-    id:suid(), date:S.quickNote.date, author:S.quickNote.author,
+    id:suid(), date:S.quickNote.date, time:S.quickNote.time||undefined, author:S.quickNote.author,
     content:S.quickNote.memo.trim()+tagStr,
     _addedAt:new Date().toISOString(), _quickNote:true
   };
@@ -231,9 +231,15 @@ function renderQuickNoteModal(){
   return `<div class="modal-overlay" onclick="if(event.target===this)closeQuickNote()">
     <div class="modal" style="width:440px">
       <div class="modal-title">레슨 노트 — ${m?m.name+' 회원님':''}</div>
-      <div class="form-group">
-        <label class="form-label">날짜</label>
-        <input type="date" class="form-input" value="${S.quickNote.date}" onchange="S.quickNote.date=this.value">
+      <div class="member-info-row">
+        <div class="form-group">
+          <label class="form-label">날짜</label>
+          <input type="date" class="form-input" value="${S.quickNote.date}" onchange="S.quickNote.date=this.value">
+        </div>
+        <div class="form-group">
+          <label class="form-label">레슨 시간</label>
+          <select class="form-input" onchange="S.quickNote.time=this.value">${sessionTimeOptions(S.quickNote.time)}</select>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">메모</label>
@@ -662,7 +668,7 @@ function renderTranscriptVault(){
       if(s.rawTranscript && s.rawTranscript.trim()) rows.push({member:m.name, s:s});
     });
   });
-  rows.sort(function(a,b){return String(b.s.date||'').localeCompare(String(a.s.date||''));});
+  rows.sort(function(a,b){return sessionCompare(a.s,b.s);});
   var authors={}; rows.forEach(function(r){authors[r.s.author||'?']=(authors[r.s.author||'?']||0)+1;});
   var filt=S.vaultAuthorFilter||'all';
   var shown=filt==='all'?rows:rows.filter(function(r){return (r.s.author||'?')===filt;});
@@ -869,16 +875,91 @@ function sessionTimeOptions(sel){
   for(var h=6;h<=23;h++){ for(var mi=0;mi<60;mi+=30){ var v=(h<10?'0'+h:h)+':'+(mi===0?'00':'30'); out+='<option value="'+v+'"'+(sel===v?' selected':'')+'>'+timeLabel(v)+'</option>'; } }
   return out;
 }
-// 세션 정렬 — 날짜 최신순(내림차순). 같은 날은 레슨 시간 오름차순(먼저 한 레슨이 위).
-// 시간 없는 세션은 시간 있는 세션보다 뒤로, 둘 다 없으면 기존 순서 유지(안정 정렬).
+// ═══════════════════════════════════════════════════════════════
+// 세션 정렬 — 앱 전체의 단 하나뿐인 기준. 목록/리포트/보관함 모두 이걸 쓴다.
+// 규칙: "언제나 최신이 맨 위".
+//   ① 날짜 내림차순            (07-16 → 07-15)
+//   ② 같은 날은 시간 내림차순  (오후 3:30 → 오전 10:00)
+//   ③ 시간 미지정은 그 날의 맨 아래
+//   ④ 그래도 같으면 기록을 만든 순서 내림차순 (나중에 쓴 일지가 위)
+// ⚠️ 이 규칙을 고치면 아래 selfTestSessionOrder() 도 같이 고칠 것.
+//    ?selftest=1 로 앱을 열면 콘솔에서 정렬이 자동 검증된다.
+// ═══════════════════════════════════════════════════════════════
 function sessionCompare(a,b){
   var dc=String(b.date||'').localeCompare(String(a.date||''));
   if(dc!==0) return dc;
   var ta=a.time||'', tb=b.time||'';
-  if(ta&&tb) return ta.localeCompare(tb);
-  if(ta) return -1; if(tb) return 1;
-  return 0;
+  if(ta&&tb&&ta!==tb) return tb.localeCompare(ta);   // ② 늦게 한 레슨이 위
+  if(ta&&!tb) return -1;                             // ③ 시간 있는 기록이 위
+  if(!ta&&tb) return 1;
+  return sessionCreatedAt(b)-sessionCreatedAt(a);    // ④ 나중에 만든 기록이 위
 }
+// 차트·추이용 — 오래된 것부터. sessionCompare 의 정확한 역순이라 규칙이 어긋날 일이 없다.
+function sessionCompareAsc(a,b){ return -sessionCompare(a,b); }
+// 기록이 만들어진 시각(ms). _addedAt(ISO) 우선, 없으면 id('s'+Date.now()+랜덤)에서 추출.
+// 클라우드에서 받아온 옛 기록엔 _addedAt 이 없어도 id 로 순서가 잡힌다.
+function sessionCreatedAt(s){
+  if(!s) return 0;
+  if(s._addedAt){ var t=Date.parse(s._addedAt); if(!isNaN(t)) return t; }
+  var m=/^s(\d{10,})/.exec(String(s.id||''));
+  return m?parseInt(m[1],10):0;
+}
+
+// 정렬 자기검증 — 규칙이 다시 뒤집히는 사고를 막는 안전장치.
+// 앱 주소 뒤에 ?selftest=1 을 붙여 열면 실행되고, 실패하면 콘솔에 에러 + 화면 상단 배너.
+function selfTestSessionOrder(){
+  var CASES=[
+    { name:'같은 날 — 늦은 시간이 위 (현장 신고 케이스)',
+      input:[{id:'s1',date:'2026-07-15',time:'10:00'},{id:'s2',date:'2026-07-15',time:'15:30'}],
+      want:['s2','s1'] },
+    { name:'날짜 우선 — 최신 날짜가 위',
+      input:[{id:'s1',date:'2026-07-14',time:'23:00'},{id:'s2',date:'2026-07-15',time:'06:00'}],
+      want:['s2','s1'] },
+    { name:'시간 미지정은 그 날의 맨 아래',
+      input:[{id:'s1',date:'2026-07-15'},{id:'s2',date:'2026-07-15',time:'09:00'}],
+      want:['s2','s1'] },
+    { name:'날짜·시간 같으면 나중에 쓴 일지가 위',
+      input:[{id:'sA',date:'2026-07-15',time:'10:00',_addedAt:'2026-07-15T01:00:00.000Z'},
+             {id:'sB',date:'2026-07-15',time:'10:00',_addedAt:'2026-07-15T02:00:00.000Z'}],
+      want:['sB','sA'] },
+    { name:'_addedAt 없어도 id 로 생성순 판별',
+      input:[{id:'s1752300000000abc',date:'2026-07-15',time:'10:00'},
+             {id:'s1752400000000xyz',date:'2026-07-15',time:'10:00'}],
+      want:['s1752400000000xyz','s1752300000000abc'] },
+    { name:'하루 3건 뒤죽박죽 입력 → 최신순 정렬',
+      input:[{id:'s1',date:'2026-07-15',time:'10:00'},{id:'s2',date:'2026-07-16',time:'08:00'},
+             {id:'s3',date:'2026-07-15',time:'15:30'},{id:'s4',date:'2026-07-15'}],
+      want:['s2','s3','s1','s4'] },
+    { name:'차트용 오름차순은 최신순의 정확한 역순',
+      input:[{id:'s1',date:'2026-07-15',time:'10:00'},{id:'s2',date:'2026-07-15',time:'15:30'},
+             {id:'s3',date:'2026-07-16',time:'08:00'}],
+      want:['s1','s2','s3'], asc:true },
+  ];
+  var fails=[];
+  CASES.forEach(function(c){
+    var got=c.input.slice().sort(c.asc?sessionCompareAsc:sessionCompare).map(function(s){return s.id;});
+    if(got.join(',')!==c.want.join(',')) fails.push(c.name+' → 기대 ['+c.want+'] 실제 ['+got+']');
+  });
+  if(fails.length){
+    console.error('❌ 세션 정렬 자기검증 실패 ('+fails.length+'/'+CASES.length+')');
+    fails.forEach(function(f){console.error('   · '+f);});
+    try{
+      var d=document.createElement('div');
+      d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font:600 13px/1.5 system-ui;padding:10px 14px;white-space:pre-wrap';
+      d.textContent='❌ 세션 정렬 자기검증 실패 '+fails.length+'건 — 콘솔 확인\n'+fails.join('\n');
+      document.body.appendChild(d);
+    }catch(e){}
+  }else{
+    console.log('✅ 세션 정렬 자기검증 통과 ('+CASES.length+'/'+CASES.length+') — 최신 기록이 항상 맨 위');
+  }
+  return fails;
+}
+try{
+  if(typeof location!=='undefined' && /[?&]selftest=1/.test(location.search)){
+    if(typeof document!=='undefined' && document.readyState==='loading') document.addEventListener('DOMContentLoaded',selfTestSessionOrder);
+    else setTimeout(selfTestSessionOrder,0);
+  }
+}catch(e){}
 
 function updateAssess(key, field, val){
   const mid = S.selectedMember;

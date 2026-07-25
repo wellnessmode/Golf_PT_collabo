@@ -231,7 +231,7 @@ var DEMO_PERF = {
 function buildPerfData(memberId){
   var m=S.members.find(function(x){return x.id===memberId;});
   if(!m) return null;
-  var sess=(S.sessions[memberId]||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  var sess=(S.sessions[memberId]||[]).slice().sort(sessionCompareAsc); // 추이 차트는 오래된 것부터
   var golf=[], pt=[];
   sess.forEach(function(s){
     var md=(s.date||'').slice(5); // MM-DD
@@ -437,7 +437,7 @@ function renderPerformance(){
   if(!data) return '';
   // 측정 샷/지표뿐 아니라 세션 기록·체형평가·스윙 영상도 리포트 콘텐츠로 인정.
   // (트랙맨을 안 쓰는 골프 레슨/PT 회원도 리포트가 뜨도록 — 로버트처럼 텍스트 세션만 있는 경우)
-  var _sess = (S.sessions[data.member.id]||[]);
+  var _sess = (S.sessions[data.member.id]||[]).slice().sort(sessionCompare); // 최신 레슨부터
   var _sessVids = [];
   _sess.forEach(function(s){ (s.media||[]).forEach(function(mm){ var mt=String(mm.mimeType||inferMime(mm.name||'')||''); if(mt.indexOf('video')!==-1 && (mm.r2Key||mm.mediaId)) _sessVids.push({s:s, m:mm}); }); });
   var hasData = (data.golf&&data.golf.length) || (data.pt&&data.pt.length) || (data.shots&&data.shots.length) || _sess.length>0 || (data.assess&&data.assess.length);
@@ -712,20 +712,20 @@ function renderPerformance(){
 
   // ===== 레슨 기록 · 스윙 영상 (세션 데이터 기반 — 측정 샷 없어도 리포트가 채워짐) =====
   if(_sess.length){
-    var _recent=_sess.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+    var _recent=_sess; // 이미 최신순 정렬됨
     html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>레슨 기록'+(_sessVids.length?' · 스윙 영상':'')+'</div><div class="pv-sec-x">최근 '+Math.min(_recent.length,6)+' / 총 '+_sess.length+'회</div></div>';
     if(_sessVids.length){
       html+='<div class="pv-sess-vids">'+_sessVids.slice(0,6).map(function(v){
         var mm=v.m; var src=(mm.mediaId&&S.mediaUrls[mm.mediaId])?S.mediaUrls[mm.mediaId]:((typeof r2!=='undefined'&&r2.enabled&&(mm.r2Key||mm.mediaId))?r2.url(mm.r2Key||mm.mediaId):'');
         if(!src) return '';
         var label=(mm.view==='front'?'정면':mm.view==='side'?'측면':'스윙');
-        return '<div class="pv-sess-vid"><video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video><div class="pv-sess-vlabel">'+esc(v.s.date)+' · '+label+'</div></div>';
+        return '<div class="pv-sess-vid"><video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video><div class="pv-sess-vlabel">'+esc(v.s.date)+(v.s.time?' '+esc(timeLabel(v.s.time)):'')+' · '+label+'</div></div>';
       }).join('')+'</div>';
     }
     html+='<div class="pv-lessons">'+_recent.slice(0,6).map(function(s){
       var r=getRole(s.author); var tag=r==='pro'?'GOLF PRO':(r==='trainer'?'GOLF PT':'관리자');
       var txt=String(s.content||'').replace(/\s+/g,' ').trim();
-      return '<div class="pv-lesson-row"><span class="pv-lesson-date">'+esc(s.date)+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span><span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span></div>';
+      return '<div class="pv-lesson-row"><span class="pv-lesson-date">'+esc(s.date)+(s.time?' '+esc(timeLabel(s.time)):'')+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span><span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span></div>';
     }).join('')+'</div>';
     if(!(data.shots&&data.shots.length)){
       html+='<div class="pv-shotcount">🎯 트랙맨 라이브 수업에서 샷을 저장하면 비거리·구질·성장 그래프가 이 리포트에 자동으로 더해집니다.</div>';
