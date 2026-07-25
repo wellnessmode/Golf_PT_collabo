@@ -146,7 +146,7 @@ function renderDashboard(){
       if(getRole(s.author)==='pro') proSessions++;
       else trainerSessions++;
       if(s.date.slice(0,7)===thisMonth) thisMonthSessions++;
-      recentActivity.push({member:m.name, date:s.date, author:s.author, content:s.content});
+      recentActivity.push({member:m.name, date:s.date, time:s.time||'', author:s.author, content:s.content, id:s.id, _addedAt:s._addedAt});
     });
     // 레슨/PT 각각 만료 임박 체크
     ['golfLessonExpiry','golfPTExpiry','expiry'].forEach(function(key){
@@ -161,7 +161,7 @@ function renderDashboard(){
       }
     });
   });
-  recentActivity.sort(function(a,b){return b.date.localeCompare(a.date);});
+  recentActivity.sort(sessionCompare); // 날짜+시간 기준 최신순 (앱 공통 정렬 규칙)
   recentActivity = recentActivity.slice(0,15);
   expiringMembers.sort(function(a,b){return a.days-b.days;});
   // 지도자별 세션 수
@@ -231,7 +231,7 @@ function renderDashboard(){
       <h3>최근 활동 (최근 15건)</h3>
       <div class="dash-recent">
         ${recentActivity.map(function(a){
-          return '<div class="dash-recent-item"><span class="dr-date">'+a.date+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+a.content.slice(0,50)+(a.content.length>50?'…':'')+'</span></div>';
+          return '<div class="dash-recent-item"><span class="dr-date">'+a.date+(a.time?'<em class="dr-time">'+timeLabel(a.time)+'</em>':'')+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+a.content.slice(0,50)+(a.content.length>50?'…':'')+'</span></div>';
         }).join('')||'<div class="empty-state" style="padding:20px">최근 활동이 없습니다</div>'}
       </div>
     </div>
