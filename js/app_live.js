@@ -124,6 +124,35 @@ function _vidChip(s){
   }
   return '';
 }
+// ===== 클럽 딜리버리 패스 오버레이 (TPS 스타일) =====
+// 위에서 본 임팩트 화면 위에 측정 데이터를 그린다:
+//   점선 타깃라인 + 파란 타깃 밴드 + 클럽 패스 곡선(측정 clubPath° 만큼 기울임,
+//   시인성 위해 각도 2배 과장 — 수치 라벨은 실측값) + 페이스 각 라인.
+function _clubPathOverlayHTML(d){
+  if(!d || (d.clubPath==null && d.faceAngle==null)) return '';
+  var cp=parseFloat(d.clubPath); if(isNaN(cp)) cp=0;
+  var fa=parseFloat(d.faceAngle); if(isNaN(fa)) fa=0;
+  var dirTxt = cp>0.3?'인투아웃':(cp<-0.3?'아웃투인':'스트레이트');
+  return '<div class="club-overlay" aria-hidden="true">'
+    +'<svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet">'
+    +'<defs><linearGradient id="cpTrail" x1="0" y1="1" x2="0" y2="0">'
+      +'<stop offset="0%" stop-color="rgba(255,255,255,0)"/>'
+      +'<stop offset="55%" stop-color="rgba(255,255,255,.7)"/>'
+      +'<stop offset="100%" stop-color="rgba(0,210,154,.95)"/></linearGradient></defs>'
+    +'<line x1="50" y1="8" x2="50" y2="132" stroke="rgba(255,255,255,.48)" stroke-width="1.1" stroke-dasharray="2.6 3.6"/>'
+    +'<rect x="46.6" y="3" width="6.8" height="19" rx="3.2" fill="rgba(63,123,255,.85)"/>'
+    +'<g transform="rotate('+(-cp*2).toFixed(1)+' 50 84)">'
+      +'<path d="M 61,130 Q 47,98 50,56" fill="none" stroke="url(#cpTrail)" stroke-width="2.6" stroke-linecap="round"/>'
+      +'<path d="M 50,56 l -3.4,6.4 M 50,56 l 3.8,5.8" stroke="rgba(0,210,154,.95)" stroke-width="2.2" stroke-linecap="round" fill="none"/>'
+    +'</g>'
+    +'<g transform="rotate('+(-fa).toFixed(1)+' 50 84)"><line x1="39" y1="84" x2="61" y2="84" stroke="rgba(246,193,119,.95)" stroke-width="2"/></g>'
+    +'</svg>'
+    +'<div class="club-ov-lab">'
+      +'<span class="col-path">PATH '+(cp>0?'+':'')+cp.toFixed(1)+'° '+dirTxt+'</span>'
+      +'<span class="col-face">FACE '+(fa>0?'+':'')+fa.toFixed(1)+'°</span>'
+    +'</div>'
+  +'</div>';
+}
 // 영상 재생 실패 정밀 진단 — "만료·정리" 뭉뚱그림 대신 실제 사유를 확인해 표시.
 // 404 = 서버에 파일 없음(업로드 실패/삭제), 200 = 파일은 있는데 이 기기가 재생 못 하는 형식.
 async function _vidDiag(videoEl, key){
@@ -203,25 +232,34 @@ function openShotVideo(shotId){
     : '';
   div.innerHTML = '<div style="width:min(94vw,560px)">'
     + tabsHtml
-    + '<video src="'+r2.url(views[0].key)+'" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+    + '<div class="vid-wrap">'
+      + '<video src="'+r2.url(views[0].key)+'" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+      + _clubPathOverlayHTML(d)
+    + '</div>'
     + '<div class="vv-speeds"><span>배속</span>'
       + [0.125,0.25,0.5,1].map(function(sp){ return '<button class="vv-sp" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>'; }).join('')
     + '</div>'
     + '<div style="text-align:center;margin-top:10px"><button onclick="this.closest(\'.media-overlay\').remove()" style="padding:9px 22px;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;font-weight:700">닫기</button></div></div>';
   document.body.appendChild(div);
   var vid = div.querySelector('video');
+  var wrap = div.querySelector('.vid-wrap');
   var rate = 1;
   function markRate(){
     Array.prototype.forEach.call(div.querySelectorAll('.vv-sp'), function(x){ x.classList.toggle('on', parseFloat(x.getAttribute('data-sp'))===rate); });
   }
-  // 앵글별 기본 설정 — 클럽 딜리버리: 좌우 반전(스윙 방향 보정) + 크게 + 기본 0.5× 슬로우
+  // 앵글별 기본 설정 — 클럽 딜리버리: 180° 회전(샤프트 아래) + 기본 0.5× 슬로우 +
+  // 기본 컨트롤 OFF(회전 시 컨트롤까지 뒤집히는 문제) → 탭 재생/정지 + 자동 반복 + 패스 오버레이
   function applyView(){
     var isClub = views[cur].label==='클럽';
     vid.classList.toggle('vid-flip', isClub);
+    wrap.classList.toggle('club-on', isClub);
+    vid.controls = !isClub;
+    vid.loop = isClub;
     rate = isClub ? 0.5 : 1;
     try{ vid.playbackRate = rate; }catch(e){}
     markRate();
   }
+  vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } } });
   vid.addEventListener('loadedmetadata', function(){ try{ vid.playbackRate = rate; }catch(e){} });   // 일부 브라우저는 src 교체 시 배속 리셋
   vid.addEventListener('error', function(){ try{ _vidDiag(vid, views[cur].key); }catch(e){} });
   applyView();
