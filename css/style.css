@@ -1707,8 +1707,33 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .psb-main{font-size:24px;font-weight:900;color:#0d1117;letter-spacing:-.02em;line-height:1}
 .psb-main small{font-size:11px;font-weight:700;color:#7a8089;margin-left:3px;letter-spacing:0}
 .psb{font-size:11.5px;font-weight:700;color:#525960;background:#f2f5f7;border-radius:6px;padding:3px 7px}
-.psc-actions{display:flex;gap:6px;flex-wrap:wrap}
+.psc-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .psc-actions .ps-tag{padding:11px 12px;border-radius:10px;font-size:12.5px}
+.psc-actions .ps-tag.big{flex:1;padding:13px 10px;font-size:13.5px;border-width:1.5px}
+.ps-tag.before.big{background:linear-gradient(135deg,#fff7ee,#fdeeda);border-color:#e8b06a;color:#a34e07}
+.ps-tag.after.big{background:linear-gradient(135deg,#00b884,#009e72);border-color:transparent;color:#fff;box-shadow:0 2px 10px rgba(0,184,132,.28)}
+.ps-tag:disabled,.psc-actions button:disabled{opacity:.32;pointer-events:none;box-shadow:none}
+.ps-cancel{flex-shrink:0;padding:11px 16px;border-radius:10px;border:1.5px solid #d9534f;background:#fff;color:#c9302c;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
+.ps-saved-badge{flex-basis:100%;font-size:13px;font-weight:800;padding:9px 12px;border-radius:9px;text-align:center;animation:savedPop .45s cubic-bezier(.2,1.6,.4,1) both}
+.ps-saved-badge.before{background:#fdeeda;color:#a34e07;border:1px solid #e8b06a}
+.ps-saved-badge.after{background:#d9f3e5;color:#047a55;border:1px solid #7fd4ae}
+.ps-saved-badge.plain{background:#eef2f6;color:#3f454e}
+.ps-card.saved-before{border-color:#e8b06a;box-shadow:0 0 0 2px rgba(232,176,106,.35);background:linear-gradient(180deg,#fffdf9,#fff)}
+.ps-card.saved-after{border-color:#00b884;box-shadow:0 0 0 2px rgba(0,184,132,.3);background:linear-gradient(180deg,#f7fffc,#fff)}
+@keyframes savedPop{0%{transform:scale(.85);opacity:0}55%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+/* ── 전역 버튼 프리미엄 인터랙션 — 부드러운 눌림 + 광 스침 ── */
+.btn,.ps-tag,.ps-drop,.ps-cancel,.ps-save,.pv-dl-btn,.pv-cmp-btn,.cmp-btn,.cmp-sp,.cmp-close,.vv-tab,.small-btn,.pv-chip,.pv-cta,.hero-role,.rec-start-btn,.rec-stop{
+  transition:transform .16s cubic-bezier(.2,.9,.3,1.4), box-shadow .2s ease, filter .2s ease;
+  -webkit-tap-highlight-color:transparent}
+.btn:active,.ps-tag:active,.ps-drop:active,.ps-cancel:active,.ps-save:active,.pv-dl-btn:active,.pv-cmp-btn:active,.cmp-btn:active,.cmp-sp:active,.cmp-close:active,.vv-tab:active,.small-btn:active,.pv-chip:active,.pv-cta:active,.rec-start-btn:active,.rec-stop:active{
+  transform:scale(.94);filter:brightness(1.07)}
+.btn.primary:active,.ps-tag.after.big:active,.pv-cmp-btn:active{box-shadow:0 0 0 5px rgba(0,184,132,.16)}
+.ps-tag.before.big:active{box-shadow:0 0 0 5px rgba(232,176,106,.22)}
+@media (prefers-reduced-motion:reduce){.btn,.ps-tag,.ps-drop,.ps-cancel,.ps-saved-badge{transition:none;animation:none}}
+/* 비교 재생기 — 앵글 탭 · 안내 문구 */
+.cmp-angles{margin:0;justify-content:center}
+.cmp-angles .vv-tab[disabled]{opacity:.3;cursor:not-allowed}
+.pv-cmp-note{margin:10px 0 0;padding:11px 12px;border-radius:10px;background:#f4f6f8;color:#5a6470;font-size:12px;font-weight:600;text-align:center;line-height:1.5}
 .ps-save.big{flex:1;padding:11px 14px;font-size:14px;font-weight:800;border-radius:10px;background:#00b884;color:#fff;border:none;cursor:pointer}
 .ps-save.big:hover{background:#00a374}
 .psc-actions .ps-drop{padding:11px 16px;font-size:13px;font-weight:700;border-radius:10px;background:#fff;color:#888;border:1.5px solid #e1e4e8;cursor:pointer}
