@@ -175,7 +175,8 @@ function openShotVideo(shotId){
   var cl = d.videoClub || null;                            // 클럽 딜리버리(임팩트)
   if((!dl && !fo && !cl) || typeof r2==='undefined' || !r2.enabled) return;
   var views = [];
-  if(dl) views.push({label:'측면', key:dl});
+  // 대표 영상이 클럽/정면과 같은 파일이면 "측면" 탭으로 중복 표시하지 않음 (정직한 라벨)
+  if(dl && dl!==cl && dl!==fo) views.push({label:'측면', key:dl});
   if(fo) views.push({label:'정면', key:fo});
   if(cl) views.push({label:'클럽', key:cl});
   var cur = 0;

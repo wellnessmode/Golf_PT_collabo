@@ -321,9 +321,9 @@ function _render(){
       <div class="topbar-actions">
         <button class="btn perf-open-btn" onclick="openPerformance()" title="성과 대시보드 + AI 리포트">📊 성과·리포트</button>
         ${(S.handovers[mid]&&S.handovers[mid].length>0)?'<button class="btn ho-btn" onclick="openHandover(\''+mid+'\')" title="인수인계 기록">인수인계 <span class="ho-count">'+S.handovers[mid].length+'</span></button>':''}
-        ${S.currentRole==='pro'?'<button class="btn primary live-mini" onclick="openLiveForMember(\''+mid+'\')" title="타석에서 트랙맨 샷을 자동 저장하며 실시간 레슨">🏌️ 타석 레슨</button>':''}
+        ${(S.currentRole==='pro'||S.currentRole==='trainer')?'<button class="btn primary live-mini" onclick="openLiveForMember(\''+mid+'\')" title="타석에서 트랙맨 샷을 자동 저장하며 실시간 레슨">🏌️ 타석 레슨</button>':''}
         ${S.currentRole==='pro'?'<button class="btn journal-btn" onclick="openAddSession()" title="샷 저장 없이 일지만 작성">✏️ 일지만 기록</button>':''}
-        ${S.currentRole==='trainer'?'<button class="btn primary journal-btn" onclick="openAddSession()" title="PT 레슨일지 작성">📝 레슨일지 작성</button>':''}
+        ${S.currentRole==='trainer'?'<button class="btn journal-btn" onclick="openAddSession()" title="PT 레슨일지 작성">📝 피티레슨일지</button>':''}
         ${S.deleteRequests[mid]&&!isInfo?'<button class="btn danger" onclick="approveDelete(\''+mid+'\')">'+'삭제 승인</button><button class="btn" onclick="rejectDelete(\''+mid+'\')">'+'거절</button>':''}
       </div>
     </div>

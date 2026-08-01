@@ -319,7 +319,9 @@ function videosDirs(){
 // 샷(측정시각 evMs)에 해당하는 스윙 영상들을 Videos\<날짜>\ 에서 시각 기준으로 찾는다.
 // 각 카테고리(DL=측면·다운더라인, FO=정면, Club, Ball)별로 시각 가장 가까운 것을 하나씩.
 // 영상은 샷 직후 저장되므로 [evMs-8초, evMs+90초] 창에서 고른다.
-function findShotVideos(evMs){
+// 한 영상 파일이 두 샷에 중복 배정되는 것을 방지 — fp → shotId (업로드 성공 시 기록)
+var _videoAssigned = {};
+function findShotVideos(evMs, shotId){
   var out = { dl:null, fo:null, club:null, ball:null };
   if (!evMs || isNaN(evMs)) return out;
   function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
@@ -340,8 +342,12 @@ function findShotVideos(evMs){
         if (!/\.(mkv|mov|mp4)$/i.test(e.name)) continue;
         var c = cat(e.name); if (!c) continue;
         var fp = require('path').join(dir, e.name);
+        // 이미 다른 샷에 배정된 영상은 제외 — "두 샷이 같은 영상" 사고 방지
+        if (_videoAssigned[fp] && _videoAssigned[fp] !== shotId) continue;
         var mt; try { mt = fs.statSync(fp).mtimeMs; } catch(err){ continue; }
-        var dt = mt - evMs; if (dt < -8000 || dt > 90000) continue;   // 창 밖
+        // 아이폰(DL/FO) 영상은 저장 완료가 늦을 수 있어 창을 더 넓게 잡는다
+        var maxDt = (c==='dl'||c==='fo') ? 150000 : 90000;
+        var dt = mt - evMs; if (dt < -8000 || dt > maxDt) continue;   // 창 밖
         var absdt = Math.abs(dt);
         if (!out[c] || absdt < out[c].absdt) out[c] = { fp: fp, name: e.name, absdt: absdt };
       }
@@ -534,10 +540,14 @@ async function processVideoJob(job){
   // ── 단독 stmf(고장 상태): 파일 안에 영상이 없다 → Videos 폴더에서 시각 매칭해 붙인다 ──
   // 측면(DL)·정면(FO) 둘 다 각각 올린다. 앱은 [측면]/[정면] 전환으로 재생.
   if (job.videosFolder){
-    var vids = findShotVideos(job.evMs);
-    var dlSrc = vids.dl || vids.club || vids.ball;   // 측면 후보(없으면 카메라 영상)
-    var foSrc = vids.fo;                             // 정면
-    if (!dlSrc && !foSrc){
+    var vids = findShotVideos(job.evMs, job.shotId);
+    // 정직한 앵글 매핑 — 아이폰 DL만 "측면", 클럽 카메라는 항상 "클럽" 탭으로.
+    // (예전엔 DL 없으면 클럽 영상이 측면 자리를 차지해 클럽 탭이 영영 안 생겼음)
+    var dlSrc  = vids.dl;                            // 측면 = DL 아이폰만
+    var foSrc  = vids.fo;                            // 정면 = FO 아이폰
+    var clubSrc= vids.club;                          // 클럽 딜리버리(임팩트) = 항상 별도
+    var ballSrc= (!dlSrc && !clubSrc) ? vids.ball : null;  // 최후 폴백(주 영상 확보용)
+    if (!dlSrc && !foSrc && !clubSrc && !ballSrc){
       // 영상은 샷 직후 몇 초~수십 초 뒤 저장될 수 있음 → 잠시 재시도 후 포기.
       job._tries = (job._tries||0)+1;
       if (job._tries < 16){ _videoQueue.push(job); return; }
@@ -566,14 +576,19 @@ async function processVideoJob(job){
       }catch(e){ log('  원본 영상 업로드 스킵(' + src.name + '): ' + e.message); }
       return null;
     }
-    // 클럽 딜리버리(임팩트 클로즈업) — 측면으로 이미 쓰인 경우가 아니면 별도 앵글로 업로드
-    var clubSrc = (vids.club && vids.club !== dlSrc) ? vids.club : null;
-    var dlKey   = await up(dlSrc, '_scene');   // 측면(주 영상) — 기존 videoMp4R2Key 로 저장(하위호환)
-    var foKey   = await up(foSrc, '_fo');      // 정면
+    var dlKey   = await up(dlSrc, '_scene');   // 측면(DL 아이폰)
+    var foKey   = await up(foSrc, '_fo');      // 정면(FO 아이폰)
     var clubKey = await up(clubSrc, '_club');  // 클럽 딜리버리
+    var ballKey = await up(ballSrc, '_scene'); // 최후 폴백(측면·클럽 다 없을 때만)
+    // 주(대표) 영상 — 칩·리포트 대표 재생용. DL > 클럽 > 볼 순.
+    var mainKey = dlKey || clubKey || ballKey;
     try{
-      var okv = await attachShotVideo(job.shotId, null, dlKey, null, { videoFO: foKey, videoDL: dlKey, videoClub: clubKey });
-      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음') + ' 클럽:' + (clubKey||'없음'));
+      var okv = await attachShotVideo(job.shotId, null, mainKey, null, { videoFO: foKey, videoDL: dlKey, videoClub: clubKey });
+      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음') + ' 클럽:' + (clubKey||'없음') + (ballKey?' (대표=볼카메라)':''));
+      // 업로드 성공한 원본 파일을 이 샷에 배정 기록 — 다른 샷이 같은 영상을 못 가져가게
+      [[dlSrc,dlKey],[foSrc,foKey],[clubSrc,clubKey],[ballSrc,ballKey]].forEach(function(p){
+        if (p[0] && p[1]) _videoAssigned[p[0].fp] = job.shotId;
+      });
     }catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
     if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
     return;
