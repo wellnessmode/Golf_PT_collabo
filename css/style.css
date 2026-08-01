@@ -1491,8 +1491,48 @@ body.role-select .app{background:#0d1117}
 /* 영상 썸네일 표시 */
 .pv-vhasvid{position:absolute;top:7px;right:7px;font-size:13px;z-index:2}
 /* 샷 모달 실제 영상 */
-.pv-vm-vid{position:relative;width:100%;background:#000;border-radius:14px 14px 0 0;overflow:hidden;display:flex;flex-direction:column}
-.pv-vm-video{display:block;width:100%;max-height:56vh;object-fit:contain;background:#000}
+/* aspect-ratio:auto — 위쪽 3/4 고정비 정의가 함께 적용되면 내용(영상+탭)이
+   박스 밖으로 넘쳐 잘리던 문제(다운로드 버튼 잘림)의 원인. 자연 높이로 해제. */
+.pv-vm-vid{position:relative;width:100%;aspect-ratio:auto;background:#000;border-radius:14px 14px 0 0;overflow:hidden;display:flex;flex-direction:column}
+.pv-vm-video{display:block;width:100%;max-height:52vh;object-fit:contain;background:#000}
+.pv-vm-tabs{position:absolute;top:8px;left:0;right:0;z-index:5;margin:0}
+.pv-vm-tabs .vv-tab{padding:5px 14px;font-size:11.5px;background:rgba(0,0,0,.45);backdrop-filter:blur(4px)}
+.pv-dl-btn{display:block;width:100%;padding:11px 14px;margin:0 0 12px;background:#00a878;color:#fff;border:none;border-radius:10px;
+  font-weight:800;font-size:13px;font-family:inherit;cursor:pointer;text-align:center;line-height:1.4}
+.pv-dl-btn small{display:block;font-size:9.5px;font-weight:600;opacity:.82;margin-top:2px}
+.pv-dl-btn:active{transform:scale(.98)}
+.pv-vm-tagb{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 8px;border-radius:999px;vertical-align:2px;margin-left:4px}
+.pv-vm-tagb.b{background:#fde8d8;color:#b45309}
+.pv-vm-tagb.a{background:#d9f3e5;color:#047a55}
+.pv-vbest.tag-before{background:#f0a13a}
+.pv-vbest.tag-after{background:#00a878}
+/* 라이브 샷 카드 — 비포/애프터 저장 버튼 */
+.ps-tag{padding:9px 10px;border-radius:9px;border:1px solid rgba(15,20,28,.14);background:#fff;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0}
+.ps-tag.before{color:#b45309;border-color:#f0c896}
+.ps-tag.after{color:#047a55;border-color:#9adbbe}
+.ps-tag:active{transform:scale(.96)}
+/* 비포·애프터 비교 재생 버튼(리포트) */
+.pv-cmp-btn{display:block;width:100%;margin:10px 0 0;padding:12px;border:none;border-radius:11px;background:#0a0c0f;color:#fff;
+  font-weight:800;font-size:13.5px;font-family:inherit;cursor:pointer}
+.pv-cmp-btn small{display:block;font-size:10px;font-weight:600;opacity:.72;margin-top:2px}
+.pv-cmp-btn:active{transform:scale(.98)}
+/* 비교 재생 오버레이 */
+.cmp-overlay{z-index:10001}
+.cmp-box{width:min(96vw,720px);display:flex;flex-direction:column;gap:10px}
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cmp-col{position:relative;background:#000;border-radius:12px;overflow:hidden}
+.cmp-col video{display:block;width:100%;max-height:56vh;object-fit:contain;background:#000}
+.cmp-tag{position:absolute;top:8px;left:8px;z-index:2;font-size:9.5px;font-weight:800;letter-spacing:.08em;padding:3px 9px;border-radius:999px;color:#fff}
+.cmp-tag.b{background:#f0a13a}
+.cmp-tag.a{background:#00a878}
+.cmp-ctrl{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.cmp-btn{padding:10px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.1);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
+.cmp-btn.play{background:var(--ac,#00a878);border-color:transparent;padding:10px 22px}
+.cmp-speeds{display:flex;gap:5px;align-items:center;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 6px 4px 12px}
+.cmp-speeds>span{font-size:10.5px;color:rgba(255,255,255,.65);font-weight:700}
+.cmp-sp{padding:6px 11px;border-radius:999px;border:none;background:transparent;color:#fff;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}
+.cmp-sp.on{background:var(--ac,#00a878)}
+.cmp-close{align-self:center;padding:9px 26px;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit}
 .pv-vm-mkvnote{position:absolute;left:0;right:36px;bottom:0;background:rgba(0,0,0,.72);color:#fff;font-size:10.5px;padding:7px 10px;line-height:1.5}
 .pv-vm-mkvnote a{color:#7adba0;font-weight:700}
 .pv-vm-novid{aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#888;background:linear-gradient(160deg,#1a2027,#0a0c0f);border-radius:14px 14px 0 0}
@@ -1660,7 +1700,8 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .psb-main{font-size:24px;font-weight:900;color:#0d1117;letter-spacing:-.02em;line-height:1}
 .psb-main small{font-size:11px;font-weight:700;color:#7a8089;margin-left:3px;letter-spacing:0}
 .psb{font-size:11.5px;font-weight:700;color:#525960;background:#f2f5f7;border-radius:6px;padding:3px 7px}
-.psc-actions{display:flex;gap:6px}
+.psc-actions{display:flex;gap:6px;flex-wrap:wrap}
+.psc-actions .ps-tag{padding:11px 12px;border-radius:10px;font-size:12.5px}
 .ps-save.big{flex:1;padding:11px 14px;font-size:14px;font-weight:800;border-radius:10px;background:#00b884;color:#fff;border:none;cursor:pointer}
 .ps-save.big:hover{background:#00a374}
 .psc-actions .ps-drop{padding:11px 16px;font-size:13px;font-weight:700;border-radius:10px;background:#fff;color:#888;border:1.5px solid #e1e4e8;cursor:pointer}
