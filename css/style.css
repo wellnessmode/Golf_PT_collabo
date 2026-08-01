@@ -1734,6 +1734,15 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .cmp-angles{margin:0;justify-content:center}
 .cmp-angles .vv-tab[disabled]{opacity:.3;cursor:not-allowed}
 .pv-cmp-note{margin:10px 0 0;padding:11px 12px;border-radius:10px;background:#f4f6f8;color:#5a6470;font-size:12px;font-weight:600;text-align:center;line-height:1.5}
+/* 클럽 딜리버리 — 좌우 반전(스윙 진행 방향 보정: 우→좌) + 확대 표시 */
+.vid-flip{transform:scaleX(-1)}
+.pv-vm-video.club-big{max-height:68vh}
+/* 샷 재생기 배속 칩 (라이브 오버레이·리포트 모달 공용, 어두운 배경 위) */
+.vv-speeds{display:flex;gap:5px;align-items:center;justify-content:center;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 6px 4px 12px;margin:8px auto 0;width:max-content}
+.vv-speeds>span{font-size:10.5px;color:rgba(255,255,255,.65);font-weight:700}
+.vv-sp{padding:6px 11px;border-radius:999px;border:none;background:transparent;color:#fff;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}
+.vv-sp.on{background:var(--ac,#00a878)}
+.pv-speeds{margin:0 auto 8px}
 .ps-save.big{flex:1;padding:11px 14px;font-size:14px;font-weight:800;border-radius:10px;background:#00b884;color:#fff;border:none;cursor:pointer}
 .ps-save.big:hover{background:#00a374}
 .psc-actions .ps-drop{padding:11px 16px;font-size:13px;font-weight:700;border-radius:10px;background:#fff;color:#888;border:1.5px solid #e1e4e8;cursor:pointer}

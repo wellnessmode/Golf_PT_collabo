@@ -375,13 +375,32 @@ function setPerfClub(c){ S.perfClub=c; render(); }
 function setPerfVidFilter(f){ S.perfVidFilter=f; render(); }
 function openPerfShot(idx){ S.perfShotModal=idx; S.perfShotView=0; render(); }
 function closePerfShot(){ S.perfShotModal=null; S.perfShotView=0; render(); }
-// 샷 모달 안 앵글 전환 (측면/정면/클럽) — 재렌더 없이 비디오 src 만 교체
-function setPerfShotView(i, key){
+// 샷 모달 안 앵글 전환 (측면/정면/클럽) — 재렌더 없이 비디오 src 만 교체.
+// 클럽 딜리버리는 좌우 반전 + 확대 + 기본 0.5× 슬로우.
+function setPerfShotView(i, key, isClub){
   S.perfShotView=i;
   try{
-    var v=document.querySelector('.pv-vm-video'); if(v){ v.dataset.k=key; v.src=r2.url(key); v.load(); v.play().catch(function(){}); }
+    var v=document.querySelector('.pv-vm-video');
+    if(v){
+      v.dataset.k=key; v.dataset.rate=isClub?0.5:1;
+      v.classList.toggle('vid-flip', !!isClub); v.classList.toggle('club-big', !!isClub);
+      v.src=r2.url(key); v.load();
+      try{ v.playbackRate=isClub?0.5:1; }catch(e){}
+      v.play().catch(function(){});
+    }
     var tabs=document.querySelectorAll('.pv-vm-tabs .vv-tab');
     for(var k=0;k<tabs.length;k++){ tabs[k].classList.toggle('on', k===i); }
+    var def=isClub?0.5:1;
+    [].slice.call(document.querySelectorAll('.pv-speeds .vv-sp')).forEach(function(b){ b.classList.toggle('on', parseFloat(b.getAttribute('data-sp'))===def); });
+  }catch(e){}
+}
+// 샷 모달 배속 칩
+function _pvRate(el){
+  try{
+    var sp=parseFloat(el.getAttribute('data-sp'))||1;
+    var v=document.querySelector('.pv-vm-video');
+    if(v){ v.dataset.rate=sp; try{ v.playbackRate=sp; }catch(e){} }
+    [].slice.call(document.querySelectorAll('.pv-speeds .vv-sp')).forEach(function(b){ b.classList.toggle('on', b===el); });
   }catch(e){}
 }
 
@@ -475,6 +494,7 @@ function openCompareBA(){
   document.body.appendChild(div);
   var vids=[].slice.call(div.querySelectorAll('video'));
   vids.forEach(function(v){ try{ v.playbackRate=0.5; }catch(e){} });   // 기본 슬로우(0.5×)
+  if(curAngle==='club') vids.forEach(function(v){ v.classList.add('vid-flip'); });   // 클럽: 스윙 방향 보정
   var playBtn=div.querySelector('[data-act="play"]');
   var seek=div.querySelector('.cmp-seek');
   var curEl=div.querySelector('[data-role="cur"]'), durEl=div.querySelector('[data-role="dur"]');
@@ -520,7 +540,7 @@ function openCompareBA(){
       var ang=b.getAttribute('data-ang');
       var nb=keyOf(C.b,ang), na=keyOf(C.a,ang); if(!nb||!na) return;
       vids[0].src=r2.url(nb); vids[1].src=r2.url(na);
-      vids.forEach(function(v){ v.load(); try{ v.playbackRate=curRate; }catch(e){} });
+      vids.forEach(function(v){ v.load(); try{ v.playbackRate=curRate; }catch(e){} v.classList.toggle('vid-flip', ang==='club'); });
       seek.value=0; curEl.textContent='0.0s'; durEl.textContent='—';
       playBtn.textContent='▶ 동시 재생';
       [].slice.call(div.querySelectorAll('.cmp-ang')).forEach(function(x){ x.classList.remove('on'); });
@@ -967,11 +987,19 @@ function renderPerformance(){
     var fname = 'shot_'+(sm.id||'').slice(0,8)+'.mp4';
     var vidHtml;
     if(vidUrl){
+      var isClubV = views[curV].label==='클럽';
       var tabsHtml = views.length>1
-        ? '<div class="pv-vm-tabs vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===curV?' on':'')+'" onclick="setPerfShotView('+i+',\''+v.key+'\')">'+v.label+'</button>';}).join('')+'</div>'
+        ? '<div class="pv-vm-tabs vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===curV?' on':'')+'" onclick="setPerfShotView('+i+',\''+v.key+'\','+(v.label==='클럽'?1:0)+')">'+v.label+'</button>';}).join('')+'</div>'
         : '';
       // 영상 로드 실패 시 실제 사유(404/형식/네트워크)를 확인해 표시 — _vidDiag
-      vidHtml=tabsHtml+'<video class="pv-vm-video" src="'+vidUrl+'" data-k="'+views[curV].key+'" controls playsinline preload="metadata" onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>';
+      // 클럽 딜리버리: 좌우 반전(스윙 방향 보정) + 확대 + 기본 0.5× 슬로우
+      vidHtml=tabsHtml
+        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'" controls playsinline preload="metadata"'
+        +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
+        +' onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>'
+        +'<div class="vv-speeds pv-speeds">'+'<span>배속</span>'
+          +[0.125,0.25,0.5,1].map(function(sp){ return '<button class="vv-sp'+(sp===(isClubV?0.5:1)?' on':'')+'" onclick="_pvRate(this)" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>'; }).join('')
+        +'</div>';
       if(isMkvOnly){
         vidHtml += '<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. 아래 [영상 저장]으로 내려받아 폰의 동영상 앱으로 보세요.</div>';
       }
