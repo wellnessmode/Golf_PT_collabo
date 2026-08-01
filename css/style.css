@@ -628,7 +628,10 @@ body.role-select .app{background:#0d1117}
 .hero-ver:active{transform:scale(.96)}
 .hero-content{position:relative;z-index:3;margin-top:auto;width:100%;max-width:560px;align-self:center;
   padding:12vh 22px max(26px,calc(env(safe-area-inset-bottom) + 22px))}
-.hero-kicker{font-size:9px;font-weight:800;letter-spacing:.22em;color:#00d29a;margin-bottom:10px;text-transform:uppercase}
+/* 폭이 좁으면(버전 배지가 오른쪽을 먹음) 자간·크기를 줄여 한 줄에 들어가게.
+   그래도 안 맞으면 "POWERED BY …" 통째로 다음 줄 — 장비명만 홀로 떨어지는 것 방지. */
+.hero-kicker{font-size:clamp(7.6px,2.1vw,9px);font-weight:800;letter-spacing:.16em;color:#00d29a;margin-bottom:10px;text-transform:uppercase}
+.hero-kicker .hk-by{white-space:nowrap}
 .hero-title{font-weight:900;font-style:italic;font-size:clamp(27px,8.4vw,40px);line-height:.96;letter-spacing:-.034em;text-transform:uppercase;margin:0 0 9px;color:#fff}
 .hero-title span{color:#00d29a}
 .hero-copy{font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.62);margin:0;font-weight:500;word-break:keep-all;max-width:23em}
