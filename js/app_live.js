@@ -204,16 +204,37 @@ function openShotVideo(shotId){
   div.innerHTML = '<div style="width:min(94vw,560px)">'
     + tabsHtml
     + '<video src="'+r2.url(views[0].key)+'" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+    + '<div class="vv-speeds"><span>배속</span>'
+      + [0.125,0.25,0.5,1].map(function(sp){ return '<button class="vv-sp" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>'; }).join('')
+    + '</div>'
     + '<div style="text-align:center;margin-top:10px"><button onclick="this.closest(\'.media-overlay\').remove()" style="padding:9px 22px;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;font-weight:700">닫기</button></div></div>';
   document.body.appendChild(div);
   var vid = div.querySelector('video');
+  var rate = 1;
+  function markRate(){
+    Array.prototype.forEach.call(div.querySelectorAll('.vv-sp'), function(x){ x.classList.toggle('on', parseFloat(x.getAttribute('data-sp'))===rate); });
+  }
+  // 앵글별 기본 설정 — 클럽 딜리버리: 좌우 반전(스윙 방향 보정) + 크게 + 기본 0.5× 슬로우
+  function applyView(){
+    var isClub = views[cur].label==='클럽';
+    vid.classList.toggle('vid-flip', isClub);
+    rate = isClub ? 0.5 : 1;
+    try{ vid.playbackRate = rate; }catch(e){}
+    markRate();
+  }
+  vid.addEventListener('loadedmetadata', function(){ try{ vid.playbackRate = rate; }catch(e){} });   // 일부 브라우저는 src 교체 시 배속 리셋
   vid.addEventListener('error', function(){ try{ _vidDiag(vid, views[cur].key); }catch(e){} });
+  applyView();
+  Array.prototype.forEach.call(div.querySelectorAll('.vv-sp'), function(b){
+    b.onclick = function(){ rate = parseFloat(b.getAttribute('data-sp'))||1; try{ vid.playbackRate = rate; }catch(e){} markRate(); };
+  });
   Array.prototype.forEach.call(div.querySelectorAll('.vv-tab'), function(b){
     b.onclick = function(){
       var i = parseInt(b.getAttribute('data-vi'),10)||0; if(i===cur) return; cur=i;
       Array.prototype.forEach.call(div.querySelectorAll('.vv-tab'), function(x){ x.classList.remove('on'); }); b.classList.add('on');
       var t = vid.currentTime||0;
       vid.src = r2.url(views[i].key); vid.load();
+      applyView();
       vid.addEventListener('loadedmetadata', function once(){ try{ vid.currentTime=t; }catch(e){} vid.removeEventListener('loadedmetadata', once); });
       vid.play().catch(function(){});
     };

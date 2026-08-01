@@ -551,14 +551,25 @@ async function processVideoJob(job){
   // ── 단독 stmf(고장 상태): 파일 안에 영상이 없다 → Videos 폴더에서 시각 매칭해 붙인다 ──
   // 측면(DL)·정면(FO) 둘 다 각각 올린다. 앱은 [측면]/[정면] 전환으로 재생.
   if (job.videosFolder){
+    // job._have: 이미 업로드한 앵글(보충 모드). 클럽 카메라는 즉시 저장되지만
+    // 아이폰(DL/FO) 영상은 30~90초 늦게 저장된다 — 첫 패스에서 클럽만 붙이고 끝내면
+    // 늦게 온 측면/정면이 영영 누락된다(비포 샷 클럽만 나오던 원인). 그래서
+    // 찾은 것부터 즉시 붙이고, 측면·정면이 빠졌으면 3분까지 보충 수집을 계속한다.
+    var have = job._have || {};
     var vids = findShotVideos(job.evMs, job.shotId);
     // 정직한 앵글 매핑 — 아이폰 DL만 "측면", 클럽 카메라는 항상 "클럽" 탭으로.
-    // (예전엔 DL 없으면 클럽 영상이 측면 자리를 차지해 클럽 탭이 영영 안 생겼음)
-    var dlSrc  = vids.dl;                            // 측면 = DL 아이폰만
-    var foSrc  = vids.fo;                            // 정면 = FO 아이폰
-    var clubSrc= vids.club;                          // 클럽 딜리버리(임팩트) = 항상 별도
-    var ballSrc= (!dlSrc && !clubSrc) ? vids.ball : null;  // 최후 폴백(주 영상 확보용)
+    var dlSrc  = have.dl   ? null : vids.dl;         // 측면 = DL 아이폰만
+    var foSrc  = have.fo   ? null : vids.fo;         // 정면 = FO 아이폰
+    var clubSrc= have.club ? null : vids.club;       // 클럽 딜리버리(임팩트) = 항상 별도
+    var ballSrc= (!dlSrc && !clubSrc && !have.dl && !have.club && !have.ball) ? vids.ball : null;  // 최후 폴백
+    var anyHave = have.dl||have.fo||have.club||have.ball;
     if (!dlSrc && !foSrc && !clubSrc && !ballSrc){
+      if (anyHave){
+        // 보충 모드 — 새로 나타난 게 없음. 아이폰 영상이 아직 저장 중일 수 있어 3분까지 대기.
+        if (Date.now() - job.evMs < 180000){ _videoQueue.push(job); return; }
+        if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
+        return;
+      }
       // 영상은 샷 직후 몇 초~수십 초 뒤 저장될 수 있음 → 잠시 재시도 후 포기.
       job._tries = (job._tries||0)+1;
       if (job._tries < 16){ _videoQueue.push(job); return; }
@@ -594,16 +605,23 @@ async function processVideoJob(job){
     var clubKey = await up(clubSrc, '_club');  // 클럽 딜리버리
     var ballKey = await up(ballSrc, '_scene'); // 최후 폴백(측면·클럽 다 없을 때만)
     // 주(대표) 영상 — 칩·리포트 대표 재생용. DL > 클럽 > 볼 순.
-    var mainKey = dlKey || clubKey || ballKey;
+    // 보충 패스에서 DL 이 늦게 오면 대표를 DL 로 업그레이드(mp4Key=dlKey).
+    var mainKey = dlKey || (anyHave ? null : (clubKey || ballKey));
     try{
       var okv = await attachShotVideo(job.shotId, null, mainKey, null, { videoFO: foKey, videoDL: dlKey, videoClub: clubKey });
       var reused = [dlSrc,foSrc,clubSrc,ballSrc].some(function(s){ return s && s._taken; });
-      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음') + ' 클럽:' + (clubKey||'없음') + (ballKey?' (대표=볼카메라)':'') + (reused?' ⚠️ 다른 샷과 영상 공유(후보 부족)':''));
+      if (okv) log('  영상 연결' + (anyHave?'(보충)':'') + ' → 측면:' + (dlKey||(have.dl?'유지':'없음')) + ' 정면:' + (foKey||(have.fo?'유지':'없음')) + ' 클럽:' + (clubKey||(have.club?'유지':'없음')) + (ballKey?' (대표=볼카메라)':'') + (reused?' ⚠️ 다른 샷과 영상 공유(후보 부족)':''));
       // 업로드 성공한 원본 파일을 이 샷에 배정 기록 — 다른 샷이 같은 영상을 못 가져가게
       [[dlSrc,dlKey],[foSrc,foKey],[clubSrc,clubKey],[ballSrc,ballKey]].forEach(function(p){
         if (p[0] && p[1]) _videoAssigned[p[0].fp] = job.shotId;
       });
     }catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
+    // 측면 또는 정면이 아직 없으면 보충 수집 계속 (샷 후 3분까지) — 아이폰 영상 지연 대비
+    var haveNow = { dl: !!(have.dl||dlKey), fo: !!(have.fo||foKey), club: !!(have.club||clubKey), ball: !!(have.ball||ballKey) };
+    if ((!haveNow.dl || !haveNow.fo) && Date.now() - job.evMs < 180000){
+      _videoQueue.push({ videosFolder:true, shotId:job.shotId, bayId:job.bayId, evMs:job.evMs, fname:job.fname, _have:haveNow });
+      return;
+    }
     if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
     return;
   }
