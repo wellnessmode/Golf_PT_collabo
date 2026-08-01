@@ -123,12 +123,22 @@ export default {
       let bodyPrompt = '';
       try { const raw = request.headers.get('X-STT-Prompt'); if (raw) bodyPrompt = decodeURIComponent(raw); } catch (e) {}
       fd.append('prompt', bodyPrompt || '골프 레슨입니다. 그립, 어드레스, 셋업, 정렬, 백스윙, 탑, 전환, 다운스윙, 임팩트, 릴리스, 팔로우스루, 피니시, 템포, 리듬, 스윙 플레인, 온플레인, 샬로잉, 코킹, 힌징, 라그, 캐스팅, 오버더탑, 인아웃, 아웃인, 스웨이, 슬라이드, 히프턴, 체중이동, 로테이션, 클럽페이스, 페이스앵글, 어택앵글, 로프트, 다이나믹로프트, 스매시팩터, 볼스피드, 클럽스피드, 캐리, 토탈, 스핀, 런치앵글, 드로우, 페이드, 훅, 슬라이스, 뒤땅, 탑볼, 생크, 드라이버, 우드, 유틸리티, 아이언, 웨지, 퍼터, 어프로치, 치핑, 피칭, 벙커샷, 퍼팅.');
-      const up = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      let up = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
         body: fd,
       });
-      const txt = await up.text();
+      let txt = await up.text();
+      // verbose_json 을 Groq 이 거부하면(400) 기본 json 으로 1회 재시도 — 신뢰도 필터 없이라도 변환은 되게
+      if (!up.ok && up.status === 400 && /response_format|verbose/i.test(txt)) {
+        fd.set('response_format', 'json');
+        up = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+          body: fd,
+        });
+        txt = await up.text();
+      }
       if (!up.ok) return json({ error: 'groq ' + up.status, detail: txt.slice(0, 300) }, 502);
       let out = {}; try { out = JSON.parse(txt); } catch (e) {}
       // ── 헛인식(hallucination) 필터 — 조각별 신뢰도로 잡음/무음 파편 제거 ──
@@ -192,6 +202,12 @@ export default {
         await env.BUCKET.put(key, request.body, {
           httpMetadata: { contentType },
         });
+        // 영상은 업로드 직후 엣지 캐시에 미리 적재(워밍) — 라이브에서 "첫 재생"이
+        // R2 원본까지 가는 느린 경로 대신 엣지 캐시 히트가 되어 즉시 시작된다.
+        // (에이전트 PC 와 스튜디오 폰은 같은 지역 엣지(콜로)를 쓰므로 효과가 그대로 미침)
+        if (/\.(mp4|mov|webm|mkv)$/i.test(key) && ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(warmVideoCache(env, url.origin, key));
+        }
         return json({ ok: true, key }, 200);
       }
 
@@ -205,10 +221,16 @@ export default {
         // Cloudflare Cache API 는 캐시된 전체(200) 응답에서 Range 를 잘라 206 으로 준다.
         // 워밍업된 영상은 R2 원본까지 안 가고 엣지에서 바로 재생 → 대기시간 대폭 감소.
         const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
-        const cacheKey = new Request(url.toString(), { method: 'GET' });
+        // 캐시 키는 항상 "정규형"(origin + encodeURIComponent(key)) — PUT 워밍·GET 적재·조회가
+        // 클라이언트별 URL 인코딩 차이와 무관하게 같은 항목을 가리키게 한다.
+        const cacheKey = new Request(url.origin + '/' + encodeURIComponent(key), { method: 'GET' });
         if (cache && request.method === 'GET') {
           try {
-            const hit = await cache.match(request);
+            // 조회 요청엔 원래의 Range 헤더를 실어야 Cloudflare 가 캐시된 200 에서 206 으로 잘라준다.
+            const matchReq = rangeHeader
+              ? new Request(cacheKey.url, { method: 'GET', headers: { range: rangeHeader } })
+              : cacheKey;
+            const hit = await cache.match(matchReq);
             // 안전장치: Range 요청인데 캐시가 206 으로 안 잘라주면(전체 200) iOS 재생 실패 우려 →
             // 그 경우엔 캐시를 무시하고 아래 R2 경로로 정상 206 스트리밍한다(재생 회귀 방지).
             if (hit && (!rangeHeader || hit.status === 206)) return hit;
@@ -243,21 +265,7 @@ export default {
         // 미스 시 백그라운드로 "전체 객체" 를 엣지에 적재 → 다음 요청부터 캐시 히트.
         // (지금 응답은 아래에서 Range 그대로 스트리밍하므로 사용자 대기엔 영향 없음)
         if (cache && request.method === 'GET' && ctx && typeof ctx.waitUntil === 'function') {
-          ctx.waitUntil((async () => {
-            try {
-              const already = await cache.match(cacheKey);
-              if (already) return;
-              const full = await env.BUCKET.get(key);
-              if (!full) return;
-              const fh = new Headers(CORS);
-              full.writeHttpMetadata(fh);
-              fh.set('etag', full.httpEtag);
-              fh.set('accept-ranges', 'bytes');
-              fh.set('cache-control', 'public, max-age=31536000, immutable');
-              fh.set('content-length', String(full.size));
-              await cache.put(cacheKey, new Response(full.body, { status: 200, headers: fh }));
-            } catch (e) {}
-          })());
+          ctx.waitUntil(warmVideoCache(env, url.origin, key));
         }
 
         if (rangeHeader && obj.range) {
@@ -289,4 +297,26 @@ function json(body, status) {
     status,
     headers: { ...CORS, 'content-type': 'application/json' },
   });
+}
+
+// R2 객체 전체를 엣지 캐시에 적재(워밍) — PUT 직후·GET 미스 시 공용.
+// 캐시 키는 정규형(origin + encodeURIComponent(key)) 로 통일해, 업로더(에이전트)와
+// 시청자(앱)의 URL 인코딩이 달라도 같은 캐시 항목을 쓰게 한다.
+async function warmVideoCache(env, origin, key) {
+  try {
+    const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
+    if (!cache) return;
+    const cacheKey = new Request(origin + '/' + encodeURIComponent(key), { method: 'GET' });
+    const already = await cache.match(cacheKey);
+    if (already) return;
+    const full = await env.BUCKET.get(key);
+    if (!full) return;
+    const fh = new Headers(CORS);
+    full.writeHttpMetadata(fh);
+    fh.set('etag', full.httpEtag);
+    fh.set('accept-ranges', 'bytes');
+    fh.set('cache-control', 'public, max-age=31536000, immutable');
+    fh.set('content-length', String(full.size));
+    await cache.put(cacheKey, new Response(full.body, { status: 200, headers: fh }));
+  } catch (e) {}
 }

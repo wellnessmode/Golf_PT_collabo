@@ -111,7 +111,10 @@ function stopLivePolling(){
 function _vidChip(s){
   var d = s.data||{};
   var key = d.videoMp4R2Key || d.videoDL || d.videoFO || s.videoR2Key;
-  if (key) return '<button class="small-btn vid-view-btn" onclick="event.stopPropagation();openShotVideo(\''+s.id+'\')">🎬 보기</button>';
+  if (key){
+    _vidWarm(key); if(d.videoFO && d.videoFO!==key) _vidWarm(d.videoFO);
+    return '<button class="small-btn vid-view-btn" onclick="event.stopPropagation();openShotVideo(\''+s.id+'\')">🎬 보기</button>';
+  }
   if (d._videoPending){
     var t0 = s._rcvAt || Date.parse(d.measuredAt || s.ts) || 0;
     if (t0 && Date.now()-t0 < 5*60000){
@@ -120,6 +123,17 @@ function _vidChip(s){
     }
   }
   return '';
+}
+// 영상 사전 워밍 — [🎬 보기] 칩이 뜨는 순간 2바이트만 미리 요청해 두면, 워커가
+// 백그라운드로 영상 전체를 엣지 캐시에 적재한다 → 실제 재생 탭 때 첫 프레임이 즉시 뜸.
+// 키당 1회만, 렌더를 막지 않게 비동기로.
+var _vidWarmed = {};
+function _vidWarm(key){
+  if(!key || _vidWarmed[key] || typeof r2==='undefined' || !r2.enabled) return;
+  _vidWarmed[key]=1;
+  setTimeout(function(){
+    try{ fetch(r2.url(key), {headers:{'Range':'bytes=0-1'}}).catch(function(){ delete _vidWarmed[key]; }); }catch(e){ delete _vidWarmed[key]; }
+  },0);
 }
 // 진행률 틱커 — 1.5초마다 화면의 % 만 직접 갱신 (재렌더 없이). 약 30초 기준 추정치.
 if (!window.__vidPctTimer){
@@ -533,7 +547,7 @@ function autoEndOverdueSessions(){
     var t=new Date(act.startedAt).getTime(); if(isNaN(t)) return;
     if(Date.now()-t < limit) return;
     if(typeof _rec!=='undefined' && _rec.bayId===bayId) return;   // 이 기기에서 녹음 진행 중이면 보류
-    if(act._sttBusy) return;                                       // 음성 변환 중이면 보류
+    if(act._sttBusy && act._sttBusyAt && Date.now()-act._sttBusyAt<90000) return;   // 음성 변환 중(90초 이내)이면 보류 — 오래 걸린 건 걸린 것이므로 진행
     var transcript=(act._transcript||'').trim();
     var memberId=act.memberId, author=act.author, memberName=act.memberName, bayName=getBay(bayId).name;
     if(S.voiceBay===bayId){ try{ stopVoice(bayId); }catch(e){} }
@@ -558,7 +572,11 @@ function autoEndOverdueSessions(){
 function endLiveSession(bayId){
   var act = S.activeSessions[bayId]; if(!act) return;
   if(typeof _rec!=='undefined' && _rec.bayId===bayId){ liveToast('🎙 녹음 [종료·글변환]을 먼저 눌러주세요','err'); return; }
-  if(act._sttBusy){ liveToast('음성 변환 중 — 잠시 후 종료해주세요','err'); return; }
+  if(act._sttBusy){
+    // 90초 넘은 "변환 중"은 걸린 상태 — 종료를 막지 않고 자동 해제(예전엔 여기서 영구 차단)
+    if(act._sttBusyAt && Date.now()-act._sttBusyAt<90000){ liveToast('음성 변환 중 — 잠시 후 종료해주세요','err'); return; }
+    delete act._sttBusy; delete act._sttBusyAt;
+  }
   var bay = getBay(bayId);
   var hasVoice = (act._transcript||'').trim().length>0;
   var msg = bay.name+' · '+act.memberName+'님 세션을 종료할까요?\n'
@@ -754,11 +772,14 @@ function _recUpdateUI(){
     if(live){
       var txt=(typeof _recFullText==='function')?_recFullText():'';
       if(!txt){ var act=_rec.bayId && S.activeSessions[_rec.bayId]; txt=((act&&act._transcript)||'').trim(); }
-      live.textContent = txt ? txt.slice(-300) : (window._sttUnavailable ? '(변환 서버 미설정 — 녹음은 저장됩니다)' : '듣는 중... 말하면 15초 안에 글로 나타나요');
+      var warn='';
+      if(_rec.failN){ warn='\n⚠️ 변환 실패 '+_rec.failN+'조각: '+String(_rec.lastFailMsg||'').slice(0,70); }
+      else if((_rec.emptyN||0)>=2){ warn='\n⚠️ 마이크 소리가 안 들어와요 — 재연결 시도 중'; }
+      live.textContent = (txt ? txt.slice(-300) : '듣는 중... 말하면 20초 안에 글로 나타나요') + warn;
     }
   }catch(e){}
 }
-// 한 세그먼트(15초) 녹음 시작 — 끝나면 즉시 다음 세그먼트로 이어지고, 이전 조각은 병렬 변환
+// 한 세그먼트(20초) 녹음 시작 — 끝나면 즉시 다음 세그먼트로 이어지고, 이전 조각은 병렬 변환
 function _startSegment(){
   var mime=_recMime();
   var opts={audioBitsPerSecond:48000}; if(mime) opts.mimeType=mime;  // 32k→48k: 잡음 많은 스튜디오에서 말소리 선명도↑ (파일 크기는 여전히 작음)
@@ -767,10 +788,28 @@ function _startSegment(){
   mr.ondataavailable=function(e){ if(e.data&&e.data.size) segChunks.push(e.data); };
   mr.onstop=function(){
     var isFinal=_rec.stopping;
-    if(!isFinal && _rec.bayId){ _startSegment(); }   // 공백 최소화 — 먼저 다음 조각 시작
     var blob=new Blob(segChunks,{type:(segChunks[0]&&segChunks[0].type)||'audio/mp4'});
-    if(blob.size>2000){ _handleSegment(blob, isFinal); }
+    var tiny = blob.size<=2000;
+    if(!isFinal && _rec.bayId){
+      // 빈 조각 감시 — 일부 기기(iOS)는 같은 스트림에 녹음기를 다시 만들면 소리가 안 담긴다.
+      // 2번 연속 비면 마이크 스트림을 새로 받아 자가 복구(예전엔 조용히 버려져 "침묵 녹음").
+      if(tiny){ _rec.emptyN=(_rec.emptyN||0)+1; } else { _rec.emptyN=0; }
+      if(_rec.emptyN>=2){
+        navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}})
+          .then(function(ns){
+            // 재획득 도착 전에 종료됐으면 새 스트림을 즉시 꺼서 마이크 점유 누수 방지
+            if(!_rec.bayId || _rec.stopping){ try{ns.getTracks().forEach(function(t){t.stop();});}catch(e){} return; }
+            try{ if(_rec.stream) _rec.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+            _rec.stream=ns; _rec.emptyN=0; _startSegment();
+          })
+          .catch(function(){ if(_rec.bayId && !_rec.stopping) _startSegment(); });
+      } else {
+        _startSegment();   // 공백 최소화 — 먼저 다음 조각 시작
+      }
+    }
+    if(!tiny){ _handleSegment(blob, isFinal); }
     else if(isFinal){ _finishRec(); }
+    _recUpdateUI();
   };
   _rec.mr=mr; _rec.segIdx++;
   mr.start();
@@ -803,9 +842,12 @@ async function _handleSegment(blob, isFinal){
   try{ text=await sttTranscribe(blob); }
   catch(e){
     console.warn('[stt] segment fail:', e&&e.message);
+    _rec.failN=(_rec.failN||0)+1;
+    _rec.lastFailMsg=String(e&&e.message||'변환 실패');
     if(!window._sttUnavailable){
       window._sttUnavailable=true;
-      liveToast('⚠️ 음성변환 서버 미설정 — 워커에 GROQ 키 등록 필요 (녹음은 저장됨)','err');
+      // 실패 사유를 그대로 보여준다 — "미설정"으로 뭉뚱그리면 네트워크 문제를 못 알아챈다
+      liveToast('⚠️ 음성 변환 실패: '+_rec.lastFailMsg.slice(0,80)+' (녹음 원본은 보관됨)','err');
     }
     // 변환 실패 조각은 원본을 R2에 백업 (아무것도 잃지 않게)
     try{ r2.upload('rec/'+bayId+'_'+Date.now()+'_'+_rec.segIdx+(String(blob.type).indexOf('mp4')!==-1?'.m4a':'.webm'), blob); }catch(_){}
@@ -820,19 +862,33 @@ async function _handleSegment(blob, isFinal){
   }
   if(isFinal){ _finishRec(); }
 }
-// 최종 마무리 — 모든 변환 완료 후 전문을 세션에 확정 기록
+// 최종 마무리 — 모든 변환 완료 후 전문을 세션에 확정 기록.
+// ⏱ 최대 45초만 기다린다 — 변환 요청이 걸려서 안 돌아와도 지금까지의 텍스트로
+// 확정하고 배지를 반드시 내린다(예전엔 무한 대기 → "마지막 조각 변환 중" 영구 표시
+// + 세션 종료 버튼까지 차단되던 버그).
 function _finishRec(){
-  if(_rec.pendingStt>0){ setTimeout(_finishRec, 400); return; }   // 남은 변환 대기
+  if(!_rec._finishT0) _rec._finishT0=Date.now();
+  var timedOut = (Date.now()-_rec._finishT0 > 45000);
+  if(_rec.pendingStt>0 && !timedOut){ setTimeout(_finishRec, 400); return; }   // 남은 변환 대기
   var bayId=_rec._lastBay;
   var act=bayId && S.activeSessions[bayId];
   var full=_recFullText();
   if(act){
     if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
-    delete act._sttBusy;
+    delete act._sttBusy; delete act._sttBusyAt;
     try{save();}catch(e){}
   }
-  _rec._lastBay=null;
-  liveToast(full ? '🎙 녹음 저장 완료 — 세션 종료 시 AI가 일지로 정리해요' : '🎙 녹음 종료 — 인식된 내용이 없습니다', full?'ok':'err');
+  _rec._lastBay=null; _rec._finishT0=null;
+  var failN=_rec.failN||0, emptyN=_rec.emptyN||0;
+  if(timedOut && _rec.pendingStt>0){
+    liveToast('⚠️ 일부 변환이 응답 없음 — 지금까지 인식된 내용으로 저장했어요 (원본 오디오는 보관됨)','err');
+  } else if(failN>0){
+    liveToast(full ? ('🎙 저장 완료 — 단, '+failN+'개 조각 변환 실패(원본 보관됨). 서버·네트워크 확인 필요') : ('⚠️ 음성 변환 '+failN+'개 조각 모두 실패 — 원본 오디오는 보관됨. 관리자에게 문의'), full?'ok':'err');
+  } else if(!full && emptyN>0){
+    liveToast('⚠️ 마이크 소리가 녹음되지 않았어요 — 마이크 권한·다른 앱 점유 확인 후 다시 시도','err');
+  } else {
+    liveToast(full ? '🎙 녹음 저장 완료 — 세션 종료 시 AI가 일지로 정리해요' : '🎙 녹음 종료 — 인식된 내용이 없습니다', full?'ok':'err');
+  }
   render();
 }
 async function startBayRec(bayId){
@@ -860,7 +916,7 @@ async function stopBayRec(bayId){
   clearInterval(_rec.uiTimer); clearTimeout(_rec.segTimer); clearTimeout(_rec.autoStop);
   try{ if(_rec.wakeLock) _rec.wakeLock.release(); }catch(e){}
   var act=S.activeSessions[bayId];
-  if(act) act._sttBusy=true;   // 마지막 조각 변환 중 표시
+  if(act){ act._sttBusy=true; act._sttBusyAt=Date.now(); }   // 마지막 조각 변환 중 표시 (시각 기록 — 오래되면 자동 해제)
   try{ _rec.mr.stop(); }catch(e){ _finishRec(); }
   try{ _rec.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
   _rec.bayId=null; _rec.mr=null; _rec.stream=null;
@@ -871,12 +927,27 @@ async function sttTranscribe(blob){
   // ⚠️ 직전 조각 텍스트를 힌트로 넘기지 않음 — 한 조각이 깨지면 그 오류가
   //    다음 조각 프롬프트로 전파돼 눈덩이처럼 증폭되던 문제(오염 되먹임) 차단.
   //    프롬프트는 워커의 고정 골프 용어사전을 그대로 사용(빈 힌트 = 사전 사용).
-  var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob});
-  if(res.status===501||res.status===404||res.status===401){ window._sttReady=false; throw new Error('stt-not-ready '+res.status); }   // 키미설정/경로없음/인증
-  if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('stt http '+res.status+' '+t.slice(0,120)); }
-  window._sttReady=true;
-  var j=await res.json();
-  return (j&&j.text||'').trim();
+  // 타임아웃(35초) 필수 — 요청 하나가 무한 대기하면 pendingStt 가 안 줄어
+  //   "마지막 조각 변환 중" 이 영원히 안 끝나고 세션 종료까지 막힌다.
+  var lastErr;
+  for(var attempt=0; attempt<2; attempt++){
+    var ac = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    var killT = ac ? setTimeout(function(){ try{ac.abort();}catch(e){} }, 35000) : null;
+    try{
+      var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob,signal:ac?ac.signal:undefined});
+      clearTimeout(killT);
+      if(res.status===501||res.status===404||res.status===401){ window._sttReady=false; throw new Error('stt-not-ready '+res.status); }   // 키미설정/경로없음/인증 — 재시도 무의미
+      if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} lastErr=new Error('stt http '+res.status+' '+t.slice(0,120)); continue; }  // 5xx 등 → 1회 재시도
+      window._sttReady=true;
+      var j=await res.json();
+      return (j&&j.text||'').trim();
+    }catch(e){
+      clearTimeout(killT);
+      if(/stt-not-ready/.test(e&&e.message||'')) throw e;
+      lastErr=(e&&e.name==='AbortError') ? new Error('stt 응답 시간 초과(35초) — 네트워크 확인') : e;
+    }
+  }
+  throw (lastErr||new Error('stt 변환 실패'));
 }
 // 앱 시작 시 STT 서버(Groq 키 + /stt 경로) 준비 여부 확인 — 녹음 UI 를 미리 맞춤.
 // 빈 오디오를 보내 응답 코드로 판정:
@@ -1239,16 +1310,20 @@ function renderBayCard(bay, canCoach, isAdmin){
     if(psHTML){ body += psHTML;
     }
   }
-  // 수업 녹음 — 🎙 녹음하면 15초마다 아래에 글이 실시간으로 붙고, ⏹ 종료 시 자동 저장.
+  // 수업 녹음 — 🎙 녹음하면 20초마다 아래에 글이 실시간으로 붙고, ⏹ 종료 시 자동 저장.
   // 변환 서버(Groq) 미설정이면 녹음 대신 메모 입력 안내 (헷갈리지 않게).
   var sttOff = (window._sttReady === false);
   if(!stale){
     if(recSupported() && _rec.bayId===bay.id){
       body += '<div class="rec-bar on"><span class="rec-dot"></span><span class="rec-label">녹음 중 <span id="rec-elapsed">'+_recElapsed()+'</span></span>'
             + '<button class="rec-stop" onclick="stopBayRec(\''+bay.id+'\')">⏹ 녹음 종료</button></div>'
-            + '<div class="rec-live" id="rec-live-text">'+esc(((act._transcript||'').trim()).slice(-300)||'듣는 중... 말하면 15초 안에 글로 나타나요')+'</div>';
-    } else if(act._sttBusy){
+            + '<div class="rec-live" id="rec-live-text">'+esc(((act._transcript||'').trim()).slice(-300)||'듣는 중... 말하면 20초 안에 글로 나타나요')+'</div>';
+    } else if(act._sttBusy && act._sttBusyAt && Date.now()-act._sttBusyAt<90000){
       body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">마지막 조각 변환 중...</span></div>';
+    } else if(act._sttBusy){
+      // 90초 넘게 "변환 중" 이면 뭔가 걸린 것 — 자동 해제(세션 종료 차단까지 풀림). 텍스트는 이미 있는 만큼 보존됨.
+      delete act._sttBusy; delete act._sttBusyAt;
+      try{save();}catch(e){}
     } else {
       if(recSupported() && !_rec.bayId && !sttOff){
         body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+bay.id+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
