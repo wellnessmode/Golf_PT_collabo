@@ -384,6 +384,8 @@ function setPerfShotView(i, key, isClub){
     if(v){
       v.dataset.k=key; v.dataset.rate=isClub?0.5:1;
       v.classList.toggle('vid-flip', !!isClub); v.classList.toggle('club-big', !!isClub);
+      v.controls=!isClub; v.loop=!!isClub;   // 클럽 뷰: 회전 시 컨트롤까지 뒤집혀서 OFF(탭 재생) + 반복
+      var w=v.closest('.vid-wrap'); if(w) w.classList.toggle('club-on', !!isClub);
       v.src=r2.url(key); v.load();
       try{ v.playbackRate=isClub?0.5:1; }catch(e){}
       v.play().catch(function(){});
@@ -992,11 +994,17 @@ function renderPerformance(){
         ? '<div class="pv-vm-tabs vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===curV?' on':'')+'" onclick="setPerfShotView('+i+',\''+v.key+'\','+(v.label==='클럽'?1:0)+')">'+v.label+'</button>';}).join('')+'</div>'
         : '';
       // 영상 로드 실패 시 실제 사유(404/형식/네트워크)를 확인해 표시 — _vidDiag
-      // 클럽 딜리버리: 좌우 반전(스윙 방향 보정) + 확대 + 기본 0.5× 슬로우
+      // 클럽 딜리버리: 180° 회전(샤프트 아래) + 확대 + 기본 0.5× 슬로우.
+      // 회전 시 기본 컨트롤까지 뒤집히므로 클럽 뷰는 컨트롤 OFF → 탭 재생/정지 + 자동 반복,
+      // 그 위에 TPS 스타일 패스 오버레이(타깃라인·패스 곡선·페이스 각).
       vidHtml=tabsHtml
-        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'" controls playsinline preload="metadata"'
+        +'<div class="vid-wrap'+(isClubV?' club-on':'')+'">'
+        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':' controls')+' playsinline preload="metadata"'
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
+        +' onclick="if(!this.controls){if(this.paused){this.play().catch(function(){})}else{this.pause()}}"'
         +' onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>'
+        +(typeof _clubPathOverlayHTML==='function'?_clubPathOverlayHTML(dm):'')
+        +'</div>'
         +'<div class="vv-speeds pv-speeds">'+'<span>배속</span>'
           +[0.125,0.25,0.5,1].map(function(sp){ return '<button class="vv-sp'+(sp===(isClubV?0.5:1)?' on':'')+'" onclick="_pvRate(this)" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>'; }).join('')
         +'</div>';

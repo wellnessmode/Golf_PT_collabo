@@ -1734,9 +1734,21 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .cmp-angles{margin:0;justify-content:center}
 .cmp-angles .vv-tab[disabled]{opacity:.3;cursor:not-allowed}
 .pv-cmp-note{margin:10px 0 0;padding:11px 12px;border-radius:10px;background:#f4f6f8;color:#5a6470;font-size:12px;font-weight:600;text-align:center;line-height:1.5}
-/* 클럽 딜리버리 — 좌우 반전(스윙 진행 방향 보정: 우→좌) + 확대 표시 */
-.vid-flip{transform:scaleX(-1)}
+/* 클럽 딜리버리 — 180° 회전(샤프트 아래·진행 방향 우→좌 보정) + 확대 표시.
+   ⚠️ 회전은 video 요소에 걸리므로 클럽 뷰에선 기본 컨트롤을 끄고(같이 뒤집히는 사고)
+   탭 재생/정지 + 자동 반복으로 조작한다. */
+.vid-flip{transform:rotate(180deg)}
 .pv-vm-video.club-big{max-height:68vh}
+/* 영상 + 오버레이 래퍼 — 오버레이는 회전과 무관하게 정방향으로 그려짐 */
+.vid-wrap{position:relative;width:100%}
+.vid-wrap .club-overlay{display:none}
+.vid-wrap.club-on .club-overlay{display:block}
+.club-overlay{position:absolute;inset:0;pointer-events:none}
+.club-overlay svg{position:absolute;inset:0;width:100%;height:100%}
+.club-ov-lab{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:7px;justify-content:center;pointer-events:none}
+.club-ov-lab span{font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+.club-ov-lab .col-path{color:#39e6b0}
+.club-ov-lab .col-face{color:#f6c177}
 /* 샷 재생기 배속 칩 (라이브 오버레이·리포트 모달 공용, 어두운 배경 위) */
 .vv-speeds{display:flex;gap:5px;align-items:center;justify-content:center;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 6px 4px 12px;margin:8px auto 0;width:max-content}
 .vv-speeds>span{font-size:10.5px;color:rgba(255,255,255,.65);font-weight:700}
