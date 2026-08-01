@@ -52,7 +52,7 @@ function renderRoleSelector(){
     <div class="hero-scrim"></div>
     <div class="hero-top">
       <div class="hero-headline">
-        <div class="hero-kicker">GOLF × FITNESS · POWERED BY ${brand.measuredBy||'TRACKMAN'}</div>
+        <div class="hero-kicker">GOLF × FITNESS · <span class="hk-by">POWERED BY ${brand.measuredBy||'TRACKMAN'}</span></div>
         <h1 class="hero-title">${titleHtml}</h1>
         <p class="hero-copy">${(brand.heroCopy||'').replace(/</g,'&lt;')}</p>
       </div>
