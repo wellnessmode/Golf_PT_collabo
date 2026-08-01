@@ -566,11 +566,14 @@ async function processVideoJob(job){
       }catch(e){ log('  원본 영상 업로드 스킵(' + src.name + '): ' + e.message); }
       return null;
     }
-    var dlKey = await up(dlSrc, '_scene');   // 측면(주 영상) — 기존 videoMp4R2Key 로 저장(하위호환)
-    var foKey = await up(foSrc, '_fo');      // 정면
+    // 클럽 딜리버리(임팩트 클로즈업) — 측면으로 이미 쓰인 경우가 아니면 별도 앵글로 업로드
+    var clubSrc = (vids.club && vids.club !== dlSrc) ? vids.club : null;
+    var dlKey   = await up(dlSrc, '_scene');   // 측면(주 영상) — 기존 videoMp4R2Key 로 저장(하위호환)
+    var foKey   = await up(foSrc, '_fo');      // 정면
+    var clubKey = await up(clubSrc, '_club');  // 클럽 딜리버리
     try{
-      var okv = await attachShotVideo(job.shotId, null, dlKey, null, { videoFO: foKey, videoDL: dlKey });
-      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음'));
+      var okv = await attachShotVideo(job.shotId, null, dlKey, null, { videoFO: foKey, videoDL: dlKey, videoClub: clubKey });
+      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음') + ' 클럽:' + (clubKey||'없음'));
     }catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
     if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
     return;

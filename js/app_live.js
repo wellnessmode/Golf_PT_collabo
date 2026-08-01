@@ -135,6 +135,25 @@ function _vidWarm(key){
     try{ fetch(r2.url(key), {headers:{'Range':'bytes=0-1'}}).catch(function(){ delete _vidWarmed[key]; }); }catch(e){ delete _vidWarmed[key]; }
   },0);
 }
+// 남은시간 카운트다운 티커 — [data-cntdn] 요소를 1초마다 갱신 (재렌더 없이).
+// 음성 변환 배지·AI 일지 정리 배너에서 "약 N초" 를 실시간으로 줄여 보여준다.
+if (!window.__cntdnTimer){
+  window.__cntdnTimer = setInterval(function(){
+    try{
+      var els = document.querySelectorAll('[data-cntdn]');
+      for (var i=0;i<els.length;i++){
+        var t0 = parseInt(els[i].getAttribute('data-t0'),10)||0; if(!t0) continue;
+        var max = parseInt(els[i].getAttribute('data-max'),10)||30;
+        var left = max - Math.floor((Date.now()-t0)/1000);
+        els[i].textContent = left>0 ? ('약 '+left+'초 남음') : '거의 다 됐어요...';
+      }
+    }catch(e){}
+  }, 1000);
+}
+function _cntdnHtml(t0, max){
+  var left = Math.max(0, max - Math.floor((Date.now()-(t0||Date.now()))/1000));
+  return '<span data-cntdn data-t0="'+(t0||Date.now())+'" data-max="'+max+'">'+(left>0?('약 '+left+'초 남음'):'거의 다 됐어요...')+'</span>';
+}
 // 진행률 틱커 — 1.5초마다 화면의 % 만 직접 갱신 (재렌더 없이). 약 30초 기준 추정치.
 if (!window.__vidPctTimer){
   window.__vidPctTimer = setInterval(function(){
@@ -153,10 +172,12 @@ function openShotVideo(shotId){
   var d = s.data||{};
   var dl = d.videoDL || d.videoMp4R2Key || s.videoR2Key;   // 측면(주)
   var fo = d.videoFO || null;                              // 정면
-  if((!dl && !fo) || typeof r2==='undefined' || !r2.enabled) return;
+  var cl = d.videoClub || null;                            // 클럽 딜리버리(임팩트)
+  if((!dl && !fo && !cl) || typeof r2==='undefined' || !r2.enabled) return;
   var views = [];
   if(dl) views.push({label:'측면', key:dl});
   if(fo) views.push({label:'정면', key:fo});
+  if(cl) views.push({label:'클럽', key:cl});
   var cur = 0;
   var div = document.createElement('div'); div.className='media-overlay';
   div.onclick = function(e){ if(e.target===div) div.remove(); };
@@ -206,6 +227,8 @@ function _buildPendingShotsHTML(bayId){
           + '<div class="psc-metrics">'+bits.join('')+'</div>'
           + '<div class="psc-actions">'
           + '<button class="ps-save big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\')">＋ 저장</button>'
+          + '<button class="ps-tag before" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'before\')">비포</button>'
+          + '<button class="ps-tag after" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'after\')">애프터</button>'
           + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>'
           + '</div></div>';
   });
@@ -352,7 +375,7 @@ async function _livePollTick(){
     // 영상 상태 변화 감지 — 데이터 먼저 오고 영상이 나중에 붙는 구조라, 영상 키/업로드중
     // 플래그가 바뀌면 재렌더해야 "업로드중 → 🎬 보기" 전환이 화면에 반영된다.
     var vidSig = (live.shotEvents||[]).slice(-80).map(function(s){
-      var d=s.data||{}; return s.id+((d.videoMp4R2Key||d.videoDL)?'v':(d.videoFO?'f':(s.videoR2Key?'k':(d._videoPending?'p':'-'))));
+      var d=s.data||{}; return s.id+((d.videoMp4R2Key||d.videoDL)?'v':((d.videoFO||d.videoClub)?'f':(s.videoR2Key?'k':(d._videoPending?'p':'-'))));
     }).join('');
     var vidChanged = (window._liveLastVidSig!==undefined) && (window._liveLastVidSig!==vidSig);
     window._liveLastVidSig = vidSig;
@@ -454,17 +477,20 @@ function setBayMode(bayId, mode){
   liveToast(mode==='lesson'?'레슨 모드 — 좋은 샷만 선별 저장':'연습 모드 — 모든 샷 자동 저장','ok');
 }
 // 레슨 모드: 이 샷을 회원에게 저장
-function saveLessonShot(shotId, bayId){
+// tag: 'before'(교정 전 습관) | 'after'(교정 후) | 없음(일반 저장).
+// 프로가 직접 지정 — 리포트의 비포·애프터 비교 재생과 배지에 쓰인다.
+function saveLessonShot(shotId, bayId, tag){
   var act=S.activeSessions[bayId]; if(!act){ liveToast('활성 세션이 없습니다','err'); return; }
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
   s.memberId=act.memberId; s.memberName=act.memberName; s.author=act.author; delete s._pendingBay;
   if(!s.data) s.data={};
   s.data._kept=1;   // 선별 저장 = 영상 영구 보관 (보관 정책에서 제외)
+  if(tag==='before'||tag==='after') s.data._tag=tag;
   save();
   try{ cloud.reassignShot(s.id, act.memberId, act.memberName); cloud.updateShotData(s); }catch(e){}
-  logActivity('레슨 샷 저장', act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
+  logActivity('레슨 샷 저장'+(tag?' ('+(tag==='before'?'비포':'애프터')+')':''), act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
   render();
-  liveToast('✓ '+act.memberName+'님에게 저장','ok');
+  liveToast('✓ '+act.memberName+'님에게 저장'+(tag?(tag==='before'?' — 비포 영상':' — 애프터 영상'):''),'ok');
   if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(e){} }
 }
 // 레슨 모드: 이 샷 버림 (화면+서버+R2 영상까지 제거 — 영상만 남는 고아 방지)
@@ -1114,7 +1140,7 @@ function openVoiceDraft(memberId, author, transcript){
   S.newSession={ date:today(), time:nowHalfHour(), author:author, content:prefill, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''], _tmSummary:summary };
   S.showAddSession=true;
   if(aiEnabled()){
-    S.newSession._aiPending=true;
+    S.newSession._aiPending=true; S.newSession._aiPendingAt=Date.now();
     aiSummarizeWithClaude(transcript,author).then(function(better){
       if(!S.newSession) return;
       S.newSession._aiPending=false;
@@ -1149,7 +1175,7 @@ function retryAiSummarize(){
     : String(ns.content||'').replace(/^\[레슨 녹음 메모[^\]]*\]\s*/,'').replace(/^[•\-·]\s*/gm,'').replace(/\n\[트랙맨\][\s\S]*$/,'').trim();
   if(!src){ alert('정리할 내용이 없습니다.'); return; }
   if(!aiEnabled()){ alert('AI 정리가 설정되지 않았습니다.\n워커에 ANTHROPIC_API_KEY 시크릿을 등록하거나(권장), 관리자 모드의 AI 설정에서 키를 입력하세요.'); return; }
-  ns._aiPending=true; ns._aiFailed=false; render();
+  ns._aiPending=true; ns._aiPendingAt=Date.now(); ns._aiFailed=false; render();
   aiSummarizeWithClaude(src, ns.author).then(function(better){
     if(!S.newSession) return;
     S.newSession._aiPending=false;
@@ -1319,7 +1345,7 @@ function renderBayCard(bay, canCoach, isAdmin){
             + '<button class="rec-stop" onclick="stopBayRec(\''+bay.id+'\')">⏹ 녹음 종료</button></div>'
             + '<div class="rec-live" id="rec-live-text">'+esc(((act._transcript||'').trim()).slice(-300)||'듣는 중... 말하면 20초 안에 글로 나타나요')+'</div>';
     } else if(act._sttBusy && act._sttBusyAt && Date.now()-act._sttBusyAt<90000){
-      body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">마지막 조각 변환 중...</span></div>';
+      body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">마지막 조각 변환 중 · '+_cntdnHtml(act._sttBusyAt, 45)+'</span></div>';
     } else if(act._sttBusy){
       // 90초 넘게 "변환 중" 이면 뭔가 걸린 것 — 자동 해제(세션 종료 차단까지 풀림). 텍스트는 이미 있는 만큼 보존됨.
       delete act._sttBusy; delete act._sttBusyAt;

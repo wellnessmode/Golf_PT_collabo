@@ -373,8 +373,108 @@ function openDemoPerformance(){ S.perfDemo=true; S.perfClub='driver'; S.perfVidF
 function closePerformance(){ S.showPerformance=false; S.perfDemo=false; S.perfShotModal=null; render(); }
 function setPerfClub(c){ S.perfClub=c; render(); }
 function setPerfVidFilter(f){ S.perfVidFilter=f; render(); }
-function openPerfShot(idx){ S.perfShotModal=idx; render(); }
-function closePerfShot(){ S.perfShotModal=null; render(); }
+function openPerfShot(idx){ S.perfShotModal=idx; S.perfShotView=0; render(); }
+function closePerfShot(){ S.perfShotModal=null; S.perfShotView=0; render(); }
+// 샷 모달 안 앵글 전환 (측면/정면/클럽) — 재렌더 없이 비디오 src 만 교체
+function setPerfShotView(i, key){
+  S.perfShotView=i;
+  try{
+    var v=document.querySelector('.pv-vm-video'); if(v){ v.src=r2.url(key); v.load(); v.play().catch(function(){}); }
+    var tabs=document.querySelectorAll('.pv-vm-tabs .vv-tab');
+    for(var k=0;k<tabs.length;k++){ tabs[k].classList.toggle('on', k===i); }
+  }catch(e){}
+}
+
+// ===== 영상 진짜 다운로드 — PWA 에서 <a href download> 는 앱 밖으로 내비게이션돼
+// 앱이 재시작되던 문제. blob 으로 받아 기기에 저장한다.
+//   아이폰: 공유시트(navigator.share) → "비디오 저장" 누르면 사진앱에 저장
+//   갤럭시/안드로이드: 다운로드 폴더로 바로 저장
+async function downloadShotVideo(btn, url, fname){
+  if(btn && btn._busy) return;
+  var orig = btn ? btn.textContent : '';
+  try{
+    // 파일명 확장자를 실제 영상(URL)에 맞춤 — mkv/mov 원본이면 그 확장자로 저장
+    try{ var xm=/\.(mkv|mov|mp4)(\?|$)/i.exec(url||''); if(xm) fname=String(fname||'video').replace(/\.(mp4|mkv|mov)$/i,'')+'.'+xm[1].toLowerCase(); }catch(e){}
+    if(btn){ btn._busy=1; btn.textContent='⬇ 내려받는 중... 0%'; }
+    var res = await fetch(url);
+    if(!res.ok) throw new Error('http '+res.status);
+    // 진행률 표시하며 수신 (지원 안 되면 통짜로)
+    var blob;
+    try{
+      var total = parseInt(res.headers.get('content-length')||'0',10);
+      if(res.body && res.body.getReader && total>0){
+        var reader=res.body.getReader(), chunks=[], got=0;
+        while(true){ var r=await reader.read(); if(r.done) break; chunks.push(r.value); got+=r.value.length;
+          if(btn) btn.textContent='⬇ 내려받는 중... '+Math.min(99,Math.round(got/total*100))+'%'; }
+        blob=new Blob(chunks,{type:res.headers.get('content-type')||'video/mp4'});
+      } else { blob=await res.blob(); }
+    }catch(e){ blob=await res.blob(); }
+    var isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+    var file=null; try{ file=new File([blob], fname, {type: blob.type||'video/mp4'}); }catch(e){}
+    if(isIOS && file && navigator.canShare && navigator.canShare({files:[file]})){
+      // 아이폰 — 공유시트에서 [비디오 저장]을 누르면 사진앱에 저장됩니다
+      try{ await navigator.share({files:[file]}); if(btn) btn.textContent='✓ 완료'; }
+      catch(e){ if(e && e.name==='AbortError'){ if(btn) btn.textContent=orig; } else { _blobDownload(blob, fname); if(btn) btn.textContent='✓ 파일로 저장됨'; } }
+    } else {
+      _blobDownload(blob, fname);
+      if(btn) btn.textContent='✓ 저장됨 (다운로드 폴더)';
+    }
+  }catch(e){
+    console.warn('[video-dl] fail:', e);
+    if(btn) btn.textContent='⚠ 저장 실패 — 다시 시도';
+    if(typeof liveToastSafe==='function') liveToastSafe('영상 저장 실패: '+String(e&&e.message||e).slice(0,60));
+  }finally{
+    if(btn){ btn._busy=0; setTimeout(function(){ try{ btn.textContent=orig; }catch(e){} }, 4000); }
+  }
+}
+function _blobDownload(blob, fname){
+  var u=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=u; a.download=fname; a.style.display='none';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ try{ URL.revokeObjectURL(u); }catch(e){} }, 60000);
+}
+
+// ===== 비포·애프터 나란히 비교 재생 — 동시 재생/일시정지 · 처음부터 · 배속(0.25/0.5/1) =====
+function openCompareVideos(bKey, aKey){
+  if(typeof r2==='undefined' || !r2.enabled || !bKey || !aKey) return;
+  var div=document.createElement('div'); div.className='media-overlay cmp-overlay';
+  div.onclick=function(e){ if(e.target===div) div.remove(); };
+  div.innerHTML = '<div class="cmp-box">'
+    +'<div class="cmp-grid">'
+      +'<div class="cmp-col"><span class="cmp-tag b">BEFORE</span><video src="'+r2.url(bKey)+'" playsinline muted loop preload="auto"></video></div>'
+      +'<div class="cmp-col"><span class="cmp-tag a">AFTER</span><video src="'+r2.url(aKey)+'" playsinline muted loop preload="auto"></video></div>'
+    +'</div>'
+    +'<div class="cmp-ctrl">'
+      +'<button class="cmp-btn" data-act="restart">⏮ 처음부터</button>'
+      +'<button class="cmp-btn play" data-act="play">▶ 동시 재생</button>'
+      +'<div class="cmp-speeds"><span>배속</span>'
+        +[0.25,0.5,1].map(function(sp){ return '<button class="cmp-sp'+(sp===0.5?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>'; }).join('')
+      +'</div>'
+    +'</div>'
+    +'<button class="cmp-close" onclick="this.closest(\'.media-overlay\').remove()">닫기</button>'
+  +'</div>';
+  document.body.appendChild(div);
+  var vids=[].slice.call(div.querySelectorAll('video'));
+  vids.forEach(function(v){ try{ v.playbackRate=0.5; }catch(e){} });   // 기본 슬로우(0.5×)
+  var playBtn=div.querySelector('[data-act="play"]');
+  playBtn.onclick=function(){
+    var anyPlaying=vids.some(function(v){ return !v.paused; });
+    if(anyPlaying){ vids.forEach(function(v){ v.pause(); }); playBtn.textContent='▶ 동시 재생'; }
+    else{ vids.forEach(function(v){ v.play().catch(function(){}); }); playBtn.textContent='⏸ 일시정지'; }
+  };
+  div.querySelector('[data-act="restart"]').onclick=function(){
+    vids.forEach(function(v){ try{ v.currentTime=0; }catch(e){} v.play().catch(function(){}); });
+    playBtn.textContent='⏸ 일시정지';
+  };
+  [].slice.call(div.querySelectorAll('.cmp-sp')).forEach(function(b){
+    b.onclick=function(){
+      var sp=parseFloat(b.getAttribute('data-sp'))||1;
+      vids.forEach(function(v){ try{ v.playbackRate=sp; }catch(e){} });
+      [].slice.call(div.querySelectorAll('.cmp-sp')).forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+    };
+  });
+}
 
 // ---------- 헬퍼: Lock-in 카운터 ----------
 function _weeksSince(dateStr){
@@ -424,6 +524,11 @@ function _buildClubAverages(shots){
 // ---------- 헬퍼: 비포/애프터 ----------
 function _findBeforeAfter(shots){
   var sorted=(shots||[]).slice().sort(function(a,b){return String(a.ts).localeCompare(String(b.ts));});
+  // 1순위: 프로가 직접 지정한 비포/애프터 (각각 가장 최근 것) — 교육 의도를 그대로 반영
+  var tagB=null, tagA=null;
+  sorted.forEach(function(s){ var t=s.data&&s.data._tag; if(t==='before') tagB=s; else if(t==='after') tagA=s; });
+  if(tagB && tagA && tagB!==tagA) return {before:tagB, after:tagA, tagged:true};
+  // 2순위(폴백): 드라이버(없으면 전체) 첫 샷 vs 마지막 샷
   var drv=sorted.filter(function(s){return _clubGroup(s.data&&s.data.club)==='driver';});
   var use=drv.length>=2?drv:sorted;
   if(use.length<2) return null;
@@ -656,11 +761,14 @@ function renderPerformance(){
         var dist=d.carry!=null?_fmtNum(pfDistFrom(d.carry,sm)):'—';
         var u=d.carry!=null?pfDistU():'';
         var club=_clubKo(d.club)||'';
-        var isBest=(parseFloat(d.carry)||0)>=maxCarry*0.97;
+        // 프로가 직접 지정한 비포/애프터만 배지 표시 — 캐리 기준 자동 BEST 는 오해 소지
+        // (교정 전 나쁜 습관 예시 영상이 "베스트"로 보일 수 있음) → 제거.
+        var tagBadge = d._tag==='before' ? '<span class="pv-vbest tag-before">BEFORE</span>'
+                     : d._tag==='after'  ? '<span class="pv-vbest tag-after">AFTER</span>' : '';
         var dateStr=String(s.ts).slice(5,10);
-        var hasVid=!!(s.videoR2Key || d.videoMp4R2Key);
+        var hasVid=!!(s.videoR2Key || d.videoMp4R2Key || d.videoDL);
         html+='<div class="pv-vcard" onclick="openPerfShot('+idx+')"><div class="pv-vthumb">'
-          +(isBest?'<span class="pv-vbest">BEST</span>':'')
+          +tagBadge
           +(hasVid?'<span class="pv-vhasvid">🎬</span>':'')
           +'<div class="pv-vplay">▶</div>'
           +'<span class="pv-vdate">'+dateStr+'</span><span class="pv-vdist">'+dist+'<span>'+u+'</span></span>'
@@ -681,9 +789,10 @@ function renderPerformance(){
     var bCm=bMet?bC:bC*0.9144, aCm=aMet?aC:aC*0.9144;   // m 로 정규화해 비교
     var diffM=aCm-bCm, pctChg=bCm>0?Math.round((diffM/bCm)*100*10)/10:0;
     var bIdx=data.shots.indexOf(ba.before), aIdx=data.shots.indexOf(ba.after);
-    var bVid=!!(ba.before.videoR2Key||(ba.before.data&&ba.before.data.videoMp4R2Key));
-    var aVid=!!(ba.after.videoR2Key||(ba.after.data&&ba.after.data.videoMp4R2Key));
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>변화의 증거</div><div class="pv-sec-x">처음 vs 현재 · 탭하면 상세</div></div>'
+    var _vk=function(s){ var d=(s&&s.data)||{}; return d.videoDL||d.videoMp4R2Key||s.videoR2Key||null; };
+    var bKey=_vk(ba.before), aKey=_vk(ba.after);
+    var bVid=!!bKey, aVid=!!aKey;
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>변화의 증거</div><div class="pv-sec-x">'+(ba.tagged?'프로 지정 비포·애프터':'처음 vs 현재')+' · 탭하면 상세</div></div>'
       +'<div class="pv-bna-h">⏮ BEFORE  ·  AFTER ⏭</div>'
       +'<div class="pv-bna">'
         +'<div class="pv-bna-col" onclick="openPerfShot('+bIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">BEFORE</span>'+(bVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
@@ -692,7 +801,8 @@ function renderPerformance(){
         +'<div class="pv-bna-col after" onclick="openPerfShot('+aIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">AFTER</span>'+(aVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
           +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.after.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(aCm))+' <span>'+pfDistU()+'</span></div></div></div>'
       +'</div>'
-      +(diffM>0?'<div class="pv-bna-delta"><span>드라이버 캐리 변화</span><b>+'+_fmtNum(pfDistM(diffM))+' '+pfDistU()+' · +'+pctChg+'%</b></div>':'')
+      +(bVid&&aVid?'<button class="pv-cmp-btn" onclick="openCompareVideos(\''+bKey+'\',\''+aKey+'\')">🎬 비포·애프터 나란히 재생 <small>슬로우 · 배속 조절</small></button>':'')
+      +(diffM>0&&!ba.tagged?'<div class="pv-bna-delta"><span>드라이버 캐리 변화</span><b>+'+_fmtNum(pfDistM(diffM))+' '+pfDistU()+' · +'+pctChg+'%</b></div>':'')
     +'</div>';
   }
 
@@ -781,30 +891,30 @@ function renderPerformance(){
     var metric=_isMetricShot(dm);
     var vmt=function(l,v,u){return '<div class="pv-vmt"><div class="l">'+l+'</div><div class="v">'+(v==null?'—':v)+(u?'<span class="u"> '+u+'</span>':'')+'</div></div>';};
     var vmp=function(l,v,u){return '<div class="pv-vmp"><span>'+l+'</span><b>'+(v==null?'—':v)+(u?' '+u:'')+'</b></div>';};
-    // 영상: mp4 우선(에이전트가 변환했으면), 없으면 mkv 원본. 둘 다 다운로드 버튼 제공.
-    // ※ mp4 키는 shot.data 안에 저장됨(dm.videoMp4R2Key) — 최상위 아님.
-    var mp4Stored = dm.videoMp4R2Key || null;
-    var hasMp4 = !!mp4Stored;   // 에이전트가 실제 만든 mp4 (아이폰 재생 보장)
-    var vidUrl='', dlUrl='', isMkvOnly=false;
-    if(typeof r2!=='undefined' && r2.enabled){
-      if(hasMp4){
-        vidUrl = r2.url(mp4Stored);
-        dlUrl  = sm.videoR2Key ? r2.url(sm.videoR2Key) : vidUrl;  // 원본 mkv 다운 옵션
-      } else if(sm.videoR2Key){
-        vidUrl = r2.url(sm.videoR2Key);
-        dlUrl  = vidUrl;
-        isMkvOnly = /\.mkv$/i.test(sm.videoR2Key);
-      }
+    // 영상 앵글: 측면(DL, 주 영상) / 정면(FO) / 클럽 딜리버리 — 있는 것만 탭으로 전환.
+    // ※ 각도 키는 shot.data 안에 저장됨(videoDL/videoFO/videoClub/videoMp4R2Key).
+    var views=[];
+    var dlK = dm.videoDL || dm.videoMp4R2Key || sm.videoR2Key || null;
+    if(dlK) views.push({label:'측면', key:dlK});
+    if(dm.videoFO) views.push({label:'정면', key:dm.videoFO});
+    if(dm.videoClub) views.push({label:'클럽', key:dm.videoClub});
+    var curV = Math.min(S.perfShotView||0, Math.max(0,views.length-1));
+    var vidUrl='', isMkvOnly=false;
+    if(views.length && typeof r2!=='undefined' && r2.enabled){
+      vidUrl = r2.url(views[curV].key);
+      isMkvOnly = /\.mkv$/i.test(views[curV].key);
     }
-    var fname = 'shot_'+(sm.id||'').slice(0,8)+(hasMp4?'.mp4':'.mkv');
+    var fname = 'shot_'+(sm.id||'').slice(0,8)+'.mp4';
     var vidHtml;
     if(vidUrl){
+      var tabsHtml = views.length>1
+        ? '<div class="pv-vm-tabs vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===curV?' on':'')+'" onclick="setPerfShotView('+i+',\''+v.key+'\')">'+v.label+'</button>';}).join('')+'</div>'
+        : '';
       // 영상 로드 실패(보관정책으로 정리됐거나 만료) 시 깨진 플레이어 대신 안내로 교체
-      vidHtml='<video class="pv-vm-video" src="'+vidUrl+'" controls playsinline preload="metadata" onerror="try{this.parentElement.innerHTML=\'<div class=&quot;pv-vm-novid&quot;><div class=&quot;pv-vm-novid-t&quot;>영상이 만료·정리되어 재생할 수 없습니다<br><span style=&quot;font-size:11px;opacity:.7&quot;>저장(선별)하지 않은 샷 영상은 보관 기간 후 자동 정리됩니다. 측정 데이터는 유지됩니다.</span></div></div>\';}catch(e){}"></video>';
+      vidHtml=tabsHtml+'<video class="pv-vm-video" src="'+vidUrl+'" controls playsinline preload="metadata" onerror="try{this.parentElement.innerHTML=\'<div class=&quot;pv-vm-novid&quot;><div class=&quot;pv-vm-novid-t&quot;>영상이 만료·정리되어 재생할 수 없습니다<br><span style=&quot;font-size:11px;opacity:.7&quot;>저장(선별)하지 않은 샷 영상은 보관 기간 후 자동 정리됩니다. 측정 데이터는 유지됩니다.</span></div></div>\';}catch(e){}"></video>';
       if(isMkvOnly){
-        vidHtml += '<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. 아래에서 영상을 내려받아 폰의 동영상 앱으로 보세요.</div>';
+        vidHtml += '<div class="pv-vm-mkvnote">⚠️ 트랙맨 원본(MKV)은 일부 기기에서 재생이 안 될 수 있어요. 아래 [영상 저장]으로 내려받아 폰의 동영상 앱으로 보세요.</div>';
       }
-      vidHtml += '<div class="pv-vm-dl"><a class="pv-dl-btn" href="'+dlUrl+'" download="'+fname+'" target="_blank" rel="noopener">⬇ 영상 다운로드'+(hasMp4?' (MP4)':' (MKV 원본)')+'</a></div>';
     } else if(dm._videoPending && (function(){ var t=Date.parse(dm.measuredAt||sm.ts); return !isNaN(t) && Date.now()-t < 5*60000; })()){
       vidHtml='<div class="pv-vm-novid"><div class="pv-vplay" style="width:54px;height:54px;font-size:18px">🎞</div><div class="pv-vm-novid-t">영상 업로드 중...<br><span style="font-size:11px;opacity:.75">약 30초 뒤 다시 열면 재생됩니다</span></div></div>';
     } else {
@@ -814,7 +924,8 @@ function renderPerformance(){
       +'<div class="pv-vm-box">'
         +'<div class="pv-vm-vid">'+vidHtml+'</div>'
         +'<div class="pv-vm-info">'
-          +'<div class="pv-vm-h"><div class="pv-vm-club">'+(_clubKo(dm.club)||'샷')+'</div><div class="pv-vm-date">'+String(sm.ts).slice(0,16).replace('T',' ')+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
+          +'<div class="pv-vm-h"><div class="pv-vm-club">'+(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+String(sm.ts).slice(0,16).replace('T',' ')+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
+          +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:\''+vidUrl+'\', \''+fname+'\')">⬇ 영상 저장 <small>아이폰: 공유시트에서 [비디오 저장] · 갤럭시: 다운로드 폴더</small></button>':'')
           +'<div class="pv-vm-tiles">'+vmt('Carry', dm.carry!=null?_fmtNum(pfDistFrom(dm.carry,metric)):'—', pfDistU())
             +vmt('Total', dm.total!=null?_fmtNum(pfDistFrom(dm.total,metric)):'—', pfDistU())
             +vmt('Ball', dm.ballSpeed!=null?_fmtNum(pfSpdFrom(dm.ballSpeed,metric)):'—', pfSpdU())
