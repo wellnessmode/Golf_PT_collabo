@@ -260,7 +260,7 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
     var r = await run(['-y','-i', tmpIn, '-c','copy','-movflags','+faststart', tmpOut]);
     if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
       // 2) 폴백: 트랜스코드 (H.264 + AAC)
-      r = await run(['-y','-i', tmpIn, '-c:v','libx264','-preset','veryfast','-crf','24','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      r = await run(['-y','-i', tmpIn, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
       if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
     }
     var out = fs.readFileSync(tmpOut);
@@ -273,7 +273,11 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
 
 // 임의 영상 파일(.mkv/.mov 등) → 웹 재생용 mp4(H.264) 버퍼. 리먹스 우선, 실패 시 트랜스코드.
 // (고장 상태에서 TPS가 Videos 폴더에 낱개로 저장하는 아이폰 .mov / 카메라 .mkv 를 붙이기 위함)
-async function convertFileToMp4(inputPath, ffmpegPath){
+// forceEncode=true 면 리먹스(-c copy)를 건너뛰고 무조건 재인코딩한다.
+// 클럽 딜리버리(초고속 카메라) 영상은 픽셀 형식이 4:2:2 등이라 리먹스한 mp4 를
+// 아이폰이 재생 못 한다 — 컨테이너만 바꾸면 "파일은 있는데 재생 불가" 상태가 됨.
+// 모든 재인코딩에 -pix_fmt yuv420p 강제: 이것이 브라우저/아이폰 호환의 핵심.
+async function convertFileToMp4(inputPath, ffmpegPath, forceEncode){
   var os = require('os'); var path = require('path'); var fs = require('fs');
   var { spawn } = require('child_process');
   var tmpOut = path.join(os.tmpdir(), 'gptv_'+Date.now()+'_'+Math.floor(Math.random()*1e6)+'.mp4');
@@ -287,14 +291,18 @@ async function convertFileToMp4(inputPath, ffmpegPath){
       p.on('close', function(code){ clearTimeout(killTimer); resolve({code: killed?-2:code, err: killed?'ffmpeg 타임아웃(180초)':err}); });
     });
   }
+  function bad(r){ return r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024; }
   try{
-    // 1) 리먹스(재인코딩 X) — 이미 H.264 면 즉시. faststart 로 스트리밍 재생.
-    var r = await run(['-y','-i', inputPath, '-c','copy','-movflags','+faststart', tmpOut]);
-    if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
-      // 2) 트랜스코드 — HEVC(아이폰) 등은 H.264 로. 오디오 없으면 -an 로도 시도.
-      r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
-      if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
-        r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-an','-movflags','+faststart', tmpOut]);
+    var r = { code: 1, err: '' };
+    if (!forceEncode){
+      // 1) 리먹스(재인코딩 X) — 이미 아이폰 호환 H.264 면 즉시. faststart 로 스트리밍 재생.
+      r = await run(['-y','-i', inputPath, '-c','copy','-movflags','+faststart', tmpOut]);
+    }
+    if (forceEncode || bad(r)){
+      // 2) 트랜스코드 — HEVC·4:2:2·10bit 등 전부 아이폰 호환 H.264(yuv420p) 로.
+      r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      if (bad(r)){
+        r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-an','-movflags','+faststart', tmpOut]);
         if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
       }
     }
@@ -564,7 +572,9 @@ async function processVideoJob(job){
     async function up(src, suffix){
       if (!src) return null;
       var buf = null;
-      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
+      // 클럽 딜리버리(초고속 카메라)는 리먹스 금지 — 항상 아이폰 호환 재인코딩
+      var forceEnc = (suffix === '_club');
+      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath, forceEnc); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
       if (buf && buf.length){
         var mk = vbase + suffix + '.mp4';
         if (await uploadVideo(mk, buf, 'video/mp4')){ log('  MP4 업로드 ' + (buf.length/1e6).toFixed(1) + 'MB ← ' + src.name); return mk; }
