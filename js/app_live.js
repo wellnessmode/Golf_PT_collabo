@@ -124,16 +124,18 @@ function _vidChip(s){
   }
   return '';
 }
-// ===== 클럽 딜리버리 패스 오버레이 (TPS 스타일) =====
-// 위에서 본 임팩트 화면 위에 측정 데이터를 그린다:
-//   점선 타깃라인 + 파란 타깃 밴드 + 클럽 패스 곡선(측정 clubPath° 만큼 기울임,
-//   시인성 위해 각도 2배 과장 — 수치 라벨은 실측값) + 페이스 각 라인.
+// ===== 클럽 딜리버리 패스 다이어그램 (TPS 스타일) =====
+// ⚠️ 영상 화면 전체에 겹쳐 그리면 실제 볼 위치(카메라마다 다름)와 어긋나 엉뚱해 보인다.
+// → 방송 그래픽처럼 우측 하단 "미니 다이어그램 인셋"으로 분리 표시:
+//   점선 타깃라인 + 파란 타깃 밴드 + 클럽 패스 곡선(측정 clubPath° 기울임,
+//   시인성 2배 과장 — 수치 라벨은 실측값) + 페이스 각 라인 + PATH/FACE 배지.
 function _clubPathOverlayHTML(d){
   if(!d || (d.clubPath==null && d.faceAngle==null)) return '';
   var cp=parseFloat(d.clubPath); if(isNaN(cp)) cp=0;
   var fa=parseFloat(d.faceAngle); if(isNaN(fa)) fa=0;
   var dirTxt = cp>0.3?'인투아웃':(cp<-0.3?'아웃투인':'스트레이트');
   return '<div class="club-overlay" aria-hidden="true">'
+    +'<div class="cp-inset">'
     +'<svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet">'
     +'<defs><linearGradient id="cpTrail" x1="0" y1="1" x2="0" y2="0">'
       +'<stop offset="0%" stop-color="rgba(255,255,255,0)"/>'
@@ -146,7 +148,9 @@ function _clubPathOverlayHTML(d){
       +'<path d="M 50,56 l -3.4,6.4 M 50,56 l 3.8,5.8" stroke="rgba(0,210,154,.95)" stroke-width="2.2" stroke-linecap="round" fill="none"/>'
     +'</g>'
     +'<g transform="rotate('+(-fa).toFixed(1)+' 50 84)"><line x1="39" y1="84" x2="61" y2="84" stroke="rgba(246,193,119,.95)" stroke-width="2"/></g>'
+    +'<circle cx="50" cy="84" r="3.1" fill="#fff" opacity=".9"/>'
     +'</svg>'
+    +'</div>'
     +'<div class="club-ov-lab">'
       +'<span class="col-path">PATH '+(cp>0?'+':'')+cp.toFixed(1)+'° '+dirTxt+'</span>'
       +'<span class="col-face">FACE '+(fa>0?'+':'')+fa.toFixed(1)+'°</span>'
