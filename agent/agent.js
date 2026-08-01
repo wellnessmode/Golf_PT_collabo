@@ -342,14 +342,17 @@ function findShotVideos(evMs, shotId){
         if (!/\.(mkv|mov|mp4)$/i.test(e.name)) continue;
         var c = cat(e.name); if (!c) continue;
         var fp = require('path').join(dir, e.name);
-        // 이미 다른 샷에 배정된 영상은 제외 — "두 샷이 같은 영상" 사고 방지
-        if (_videoAssigned[fp] && _videoAssigned[fp] !== shotId) continue;
         var mt; try { mt = fs.statSync(fp).mtimeMs; } catch(err){ continue; }
         // 아이폰(DL/FO) 영상은 저장 완료가 늦을 수 있어 창을 더 넓게 잡는다
         var maxDt = (c==='dl'||c==='fo') ? 150000 : 90000;
         var dt = mt - evMs; if (dt < -8000 || dt > maxDt) continue;   // 창 밖
         var absdt = Math.abs(dt);
-        if (!out[c] || absdt < out[c].absdt) out[c] = { fp: fp, name: e.name, absdt: absdt };
+        var taken = (_videoAssigned[fp] && _videoAssigned[fp] !== shotId);
+        // 다른 샷에 배정 안 된 영상 우선. 단, 그런 게 하나도 없으면 배정된 것이라도
+        // 재사용한다 — "중복 방지" 때문에 영상이 아예 안 붙는(굶는) 사고 방지.
+        var cur = out[c];
+        var better = !cur || (cur._taken && !taken) || (cur._taken===taken && absdt < cur.absdt);
+        if (better) out[c] = { fp: fp, name: e.name, absdt: absdt, _taken: taken };
       }
     });
   });
@@ -584,7 +587,8 @@ async function processVideoJob(job){
     var mainKey = dlKey || clubKey || ballKey;
     try{
       var okv = await attachShotVideo(job.shotId, null, mainKey, null, { videoFO: foKey, videoDL: dlKey, videoClub: clubKey });
-      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음') + ' 클럽:' + (clubKey||'없음') + (ballKey?' (대표=볼카메라)':''));
+      var reused = [dlSrc,foSrc,clubSrc,ballSrc].some(function(s){ return s && s._taken; });
+      if (okv) log('  영상 연결 완료 → 측면:' + (dlKey||'없음') + ' 정면:' + (foKey||'없음') + ' 클럽:' + (clubKey||'없음') + (ballKey?' (대표=볼카메라)':'') + (reused?' ⚠️ 다른 샷과 영상 공유(후보 부족)':''));
       // 업로드 성공한 원본 파일을 이 샷에 배정 기록 — 다른 샷이 같은 영상을 못 가져가게
       [[dlSrc,dlKey],[foSrc,foKey],[clubSrc,clubKey],[ballSrc,ballKey]].forEach(function(p){
         if (p[0] && p[1]) _videoAssigned[p[0].fp] = job.shotId;

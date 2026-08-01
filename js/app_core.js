@@ -78,9 +78,15 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.34',
-  date:'2026-08-01',
+  version:'v9.35',
+  date:'2026-08-02',
   changes:[
+    '실시간 샷 저장 개편 — [＋저장] 제거, [📌 비포로 저장]/[✅ 애프터로 저장] 둘 중 선택. 저장해도 카드가 사라지지 않고 "✓ 저장됨" 상태로 남으며 [저장 취소]로 즉시 복구, 나머지 버튼은 비활성화',
+    '애프터 영상이 안 붙던 버그 수정 — 영상 중복배정 방지가 너무 엄격해 후보가 전부 다른 샷에 배정된 경우 영상이 아예 안 붙던(굶는) 문제. 안 겹치는 영상 우선, 없으면 공유라도 붙임 (에이전트 교체 필요)',
+    '영상 오류 원인 표시 — "만료·정리" 뭉뚱그림 대신 실제 사유를 확인해 표시: 서버에 파일 없음(404·업로드 실패) / 재생 불가 형식(코덱) / 네트워크. 클럽 영상 문제 진단용',
+    '비교 재생기에 앵글 전환 — [측면]/[정면]/[클럽] 탭으로 두 영상을 같은 앵글로 동시 전환(두 샷 모두 있는 앵글만 활성). 영상 없는 쪽이 있으면 버튼 대신 안내 문구',
+    '"변화의 증거" → "비포 · 애프터" 로 문구 정리',
+    '버튼 인터랙션 업그레이드 — 전역 버튼에 눌림 스케일·글로우 애니메이션, 저장 확정 배지 팝 효과 (동작 줄이기 설정 시 자동 비활성)',
     '트레이너도 타석 레슨 — 이상렬·최현승 트레이너 회원 화면에 [🏌️ 타석 레슨] 버튼 추가(프로와 동일 기능), 기존 일지 버튼은 [📝 피티레슨일지]로 명칭 변경',
     '클럽 딜리버리 탭 안 뜨던 버그 수정 — DL 아이폰 영상이 없으면 클럽 카메라 영상이 "측면" 자리를 차지해 클럽 탭이 안 생기던 매핑 오류. 이제 클럽 영상은 항상 [클럽] 탭, 측면은 DL 아이폰 전용 (에이전트 교체 필요)',
     '비교 재생 업그레이드 — 공용 시크바(두 영상 동시 탐색·프레임 비교), 0.125× 초슬로우 추가, 각 영상에 클럽·날짜·캐리 캡션 표시',
@@ -968,7 +974,7 @@ async function init(){
       save();S.cloudSync='connected';
     } else {S.cloudSync='error';}
     // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
-    try{const live=await cloud.loadLive();if(live){if(CONFIG_BAYS_SET){S.bays=BAYS_DEFAULT.slice();cloud.upsertBays(S.bays);}else if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
+    try{const live=await cloud.loadLive();if(live){if(CONFIG_BAYS_SET){S.bays=BAYS_DEFAULT.slice();cloud.upsertBays(S.bays);}else if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}applyRemoteActive(live.activeSessions);(function(){var om={};(S.shotEvents||[]).forEach(function(s){om[s.id]=s;});S.shotEvents=(live.shotEvents||[]).map(function(s){var o=om[s.id];if(o){if(o._rcvAt)s._rcvAt=o._rcvAt;if(o._isNew)s._isNew=o._isNew;if(o._uiSavedAt)s._uiSavedAt=o._uiSavedAt;}return s;});})();reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
     render();
   } else {S.cloudSync='local';}
   // 마지막 단계: 로컬에 있는 영상이 R2에 누락된 경우 자동 재업로드
@@ -1074,7 +1080,7 @@ async function refreshFromCloud(){
     purgeZombieSessions();
     save();S.cloudSync='connected';
   }else{S.cloudSync='error';}
-  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length&&!CONFIG_BAYS_SET) S.bays=live.bays;applyRemoteActive(live.activeSessions);S.shotEvents=live.shotEvents;reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
+  try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length&&!CONFIG_BAYS_SET) S.bays=live.bays;applyRemoteActive(live.activeSessions);(function(){var om={};(S.shotEvents||[]).forEach(function(s){om[s.id]=s;});S.shotEvents=(live.shotEvents||[]).map(function(s){var o=om[s.id];if(o){if(o._rcvAt)s._rcvAt=o._rcvAt;if(o._isNew)s._isNew=o._isNew;if(o._uiSavedAt)s._uiSavedAt=o._uiSavedAt;}return s;});})();reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   render();
 }
 

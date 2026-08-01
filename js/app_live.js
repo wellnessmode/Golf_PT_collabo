@@ -124,6 +124,22 @@ function _vidChip(s){
   }
   return '';
 }
+// 영상 재생 실패 정밀 진단 — "만료·정리" 뭉뚱그림 대신 실제 사유를 확인해 표시.
+// 404 = 서버에 파일 없음(업로드 실패/삭제), 200 = 파일은 있는데 이 기기가 재생 못 하는 형식.
+async function _vidDiag(videoEl, key){
+  var box = videoEl && videoEl.parentElement; if(!box) return;
+  var msg = '영상을 재생할 수 없습니다';
+  var sub = '';
+  try{
+    var res = await fetch(r2.url(key), {headers:{'Range':'bytes=0-1'}});
+    if(res.status===404){ msg='영상 파일이 서버에 없어요'; sub='업로드 실패 또는 정리(삭제)됨 — 에이전트 로그 확인 필요'; }
+    else if(res.ok){ msg='파일은 서버에 있는데 이 기기에서 재생이 안 되는 형식이에요'; sub='[영상 저장]으로 내려받아 동영상 앱으로 재생하거나, 관리자에게 알려주세요 (mkv/특수 코덱)'; }
+    else { msg='영상 서버 응답 오류 ('+res.status+')'; sub='잠시 후 다시 시도해주세요'; }
+  }catch(e){ msg='네트워크 연결 문제로 영상을 못 불러왔어요'; sub='연결 확인 후 다시 열어주세요'; }
+  try{
+    box.innerHTML='<div class="pv-vm-novid"><div class="pv-vm-novid-t">'+msg+'<br><span style="font-size:11px;opacity:.75">'+sub+'</span><br><span style="font-size:9.5px;opacity:.5;word-break:break-all">'+String(key||'')+'</span></div></div>';
+  }catch(e){}
+}
 // 영상 사전 워밍 — [🎬 보기] 칩이 뜨는 순간 2바이트만 미리 요청해 두면, 워커가
 // 백그라운드로 영상 전체를 엣지 캐시에 적재한다 → 실제 재생 탭 때 첫 프레임이 즉시 뜸.
 // 키당 1회만, 렌더를 막지 않게 비동기로.
@@ -191,6 +207,7 @@ function openShotVideo(shotId){
     + '<div style="text-align:center;margin-top:10px"><button onclick="this.closest(\'.media-overlay\').remove()" style="padding:9px 22px;background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;font-weight:700">닫기</button></div></div>';
   document.body.appendChild(div);
   var vid = div.querySelector('video');
+  vid.addEventListener('error', function(){ try{ _vidDiag(vid, views[cur].key); }catch(e){} });
   Array.prototype.forEach.call(div.querySelectorAll('.vv-tab'), function(b){
     b.onclick = function(){
       var i = parseInt(b.getAttribute('data-vi'),10)||0; if(i===cur) return; cur=i;
@@ -206,9 +223,18 @@ function openShotVideo(shotId){
 // 베이카드 '방금 친 샷' HTML 생성 (renderBayCard 와 _patchLivePartials 공용)
 function _buildPendingShotsHTML(bayId){
   var pend = (typeof pendingShotsForBay==='function') ? pendingShotsForBay(bayId) : [];
-  if(!pend.length) return '';
-  var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ 방금 친 샷 — 저장할 것만 선택<span class="ps-count">'+pend.length+'</span></div>';
-  pend.slice(0,5).forEach(function(s){
+  // 이 세션에서 방금 저장한 샷도 목록에 남긴다 — 카드가 사라지지 않고
+  // "✓ 비포로 저장됨" 상태 + [저장 취소]로 표시 (실수 즉시 복구 가능)
+  var act0 = S.activeSessions[bayId];
+  var savedRecent = (S.shotEvents||[]).filter(function(s){
+    return s.source==='agent' && s.bayId===bayId && s._uiSavedAt && (Date.now()-s._uiSavedAt < 30*60000)
+        && act0 && s.memberId===act0.memberId;
+  });
+  var all = savedRecent.concat(pend);
+  if(!all.length) return '';
+  all.sort(function(a,b){ var ra=a._rcvAt||0, rb=b._rcvAt||0; if(ra&&rb) return rb-ra; return String(b.ts||'').localeCompare(String(a.ts||'')); });
+  var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ 방금 친 샷 — 비포/애프터로 저장<span class="ps-count">'+all.length+'</span></div>';
+  all.slice(0,6).forEach(function(s){
     var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
     // 거리=미터(트랙맨 원본 그대로). 야드 데이터(옛것)는 미터로 환산.
     var carry=d.carry!=null?Math.round((m?d.carry:d.carry*0.9144)*10)/10:null;
@@ -223,15 +249,25 @@ function _buildPendingShotsHTML(bayId){
     if(total!=null && total!==carry) bits.push('<span class="psb">토탈 '+total+'m</span>');
     if(ball!=null) bits.push('<span class="psb">볼 '+ball+'m/s</span>');
     if(spin!=null) bits.push('<span class="psb">스핀 '+spin+'</span>');
-    html += '<div class="ps-card'+fresh+'" data-shot="'+s.id+'">'
+    var savedTag = s._uiSavedAt ? (s.data&&s.data._tag) : null;   // 'before'|'after'|undefined(일반)
+    var stateCls = savedTag==='before' ? ' saved-before' : (savedTag==='after' ? ' saved-after' : (s._uiSavedAt?' saved-plain':''));
+    var actions;
+    if(s._uiSavedAt){
+      // 저장 완료 상태 — 확정 배지 + [저장 취소]만 활성, 나머지 비활성
+      var tagLabel = savedTag==='before' ? '✓ 비포로 저장됨' : (savedTag==='after' ? '✓ 애프터로 저장됨' : '✓ 저장됨');
+      actions = '<span class="ps-saved-badge '+(savedTag||'plain')+'">'+tagLabel+'</span>'
+              + '<button class="ps-tag before" disabled>비포로 저장</button>'
+              + '<button class="ps-tag after" disabled>애프터로 저장</button>'
+              + '<button class="ps-cancel" onclick="cancelLessonShot(\''+s.id+'\')">저장 취소</button>';
+    } else {
+      actions = '<button class="ps-tag before big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'before\')">📌 비포로 저장</button>'
+              + '<button class="ps-tag after big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'after\')">✅ 애프터로 저장</button>'
+              + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>';
+    }
+    html += '<div class="ps-card'+fresh+stateCls+'" data-shot="'+s.id+'">'
           + '<div class="psc-hd"><span class="psc-club">'+club+'</span>'+_vidChip(s)+'<span class="psc-time">'+when+'</span></div>'
           + '<div class="psc-metrics">'+bits.join('')+'</div>'
-          + '<div class="psc-actions">'
-          + '<button class="ps-save big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\')">＋ 저장</button>'
-          + '<button class="ps-tag before" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'before\')">비포</button>'
-          + '<button class="ps-tag after" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'after\')">애프터</button>'
-          + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>'
-          + '</div></div>';
+          + '<div class="psc-actions">'+actions+'</div></div>';
   });
   html += '</div>';
   return html;
@@ -383,11 +419,11 @@ async function _livePollTick(){
     var changed = hasNew || (actBefore!==actAfter) || countChanged || vidChanged;
     _liveLastIds = curIds;
     if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
-    // _isNew/_rcvAt 보존하며 머지
+    // _isNew/_rcvAt/_uiSavedAt(저장됨 카드 상태) 보존하며 머지
     var oldMap={}; (S.shotEvents||[]).forEach(function(s){oldMap[s.id]=s;});
     S.shotEvents = (live.shotEvents||[]).map(function(s){
       var o=oldMap[s.id];
-      if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; }
+      if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; if(o._uiSavedAt) s._uiSavedAt=o._uiSavedAt; }
       return s;
     });
     autoEndOverdueSessions(); // 2시간 넘게 켜진 세션 자동 종료 — 이후 샷이 계속 귀속되는 것 차단
@@ -478,8 +514,8 @@ function setBayMode(bayId, mode){
   liveToast(mode==='lesson'?'레슨 모드 — 좋은 샷만 선별 저장':'연습 모드 — 모든 샷 자동 저장','ok');
 }
 // 레슨 모드: 이 샷을 회원에게 저장
-// tag: 'before'(교정 전 습관) | 'after'(교정 후) | 없음(일반 저장).
-// 프로가 직접 지정 — 리포트의 비포·애프터 비교 재생과 배지에 쓰인다.
+// tag: 'before'(교정 전 습관) | 'after'(교정 후) — 프로가 직접 지정.
+// 저장 후에도 카드는 남고 [저장 취소]로 즉시 복구 가능.
 function saveLessonShot(shotId, bayId, tag){
   var act=S.activeSessions[bayId]; if(!act){ liveToast('활성 세션이 없습니다','err'); return; }
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
@@ -487,12 +523,24 @@ function saveLessonShot(shotId, bayId, tag){
   if(!s.data) s.data={};
   s.data._kept=1;   // 선별 저장 = 영상 영구 보관 (보관 정책에서 제외)
   if(tag==='before'||tag==='after') s.data._tag=tag;
+  s._uiSavedAt=Date.now();   // 카드 유지 + "저장됨" 상태 표시용 (이 기기 한정)
   save();
   try{ cloud.reassignShot(s.id, act.memberId, act.memberName); cloud.updateShotData(s); }catch(e){}
   logActivity('레슨 샷 저장'+(tag?' ('+(tag==='before'?'비포':'애프터')+')':''), act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
   render();
-  liveToast('✓ '+act.memberName+'님에게 저장'+(tag?(tag==='before'?' — 비포 영상':' — 애프터 영상'):''),'ok');
+  liveToast('✓ '+act.memberName+'님에게 저장'+(tag?(tag==='before'?' — 📌 비포 영상':' — ✅ 애프터 영상'):''),'ok');
   if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(e){} }
+}
+// 저장 취소 — 샷을 다시 미배정(대기) 상태로 되돌린다
+function cancelLessonShot(shotId){
+  var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
+  s.memberId=null; s.memberName=null; s.author=null;
+  if(s.data){ delete s.data._tag; delete s.data._kept; }
+  delete s._uiSavedAt;
+  save();
+  try{ cloud.reassignShot(s.id, null, null); cloud.updateShotData(s); }catch(e){}
+  render();
+  liveToast('저장 취소됨 — 다시 선택할 수 있어요','ok');
 }
 // 레슨 모드: 이 샷 버림 (화면+서버+R2 영상까지 제거 — 영상만 남는 고아 방지)
 function dropLessonShot(shotId){
