@@ -378,17 +378,32 @@ async function sharePerfSummary(){
                   key:a.dl||a.club||a.fo, dl:a.dl, fo:a.fo, clubv:a.club, mkv:/\.mkv$/i.test(String(a.dl||a.club||a.fo||''))};
         });
       // 비포·애프터 (프로 지정 우선)
+      var mk=function(s){ var a=_shotAngles(s), d=s.data||{}; var key=a.dl||a.club||a.fo;
+        return key?{key:key, dl:a.dl, fo:a.fo, clubv:a.club, club:d.club, carry:d.carry, metric:_isMetricShot(d), ts:s.ts}:null; };
       var ba=_findBeforeAfter(shots), beforeAfter=null;
       if(ba){
-        var mk=function(s){ var a=_shotAngles(s), d=s.data||{}; var key=a.dl||a.club||a.fo;
-          return key?{key:key, dl:a.dl, fo:a.fo, clubv:a.club, club:d.club, carry:d.carry, metric:_isMetricShot(d), ts:s.ts}:null; };
         var b=mk(ba.before), aa=mk(ba.after);
         if(b&&aa) beforeAfter={b:b, a:aa, tagged:!!ba.tagged};
       }
+      // 레슨 날짜별 비포·애프터 — 날짜마다 프로 지정(비포/애프터 태그) 우선,
+      // 태그가 없으면 그 날 "첫 샷 vs 마지막 샷"(레슨 시작 vs 종료)로 구성.
+      var byDate={};
+      shots.forEach(function(s){ var a=_shotAngles(s); if(!(a.dl||a.fo||a.club)) return;
+        var day=String(s.ts||'').slice(0,10); if(!day) return; (byDate[day]=byDate[day]||[]).push(s); });
+      var baDates=Object.keys(byDate).sort().reverse().slice(0,12).map(function(day){
+        var list=byDate[day].slice().sort(function(x,y){return String(x.ts).localeCompare(String(y.ts));});
+        var tb=null,ta=null;
+        list.forEach(function(s){ var tag=(s.data||{})._tag; if(tag==='before') tb=tb||s; if(tag==='after') ta=s; });
+        var tagged=!!(tb&&ta), b=tb, a2=ta;
+        if(!b&&!a2){ if(list.length>=2){ b=list[0]; a2=list[list.length-1]; } else { a2=list[0]; } }
+        else if(b&&!a2&&list.length>=2&&list[list.length-1]!==b){ a2=list[list.length-1]; }
+        else if(!b&&a2&&list.length>=2&&list[0]!==a2){ b=list[0]; }
+        return {date:day, tagged:tagged, b:b?mk(b):null, a:a2?mk(a2):null};
+      }).filter(function(x){return x.b||x.a;});
       trackman={shotCount:shots.length, clubs:clubs,
         best:best?{ts:best.ts,club:best.data.club,carry:best.data.carry,ballSpeed:best.data.ballSpeed,smash:best.data.smash,metric:_isMetricShot(best.data)}:null,
         trend:trend, trendClub:trendSrc.length?(_clubKo(trendSrc[trendSrc.length-1].club)||''):'',
-        videos:vids, beforeAfter:beforeAfter, measuredBy:APP_BRAND.measuredBy};
+        videos:vids, beforeAfter:beforeAfter, baDates:baDates, measuredBy:APP_BRAND.measuredBy};
     }
   }catch(e){ console.warn('[share] trackman build skip:', e); }
   // 레슨 일지 — 고객에게 보이는 내용만 (녹음 원문 제외), 최근 20개
@@ -399,12 +414,17 @@ async function sharePerfSummary(){
     return {date:s.date, time:s.time||'', author:s.author, role:(typeof getRole==='function'?getRole(s.author):'trainer'), content:s.content||'', videos:vids2};
   });
   var st=stats(mid);
-  var reportId='rpt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  // 링크 ID는 추측 불가능한 난수로 — 링크를 아는 사람만 열 수 있는 구조라 엔트로피가 곧 보안이다.
+  var reportId='rpt_'+(function(){
+    try{ var u=new Uint8Array(16); crypto.getRandomValues(u);
+      return Array.prototype.map.call(u,function(b){return ('0'+b.toString(36)).slice(-2);}).join('').slice(0,24); }
+    catch(e){ return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12); }
+  })();
   var content={
     member:{name:m.name, registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
     totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
     sessions:sessions, trackman:trackman, customer:true,
-    brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, measuredBy:APP_BRAND.measuredBy}
+    brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, store:APP_BRAND.store, storeEn:APP_BRAND.storeEn, measuredBy:APP_BRAND.measuredBy}
   };
   var row={id:reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content};
   var saved=false;
@@ -414,9 +434,14 @@ async function sharePerfSummary(){
     catch(e){ console.warn('[share] direct upsert fail:', e); }
   }
   if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
-  var base=location.origin+location.pathname.replace(/\/[^\/]*$/,'/');
-  var link=base+'report.html?id='+reportId;
-  var text=APP_BRAND.nameKo+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.';
+  // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
+  // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE 를 config 에 넣으면(커스텀 도메인
+  // 연결 후) 그 주소로 발급된다. 워커 미배포 구버전 대비 폴백은 기존 report.html 경로.
+  var cfg=window.APP_CONFIG||{};
+  var rbase=String(cfg.REPORT_BASE||cfg.R2_WORKER_URL||'').replace(/\/+$/,'');
+  var link=rbase ? rbase+'/r/'+reportId
+                 : location.origin+location.pathname.replace(/\/[^\/]*$/,'/')+'report.html?id='+reportId;
+  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.';
   try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text, url:link}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
   try{ await navigator.clipboard.writeText(text+'\n'+link); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
   prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
@@ -709,7 +734,7 @@ function renderPerformance(){
   // ===== 헤더 =====
   html+='<div class="pv-hd">'
     +'<div class="pv-hd-top">'
-      +'<div class="pv-brand">'+APP_BRAND.name+'<small>'+APP_BRAND.reportSub+'</small></div>'
+      +'<div class="pv-brand">'+(APP_BRAND.storeEn||APP_BRAND.name)+'<small>'+APP_BRAND.reportSub+'</small></div>'
       +'<div class="pv-ctrls">'
         +'<div class="pv-cg"><span class="pv-l">단위</span><div class="pv-seg"><button class="'+(S.perfUnitDist==='yd'?'on':'')+'" onclick="setPerfDist(\'yd\')">yd</button><button class="'+(S.perfUnitDist==='m'?'on':'')+'" onclick="setPerfDist(\'m\')">m</button></div></div>'
         +'<div class="pv-cg"><span class="pv-l">속도</span><div class="pv-seg"><button class="'+(S.perfUnitSpd==='mph'?'on':'')+'" onclick="setPerfSpd(\'mph\')">mph</button><button class="'+(S.perfUnitSpd==='ms'?'on':'')+'" onclick="setPerfSpd(\'ms\')">m/s</button></div></div>'
