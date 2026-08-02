@@ -1069,7 +1069,6 @@ function renderPerformance(){
         +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" crossorigin="anonymous" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':'')+' playsinline preload="metadata"'
         +' onplay="try{_cvPlayIcon(this)}catch(e){}" onpause="try{_cvPlayIcon(this)}catch(e){}" onended="try{_cvPlayIcon(this)}catch(e){}"'
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
-        +' onloadeddata="try{_clubTraceHook(this)}catch(e){}"'
         +' ontimeupdate="try{_cvSeekSync(this)}catch(e){}"'
         +' onclick="if(!this.controls){if(this.paused){this.play().catch(function(){})}else{this.pause()};try{_cvPlayIcon(this)}catch(e){}}"'
         +' onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>'
