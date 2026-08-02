@@ -183,8 +183,7 @@ function _clubPathOverlayHTML(d){
   tile('페이스 앵글', (fa>0?'+':'')+fa.toFixed(1), '°');
   tile('페이스 투 패스', (f2p>0?'+':'')+f2p.toFixed(1), '°');
   tile('스핀량', d.spin!=null?Math.round(d.spin):null, ' rpm');
-  return '<div class="club-overlay" aria-hidden="true"><svg class="club-trace" viewBox="0 0 100 100" preserveAspectRatio="none"></svg></div>'
-    +'<div class="club-panel"><div class="cd-diagram">'+svg+'</div>'
+  return '<div class="club-panel"><div class="cd-diagram">'+svg+'</div>'
     +(tiles.length?'<div class="cd-grid">'+tiles.join('')+'</div>':'')
     +'</div>';
 }
@@ -239,171 +238,6 @@ function _cvSeekRowHTML(){
     +'<span class="cv-time" data-role="cvcur">0.0s</span>'
     +'<input type="range" class="vv-seek cmp-seek" min="0" max="1000" value="0" step="1" oninput="_cvSeekInput(this)" onchange="_cvSeekDone(this)">'
     +'<span class="cv-time" data-role="cvdur">—</span></div>';
-}
-// 리포트 모달 영상의 loadeddata 훅 — 클럽 뷰면 궤적 분석 시작
-function _clubTraceHook(v){
-  try{
-    var w=v.closest('.vid-wrap'); if(!w||!w.classList.contains('club-on')) return;
-    _analyzeClubTrace(v, w, v.dataset.k||v.currentSrc||'');
-  }catch(e){}
-}
-// ── 궤적 추적: 프레임 차분으로 이동 중심점 수집 (requestVideoFrameCallback 지원 기기) ──
-function _analyzeClubTrace(vid, wrap, key){
-  try{
-    var svg=wrap && wrap.querySelector('.club-trace'); if(!svg||!vid) return;
-    window._clubTrace=window._clubTrace||{};
-    if(Array.isArray(window._clubTrace[key])){ _drawClubTrace(vid,svg,window._clubTrace[key]); return; }
-    if(window._clubTrace[key]===false) return;
-    if(!('requestVideoFrameCallback' in HTMLVideoElement.prototype)){ window._clubTrace[key]=false; return; }
-    if(vid._tracing) return; vid._tracing=1;
-    var W=128,H=96, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
-    var cx=cv.getContext('2d',{willReadFrequently:true});
-    var prev=null, pts=[], done=false;
-    wrap.classList.add('analyzing');
-    function finish(){
-      if(done) return; done=true; vid._tracing=0;
-      wrap.classList.remove('analyzing');
-      vid.loop=true; try{vid.playbackRate=0.5;}catch(e){}
-      try{vid.currentTime=0;}catch(e){} vid.play().catch(function(){});
-      var sm=_smoothTrace(pts);
-      if(sm&&sm.length>=6){ window._clubTrace[key]=sm; _drawClubTrace(vid,svg,sm); wrap.classList.remove('trace-fail'); }
-      else { window._clubTrace[key]=false; wrap.classList.add('trace-fail'); console.warn('[trace] 궤적 인식 실패 — 수집 점:', pts.length); }
-    }
-    // 움직인 픽셀 "전체 평균"은 샤프트·블러에 끌려 헤드와 어긋난다.
-    // → 진행 방향 선두(=헤드 앞부분) 클러스터만 골라, 그 구간의 윗면/아랫면
-    //   높이(10·90 백분위)를 각각 기록 — 헤드의 실제 상하 폭을 추적.
-    var lastCx=null, dirSign=0;
-    function sample(){
-      try{ cx.drawImage(vid,0,0,W,H); }catch(e){ return finish(); }
-      var img; try{ img=cx.getImageData(0,0,W,H).data; }catch(e){ return finish(); }   // CORS 오염 → 포기
-      if(prev){
-        var xs=[], ys=[], minX=W, maxX=0, sx=0, n=0;
-        for(var i=0;i<W*H;i++){
-          if(Math.abs(img[i*4]-prev[i*4])>26){
-            var px=i%W, py=(i/W)|0;
-            xs.push(px); ys.push(py); sx+=px; n++;
-            if(px<minX) minX=px; if(px>maxX) maxX=px;
-          }
-        }
-        if(n>10 && n<W*H*0.45 && maxX>minX){
-          var cxu=sx/n;
-          if(lastCx!=null && Math.abs(cxu-lastCx)>0.5) dirSign = (cxu-lastCx>0)?1:-1;
-          lastCx=cxu;
-          // 선두 경계: 진행 방향 앞쪽 30% 폭 (방향 미확정 시 전체 사용)
-          var span=maxX-minX, band=Math.max(3, span*0.3);
-          var lo, hi;
-          if(dirSign>0){ hi=maxX; lo=maxX-band; }
-          else if(dirSign<0){ lo=minX; hi=minX+band; }
-          else { lo=minX; hi=maxX; }
-          var fxs=[], fys=[];
-          for(var k=0;k<xs.length;k++){ if(xs[k]>=lo && xs[k]<=hi){ fxs.push(xs[k]); fys.push(ys[k]); } }
-          // 선두 픽셀이 부족하면 전체 변화 픽셀로 폴백 — 조건 과다로 점이 굶어
-          // 리본이 아예 안 나오는 것 방지 (v9.44 회귀)
-          if(fxs.length<5){ fxs=xs; fys=ys.slice(); }
-          if(fxs.length>4){
-            fys.sort(function(a,b){return a-b;});
-            var yt=fys[Math.floor(fys.length*0.1)], yb=fys[Math.floor(fys.length*0.9)];
-            var fx=0; for(var k2=0;k2<fxs.length;k2++) fx+=fxs[k2];
-            pts.push({ t:_sampleT, x:(fx/fxs.length)/W, y:((yt+yb)/2)/H, yt:yt/H, yb:yb/H });
-          }
-        }
-      }
-      prev=img;
-    }
-    var to=setTimeout(finish, 14000);
-    vid.addEventListener('ended', function onE(){ vid.removeEventListener('ended',onE); clearTimeout(to); finish(); });
-    // 판독은 0.5배로 천천히 — 프레임 누락 없이 촘촘하게 샘플링 (rVFC 가 매 프레임을 잡게)
-    vid.loop=false; vid.muted=true; try{vid.playbackRate=0.5;}catch(e){}
-    try{vid.currentTime=0;}catch(e){}
-    var lastT=-1, _sampleT=0;
-    function cb(now, meta){
-      if(done) return;
-      var mt=(meta&&meta.mediaTime!=null)?meta.mediaTime:vid.currentTime;   // 실제 프레임 시각
-      if(mt!==lastT){ lastT=mt; _sampleT=mt; sample(); }   // 중복 프레임 스킵
-      try{ vid.requestVideoFrameCallback(cb); }catch(e){ finish(); }
-    }
-    vid.play().then(function(){ vid.requestVideoFrameCallback(cb); }).catch(function(){ clearTimeout(to); finish(); });
-  }catch(e){}
-}
-// 원시 중심점을 그대로 이으면 잡음 때문에 선이 흔들린다.
-// 클럽헤드는 임팩트 구간에서 매끈한 호를 그리므로, 시간 매개 2차 곡선
-// x(t)=a+bt+ct², y(t)=d+et+ft² 를 최소제곱 피팅하고(이상점 1회 제거 후 재피팅)
-// 그 곡선을 40점으로 샘플링 → 항상 매끈한 "무지개" 아크가 나온다.
-function _smoothTrace(pts){
-  if(!pts||pts.length<8) return null;
-  pts=pts.slice().sort(function(a,b){return a.t-b.t;});
-  // 1차 전처리: 직전 점 대비 급점프(다른 물체/노이즈) 제거
-  var pre=[pts[0]];
-  for(var i=1;i<pts.length;i++){
-    var p=pts[i], q=pre[pre.length-1];
-    if(Math.abs(p.x-q.x)+Math.abs(p.y-q.y) < 0.3) pre.push(p);
-  }
-  if(pre.length<8) return null;
-  var t0=pre[0].t, t1=pre[pre.length-1].t;
-  if(!(t1-t0>0.03)) return null;
-  var P=pre.map(function(p){ return {u:(p.t-t0)/(t1-t0), x:p.x, y:p.y, yt:p.yt, yb:p.yb}; });   // yt/yb 보존(리본용)
-  function fitQ(arr, key){   // v = c0 + c1·u + c2·u²  (정규방정식 3x3, 크래머)
-    var S0=0,S1=0,S2=0,S3=0,S4=0, V0=0,V1=0,V2=0;
-    arr.forEach(function(p){ var u=p.u,u2=u*u,v=p[key];
-      S0++; S1+=u; S2+=u2; S3+=u2*u; S4+=u2*u2; V0+=v; V1+=v*u; V2+=v*u2; });
-    function det(a,b,c,d,e,f,g,h,i){ return a*(e*i-f*h)-b*(d*i-f*g)+c*(d*h-e*g); }
-    var D=det(S0,S1,S2, S1,S2,S3, S2,S3,S4);
-    if(Math.abs(D)<1e-9) return null;
-    return [ det(V0,S1,S2, V1,S2,S3, V2,S3,S4)/D,
-             det(S0,V0,S2, S1,V1,S3, S2,V2,S4)/D,
-             det(S0,S1,V0, S1,S2,V1, S2,S3,V2)/D ];
-  }
-  function ev(c,u){ return c[0]+c[1]*u+c[2]*u*u; }
-  var run=P;
-  for(var iter=0; iter<2; iter++){
-    var cx=fitQ(run,'x'), cy=fitQ(run,'y');
-    if(!cx||!cy) return null;
-    if(iter===0){
-      // 잔차 큰 이상점 제거 후 재피팅
-      var res=run.map(function(p){ var dx=p.x-ev(cx,p.u), dy=p.y-ev(cy,p.u); return Math.sqrt(dx*dx+dy*dy); });
-      var mean=res.reduce(function(a,b){return a+b;},0)/res.length;
-      var sd=Math.sqrt(res.reduce(function(a,b){return a+(b-mean)*(b-mean);},0)/res.length)||1e-6;
-      var keep=run.filter(function(p,i){ return res[i] < mean+1.6*sd; });
-      if(keep.length>=8) run=keep;
-    } else {
-      // 윗면/아랫면 높이도 각각 2차 피팅 → 리본(무지개 띠)으로 그릴 수 있게
-      var hasBand=run.every(function(p){return p.yt!=null&&p.yb!=null;});
-      var ct=hasBand?fitQ(run,'yt'):null, cb=hasBand?fitQ(run,'yb'):null;
-      var out=[];
-      for(var k=0;k<=40;k++){ var u=k/40;
-        var X=Math.max(-0.05,Math.min(1.05,ev(cx,u))), Y=Math.max(-0.05,Math.min(1.05,ev(cy,u)));
-        var YT=(ct?ev(ct,u):Y-0.02), YB=(cb?ev(cb,u):Y+0.02);
-        if(YB<YT+0.008) YB=YT+0.008;   // 교차 방지
-        out.push({x:X, y:Y, yt:Math.max(-0.05,Math.min(1.05,YT)), yb:Math.max(-0.05,Math.min(1.05,YB))});
-      }
-      var ddx=out[40].x-out[0].x, ddy=out[40].y-out[0].y;
-      if(Math.sqrt(ddx*ddx+ddy*ddy)<0.15) return null;   // 이동 미미 = 무의미
-      return out;
-    }
-  }
-  return null;
-}
-// 궤적 그리기 — 영상은 180° 회전 표시되므로 좌표도 (1-x, 1-y) 로 뒤집는다.
-// 레터박스(contain) 영역에 svg 를 정확히 맞춤.
-function _drawClubTrace(vid, svg, pts){
-  try{
-    var vw=vid.videoWidth||16, vh=vid.videoHeight||9;
-    var bw=vid.clientWidth, bh=vid.clientHeight;
-    if(!bw||!bh) return;
-    var sc=Math.min(bw/vw, bh/vh), cw=vw*sc, ch=vh*sc;
-    svg.style.left=((bw-cw)/2)+'px'; svg.style.top=((bh-ch)/2)+'px';
-    svg.style.width=cw+'px'; svg.style.height=ch+'px';
-    // 리본(무지개 띠): 헤드 윗면 곡선 → 아랫면 곡선을 채운 폴리곤 + 중심선.
-    // 화면은 180° 회전 표시라 (1-x, 1-y) 반전.
-    function T(v){ return ((1-v)*100); }
-    var top=pts.map(function(p){ return T(p.x).toFixed(1)+','+T(p.yt!=null?p.yt:p.y).toFixed(1); });
-    var bot=pts.map(function(p){ return T(p.x).toFixed(1)+','+T(p.yb!=null?p.yb:p.y).toFixed(1); }).reverse();
-    var mid=pts.map(function(p){ return T(p.x).toFixed(1)+','+T(p.y).toFixed(1); }).join(' ');
-    var last=pts[pts.length-1];
-    svg.innerHTML='<polygon points="'+top.concat(bot).join(' ')+'" fill="rgba(0,210,154,.22)" stroke="rgba(0,210,154,.45)" stroke-width="0.6"/>'
-      +'<polyline points="'+mid+'" fill="none" stroke="#00d29a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>'
-      +'<circle cx="'+T(last.x).toFixed(1)+'" cy="'+T(last.y).toFixed(1)+'" r="2.8" fill="#fff" stroke="#00d29a" stroke-width="1.3"/>';
-  }catch(e){}
 }
 // 영상 재생 실패 정밀 진단 — "만료·정리" 뭉뚱그림 대신 실제 사유를 확인해 표시.
 // 404 = 서버에 파일 없음(업로드 실패/삭제), 200 = 파일은 있는데 이 기기가 재생 못 하는 형식.
@@ -513,7 +347,6 @@ function openShotVideo(shotId){
     rate = isClub ? 0.5 : 1;
     try{ vid.playbackRate = rate; }catch(e){}
     markRate();
-    if(isClub){ setTimeout(function(){ try{ _analyzeClubTrace(vid, wrap, views[cur].key); }catch(e){} }, 80); }
   }
   ['play','pause','ended'].forEach(function(ev){ vid.addEventListener(ev, function(){ _cvPlayIcon(vid); }); });
   vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } _cvPlayIcon(vid); } });
