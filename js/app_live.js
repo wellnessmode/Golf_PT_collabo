@@ -188,6 +188,34 @@ function _clubPathOverlayHTML(d){
     +(tiles.length?'<div class="cd-grid">'+tiles.join('')+'</div>':'')
     +'</div>';
 }
+// 클럽 뷰 시크바 (기본 컨트롤이 꺼져 있으므로 자체 스크롤 제공 — 비교재생기와 동일 UX)
+function _cvSeekSync(v){
+  try{
+    var w=v.closest('.vid-wrap'); if(!w) return;
+    var s=w.querySelector('.vv-seek'); if(!s||s._drag) return;
+    if(isFinite(v.duration)&&v.duration){
+      s.value=Math.round(v.currentTime/v.duration*1000);
+      var c=w.querySelector('[data-role="cvcur"]'); if(c) c.textContent=(Math.round(v.currentTime*10)/10).toFixed(1)+'s';
+      var dd=w.querySelector('[data-role="cvdur"]'); if(dd) dd.textContent=(Math.round(v.duration*10)/10).toFixed(1)+'s';
+    }
+  }catch(e){}
+}
+function _cvSeekInput(s){
+  try{
+    s._drag=true;
+    var w=s.closest('.vid-wrap'); var v=w&&w.querySelector('video'); if(!v) return;
+    if(isFinite(v.duration)&&v.duration){
+      v.currentTime=v.duration*(parseInt(s.value,10)||0)/1000;
+      var c=w.querySelector('[data-role="cvcur"]'); if(c) c.textContent=(Math.round(v.currentTime*10)/10).toFixed(1)+'s';
+    }
+  }catch(e){}
+}
+function _cvSeekDone(s){ try{ s._drag=false; }catch(e){} }
+function _cvSeekRowHTML(){
+  return '<div class="vv-seekrow"><span class="cv-time" data-role="cvcur">0.0s</span>'
+    +'<input type="range" class="vv-seek cmp-seek" min="0" max="1000" value="0" step="1" oninput="_cvSeekInput(this)" onchange="_cvSeekDone(this)">'
+    +'<span class="cv-time" data-role="cvdur">—</span></div>';
+}
 // 리포트 모달 영상의 loadeddata 훅 — 클럽 뷰면 궤적 분석 시작
 function _clubTraceHook(v){
   try{
@@ -229,32 +257,71 @@ function _analyzeClubTrace(vid, wrap, key){
       }
       prev=img;
     }
-    var to=setTimeout(finish, 8000);
+    var to=setTimeout(finish, 14000);
     vid.addEventListener('ended', function onE(){ vid.removeEventListener('ended',onE); clearTimeout(to); finish(); });
-    vid.loop=false; vid.muted=true; try{vid.playbackRate=1;}catch(e){}
+    // 판독은 0.5배로 천천히 — 프레임 누락 없이 촘촘하게 샘플링 (rVFC 가 매 프레임을 잡게)
+    vid.loop=false; vid.muted=true; try{vid.playbackRate=0.5;}catch(e){}
     try{vid.currentTime=0;}catch(e){}
-    function cb(){ if(done) return; sample(); try{ vid.requestVideoFrameCallback(cb); }catch(e){ finish(); } }
+    var lastT=-1;
+    function cb(){
+      if(done) return;
+      if(vid.currentTime!==lastT){ lastT=vid.currentTime; sample(); }   // 중복 프레임 스킵
+      try{ vid.requestVideoFrameCallback(cb); }catch(e){ finish(); }
+    }
     vid.play().then(function(){ vid.requestVideoFrameCallback(cb); }).catch(function(){ clearTimeout(to); finish(); });
   }catch(e){}
 }
+// 원시 중심점을 그대로 이으면 잡음 때문에 선이 흔들린다.
+// 클럽헤드는 임팩트 구간에서 매끈한 호를 그리므로, 시간 매개 2차 곡선
+// x(t)=a+bt+ct², y(t)=d+et+ft² 를 최소제곱 피팅하고(이상점 1회 제거 후 재피팅)
+// 그 곡선을 40점으로 샘플링 → 항상 매끈한 "무지개" 아크가 나온다.
 function _smoothTrace(pts){
-  if(!pts||pts.length<6) return null;
+  if(!pts||pts.length<8) return null;
   pts=pts.slice().sort(function(a,b){return a.t-b.t;});
-  // 급격한 점프(잡음) 제거 후 3점 이동평균
-  var out=[pts[0]];
+  // 1차 전처리: 직전 점 대비 급점프(다른 물체/노이즈) 제거
+  var pre=[pts[0]];
   for(var i=1;i<pts.length;i++){
-    var p=pts[i], q=out[out.length-1];
-    if(Math.abs(p.x-q.x)+Math.abs(p.y-q.y) < 0.28) out.push(p);
+    var p=pts[i], q=pre[pre.length-1];
+    if(Math.abs(p.x-q.x)+Math.abs(p.y-q.y) < 0.3) pre.push(p);
   }
-  if(out.length<6) return null;
-  var sm=out.map(function(p,i){
-    var a=out[Math.max(0,i-1)], b=out[Math.min(out.length-1,i+1)];
-    return {x:(a.x+p.x+b.x)/3, y:(a.y+p.y+b.y)/3};
-  });
-  // 이동 거리가 너무 짧으면(정지 화면) 무의미
-  var dx=sm[sm.length-1].x-sm[0].x, dy=sm[sm.length-1].y-sm[0].y;
-  if(Math.sqrt(dx*dx+dy*dy)<0.12) return null;
-  return sm;
+  if(pre.length<8) return null;
+  var t0=pre[0].t, t1=pre[pre.length-1].t;
+  if(!(t1-t0>0.03)) return null;
+  var P=pre.map(function(p){ return {u:(p.t-t0)/(t1-t0), x:p.x, y:p.y}; });
+  function fitQ(arr, key){   // v = c0 + c1·u + c2·u²  (정규방정식 3x3, 크래머)
+    var S0=0,S1=0,S2=0,S3=0,S4=0, V0=0,V1=0,V2=0;
+    arr.forEach(function(p){ var u=p.u,u2=u*u,v=p[key];
+      S0++; S1+=u; S2+=u2; S3+=u2*u; S4+=u2*u2; V0+=v; V1+=v*u; V2+=v*u2; });
+    function det(a,b,c,d,e,f,g,h,i){ return a*(e*i-f*h)-b*(d*i-f*g)+c*(d*h-e*g); }
+    var D=det(S0,S1,S2, S1,S2,S3, S2,S3,S4);
+    if(Math.abs(D)<1e-9) return null;
+    return [ det(V0,S1,S2, V1,S2,S3, V2,S3,S4)/D,
+             det(S0,V0,S2, S1,V1,S3, S2,V2,S4)/D,
+             det(S0,S1,V0, S1,S2,V1, S2,S3,V2)/D ];
+  }
+  function ev(c,u){ return c[0]+c[1]*u+c[2]*u*u; }
+  var run=P;
+  for(var iter=0; iter<2; iter++){
+    var cx=fitQ(run,'x'), cy=fitQ(run,'y');
+    if(!cx||!cy) return null;
+    if(iter===0){
+      // 잔차 큰 이상점 제거 후 재피팅
+      var res=run.map(function(p){ var dx=p.x-ev(cx,p.u), dy=p.y-ev(cy,p.u); return Math.sqrt(dx*dx+dy*dy); });
+      var mean=res.reduce(function(a,b){return a+b;},0)/res.length;
+      var sd=Math.sqrt(res.reduce(function(a,b){return a+(b-mean)*(b-mean);},0)/res.length)||1e-6;
+      var keep=run.filter(function(p,i){ return res[i] < mean+1.6*sd; });
+      if(keep.length>=8) run=keep;
+    } else {
+      var out=[];
+      for(var k=0;k<=40;k++){ var u=k/40;
+        out.push({x:Math.max(-0.05,Math.min(1.05,ev(cx,u))), y:Math.max(-0.05,Math.min(1.05,ev(cy,u)))});
+      }
+      var ddx=out[40].x-out[0].x, ddy=out[40].y-out[0].y;
+      if(Math.sqrt(ddx*ddx+ddy*ddy)<0.15) return null;   // 이동 미미 = 무의미
+      return out;
+    }
+  }
+  return null;
 }
 // 궤적 그리기 — 영상은 180° 회전 표시되므로 좌표도 (1-x, 1-y) 로 뒤집는다.
 // 레터박스(contain) 영역에 svg 를 정확히 맞춤.
@@ -354,6 +421,7 @@ function openShotVideo(shotId){
     + tabsHtml
     + '<div class="vid-wrap">'
       + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+      + _cvSeekRowHTML()
       + _clubPathOverlayHTML(d)
     + '</div>'
     + '<div class="vv-speeds"><span>배속</span>'
@@ -382,6 +450,7 @@ function openShotVideo(shotId){
   }
   vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } } });
   vid.addEventListener('loadedmetadata', function(){ try{ vid.playbackRate = rate; }catch(e){} });   // 일부 브라우저는 src 교체 시 배속 리셋
+  vid.addEventListener('timeupdate', function(){ _cvSeekSync(vid); });
   vid.addEventListener('error', function(){ try{ _vidDiag(vid, views[cur].key); }catch(e){} });
   applyView();
   Array.prototype.forEach.call(div.querySelectorAll('.vv-sp'), function(b){

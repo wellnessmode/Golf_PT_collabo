@@ -1052,8 +1052,10 @@ function renderPerformance(){
         +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" crossorigin="anonymous" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':' controls')+' playsinline preload="metadata"'
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
         +' onloadeddata="try{_clubTraceHook(this)}catch(e){}"'
+        +' ontimeupdate="try{_cvSeekSync(this)}catch(e){}"'
         +' onclick="if(!this.controls){if(this.paused){this.play().catch(function(){})}else{this.pause()}}"'
         +' onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>'
+        +(typeof _cvSeekRowHTML==='function'?_cvSeekRowHTML():'')
         +(typeof _clubPathOverlayHTML==='function'?_clubPathOverlayHTML(dm):'')
         +'</div>'
         +'<div class="vv-speeds pv-speeds">'+'<span>배속</span>'
