@@ -1743,17 +1743,21 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .vid-wrap{position:relative;width:100%}
 .vid-wrap .club-overlay{display:none}
 .vid-wrap.club-on .club-overlay{display:block}
+/* 궤적 오버레이 — 프레임 차분 추적 결과를 영상 위(레터박스 영역)에 그림 */
 .club-overlay{position:absolute;inset:0;pointer-events:none}
-/* 미니 패스 다이어그램 인셋 — 방송 그래픽처럼 우측 하단에 분리 표시
-   (영상 속 실제 볼 위치와 무관하므로 항상 정렬이 맞음) */
-.cp-inset{position:absolute;right:8px;bottom:36px;width:118px;aspect-ratio:140/100;
-  background:rgba(8,12,16,.58);border:1px solid rgba(255,255,255,.16);border-radius:11px;
-  backdrop-filter:blur(3px);overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,.4)}
-.cp-inset svg{display:block;width:100%;height:100%}
-.club-ov-lab{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:7px;justify-content:center;pointer-events:none}
-.club-ov-lab span{font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
-.club-ov-lab .col-path{color:#39e6b0}
-.club-ov-lab .col-face{color:#f6c177}
+.club-trace{position:absolute;display:none}
+.vid-wrap.club-on .club-trace{display:block}
+.vid-wrap.analyzing::after{content:"🔍 클럽 궤적 분석 중...";position:absolute;top:10px;right:10px;z-index:5;
+  font-size:10.5px;font-weight:800;color:#fff;background:rgba(0,0,0,.6);border-radius:999px;padding:5px 12px;backdrop-filter:blur(3px)}
+/* 딜리버리 패널 — 영상 "아래" 크게 (트랙맨 스타일: 다이어그램 + 수치 그리드) */
+.club-panel{display:none}
+.vid-wrap.club-on .club-panel{display:block;background:#0b0e12;border-top:1px solid rgba(255,255,255,.08);padding:10px 10px 12px}
+.cd-diagram svg{display:block;width:100%;height:auto}
+.cd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.cdm{background:#12161c;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 4px;text-align:center}
+.cdm-l{font-size:9.5px;font-weight:800;letter-spacing:.05em;color:#f0a13a}
+.cdm-v{font-size:17px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.01em}
+.cdm-v small{font-size:9.5px;color:#8b93a0;font-weight:700;margin-left:1px}
 /* 샷 재생기 배속 칩 (라이브 오버레이·리포트 모달 공용, 어두운 배경 위) */
 .vv-speeds{display:flex;gap:5px;align-items:center;justify-content:center;background:rgba(255,255,255,.08);border-radius:999px;padding:4px 6px 4px 12px;margin:8px auto 0;width:max-content}
 .vv-speeds>span{font-size:10.5px;color:rgba(255,255,255,.65);font-weight:700}

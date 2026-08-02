@@ -124,39 +124,154 @@ function _vidChip(s){
   }
   return '';
 }
-// ===== 클럽 딜리버리 패스 다이어그램 (TPS 스타일) =====
-// ⚠️ 영상 화면 전체에 겹쳐 그리면 실제 볼 위치(카메라마다 다름)와 어긋나 엉뚱해 보인다.
-// → 방송 그래픽처럼 우측 하단 "미니 다이어그램 인셋"으로 분리 표시:
-//   점선 타깃라인 + 파란 타깃 밴드 + 클럽 패스 곡선(측정 clubPath° 기울임,
-//   시인성 2배 과장 — 수치 라벨은 실측값) + 페이스 각 라인 + PATH/FACE 배지.
+// ===== 클럽 딜리버리 — ① 실측 궤적 추적 오버레이 + ② 대형 딜리버리 패널 =====
+// ① 영상 프레임 차분으로 클럽헤드(유일한 고속 이동체)의 이동 중심점을 추적해
+//    실제 궤적 곡선을 영상 위에 입힌다 (TPS 임팩트 비디오 방식).
+//    실패(미지원·CORS·잡음)하면 조용히 생략 — 아래 패널이 항상 받쳐줌.
+// ② 다이어그램은 영상 "아래"에 크게: 각도에 비례해 커지는 부채꼴(패스·페이스)로
+//    1° 차이도 눈에 보이게 + 트랙맨 스타일 수치 그리드.
 function _clubPathOverlayHTML(d){
   if(!d || (d.clubPath==null && d.faceAngle==null)) return '';
   var cp=parseFloat(d.clubPath); if(isNaN(cp)) cp=0;
   var fa=parseFloat(d.faceAngle); if(isNaN(fa)) fa=0;
+  var f2p = (d.faceToPath!=null && !isNaN(parseFloat(d.faceToPath))) ? parseFloat(d.faceToPath) : (fa-cp);
   var dirTxt = cp>0.3?'인투아웃':(cp<-0.3?'아웃투인':'스트레이트');
-  // 가로형(영상과 동일 방향): 클럽이 오른쪽→왼쪽으로 진행, 타깃은 왼쪽 (오른손 기준)
-  return '<div class="club-overlay" aria-hidden="true">'
-    +'<div class="cp-inset">'
-    +'<svg viewBox="0 0 140 100" preserveAspectRatio="xMidYMid meet">'
-    +'<defs><linearGradient id="cpTrail" x1="1" y1="0" x2="0" y2="0">'
-      +'<stop offset="0%" stop-color="rgba(255,255,255,0)"/>'
-      +'<stop offset="55%" stop-color="rgba(255,255,255,.7)"/>'
-      +'<stop offset="100%" stop-color="rgba(0,210,154,.95)"/></linearGradient></defs>'
-    +'<line x1="8" y1="50" x2="132" y2="50" stroke="rgba(255,255,255,.48)" stroke-width="1.1" stroke-dasharray="2.6 3.6"/>'
-    +'<rect x="3" y="46.6" width="19" height="6.8" rx="3.2" fill="rgba(63,123,255,.85)"/>'
-    +'<g transform="rotate('+(-cp*2).toFixed(1)+' 58 50)">'
-      +'<path d="M 132,59 Q 96,52 46,50" fill="none" stroke="url(#cpTrail)" stroke-width="2.6" stroke-linecap="round"/>'
-      +'<path d="M 46,50 l 6.4,-3.4 M 46,50 l 5.8,3.8" stroke="rgba(0,210,154,.95)" stroke-width="2.2" stroke-linecap="round" fill="none"/>'
+  var f2pTxt = f2p>0.5?'페이드·슬라이스 성향':(f2p<-0.5?'드로우·훅 성향':'스퀘어');
+  // 각도 → 화면 각(시인성 3배, ±35° 캡). 비포/애프터의 1~2° 차이도 부채꼴 면적으로 보이게.
+  var pa=Math.max(-35,Math.min(35,-cp*3));
+  var fq=Math.max(-40,Math.min(40,-fa*3));
+  function wedge(cx0,cy0,r,a0,a1,color){
+    var s=Math.min(a0,a1), e=Math.max(a0,a1);
+    if(e-s<0.6) return '';
+    var sr=s*Math.PI/180, er=e*Math.PI/180;
+    return '<path d="M '+cx0+','+cy0+' L '+(cx0+r*Math.cos(sr)).toFixed(1)+','+(cy0+r*Math.sin(sr)).toFixed(1)
+      +' A '+r+' '+r+' 0 0 1 '+(cx0+r*Math.cos(er)).toFixed(1)+','+(cy0+r*Math.sin(er)).toFixed(1)+' Z" fill="'+color+'"/>';
+  }
+  var BX=176, BY=86;   // 볼 위치
+  var svg='<svg viewBox="0 0 320 172" preserveAspectRatio="xMidYMid meet">'
+    +'<defs><linearGradient id="cdTrail" gradientUnits="userSpaceOnUse" x1="306" y1="0" x2="58" y2="0">'
+      +'<stop offset="0%" stop-color="rgba(255,255,255,0)"/><stop offset="60%" stop-color="rgba(255,255,255,.75)"/>'
+      +'<stop offset="100%" stop-color="#00d29a"/></linearGradient></defs>'
+    // 타깃 라인(가로 점선) + 타깃 밴드(왼쪽)
+    +'<line x1="12" y1="'+BY+'" x2="308" y2="'+BY+'" stroke="rgba(255,255,255,.4)" stroke-width="1.4" stroke-dasharray="3 4.4"/>'
+    +'<rect x="8" y="'+(BY-4.4)+'" width="26" height="8.8" rx="4" fill="rgba(63,123,255,.9)"/>'
+    +'<text x="21" y="'+(BY-10)+'" text-anchor="middle" font-size="9" fill="rgba(120,165,255,.9)" font-weight="700">타깃</text>'
+    // 패스 부채꼴(타깃라인 ↔ 패스라인 사이, 각도에 비례해 커짐) + 패스 라인
+    +wedge(BX,BY,92,180,180+pa,'rgba(0,210,154,.13)')
+    +'<g transform="rotate('+pa.toFixed(1)+' '+BX+' '+BY+')">'
+      +'<line x1="306" y1="'+BY+'" x2="'+(BX-118)+'" y2="'+BY+'" stroke="url(#cdTrail)" stroke-width="3.4" stroke-linecap="round"/>'
+      +'<path d="M '+(BX-118)+','+BY+' l 9,-5 M '+(BX-118)+','+BY+' l 9,5" stroke="#00d29a" stroke-width="3" stroke-linecap="round" fill="none"/>'
     +'</g>'
-    +'<g transform="rotate('+(-fa).toFixed(1)+' 58 50)"><line x1="58" y1="39" x2="58" y2="61" stroke="rgba(246,193,119,.95)" stroke-width="2"/></g>'
-    +'<circle cx="58" cy="50" r="3.1" fill="#fff" opacity=".9"/>'
-    +'</svg>'
-    +'</div>'
-    +'<div class="club-ov-lab">'
-      +'<span class="col-path">PATH '+(cp>0?'+':'')+cp.toFixed(1)+'° '+dirTxt+'</span>'
-      +'<span class="col-face">FACE '+(fa>0?'+':'')+fa.toFixed(1)+'°</span>'
-    +'</div>'
-  +'</div>';
+    +'<text x="'+(BX-98)+'" y="'+(BY+(pa<0?-14:20)+pa*1.15).toFixed(0)+'" font-size="12.5" fill="#39e6b0" font-weight="800">패스 '+(cp>0?'+':'')+cp.toFixed(1)+'°</text>'
+    // 페이스 부채꼴(스퀘어 페이스 ↔ 실제 페이스) + 페이스 라인(볼에 걸친 굵은 선)
+    +wedge(BX,BY,46,-90,-90+fq,'rgba(246,193,119,.2)')
+    +'<g transform="rotate('+fq.toFixed(1)+' '+BX+' '+BY+')"><line x1="'+BX+'" y1="'+(BY-40)+'" x2="'+BX+'" y2="'+(BY+40)+'" stroke="#f6c177" stroke-width="3.4" stroke-linecap="round"/></g>'
+    +'<text x="'+(BX+14)+'" y="'+(BY-46)+'" font-size="12.5" fill="#f6c177" font-weight="800">페이스 '+(fa>0?'+':'')+fa.toFixed(1)+'°</text>'
+    // 볼
+    +'<circle cx="'+BX+'" cy="'+BY+'" r="6.4" fill="#fff"/><circle cx="'+(BX-2)+'" cy="'+(BY-2)+'" r="2" fill="rgba(0,0,0,.12)"/>'
+    // 요약(하단)
+    +'<text x="160" y="164" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.78)" font-weight="700">'+dirTxt+' · 페이스 투 패스 '+(f2p>0?'+':'')+f2p.toFixed(1)+'° · '+f2pTxt+'</text>'
+    +'</svg>';
+  // 트랙맨 스타일 수치 그리드 (있는 값만)
+  var met=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
+  var tiles=[];
+  function tile(l,v,u){ if(v==null||isNaN(v)) return; tiles.push('<div class="cdm"><div class="cdm-l">'+l+'</div><div class="cdm-v">'+v+'<small>'+u+'</small></div></div>'); }
+  var cs=d.clubSpeed!=null?parseFloat(d.clubSpeed):null; if(cs!=null&&!met) cs=cs*0.44704;
+  tile('클럽 스피드', cs!=null?cs.toFixed(1):null, ' m/s');
+  tile('어택 앵글', d.attack!=null?(d.attack>0?'+':'')+parseFloat(d.attack).toFixed(1):null, '°');
+  tile('클럽 패스', (cp>0?'+':'')+cp.toFixed(1), '°');
+  tile('페이스 앵글', (fa>0?'+':'')+fa.toFixed(1), '°');
+  tile('페이스 투 패스', (f2p>0?'+':'')+f2p.toFixed(1), '°');
+  tile('스핀량', d.spin!=null?Math.round(d.spin):null, ' rpm');
+  return '<div class="club-overlay" aria-hidden="true"><svg class="club-trace" viewBox="0 0 100 100" preserveAspectRatio="none"></svg></div>'
+    +'<div class="club-panel"><div class="cd-diagram">'+svg+'</div>'
+    +(tiles.length?'<div class="cd-grid">'+tiles.join('')+'</div>':'')
+    +'</div>';
+}
+// 리포트 모달 영상의 loadeddata 훅 — 클럽 뷰면 궤적 분석 시작
+function _clubTraceHook(v){
+  try{
+    var w=v.closest('.vid-wrap'); if(!w||!w.classList.contains('club-on')) return;
+    _analyzeClubTrace(v, w, v.dataset.k||v.currentSrc||'');
+  }catch(e){}
+}
+// ── 궤적 추적: 프레임 차분으로 이동 중심점 수집 (requestVideoFrameCallback 지원 기기) ──
+function _analyzeClubTrace(vid, wrap, key){
+  try{
+    var svg=wrap && wrap.querySelector('.club-trace'); if(!svg||!vid) return;
+    window._clubTrace=window._clubTrace||{};
+    if(Array.isArray(window._clubTrace[key])){ _drawClubTrace(vid,svg,window._clubTrace[key]); return; }
+    if(window._clubTrace[key]===false) return;
+    if(!('requestVideoFrameCallback' in HTMLVideoElement.prototype)){ window._clubTrace[key]=false; return; }
+    if(vid._tracing) return; vid._tracing=1;
+    var W=128,H=96, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    var cx=cv.getContext('2d',{willReadFrequently:true});
+    var prev=null, pts=[], done=false;
+    wrap.classList.add('analyzing');
+    function finish(){
+      if(done) return; done=true; vid._tracing=0;
+      wrap.classList.remove('analyzing');
+      vid.loop=true; try{vid.playbackRate=0.5;}catch(e){}
+      try{vid.currentTime=0;}catch(e){} vid.play().catch(function(){});
+      var sm=_smoothTrace(pts);
+      if(sm&&sm.length>=6){ window._clubTrace[key]=sm; _drawClubTrace(vid,svg,sm); }
+      else window._clubTrace[key]=false;
+    }
+    function sample(){
+      try{ cx.drawImage(vid,0,0,W,H); }catch(e){ return finish(); }
+      var img; try{ img=cx.getImageData(0,0,W,H).data; }catch(e){ return finish(); }   // CORS 오염 → 포기
+      if(prev){
+        var sx=0,sy=0,n=0;
+        for(var i=0;i<W*H;i++){
+          if(Math.abs(img[i*4]-prev[i*4])>26){ sx+=i%W; sy+=(i/W)|0; n++; }
+        }
+        if(n>10&&n<W*H*0.45) pts.push({x:sx/n/W, y:sy/n/H, t:vid.currentTime});
+      }
+      prev=img;
+    }
+    var to=setTimeout(finish, 8000);
+    vid.addEventListener('ended', function onE(){ vid.removeEventListener('ended',onE); clearTimeout(to); finish(); });
+    vid.loop=false; vid.muted=true; try{vid.playbackRate=1;}catch(e){}
+    try{vid.currentTime=0;}catch(e){}
+    function cb(){ if(done) return; sample(); try{ vid.requestVideoFrameCallback(cb); }catch(e){ finish(); } }
+    vid.play().then(function(){ vid.requestVideoFrameCallback(cb); }).catch(function(){ clearTimeout(to); finish(); });
+  }catch(e){}
+}
+function _smoothTrace(pts){
+  if(!pts||pts.length<6) return null;
+  pts=pts.slice().sort(function(a,b){return a.t-b.t;});
+  // 급격한 점프(잡음) 제거 후 3점 이동평균
+  var out=[pts[0]];
+  for(var i=1;i<pts.length;i++){
+    var p=pts[i], q=out[out.length-1];
+    if(Math.abs(p.x-q.x)+Math.abs(p.y-q.y) < 0.28) out.push(p);
+  }
+  if(out.length<6) return null;
+  var sm=out.map(function(p,i){
+    var a=out[Math.max(0,i-1)], b=out[Math.min(out.length-1,i+1)];
+    return {x:(a.x+p.x+b.x)/3, y:(a.y+p.y+b.y)/3};
+  });
+  // 이동 거리가 너무 짧으면(정지 화면) 무의미
+  var dx=sm[sm.length-1].x-sm[0].x, dy=sm[sm.length-1].y-sm[0].y;
+  if(Math.sqrt(dx*dx+dy*dy)<0.12) return null;
+  return sm;
+}
+// 궤적 그리기 — 영상은 180° 회전 표시되므로 좌표도 (1-x, 1-y) 로 뒤집는다.
+// 레터박스(contain) 영역에 svg 를 정확히 맞춤.
+function _drawClubTrace(vid, svg, pts){
+  try{
+    var vw=vid.videoWidth||16, vh=vid.videoHeight||9;
+    var bw=vid.clientWidth, bh=vid.clientHeight;
+    if(!bw||!bh) return;
+    var sc=Math.min(bw/vw, bh/vh), cw=vw*sc, ch=vh*sc;
+    svg.style.left=((bw-cw)/2)+'px'; svg.style.top=((bh-ch)/2)+'px';
+    svg.style.width=cw+'px'; svg.style.height=ch+'px';
+    var pstr=pts.map(function(p){ return ((1-p.x)*100).toFixed(1)+','+((1-p.y)*100).toFixed(1); }).join(' ');
+    var last=pts[pts.length-1];
+    svg.innerHTML='<polyline points="'+pstr+'" fill="none" stroke="rgba(0,210,154,.28)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>'
+      +'<polyline points="'+pstr+'" fill="none" stroke="#00d29a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>'
+      +'<circle cx="'+((1-last.x)*100).toFixed(1)+'" cy="'+((1-last.y)*100).toFixed(1)+'" r="3" fill="#fff" stroke="#00d29a" stroke-width="1.4"/>';
+  }catch(e){}
 }
 // 영상 재생 실패 정밀 진단 — "만료·정리" 뭉뚱그림 대신 실제 사유를 확인해 표시.
 // 404 = 서버에 파일 없음(업로드 실패/삭제), 200 = 파일은 있는데 이 기기가 재생 못 하는 형식.
@@ -238,7 +353,7 @@ function openShotVideo(shotId){
   div.innerHTML = '<div style="width:min(94vw,560px)">'
     + tabsHtml
     + '<div class="vid-wrap">'
-      + '<video src="'+r2.url(views[0].key)+'" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+      + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
       + _clubPathOverlayHTML(d)
     + '</div>'
     + '<div class="vv-speeds"><span>배속</span>'
@@ -263,6 +378,7 @@ function openShotVideo(shotId){
     rate = isClub ? 0.5 : 1;
     try{ vid.playbackRate = rate; }catch(e){}
     markRate();
+    if(isClub){ setTimeout(function(){ try{ _analyzeClubTrace(vid, wrap, views[cur].key); }catch(e){} }, 80); }
   }
   vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } } });
   vid.addEventListener('loadedmetadata', function(){ try{ vid.playbackRate = rate; }catch(e){} });   // 일부 브라우저는 src 교체 시 배속 리셋
