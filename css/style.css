@@ -1753,6 +1753,8 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .vid-wrap .vv-seekrow{display:none}
 .vid-wrap.club-on .vv-seekrow{display:flex;align-items:center;gap:9px;padding:9px 10px;background:#0b0e12}
 .cv-time{font-size:10.5px;color:rgba(255,255,255,.72);font-weight:700;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
+.cv-play{flex-shrink:0;width:38px;height:34px;border-radius:9px;border:none;background:var(--ac,#00a878);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+.cv-play:active{transform:scale(.94)}
 /* 딜리버리 패널 — 영상 "아래" 크게 (트랙맨 스타일: 다이어그램 + 수치 그리드) */
 .club-panel{display:none}
 .vid-wrap.club-on .club-panel{display:block;background:#0b0e12;border-top:1px solid rgba(255,255,255,.08);padding:10px 10px 12px}
