@@ -5,6 +5,7 @@
 //   DELETE /{key}  → remove blob from R2
 //   POST   /claude → Anthropic(Claude) 프록시 (키는 env.ANTHROPIC_API_KEY 시크릿)
 //   POST   /stt    → 음성(오디오 바이너리) → 텍스트 (Groq Whisper, 한국어)
+//   GET    /r/{id} → 고객용 성과 리포트 페이지 (서버에서 데이터 주입 — 페이지에 키 0개)
 // Auth: X-API-Key header must match env.APP_API_KEY secret
 //
 // 시크릿(Settings → Variables and Secrets):
@@ -183,6 +184,54 @@ export default {
     }
     // ────────────────────────────────────────────────────────
 
+    // ── 고객용 성과 리포트 (/r/{id}) — 자체 주소로 서빙 ─────────
+    // 페이지 템플릿(report.html)을 가져와 리포트 데이터를 "서버에서" 주입해 내려준다.
+    // 고객 브라우저에는 Supabase 주소·키·설정 파일이 일절 전달되지 않고,
+    // 영상도 같은 주소(이 워커)에서 스트리밍되므로 소스를 열어봐도 얻을 것이 없다.
+    // 커스텀 도메인(예: report.nationalgym.kr)을 이 워커에 연결하면 그 주소 그대로 동작.
+    if (url.pathname.startsWith('/r/')) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') return json({ error: 'use GET' }, 405);
+      const rid = decodeURIComponent(url.pathname.slice(3));
+      if (!/^rpt_[A-Za-z0-9_-]{4,80}$/.test(rid)) return reportErrPage('리포트 주소가 올바르지 않습니다', 400);
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return reportErrPage('리포트 서버가 아직 설정되지 않았습니다', 501);
+      // 리포트 데이터 — 서비스 키로 서버에서만 조회 (키는 시크릿, 브라우저 노출 0)
+      let row = null;
+      try {
+        const rr = await fetch(env.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/reports?id=eq.' + encodeURIComponent(rid) + '&limit=1', {
+          headers: { 'apikey': env.SUPABASE_SERVICE_KEY, 'Authorization': 'Bearer ' + env.SUPABASE_SERVICE_KEY },
+        });
+        if (rr.ok) { const arr = await rr.json(); row = (arr && arr[0]) || null; }
+      } catch (e) {}
+      if (!row) return reportErrPage('리포트를 찾을 수 없습니다', 404);
+      // 페이지 템플릿 — 엣지 캐시 10분 (배포처가 죽어도 캐시로 버팀)
+      const tplUrl = env.REPORT_TEMPLATE_URL || 'https://wellnessmode.github.io/Golf_PT_collabo/report.html';
+      const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
+      const tplKey = new Request(tplUrl, { method: 'GET' });
+      let tpl = null;
+      if (cache) { try { const hit = await cache.match(tplKey); if (hit) tpl = await hit.text(); } catch (e) {} }
+      if (tpl == null) {
+        try {
+          const tr = await fetch(tplUrl, { headers: { 'accept': 'text/html' } });
+          if (tr.ok) {
+            tpl = await tr.text();
+            if (cache) { try { await cache.put(tplKey, new Response(tpl, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=600' } })); } catch (e) {} }
+          }
+        } catch (e) {}
+      }
+      if (tpl == null || tpl.indexOf('renderReport') === -1) return reportErrPage('리포트 페이지를 불러오지 못했습니다. 잠시 후 다시 시도해주세요', 502);
+      // 데이터 주입 + 외부 스크립트(설정·supabase) 제거 → 완전 자급자족 페이지
+      const inj = '<script>window.__REPORT__=' + JSON.stringify(row).replace(/</g, '\\u003c') + '</scr' + 'ipt>';
+      let page = tpl
+        .replace(/<script src="https:\/\/cdn\.jsdelivr\.net[^"]*"><\/script>\s*/, '')
+        .replace(/<script src="config\.js"><\/script>/, inj);
+      if (page.indexOf('window.__REPORT__') === -1) page = page.replace('</head>', inj + '\n</head>');
+      return new Response(request.method === 'HEAD' ? null : page, {
+        status: 200,
+        headers: { ...CORS, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' },
+      });
+    }
+    // ────────────────────────────────────────────────────────
+
     const key = decodeURIComponent(url.pathname.slice(1));
     if (!key) {
       return json({ error: 'missing key' }, 400);
@@ -297,6 +346,19 @@ function json(body, status) {
     status,
     headers: { ...CORS, 'content-type': 'application/json' },
   });
+}
+
+// 고객용 리포트 오류 페이지 — JSON 대신 사람이 읽는 안내 화면
+function reportErrPage(msg, status) {
+  const html = '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1"><title>성과 리포트</title></head>'
+    + '<body style="margin:0;font-family:-apple-system,\'Noto Sans KR\',sans-serif;background:#f2f4f6;display:flex;min-height:100vh;align-items:center;justify-content:center">'
+    + '<div style="text-align:center;padding:40px 24px;color:#454c55">'
+    + '<div style="font-size:44px;margin-bottom:14px">📄</div>'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:8px">' + msg + '</div>'
+    + '<div style="font-size:13px;color:#8b93a0">담당 지도자에게 새 링크를 요청해주세요</div>'
+    + '</div></body></html>';
+  return new Response(html, { status, headers: { ...CORS, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
 }
 
 // R2 객체 전체를 엣지 캐시에 적재(워밍) — PUT 직후·GET 미스 시 공용.

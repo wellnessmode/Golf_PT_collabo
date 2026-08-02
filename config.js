@@ -17,6 +17,10 @@ window.APP_CONFIG = {
   SUPABASE_URL: 'https://cacytkmijttyeasmhvhq.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhY3l0a21panR0eWVhc21odmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjAyMjUsImV4cCI6MjA5MTQ5NjIyNX0.ovjMFi4WSB18KeTm7MNd4jmvKEmMamObyclMjgXomNg',
   R2_WORKER_URL: 'https://golf-pt-storage.ceo-fc9.workers.dev',
+  // (선택) 고객 리포트 전용 주소 — 워커에 커스텀 도메인(예: report.nationalgym.kr)을
+  // 연결한 뒤 아래 주석을 풀면, [리포트 공유] 링크가 그 주소로 발급된다.
+  // 비워두면 위 R2_WORKER_URL 주소(/r/...)로 발급.
+  // REPORT_BASE: 'https://report.nationalgym.kr',
   R2_API_KEY: 'national_gym-golf-pt-qwpiefjwofjwioefhlkjd',
   // (선택) Claude API — 음성 세션카드 자동 정리.
   // 권장: AI_VIA_WORKER=true 로 R2 워커 프록시 사용 (키는 Cloudflare 시크릿에만, 브라우저·깃에 노출 0).

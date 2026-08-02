@@ -30,6 +30,8 @@ const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 // 브랜드/지도자/베이/초기비번은 config.js 값이 있으면 그걸 쓰고, 없으면 기본값.
 const APP_BRAND = Object.assign({
   name:'NATIONAL GYM', nameKo:'내셔널짐', sub:'GOLF & PT',
+  // 정식 상호 — 고객용 리포트 등 대외 노출 문구에 사용
+  store:'내셔널짐 피티앤골프 스튜디오', storeEn:'NATIONAL GYM PT & GOLF STUDIO',
   tagline:'COLLABORATIVE COACHING PLATFORM',
   reportSub:'GOLF PT · PERFORMANCE', measuredBy:'TRACKMAN iO',
   heroImages:[], heroCopy:'골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
@@ -78,9 +80,14 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.48',
+  version:'v9.49',
   date:'2026-08-02',
   changes:[
+    '고객 리포트 링크를 자체 주소로 — 공유 링크가 깃허브 주소 대신 전용 서버 주소(추후 nationalgym.kr 도메인 연결 가능)로 발급. 고객 페이지에는 어떤 키·설정도 포함되지 않아 소스를 열어봐도 가져갈 것이 없음',
+    '고객 리포트 상호 정비 — 상단·하단 문구를 정식 상호 "내셔널짐 피티앤골프 스튜디오"로 표기',
+    '고객 리포트 비포·애프터를 레슨 날짜별 드롭다운으로 — 날짜를 눌러 펼치면 그 날의 비포/애프터 영상·동시재생·시크바가 나옴 (프로 지정이 없으면 그 날 첫 샷 vs 마지막 샷)',
+    '고객 리포트 레슨 일지 드롭다운 — 전부 펼쳐놓지 않고 최근 1건만 열어두고 나머지는 눌러서 펼침. 닫힌 항목은 한 줄 미리보기 표시',
+    '리포트 링크 보안 강화 — 링크 ID를 추측 불가능한 긴 난수로 발급',
     '리포트 글씨 배율 전면 적용 — 함께한 시간·섹션 제목·필터 칩·안내 문구 등 돋보기를 눌러도 안 커지던 90곳을 전부 배율 반응형으로 전환. 이제 🔍 누르면 리포트 전체가 커짐',
     '리포트 상단 정리 — [🤖 리포트]·글씨(가/가+/가++, 돋보기와 중복)·[CSV]·[프린트] 제거. 단위·속도 전환과 [닫기]만 유지',
     '클럽 딜리버리 궤적 오버레이 제거 — 인식 품질이 고르지 못하고 클럽을 가려서 삭제. 영상은 깨끗하게, 분석은 아래 다이어그램 패널(패스·페이스 부채꼴 + 수치 그리드)로 일원화',
