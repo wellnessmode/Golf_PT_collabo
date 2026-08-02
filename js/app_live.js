@@ -235,7 +235,7 @@ function _cvPlayIcon(v){
 }
 function _cvSeekRowHTML(){
   return '<div class="vv-seekrow">'
-    +'<button class="cv-play" onclick="_cvPlayToggle(this)">⏸</button>'
+    +'<button class="cv-play" onclick="_cvPlayToggle(this)">▶</button>'
     +'<span class="cv-time" data-role="cvcur">0.0s</span>'
     +'<input type="range" class="vv-seek cmp-seek" min="0" max="1000" value="0" step="1" oninput="_cvSeekInput(this)" onchange="_cvSeekDone(this)">'
     +'<span class="cv-time" data-role="cvdur">—</span></div>';
@@ -266,8 +266,8 @@ function _analyzeClubTrace(vid, wrap, key){
       vid.loop=true; try{vid.playbackRate=0.5;}catch(e){}
       try{vid.currentTime=0;}catch(e){} vid.play().catch(function(){});
       var sm=_smoothTrace(pts);
-      if(sm&&sm.length>=6){ window._clubTrace[key]=sm; _drawClubTrace(vid,svg,sm); }
-      else window._clubTrace[key]=false;
+      if(sm&&sm.length>=6){ window._clubTrace[key]=sm; _drawClubTrace(vid,svg,sm); wrap.classList.remove('trace-fail'); }
+      else { window._clubTrace[key]=false; wrap.classList.add('trace-fail'); console.warn('[trace] 궤적 인식 실패 — 수집 점:', pts.length); }
     }
     // 움직인 픽셀 "전체 평균"은 샤프트·블러에 끌려 헤드와 어긋난다.
     // → 진행 방향 선두(=헤드 앞부분) 클러스터만 골라, 그 구간의 윗면/아랫면
@@ -297,11 +297,14 @@ function _analyzeClubTrace(vid, wrap, key){
           else { lo=minX; hi=maxX; }
           var fxs=[], fys=[];
           for(var k=0;k<xs.length;k++){ if(xs[k]>=lo && xs[k]<=hi){ fxs.push(xs[k]); fys.push(ys[k]); } }
-          if(fxs.length>6){
+          // 선두 픽셀이 부족하면 전체 변화 픽셀로 폴백 — 조건 과다로 점이 굶어
+          // 리본이 아예 안 나오는 것 방지 (v9.44 회귀)
+          if(fxs.length<5){ fxs=xs; fys=ys.slice(); }
+          if(fxs.length>4){
             fys.sort(function(a,b){return a-b;});
             var yt=fys[Math.floor(fys.length*0.1)], yb=fys[Math.floor(fys.length*0.9)];
             var fx=0; for(var k2=0;k2<fxs.length;k2++) fx+=fxs[k2];
-            pts.push({ t:vid.currentTime, x:(fx/fxs.length)/W, y:((yt+yb)/2)/H, yt:yt/H, yb:yb/H });
+            pts.push({ t:_sampleT, x:(fx/fxs.length)/W, y:((yt+yb)/2)/H, yt:yt/H, yb:yb/H });
           }
         }
       }
@@ -312,10 +315,11 @@ function _analyzeClubTrace(vid, wrap, key){
     // 판독은 0.5배로 천천히 — 프레임 누락 없이 촘촘하게 샘플링 (rVFC 가 매 프레임을 잡게)
     vid.loop=false; vid.muted=true; try{vid.playbackRate=0.5;}catch(e){}
     try{vid.currentTime=0;}catch(e){}
-    var lastT=-1;
-    function cb(){
+    var lastT=-1, _sampleT=0;
+    function cb(now, meta){
       if(done) return;
-      if(vid.currentTime!==lastT){ lastT=vid.currentTime; sample(); }   // 중복 프레임 스킵
+      var mt=(meta&&meta.mediaTime!=null)?meta.mediaTime:vid.currentTime;   // 실제 프레임 시각
+      if(mt!==lastT){ lastT=mt; _sampleT=mt; sample(); }   // 중복 프레임 스킵
       try{ vid.requestVideoFrameCallback(cb); }catch(e){ finish(); }
     }
     vid.play().then(function(){ vid.requestVideoFrameCallback(cb); }).catch(function(){ clearTimeout(to); finish(); });
@@ -337,7 +341,7 @@ function _smoothTrace(pts){
   if(pre.length<8) return null;
   var t0=pre[0].t, t1=pre[pre.length-1].t;
   if(!(t1-t0>0.03)) return null;
-  var P=pre.map(function(p){ return {u:(p.t-t0)/(t1-t0), x:p.x, y:p.y}; });
+  var P=pre.map(function(p){ return {u:(p.t-t0)/(t1-t0), x:p.x, y:p.y, yt:p.yt, yb:p.yb}; });   // yt/yb 보존(리본용)
   function fitQ(arr, key){   // v = c0 + c1·u + c2·u²  (정규방정식 3x3, 크래머)
     var S0=0,S1=0,S2=0,S3=0,S4=0, V0=0,V1=0,V2=0;
     arr.forEach(function(p){ var u=p.u,u2=u*u,v=p[key];
@@ -481,7 +485,7 @@ function openShotVideo(shotId){
   div.innerHTML = '<div style="width:min(94vw,560px)">'
     + tabsHtml
     + '<div class="vid-wrap">'
-      + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" controls autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+      + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
       + _cvSeekRowHTML()
       + _clubPathOverlayHTML(d)
     + '</div>'
@@ -502,13 +506,16 @@ function openShotVideo(shotId){
     var isClub = views[cur].label==='클럽';
     vid.classList.toggle('vid-flip', isClub);
     wrap.classList.toggle('club-on', isClub);
-    vid.controls = !isClub;
+    // 모든 앵글에서 기본 컨트롤 OFF — 스크롤 중 중앙 ▶·±10초 버튼이 화면을 가리지 않게.
+    // 조작은 자체 시크바(항상 표시) + 화면 탭 + ▶/⏸ 버튼으로.
+    vid.controls = false;
     vid.loop = isClub;
     rate = isClub ? 0.5 : 1;
     try{ vid.playbackRate = rate; }catch(e){}
     markRate();
     if(isClub){ setTimeout(function(){ try{ _analyzeClubTrace(vid, wrap, views[cur].key); }catch(e){} }, 80); }
   }
+  ['play','pause','ended'].forEach(function(ev){ vid.addEventListener(ev, function(){ _cvPlayIcon(vid); }); });
   vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } _cvPlayIcon(vid); } });
   vid.addEventListener('loadedmetadata', function(){ try{ vid.playbackRate = rate; }catch(e){} });   // 일부 브라우저는 src 교체 시 배속 리셋
   vid.addEventListener('timeupdate', function(){ _cvSeekSync(vid); });
