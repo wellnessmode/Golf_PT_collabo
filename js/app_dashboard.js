@@ -332,36 +332,86 @@ function exportShotsCsv(){
   setTimeout(function(){URL.revokeObjectURL(url);},200);
 }
 // 성과 요약 공유 — Web Share(카톡 등 OS 공유시트) → 미지원 시 클립보드 복사
-function sharePerfSummary(){
-  var data = S.perfDemo ? DEMO_PERF : buildPerfData(S.perfMember);
-  if(!data || !data.member) return;
-  var m=data.member;
-  var lines=[APP_BRAND.nameKo+' 성과 리포트 — '+m.name+' 회원님'];
+// 샷의 앵글별 영상 키 (측면/정면/클럽) — 공유 리포트·비교재생 공용
+function _shotAngles(s){
+  var d=(s&&s.data)||{};
+  var dl=d.videoDL||d.videoMp4R2Key||s.videoR2Key||null;
+  if(dl&&(dl===d.videoClub||dl===d.videoFO)) dl=null;
+  return {dl:dl, fo:d.videoFO||null, club:d.videoClub||null};
+}
+// [리포트 공유] — 예전엔 요약 텍스트 몇 줄만 카톡에 보내 "엉망"이었음.
+// 이제 고객용 웹 리포트 페이지(report.html)를 생성해 링크를 공유한다:
+// 회원은 링크만 열면 측정 데이터·비포/애프터 비교·스윙 영상·레슨 일지를 본다.
+async function sharePerfSummary(){
+  if(S.perfDemo){ alert('데모 데이터는 공유할 수 없습니다.'); return; }
+  var mid=S.perfMember||S.selectedMember;
+  var m=S.members.find(function(x){return x.id===mid;});
+  var data=buildPerfData(mid);
+  if(!m||!data){ alert('공유할 데이터가 없습니다.'); return; }
+  if(typeof cloud==='undefined'||!cloud.enabled){ alert('클라우드 미연결 — 공유 링크를 만들 수 없습니다.'); return; }
+  try{ liveToastSafe('📤 고객용 리포트 링크 생성 중...'); }catch(e){}
   var shots=data.shots||[];
-  if(shots.length){
-    var best=null,bc=-1; shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bc){bc=c;best=s;}});
-    if(best){var bm2=_isMetricShot(best.data); lines.push('🏆 베스트 '+_clubKo(best.data.club)+' 캐리 '+_fmtNum(pfDistFrom(bc,bm2))+' '+pfDistU());}
-    var sessCount=S.perfDemo? (DEMO_PERF.golf.length+DEMO_PERF.pt.length) : ((S.sessions[m.id]||[]).length);
-    lines.push('📊 측정 샷 '+shots.length+'개 · 세션 '+sessCount+'회');
-  }
-  var ba=shots.length? _findBeforeAfter(shots) : null;
-  if(ba){
-    var b=parseFloat(ba.before.data&&ba.before.data.carry)||0, a=parseFloat(ba.after.data&&ba.after.data.carry)||0;
-    var bM=_isMetricShot(ba.before.data)?b:b*0.9144, aM=_isMetricShot(ba.after.data)?a:a*0.9144;
-    if(aM>bM) lines.push('📈 첫 측정 대비 캐리 +'+_fmtNum(pfDistM(aM-bM))+' '+pfDistU());
-  }
-  if(m.goal) lines.push('🎯 목표: '+m.goal);
-  var text=lines.join('\n');
+  // 트랙맨 요약 (기존 발송 리포트와 같은 스키마 + 앵글·비포/애프터 확장)
+  var trackman=null;
   try{
-    if(navigator.share){ navigator.share({title:m.name+' 성과 리포트', text:text}).catch(function(){}); return; }
-  }catch(e){}
-  try{
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(text).then(function(){ alert('리포트 요약이 복사되었습니다 — 카카오톡에 붙여넣기 하세요'); });
-      return;
+    if(shots.length){
+      var avgs=_buildClubAverages(shots);
+      var clubs=['driver','wood','iron','wedge'].map(function(g){return avgs[g];}).filter(function(a){return a.n>0;})
+        .map(function(a){return {name:a.name,n:a.n,metric:!!a._metric,clubSpeed:a.clubSpeed,ballSpeed:a.ballSpeed,smash:a.smash,carry:a.carry,total:a.total,launch:a.launch,spin:a.spin};});
+      var best=null,bc=-1; shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bc){bc=c;best=s;}});
+      var trendSrc=(data.golf||[]).filter(function(g){return _carryM(g)!=null && _clubGroup(g.club)==='driver';});
+      if(trendSrc.length<2) trendSrc=(data.golf||[]).filter(function(g){return _carryM(g)!=null;});
+      var trend=trendSrc.map(function(g){return {date:g.date, carryM:Math.round(_carryM(g)*10)/10};});
+      var vids=shots.filter(function(s){var a=_shotAngles(s); return a.dl||a.fo||a.club;})
+        .sort(function(x,y){return String(y.ts).localeCompare(String(x.ts));}).slice(0,8)
+        .map(function(s){
+          var a=_shotAngles(s), d=s.data||{};
+          return {ts:s.ts, club:d.club, carry:d.carry, metric:_isMetricShot(d), tag:d._tag||null,
+                  key:a.dl||a.club||a.fo, dl:a.dl, fo:a.fo, clubv:a.club, mkv:/\.mkv$/i.test(String(a.dl||a.club||a.fo||''))};
+        });
+      // 비포·애프터 (프로 지정 우선)
+      var ba=_findBeforeAfter(shots), beforeAfter=null;
+      if(ba){
+        var mk=function(s){ var a=_shotAngles(s), d=s.data||{}; var key=a.dl||a.club||a.fo;
+          return key?{key:key, dl:a.dl, fo:a.fo, clubv:a.club, club:d.club, carry:d.carry, metric:_isMetricShot(d), ts:s.ts}:null; };
+        var b=mk(ba.before), aa=mk(ba.after);
+        if(b&&aa) beforeAfter={b:b, a:aa, tagged:!!ba.tagged};
+      }
+      trackman={shotCount:shots.length, clubs:clubs,
+        best:best?{ts:best.ts,club:best.data.club,carry:best.data.carry,ballSpeed:best.data.ballSpeed,smash:best.data.smash,metric:_isMetricShot(best.data)}:null,
+        trend:trend, trendClub:trendSrc.length?(_clubKo(trendSrc[trendSrc.length-1].club)||''):'',
+        videos:vids, beforeAfter:beforeAfter, measuredBy:APP_BRAND.measuredBy};
     }
-  }catch(e){}
-  alert(text);
+  }catch(e){ console.warn('[share] trackman build skip:', e); }
+  // 레슨 일지 — 고객에게 보이는 내용만 (녹음 원문 제외), 최근 20개
+  var allSess=(S.sessions[mid]||[]).slice().sort(sessionCompare);
+  var sessions=allSess.slice(0,20).map(function(s){
+    var vids2=(s.media||[]).filter(function(mm){ var mt=String(mm.mimeType||inferMime(mm.name||'')||''); return mt.indexOf('video')!==-1 && mm.r2Key; })
+      .map(function(mm){ return {key:mm.r2Key, view:mm.view||''}; });
+    return {date:s.date, time:s.time||'', author:s.author, role:(typeof getRole==='function'?getRole(s.author):'trainer'), content:s.content||'', videos:vids2};
+  });
+  var st=stats(mid);
+  var reportId='rpt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  var content={
+    member:{name:m.name, registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
+    totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
+    sessions:sessions, trackman:trackman, customer:true,
+    brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, measuredBy:APP_BRAND.measuredBy}
+  };
+  var row={id:reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content};
+  var saved=false;
+  try{ saved = (await cloud._w('upsert','reports',{rows:[row]})) === true; }catch(e){ console.warn('[share] proxy upsert fail:', e); }
+  if(!saved){
+    try{ var r=await cloud.client.from('reports').upsert(row); if(r.error) throw r.error; saved=true; }
+    catch(e){ console.warn('[share] direct upsert fail:', e); }
+  }
+  if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
+  var base=location.origin+location.pathname.replace(/\/[^\/]*$/,'/');
+  var link=base+'report.html?id='+reportId;
+  var text=APP_BRAND.nameKo+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.';
+  try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text, url:link}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(text+'\n'+link); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
+  prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
 }
 function _assessScore(items){
   try{return calcFitness(items||{}).score;}catch(e){return 0;}
@@ -1021,21 +1071,21 @@ function renderPerformance(){
         +'<div class="pv-vm-vid">'+vidHtml+'</div>'
         +'<div class="pv-vm-info">'
           +'<div class="pv-vm-h"><div class="pv-vm-club">'+(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+String(sm.ts).slice(0,16).replace('T',' ')+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
-          +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:\''+vidUrl+'\', \''+fname+'\')">⬇ 영상 저장 <small>아이폰: 공유시트에서 [비디오 저장] · 갤럭시: 다운로드 폴더</small></button>':'')
-          +'<div class="pv-vm-tiles">'+vmt('Carry', dm.carry!=null?_fmtNum(pfDistFrom(dm.carry,metric)):'—', pfDistU())
-            +vmt('Total', dm.total!=null?_fmtNum(pfDistFrom(dm.total,metric)):'—', pfDistU())
-            +vmt('Ball', dm.ballSpeed!=null?_fmtNum(pfSpdFrom(dm.ballSpeed,metric)):'—', pfSpdU())
-            +vmt('Smash', dm.smash!=null?dm.smash:'—', '')
+          +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:\''+vidUrl+'\', \''+fname+'\')">⬇ 영상 저장</button>':'')
+          +'<div class="pv-vm-tiles">'+vmt('캐리', dm.carry!=null?_fmtNum(pfDistFrom(dm.carry,metric)):'—', pfDistU())
+            +vmt('토탈', dm.total!=null?_fmtNum(pfDistFrom(dm.total,metric)):'—', pfDistU())
+            +vmt('볼 스피드', dm.ballSpeed!=null?_fmtNum(pfSpdFrom(dm.ballSpeed,metric)):'—', pfSpdU())
+            +vmt('스매시', dm.smash!=null?dm.smash:'—', '')
           +'</div>'
-          +'<div class="pv-vm-params">'+vmp('Club Speed', dm.clubSpeed!=null?_fmtNum(pfSpdFrom(dm.clubSpeed,metric)):null, pfSpdU())
-            +vmp('Launch', dm.launch, '°')
-            +vmp('Spin', dm.spin, 'rpm')
-            +vmp('Club Path', dm.clubPath!=null?(dm.clubPath>0?'+':'')+dm.clubPath:null, '°')
-            +vmp('Face Angle', dm.faceAngle!=null?(dm.faceAngle>0?'+':'')+dm.faceAngle:null, '°')
-            +vmp('Face to Path', dm.faceToPath!=null?(dm.faceToPath>0?'+':'')+dm.faceToPath:null, '°')
-            +vmp('Attack', dm.attack!=null?(dm.attack>0?'+':'')+dm.attack:null, '°')
-            +vmp('Spin Axis', dm.spinAxis!=null?(dm.spinAxis>0?'+':'')+dm.spinAxis:null, '°')
-            +vmp('Land Angle', dm.landAngle, '°')
+          +'<div class="pv-vm-params">'+vmp('클럽 스피드', dm.clubSpeed!=null?_fmtNum(pfSpdFrom(dm.clubSpeed,metric)):null, pfSpdU())
+            +vmp('발사각', dm.launch!=null?_fmtNum(dm.launch):null, '°')
+            +vmp('스핀량', dm.spin!=null?Math.round(dm.spin):null, 'rpm')
+            +vmp('클럽 패스', dm.clubPath!=null?(dm.clubPath>0?'+':'')+_fmtNum(dm.clubPath):null, '°')
+            +vmp('페이스 앵글', dm.faceAngle!=null?(dm.faceAngle>0?'+':'')+_fmtNum(dm.faceAngle):null, '°')
+            +vmp('페이스 투 패스', dm.faceToPath!=null?(dm.faceToPath>0?'+':'')+_fmtNum(dm.faceToPath):null, '°')
+            +vmp('어택 앵글', dm.attack!=null?(dm.attack>0?'+':'')+_fmtNum(dm.attack):null, '°')
+            +vmp('스핀 축', dm.spinAxis!=null?(dm.spinAxis>0?'+':'')+_fmtNum(dm.spinAxis):null, '°')
+            +vmp('낙하 각도', dm.landAngle!=null?_fmtNum(dm.landAngle):null, '°')
           +'</div>'
           +'<button class="pv-vm-close" onclick="closePerfShot()">닫기</button>'
         +'</div>'
