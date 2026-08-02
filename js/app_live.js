@@ -198,21 +198,45 @@ function _cvSeekSync(v){
       var c=w.querySelector('[data-role="cvcur"]'); if(c) c.textContent=(Math.round(v.currentTime*10)/10).toFixed(1)+'s';
       var dd=w.querySelector('[data-role="cvdur"]'); if(dd) dd.textContent=(Math.round(v.duration*10)/10).toFixed(1)+'s';
     }
+    _cvPlayIcon(v);
   }catch(e){}
 }
+// 드래그 시작 → 자동 일시정지(재생과 안 싸움), 놓으면 원래 재생 상태 복귀
 function _cvSeekInput(s){
   try{
-    s._drag=true;
     var w=s.closest('.vid-wrap'); var v=w&&w.querySelector('video'); if(!v) return;
+    if(!s._drag){ s._drag=true; s._wasPlaying=!v.paused; if(!v.paused) v.pause(); }
     if(isFinite(v.duration)&&v.duration){
       v.currentTime=v.duration*(parseInt(s.value,10)||0)/1000;
       var c=w.querySelector('[data-role="cvcur"]'); if(c) c.textContent=(Math.round(v.currentTime*10)/10).toFixed(1)+'s';
     }
   }catch(e){}
 }
-function _cvSeekDone(s){ try{ s._drag=false; }catch(e){} }
+function _cvSeekDone(s){
+  try{
+    var w=s.closest('.vid-wrap'); var v=w&&w.querySelector('video');
+    if(s._wasPlaying && v){ v.play().catch(function(){}); }
+    s._drag=false; s._wasPlaying=false;
+    if(v) _cvPlayIcon(v);
+  }catch(e){}
+}
+function _cvPlayToggle(btn){
+  try{
+    var w=btn.closest('.vid-wrap'); var v=w&&w.querySelector('video'); if(!v) return;
+    if(v.paused){ v.play().catch(function(){}); } else { v.pause(); }
+    _cvPlayIcon(v);
+  }catch(e){}
+}
+function _cvPlayIcon(v){
+  try{
+    var w=v.closest('.vid-wrap'); var b=w&&w.querySelector('.cv-play'); if(!b) return;
+    b.textContent = v.paused ? '▶' : '⏸';
+  }catch(e){}
+}
 function _cvSeekRowHTML(){
-  return '<div class="vv-seekrow"><span class="cv-time" data-role="cvcur">0.0s</span>'
+  return '<div class="vv-seekrow">'
+    +'<button class="cv-play" onclick="_cvPlayToggle(this)">⏸</button>'
+    +'<span class="cv-time" data-role="cvcur">0.0s</span>'
     +'<input type="range" class="vv-seek cmp-seek" min="0" max="1000" value="0" step="1" oninput="_cvSeekInput(this)" onchange="_cvSeekDone(this)">'
     +'<span class="cv-time" data-role="cvdur">—</span></div>';
 }
@@ -245,15 +269,41 @@ function _analyzeClubTrace(vid, wrap, key){
       if(sm&&sm.length>=6){ window._clubTrace[key]=sm; _drawClubTrace(vid,svg,sm); }
       else window._clubTrace[key]=false;
     }
+    // 움직인 픽셀 "전체 평균"은 샤프트·블러에 끌려 헤드와 어긋난다.
+    // → 진행 방향 선두(=헤드 앞부분) 클러스터만 골라, 그 구간의 윗면/아랫면
+    //   높이(10·90 백분위)를 각각 기록 — 헤드의 실제 상하 폭을 추적.
+    var lastCx=null, dirSign=0;
     function sample(){
       try{ cx.drawImage(vid,0,0,W,H); }catch(e){ return finish(); }
       var img; try{ img=cx.getImageData(0,0,W,H).data; }catch(e){ return finish(); }   // CORS 오염 → 포기
       if(prev){
-        var sx=0,sy=0,n=0;
+        var xs=[], ys=[], minX=W, maxX=0, sx=0, n=0;
         for(var i=0;i<W*H;i++){
-          if(Math.abs(img[i*4]-prev[i*4])>26){ sx+=i%W; sy+=(i/W)|0; n++; }
+          if(Math.abs(img[i*4]-prev[i*4])>26){
+            var px=i%W, py=(i/W)|0;
+            xs.push(px); ys.push(py); sx+=px; n++;
+            if(px<minX) minX=px; if(px>maxX) maxX=px;
+          }
         }
-        if(n>10&&n<W*H*0.45) pts.push({x:sx/n/W, y:sy/n/H, t:vid.currentTime});
+        if(n>10 && n<W*H*0.45 && maxX>minX){
+          var cxu=sx/n;
+          if(lastCx!=null && Math.abs(cxu-lastCx)>0.5) dirSign = (cxu-lastCx>0)?1:-1;
+          lastCx=cxu;
+          // 선두 경계: 진행 방향 앞쪽 30% 폭 (방향 미확정 시 전체 사용)
+          var span=maxX-minX, band=Math.max(3, span*0.3);
+          var lo, hi;
+          if(dirSign>0){ hi=maxX; lo=maxX-band; }
+          else if(dirSign<0){ lo=minX; hi=minX+band; }
+          else { lo=minX; hi=maxX; }
+          var fxs=[], fys=[];
+          for(var k=0;k<xs.length;k++){ if(xs[k]>=lo && xs[k]<=hi){ fxs.push(xs[k]); fys.push(ys[k]); } }
+          if(fxs.length>6){
+            fys.sort(function(a,b){return a-b;});
+            var yt=fys[Math.floor(fys.length*0.1)], yb=fys[Math.floor(fys.length*0.9)];
+            var fx=0; for(var k2=0;k2<fxs.length;k2++) fx+=fxs[k2];
+            pts.push({ t:vid.currentTime, x:(fx/fxs.length)/W, y:((yt+yb)/2)/H, yt:yt/H, yb:yb/H });
+          }
+        }
       }
       prev=img;
     }
@@ -312,9 +362,15 @@ function _smoothTrace(pts){
       var keep=run.filter(function(p,i){ return res[i] < mean+1.6*sd; });
       if(keep.length>=8) run=keep;
     } else {
+      // 윗면/아랫면 높이도 각각 2차 피팅 → 리본(무지개 띠)으로 그릴 수 있게
+      var hasBand=run.every(function(p){return p.yt!=null&&p.yb!=null;});
+      var ct=hasBand?fitQ(run,'yt'):null, cb=hasBand?fitQ(run,'yb'):null;
       var out=[];
       for(var k=0;k<=40;k++){ var u=k/40;
-        out.push({x:Math.max(-0.05,Math.min(1.05,ev(cx,u))), y:Math.max(-0.05,Math.min(1.05,ev(cy,u)))});
+        var X=Math.max(-0.05,Math.min(1.05,ev(cx,u))), Y=Math.max(-0.05,Math.min(1.05,ev(cy,u)));
+        var YT=(ct?ev(ct,u):Y-0.02), YB=(cb?ev(cb,u):Y+0.02);
+        if(YB<YT+0.008) YB=YT+0.008;   // 교차 방지
+        out.push({x:X, y:Y, yt:Math.max(-0.05,Math.min(1.05,YT)), yb:Math.max(-0.05,Math.min(1.05,YB))});
       }
       var ddx=out[40].x-out[0].x, ddy=out[40].y-out[0].y;
       if(Math.sqrt(ddx*ddx+ddy*ddy)<0.15) return null;   // 이동 미미 = 무의미
@@ -333,11 +389,16 @@ function _drawClubTrace(vid, svg, pts){
     var sc=Math.min(bw/vw, bh/vh), cw=vw*sc, ch=vh*sc;
     svg.style.left=((bw-cw)/2)+'px'; svg.style.top=((bh-ch)/2)+'px';
     svg.style.width=cw+'px'; svg.style.height=ch+'px';
-    var pstr=pts.map(function(p){ return ((1-p.x)*100).toFixed(1)+','+((1-p.y)*100).toFixed(1); }).join(' ');
+    // 리본(무지개 띠): 헤드 윗면 곡선 → 아랫면 곡선을 채운 폴리곤 + 중심선.
+    // 화면은 180° 회전 표시라 (1-x, 1-y) 반전.
+    function T(v){ return ((1-v)*100); }
+    var top=pts.map(function(p){ return T(p.x).toFixed(1)+','+T(p.yt!=null?p.yt:p.y).toFixed(1); });
+    var bot=pts.map(function(p){ return T(p.x).toFixed(1)+','+T(p.yb!=null?p.yb:p.y).toFixed(1); }).reverse();
+    var mid=pts.map(function(p){ return T(p.x).toFixed(1)+','+T(p.y).toFixed(1); }).join(' ');
     var last=pts[pts.length-1];
-    svg.innerHTML='<polyline points="'+pstr+'" fill="none" stroke="rgba(0,210,154,.28)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>'
-      +'<polyline points="'+pstr+'" fill="none" stroke="#00d29a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>'
-      +'<circle cx="'+((1-last.x)*100).toFixed(1)+'" cy="'+((1-last.y)*100).toFixed(1)+'" r="3" fill="#fff" stroke="#00d29a" stroke-width="1.4"/>';
+    svg.innerHTML='<polygon points="'+top.concat(bot).join(' ')+'" fill="rgba(0,210,154,.22)" stroke="rgba(0,210,154,.45)" stroke-width="0.6"/>'
+      +'<polyline points="'+mid+'" fill="none" stroke="#00d29a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>'
+      +'<circle cx="'+T(last.x).toFixed(1)+'" cy="'+T(last.y).toFixed(1)+'" r="2.8" fill="#fff" stroke="#00d29a" stroke-width="1.3"/>';
   }catch(e){}
 }
 // 영상 재생 실패 정밀 진단 — "만료·정리" 뭉뚱그림 대신 실제 사유를 확인해 표시.
@@ -448,7 +509,7 @@ function openShotVideo(shotId){
     markRate();
     if(isClub){ setTimeout(function(){ try{ _analyzeClubTrace(vid, wrap, views[cur].key); }catch(e){} }, 80); }
   }
-  vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } } });
+  vid.addEventListener('click', function(){ if(!vid.controls){ if(vid.paused){ vid.play().catch(function(){}); } else { vid.pause(); } _cvPlayIcon(vid); } });
   vid.addEventListener('loadedmetadata', function(){ try{ vid.playbackRate = rate; }catch(e){} });   // 일부 브라우저는 src 교체 시 배속 리셋
   vid.addEventListener('timeupdate', function(){ _cvSeekSync(vid); });
   vid.addEventListener('error', function(){ try{ _vidDiag(vid, views[cur].key); }catch(e){} });

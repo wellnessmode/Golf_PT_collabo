@@ -265,8 +265,16 @@ function renderReport(c, meta){
       baVids.forEach(function(v){ if(isFinite(v.duration)&&v.duration){ try{v.currentTime=v.duration*pct;}catch(e){} } });
       if(isFinite(master.duration)&&master.duration) curEl.textContent=ft(master.duration*pct);
     }
-    seek.addEventListener('input', function(){ dragging=true; seekBoth(); });
-    seek.addEventListener('change', function(){ seekBoth(); dragging=false; });
+    var wasPlaying=false;
+    seek.addEventListener('input', function(){
+      if(!dragging){ dragging=true; wasPlaying=baVids.some(function(v){return !v.paused;}); baVids.forEach(function(v){v.pause();}); }
+      seekBoth();
+    });
+    seek.addEventListener('change', function(){
+      seekBoth(); dragging=false;
+      if(wasPlaying){ baVids.forEach(function(v){v.play().catch(function(){});}); play.textContent='⏸ 일시정지'; }
+      wasPlaying=false;
+    });
     var play=document.getElementById('ba-play');
     play.onclick=function(){
       var on=baVids.some(function(v){return !v.paused;});

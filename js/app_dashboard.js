@@ -565,8 +565,16 @@ function openCompareBA(){
     vids.forEach(function(v){ if(isFinite(v.duration)&&v.duration){ try{ v.currentTime=v.duration*pct; }catch(e){} } });
     if(isFinite(master.duration)&&master.duration) curEl.textContent=fmt(master.duration*pct);
   }
-  seek.addEventListener('input', function(){ dragging=true; seekBoth(); });
-  seek.addEventListener('change', function(){ seekBoth(); dragging=false; });
+  var wasPlaying=false;
+  seek.addEventListener('input', function(){
+    if(!dragging){ dragging=true; wasPlaying=vids.some(function(v){return !v.paused;}); vids.forEach(function(v){v.pause();}); }
+    seekBoth();
+  });
+  seek.addEventListener('change', function(){
+    seekBoth(); dragging=false;
+    if(wasPlaying){ vids.forEach(function(v){v.play().catch(function(){});}); playBtn.textContent='⏸ 일시정지'; }
+    wasPlaying=false;
+  });
   playBtn.onclick=function(){
     var anyPlaying=vids.some(function(v){ return !v.paused; });
     if(anyPlaying){ vids.forEach(function(v){ v.pause(); }); playBtn.textContent='▶ 동시 재생'; }
@@ -1053,7 +1061,7 @@ function renderPerformance(){
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
         +' onloadeddata="try{_clubTraceHook(this)}catch(e){}"'
         +' ontimeupdate="try{_cvSeekSync(this)}catch(e){}"'
-        +' onclick="if(!this.controls){if(this.paused){this.play().catch(function(){})}else{this.pause()}}"'
+        +' onclick="if(!this.controls){if(this.paused){this.play().catch(function(){})}else{this.pause()};try{_cvPlayIcon(this)}catch(e){}}"'
         +' onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>'
         +(typeof _cvSeekRowHTML==='function'?_cvSeekRowHTML():'')
         +(typeof _clubPathOverlayHTML==='function'?_clubPathOverlayHTML(dm):'')
