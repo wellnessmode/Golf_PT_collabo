@@ -442,7 +442,7 @@ function setPerfShotView(i, key, isClub){
     if(v){
       v.dataset.k=key; v.dataset.rate=isClub?0.5:1;
       v.classList.toggle('vid-flip', !!isClub); v.classList.toggle('club-big', !!isClub);
-      v.controls=!isClub; v.loop=!!isClub;   // 클럽 뷰: 회전 시 컨트롤까지 뒤집혀서 OFF(탭 재생) + 반복
+      v.controls=false; v.loop=!!isClub;   // 전 앵글 기본 컨트롤 OFF(가림 방지) — 자체 시크바·탭·▶/⏸ 로 조작
       var w=v.closest('.vid-wrap'); if(w) w.classList.toggle('club-on', !!isClub);
       v.src=r2.url(key); v.load();
       try{ v.playbackRate=isClub?0.5:1; }catch(e){}
@@ -1066,7 +1066,8 @@ function renderPerformance(){
       // 그 위에 TPS 스타일 패스 오버레이(타깃라인·패스 곡선·페이스 각).
       vidHtml=tabsHtml
         +'<div class="vid-wrap'+(isClubV?' club-on':'')+'">'
-        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" crossorigin="anonymous" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':' controls')+' playsinline preload="metadata"'
+        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" crossorigin="anonymous" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':'')+' playsinline preload="metadata"'
+        +' onplay="try{_cvPlayIcon(this)}catch(e){}" onpause="try{_cvPlayIcon(this)}catch(e){}" onended="try{_cvPlayIcon(this)}catch(e){}"'
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
         +' onloadeddata="try{_clubTraceHook(this)}catch(e){}"'
         +' ontimeupdate="try{_cvSeekSync(this)}catch(e){}"'
