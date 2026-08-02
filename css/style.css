@@ -1181,8 +1181,9 @@ body.role-select .app{background:#0d1117}
 .pv-kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
 .pv-k{background:#fafbfc;border:1px solid rgba(15,20,28,.07);border-radius:10px;padding:14px 8px 13px;text-align:center}
 .pv-k.hi{background:rgba(0,184,132,.08);border-color:rgba(0,184,132,.18)}
-.pv-k-l{font-size:9px;color:#7a8089;text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:7px}
-.pv-k-v{font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-size:26px;font-weight:800;color:#0a0c0f;line-height:1;letter-spacing:-.02em}
+/* em 단위 — 글씨 배율(가+/돋보기)이 실제로 반영되도록 (px 고정이면 배율 무시됨) */
+.pv-k-l{font-size:.78em;color:#5a6470;letter-spacing:-.01em;font-weight:700;margin-bottom:7px}
+.pv-k-v{font-family:-apple-system,'SF Pro Display','Inter','Noto Sans KR',sans-serif;font-variant-numeric:tabular-nums;font-size:1.9em;font-weight:800;color:#0a0c0f;line-height:1;letter-spacing:-.02em}
 .pv-k.hi .pv-k-v{color:#00a070}
 .pv-k-u{font-size:10px;color:#7a8089;font-weight:600;margin-left:2px}
 .pv-k .kpi-delta{display:block;font-size:10px;font-weight:700;color:#00a070;margin-top:5px;font-variant-numeric:tabular-nums}
@@ -1210,11 +1211,11 @@ body.role-select .app{background:#0d1117}
 .pv-tab.on{color:#0a0c0f;border-bottom-color:#0a0c0f}
 .pv-tab.dis{opacity:.35;cursor:not-allowed}
 .pv-tab .pv-ct{font-family:-apple-system,'SF Mono',sans-serif;font-variant-numeric:tabular-nums;font-size:10px;color:#a8aeb6;margin-left:5px}
-.pv-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.pv-tbl th{font-size:9px;font-weight:700;color:#7a8089;text-transform:uppercase;letter-spacing:.5px;text-align:right;padding:9px 6px;border-bottom:1px solid rgba(15,20,28,.12)}
+.pv-tbl{width:100%;border-collapse:collapse;font-size:1em}
+.pv-tbl th{font-size:.72em;font-weight:700;color:#7a8089;letter-spacing:.02em;text-align:right;padding:9px 6px;border-bottom:1px solid rgba(15,20,28,.12)}
 .pv-tbl th:first-child{text-align:left}
-.pv-tbl td{padding:11px 6px;text-align:right;border-bottom:1px solid rgba(15,20,28,.07);font-family:-apple-system,'SF Mono','Inter',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;color:#0a0c0f;font-size:13.5px}
-.pv-tbl td:first-child{text-align:left;font-family:inherit;font-weight:600;color:#3f454e;font-size:11.5px}
+.pv-tbl td{padding:12px 6px;text-align:right;border-bottom:1px solid rgba(15,20,28,.07);font-family:-apple-system,'SF Pro Display','Inter','Noto Sans KR',sans-serif;font-variant-numeric:tabular-nums;font-weight:800;color:#0a0c0f;font-size:1.08em}
+.pv-tbl td:first-child{text-align:left;font-family:inherit;font-weight:600;color:#3f454e;font-size:.95em}
 .pv-tbl tr:last-child td{border-bottom:none}
 .pv-empty{text-align:center;padding:30px;color:#7a8089;font-size:12px;background:#fafbfc;border-radius:10px}
 
@@ -1734,6 +1735,14 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .cmp-angles{margin:0;justify-content:center}
 .cmp-angles .vv-tab[disabled]{opacity:.3;cursor:not-allowed}
 .pv-cmp-note{margin:10px 0 0;padding:11px 12px;border-radius:10px;background:#f4f6f8;color:#5a6470;font-size:12px;font-weight:600;text-align:center;line-height:1.5}
+/* 리포트 돋보기 — 우측 하단 고정, 누를 때마다 글씨 단계 확대 */
+.pf-zoom{position:fixed;right:14px;bottom:max(16px,calc(env(safe-area-inset-bottom) + 12px));z-index:10050;
+  width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;
+  background:#0a0c0f;color:#fff;box-shadow:0 4px 18px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:19px}
+.pf-zoom small{font-size:9.5px;font-weight:800;color:#7ee8c5;letter-spacing:0}
+.pf-zoom:active{transform:scale(.92)}
+@media print{.pf-zoom{display:none}}
 /* 클럽 딜리버리 — 180° 회전(샤프트 아래·진행 방향 우→좌 보정) + 확대 표시.
    ⚠️ 회전은 video 요소에 걸리므로 클럽 뷰에선 기본 컨트롤을 끄고(같이 뒤집히는 사고)
    탭 재생/정지 + 자동 반복으로 조작한다. */
