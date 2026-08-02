@@ -1746,7 +1746,7 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .club-overlay{position:absolute;inset:0;pointer-events:none}
 /* 미니 패스 다이어그램 인셋 — 방송 그래픽처럼 우측 하단에 분리 표시
    (영상 속 실제 볼 위치와 무관하므로 항상 정렬이 맞음) */
-.cp-inset{position:absolute;right:8px;bottom:36px;width:86px;aspect-ratio:100/140;
+.cp-inset{position:absolute;right:8px;bottom:36px;width:118px;aspect-ratio:140/100;
   background:rgba(8,12,16,.58);border:1px solid rgba(255,255,255,.16);border-radius:11px;
   backdrop-filter:blur(3px);overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,.4)}
 .cp-inset svg{display:block;width:100%;height:100%}
