@@ -55,6 +55,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .ba-sp.on{background:var(--ac);border-color:transparent;color:#fff}
 .ba-delta{margin-top:12px;text-align:center;font-size:13px;font-weight:700;color:var(--tx2)}
 .ba-delta b{color:var(--ac);font-size:15px}
+.ba-delta small{color:var(--tx3);font-weight:600}
+.ba-seekrow{display:flex;align-items:center;gap:9px;margin-top:12px;padding:0 2px}
+.ba-time{font-size:10.5px;color:var(--tx3);font-weight:700;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
+.ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:999px;background:rgba(13,20,28,.14);outline:none}
+.ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.ba-seek::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer}
 /* ── 추이 차트 ── */
 .chart svg{width:100%;height:auto;display:block}
 /* ── 클럽별 평균 (카드 행) ── */
@@ -143,6 +149,13 @@ function renderReport(c, meta){
 
   var m=c.member||{}, t=c.trackman;
   var bestCarry=t&&t.best?fmt(distM(t.best.carry,t.best.metric)):null;
+  // 평균 캐리 — 클럽별 평균의 샷수 가중 평균 (GDR 연습장 모드처럼 데이터 중심 KPI)
+  var avgCarry=null;
+  if(t&&t.clubs&&t.clubs.length){
+    var wsum=0,wn=0;
+    t.clubs.forEach(function(a){ var cm=distM(a.carry,a.metric); if(cm!=null&&a.n){ wsum+=cm*a.n; wn+=a.n; } });
+    if(wn>0) avgCarry=fmt(wsum/wn);
+  }
   var html='';
 
   // 히어로
@@ -152,10 +165,10 @@ function renderReport(c, meta){
     +(m.goal?'<div class="hero-goal">🎯 목표 · '+esc(m.goal)+'</div>':'')
     +'</div>';
 
-  // KPI
+  // KPI — 연습장 모드처럼 측정 데이터 중심 (베스트 캐리 · 평균 캐리 · 측정 샷)
   html+='<div class="kpis">'
-    +'<div class="kpi"><div class="kpi-v">'+(c.totalSessions||0)+'<small>회</small></div><div class="kpi-l">총 레슨</div></div>'
     +'<div class="kpi"><div class="kpi-v green">'+(bestCarry!=null?bestCarry:'—')+'<small>m</small></div><div class="kpi-l">베스트 캐리</div></div>'
+    +'<div class="kpi"><div class="kpi-v">'+(avgCarry!=null?avgCarry:'—')+'<small>m</small></div><div class="kpi-l">평균 캐리</div></div>'
     +'<div class="kpi"><div class="kpi-v blue">'+(t?t.shotCount:0)+'<small>구</small></div><div class="kpi-l">측정 샷</div></div>'
     +'</div>';
 
@@ -168,13 +181,16 @@ function renderReport(c, meta){
         +'<div class="ba-col"><span class="ba-tag b">BEFORE</span><video src="'+vurl(ba.b.key)+'" playsinline muted loop preload="metadata"></video><div class="ba-cap">'+cap(ba.b)+'</div></div>'
         +'<div class="ba-col"><span class="ba-tag a">AFTER</span><video src="'+vurl(ba.a.key)+'" playsinline muted loop preload="metadata"></video><div class="ba-cap">'+cap(ba.a)+'</div></div>'
       +'</div>'
+      +'<div class="ba-seekrow"><span class="ba-time" data-role="cur">0.0s</span>'
+        +'<input type="range" class="ba-seek" min="0" max="1000" value="0" step="1">'
+        +'<span class="ba-time" data-role="dur">—</span></div>'
       +'<div class="ba-ctrl">'
         +'<button class="ba-btn play" id="ba-play">▶ 동시 재생</button>'
         +'<button class="ba-btn" id="ba-restart">⏮ 처음부터</button>'
         +[0.25,0.5,1].map(function(sp){return '<button class="ba-sp'+(sp===0.5?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>';}).join('')
       +'</div>';
     var bC=distM(ba.b.carry,ba.b.metric), aC=distM(ba.a.carry,ba.a.metric);
-    if(bC!=null&&aC!=null&&aC>bC) html+='<div class="ba-delta">캐리 <b>+'+fmt(aC-bC)+'m</b> 성장했어요</div>';
+    if(bC!=null&&aC!=null&&aC>bC) html+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 증가했어요!</b> <small>(캐리 기준)</small></div>';
     html+='</div>';
   }
 
@@ -230,11 +246,27 @@ function renderReport(c, meta){
   html+='<div class="foot"><b>'+esc(BR.nameKo)+'</b> · 데이터로 증명하는 코칭<br>본 리포트의 탄도 데이터는 '+esc(t&&t.measuredBy||BR.measuredBy)+' 로 측정되었습니다</div>';
   document.getElementById('report').innerHTML=html;
 
-  // 비포·애프터 컨트롤 배선
+  // 비포·애프터 컨트롤 배선 — 동시 재생 · 공용 시크바(두 영상 같은 비율 지점 탐색) · 배속
   var baVids=[].slice.call(document.querySelectorAll('.ba-col video'));
   if(baVids.length===2){
-    var rate=0.5;
+    var rate=0.5, master=baVids[0], dragging=false;
+    var seek=document.querySelector('.ba-seek');
+    var curEl=document.querySelector('.ba-time[data-role="cur"]'), durEl=document.querySelector('.ba-time[data-role="dur"]');
+    function ft(x){ return (Math.round(x*10)/10).toFixed(1)+'s'; }
     baVids.forEach(function(v){ try{v.playbackRate=rate;}catch(e){} v.addEventListener('loadedmetadata',function(){try{v.playbackRate=rate;}catch(e){}}); });
+    master.addEventListener('loadedmetadata', function(){ if(isFinite(master.duration)) durEl.textContent=ft(master.duration); });
+    master.addEventListener('timeupdate', function(){
+      if(dragging||!isFinite(master.duration)||!master.duration) return;
+      seek.value=Math.round(master.currentTime/master.duration*1000);
+      curEl.textContent=ft(master.currentTime);
+    });
+    function seekBoth(){
+      var pct=(parseInt(seek.value,10)||0)/1000;
+      baVids.forEach(function(v){ if(isFinite(v.duration)&&v.duration){ try{v.currentTime=v.duration*pct;}catch(e){} } });
+      if(isFinite(master.duration)&&master.duration) curEl.textContent=ft(master.duration*pct);
+    }
+    seek.addEventListener('input', function(){ dragging=true; seekBoth(); });
+    seek.addEventListener('change', function(){ seekBoth(); dragging=false; });
     var play=document.getElementById('ba-play');
     play.onclick=function(){
       var on=baVids.some(function(v){return !v.paused;});
@@ -243,7 +275,7 @@ function renderReport(c, meta){
     };
     document.getElementById('ba-restart').onclick=function(){
       baVids.forEach(function(v){ try{v.currentTime=0;}catch(e){} v.play().catch(function(){}); });
-      play.textContent='⏸ 일시정지';
+      seek.value=0; play.textContent='⏸ 일시정지';
     };
     [].slice.call(document.querySelectorAll('.ba-sp')).forEach(function(b){
       b.onclick=function(){ rate=parseFloat(b.getAttribute('data-sp'))||1;
