@@ -1049,8 +1049,9 @@ function renderPerformance(){
       // 그 위에 TPS 스타일 패스 오버레이(타깃라인·패스 곡선·페이스 각).
       vidHtml=tabsHtml
         +'<div class="vid-wrap'+(isClubV?' club-on':'')+'">'
-        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':' controls')+' playsinline preload="metadata"'
+        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" crossorigin="anonymous" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':' controls')+' playsinline preload="metadata"'
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
+        +' onloadeddata="try{_clubTraceHook(this)}catch(e){}"'
         +' onclick="if(!this.controls){if(this.paused){this.play().catch(function(){})}else{this.pause()}}"'
         +' onerror="try{_vidDiag(this, this.dataset.k)}catch(e){}"></video>'
         +(typeof _clubPathOverlayHTML==='function'?_clubPathOverlayHTML(dm):'')
