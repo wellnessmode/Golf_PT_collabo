@@ -376,6 +376,41 @@ async function sharePerfSummary(){
       }catch(e){ console.warn('[share] REPORT_BASE 응답 없음 → 기본 주소로 폴백:', e&&e.message); return false; }
     })();
   }
+  var content=_buildReportContent(mid, m, data);
+  // 링크 ID는 추측 불가능한 난수로 — 링크를 아는 사람만 열 수 있는 구조라 엔트로피가 곧 보안이다.
+  var reportId='rpt_'+(function(){
+    try{ var u=new Uint8Array(16); crypto.getRandomValues(u);
+      return Array.prototype.map.call(u,function(b){return ('0'+b.toString(36)).slice(-2);}).join('').slice(0,24); }
+    catch(e){ return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12); }
+  })();
+  var row={id:reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content};
+  var saved=await _saveReportRow(row);
+  if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
+  // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
+  // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE(전용 도메인)가 응답하면 그 주소로,
+  // 응답이 없으면 워커 기본 주소로. 둘 다 없으면 기존 report.html 경로(구버전 폴백).
+  var rbase=_primary||_fallback;
+  if(_probe && !(await _probe)) rbase=_fallback||_primary;
+  var link=rbase ? rbase+'/r/'+reportId
+                 : location.origin+location.pathname.replace(/\/[^\/]*$/,'/')+'report.html?id='+reportId;
+  // 링크는 문구 끝에 한 칸 띄고 바로 붙인다 — 줄바꿈으로 분리하면 카톡이 링크를
+  // 미리보기 카드로 빼가면서 문구 끝에 빈 줄이 남는다. (url 필드를 따로 주면
+  // iOS 가 줄바꿈으로 이어붙이므로 text 안에 포함해서 보냄)
+  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요. '+link;
+  try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(text); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
+  prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
+}
+
+// 리포트 row 저장 — 프록시(서비스 키) 우선, 실패 시 직접 upsert 폴백
+async function _saveReportRow(row){
+  try{ if((await cloud._w('upsert','reports',{rows:[row]}))===true) return true; }catch(e){ console.warn('[report] proxy upsert fail:', e); }
+  try{ var r=await cloud.client.from('reports').upsert(row); if(r.error) throw r.error; return true; }
+  catch(e){ console.warn('[report] direct upsert fail:', e); return false; }
+}
+
+// 고객용 리포트 content 조립 — 공유(sharePerfSummary)·상담 예시(publishDemoReport) 공용
+function _buildReportContent(mid, m, data){
   var shots=data.shots||[];
   // 트랙맨 요약 (기존 발송 리포트와 같은 스키마 + 앵글·비포/애프터 확장)
   var trackman=null;
@@ -432,40 +467,65 @@ async function sharePerfSummary(){
     return {date:s.date, time:s.time||'', author:s.author, role:(typeof getRole==='function'?getRole(s.author):'trainer'), content:s.content||'', videos:vids2};
   });
   var st=stats(mid);
-  // 링크 ID는 추측 불가능한 난수로 — 링크를 아는 사람만 열 수 있는 구조라 엔트로피가 곧 보안이다.
-  var reportId='rpt_'+(function(){
-    try{ var u=new Uint8Array(16); crypto.getRandomValues(u);
-      return Array.prototype.map.call(u,function(b){return ('0'+b.toString(36)).slice(-2);}).join('').slice(0,24); }
-    catch(e){ return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12); }
-  })();
-  var content={
+  return {
     member:{name:m.name, registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
     totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
     sessions:sessions, trackman:trackman, customer:true,
     brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, store:APP_BRAND.store, storeEn:APP_BRAND.storeEn, measuredBy:APP_BRAND.measuredBy}
   };
-  var row={id:reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content};
-  var saved=false;
-  try{ saved = (await cloud._w('upsert','reports',{rows:[row]})) === true; }catch(e){ console.warn('[share] proxy upsert fail:', e); }
-  if(!saved){
-    try{ var r=await cloud.client.from('reports').upsert(row); if(r.error) throw r.error; saved=true; }
-    catch(e){ console.warn('[share] direct upsert fail:', e); }
-  }
-  if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
-  // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
-  // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE(전용 도메인)가 응답하면 그 주소로,
-  // 응답이 없으면 워커 기본 주소로. 둘 다 없으면 기존 report.html 경로(구버전 폴백).
-  var rbase=_primary||_fallback;
-  if(_probe && !(await _probe)) rbase=_fallback||_primary;
-  var link=rbase ? rbase+'/r/'+reportId
-                 : location.origin+location.pathname.replace(/\/[^\/]*$/,'/')+'report.html?id='+reportId;
-  // 링크는 문구 끝에 한 칸 띄고 바로 붙인다 — 줄바꿈으로 분리하면 카톡이 링크를
-  // 미리보기 카드로 빼가면서 문구 끝에 빈 줄이 남는다. (url 필드를 따로 주면
-  // iOS 가 줄바꿈으로 이어붙이므로 text 안에 포함해서 보냄)
-  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요. '+link;
-  try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
-  try{ await navigator.clipboard.writeText(text); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
-  prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
+}
+
+// ── 상담용 예시 리포트 — 지금 열린 회원(프로 본인 프로필 권장)의 실측 데이터·영상으로
+// 고정 주소(rpt_demo)에 발행. 이름·목표·레슨일지는 예시 문안으로 교체되어
+// 실제 회원의 개인정보는 나가지 않는다. 다시 누르면 같은 주소에 덮어써 갱신.
+async function publishDemoReport(){
+  if(S.perfDemo){ alert('데모 화면에서는 발행할 수 없습니다.\n실제 측정·영상이 있는 회원(프로 본인 프로필 권장)의 리포트에서 눌러주세요.'); return; }
+  var mid=S.perfMember||S.selectedMember;
+  var m=S.members.find(function(x){return x.id===mid;});
+  var data=buildPerfData(mid);
+  if(!m||!data){ alert('발행할 데이터가 없습니다.'); return; }
+  if(typeof cloud==='undefined'||!cloud.enabled){ alert('클라우드 미연결 — 발행할 수 없습니다.'); return; }
+  if(!confirm('이 회원의 측정 데이터와 스윙 영상으로 상담용 예시 리포트를 발행합니다.\n\n· 이름 → "홍길동" · 레슨일지 → 예시 문안으로 교체\n· 주소는 항상 같음 (다시 발행하면 갱신)\n\n계속할까요?')) return;
+  try{ liveToastSafe('🎬 상담용 예시 리포트 발행 중...'); }catch(e){}
+  var content=_buildReportContent(mid, m, data);
+  content.demo=true;
+  content.member={name:'홍길동', registeredDate:'', handicap:'18', avgScore:'92',
+    goal:'12주 내 드라이버 비거리 +20m · 통증 없는 스윙', focusPoints:''};
+  content.sessions=_demoSessions();
+  content.totalSessions=content.sessions.length;
+  var row={id:'rpt_demo', member_id:'demo', member_name:'홍길동', created_by:S.currentUser||'', content:content};
+  if(!(await _saveReportRow(row))){ alert('발행 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
+  var cfg=window.APP_CONFIG||{};
+  var base=String(cfg.REPORT_BASE||cfg.R2_WORKER_URL||'').replace(/\/+$/,'');
+  if(!base){ alert('발행은 되었지만 리포트 주소 설정(REPORT_BASE/R2_WORKER_URL)이 없습니다.'); return; }
+  var link=base+'/r/rpt_demo';
+  try{ await navigator.clipboard.writeText(link); }catch(e){}
+  try{ window.open(link,'_blank'); }catch(e){}
+  alert('상담용 예시 리포트가 발행되었습니다.\n\n'+link+'\n\n주소는 항상 같으니 즐겨찾기 해두세요. (주소 복사됨)');
+}
+
+// 상담 예시 레슨일지 — 골프 레슨 + 골프 PT 협업 흐름이 보이도록 4주 스토리로 구성
+function _demoSessions(){
+  var d=function(off){ return new Date(Date.now()-off*86400000).toISOString().slice(0,10); };
+  var by=APP_BRAND.measuredBy;
+  return [
+    {date:d(0), time:'10:00', author:'담당 프로', role:'pro',
+     content:'[4주차 · 드라이버 정밀 측정]\n오늘 '+by+' 측정에서 캐리가 첫 측정 대비 +12m 향상되었습니다. 백스윙 탑에서 오른팔 간격이 안정되면서 클럽 패스가 인투아웃 2°대로 정리된 것이 가장 큰 요인입니다.\n\n다음 과제\n· 페이스 투 패스 ±1° 유지\n· 티 높이 한 단계 낮춰 발사각 최적화', videos:[]},
+    {date:d(7), time:'11:00', author:'담당 트레이너', role:'trainer',
+     content:'[골프 PT 6회차 · 회전 가동성]\n흉추 회전 가동범위 좌우 편차 8° → 3° 개선. 힙 힌지 패턴이 안정되어 어드레스 유지가 수월해졌습니다.\n\n오늘 운동\n· 흉추 회전 스트레치 3세트\n· 케이블 우드찹 12회 × 3세트\n· 한발 균형 힙힌지 10회 × 3세트\n\n스윙 연계 효과: 회전이 커지면서 힘을 쓰지 않아도 헤드스피드가 유지됩니다.', videos:[]},
+    {date:d(14), time:'10:00', author:'담당 프로', role:'pro',
+     content:'[2주차 · 임팩트 교정]\n어택 앵글 -3°(찍어치기) → +1° 개선, 스핀량이 적정 범위로 안정. 비포/애프터 영상을 비교하면 임팩트 순간 머리가 공 뒤에 남아있는 변화가 뚜렷합니다.\n\n연습 과제: 티샷 20구 중 15구 이상 페어웨이 폭 유지', videos:[]},
+    {date:d(21), time:'10:00', author:'담당 프로', role:'pro',
+     content:'[1회차 · 첫 측정 & 목표 설정]\n'+by+' 정밀 측정으로 현재 상태를 기록했습니다 — 드라이버 캐리 · 클럽 패스 · 페이스 앵글 기준값 확보.\n\n목표: 12주 내 드라이버 비거리 +20m, 허리 부담 없는 스윙\n일정: 주 2회 (골프 레슨 1 + 골프 PT 1)', videos:[]}
+  ];
+}
+
+// 발행해둔 상담용 예시 리포트 열기 (인포데스크 버튼)
+function openCustomerDemoReport(){
+  var cfg=window.APP_CONFIG||{};
+  var base=String(cfg.REPORT_BASE||cfg.R2_WORKER_URL||'').replace(/\/+$/,'');
+  if(!base){ alert('리포트 주소 설정(REPORT_BASE/R2_WORKER_URL)이 없습니다.'); return; }
+  window.open(base+'/r/rpt_demo','_blank');
 }
 function _assessScore(items){
   try{return calcFitness(items||{}).score;}catch(e){return 0;}
@@ -1069,6 +1129,7 @@ function renderPerformance(){
   html+='<div class="pv-sec"><div class="pv-cta-wrap">'
     +'<div class="pv-cta primary" onclick="sharePerfSummary()"><div class="pv-cta-ic">📤</div><div><div class="pv-cta-t">리포트 공유</div><div class="pv-cta-s">요약을 카카오톡 등으로 전송</div></div></div>'
     +'<div class="pv-cta" onclick="printPerf()"><div class="pv-cta-ic">🖨</div><div><div class="pv-cta-t">인쇄 · PDF 저장</div><div class="pv-cta-s">상담용 출력</div></div></div>'
+    +'<div class="pv-cta" onclick="publishDemoReport()"><div class="pv-cta-ic">🎬</div><div><div class="pv-cta-t">상담 예시로 발행</div><div class="pv-cta-s">이 데이터로 예시 리포트 갱신 (이름·일지는 예시로 교체)</div></div></div>'
   +'</div></div>';
 
   // ===== 푸터 =====
