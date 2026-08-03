@@ -358,6 +358,24 @@ async function sharePerfSummary(){
   if(!m||!data){ alert('공유할 데이터가 없습니다.'); return; }
   if(typeof cloud==='undefined'||!cloud.enabled){ alert('클라우드 미연결 — 공유 링크를 만들 수 없습니다.'); return; }
   try{ liveToastSafe('📤 고객용 리포트 링크 생성 중...'); }catch(e){}
+  // 공유 주소 사전 점검 — 전용 도메인(REPORT_BASE)이 아직 연결 전이거나 중계 워커가
+  // 내려가 있으면 "죽은 링크"가 고객에게 나간다. 링크를 만드는 동안 미리 확인해두고
+  // 응답이 없으면 워커 기본 주소로 자동 폴백. (병렬 실행이라 공유 속도엔 영향 없음)
+  var _cfg=window.APP_CONFIG||{};
+  var _primary=String(_cfg.REPORT_BASE||'').replace(/\/+$/,'');
+  var _fallback=String(_cfg.R2_WORKER_URL||'').replace(/\/+$/,'');
+  var _probe=null;
+  if(_primary && _fallback && _primary!==_fallback){
+    _probe=(async function(){
+      try{
+        var ctl=new AbortController(), t=setTimeout(function(){ try{ctl.abort();}catch(e){} },4000);
+        // 어떤 상태코드든 "응답이 왔다" = 그 주소가 살아있다는 뜻 (404/400 포함)
+        var rr=await fetch(_primary+'/r/__ping',{method:'HEAD',signal:ctl.signal,cache:'no-store'});
+        clearTimeout(t);
+        return !!(rr && rr.status>0);
+      }catch(e){ console.warn('[share] REPORT_BASE 응답 없음 → 기본 주소로 폴백:', e&&e.message); return false; }
+    })();
+  }
   var shots=data.shots||[];
   // 트랙맨 요약 (기존 발송 리포트와 같은 스키마 + 앵글·비포/애프터 확장)
   var trackman=null;
@@ -435,10 +453,10 @@ async function sharePerfSummary(){
   }
   if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
   // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
-  // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE 를 config 에 넣으면(커스텀 도메인
-  // 연결 후) 그 주소로 발급된다. 워커 미배포 구버전 대비 폴백은 기존 report.html 경로.
-  var cfg=window.APP_CONFIG||{};
-  var rbase=String(cfg.REPORT_BASE||cfg.R2_WORKER_URL||'').replace(/\/+$/,'');
+  // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE(전용 도메인)가 응답하면 그 주소로,
+  // 응답이 없으면 워커 기본 주소로. 둘 다 없으면 기존 report.html 경로(구버전 폴백).
+  var rbase=_primary||_fallback;
+  if(_probe && !(await _probe)) rbase=_fallback||_primary;
   var link=rbase ? rbase+'/r/'+reportId
                  : location.origin+location.pathname.replace(/\/[^\/]*$/,'/')+'report.html?id='+reportId;
   var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.';
