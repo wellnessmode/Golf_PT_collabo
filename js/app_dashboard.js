@@ -459,9 +459,12 @@ async function sharePerfSummary(){
   if(_probe && !(await _probe)) rbase=_fallback||_primary;
   var link=rbase ? rbase+'/r/'+reportId
                  : location.origin+location.pathname.replace(/\/[^\/]*$/,'/')+'report.html?id='+reportId;
-  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.';
-  try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text, url:link}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
-  try{ await navigator.clipboard.writeText(text+'\n'+link); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
+  // 링크는 문구 끝에 한 칸 띄고 바로 붙인다 — 줄바꿈으로 분리하면 카톡이 링크를
+  // 미리보기 카드로 빼가면서 문구 끝에 빈 줄이 남는다. (url 필드를 따로 주면
+  // iOS 가 줄바꿈으로 이어붙이므로 text 안에 포함해서 보냄)
+  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요. '+link;
+  try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(text); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
   prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
 }
 function _assessScore(items){
