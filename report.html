@@ -11,7 +11,7 @@
 :root{--ac:#00b884;--ac2:#00d29a;--pro:#3f7bff;--amber:#f0a13a;
   --tx:#0d1114;--tx2:#454c55;--tx3:#8b93a0;--bg:#f2f4f6;--card:#fff;--brd:rgba(13,20,28,.07);
   --r:18px;--shadow:0 2px 14px rgba(10,20,30,.06)}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;font-size:16px}
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard','Noto Sans KR',sans-serif;
   background:var(--bg);color:var(--tx);line-height:1.65;-webkit-font-smoothing:antialiased}
 .report{max-width:560px;margin:0 auto;padding-bottom:70px}
@@ -20,33 +20,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
   padding:calc(env(safe-area-inset-top) + 30px) 22px 74px;position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;inset:0;
   background:radial-gradient(70% 55% at 82% 8%,rgba(0,210,154,.2),transparent 65%);pointer-events:none}
-.hero-brand{font-size:10.5px;font-weight:800;letter-spacing:.16em;color:var(--ac2);text-transform:uppercase;margin-bottom:14px}
-.hero-name{font-size:27px;font-weight:900;letter-spacing:-.03em;line-height:1.25}
-.hero-name small{font-size:16px;font-weight:700;color:rgba(255,255,255,.72)}
-.hero-meta{font-size:12.5px;color:rgba(255,255,255,.55);margin-top:7px}
-.hero-goal{display:inline-block;margin-top:12px;font-size:12px;font-weight:700;color:#ffd9a0;
+.hero-brand{font-size:0.6563rem;font-weight:800;letter-spacing:.16em;color:var(--ac2);text-transform:uppercase;margin-bottom:14px}
+.hero-name{font-size:1.6875rem;font-weight:900;letter-spacing:-.03em;line-height:1.25}
+.hero-name small{font-size:1rem;font-weight:700;color:rgba(255,255,255,.72)}
+.hero-meta{font-size:0.7813rem;color:rgba(255,255,255,.55);margin-top:7px}
+.hero-goal{display:inline-block;margin-top:12px;font-size:0.75rem;font-weight:700;color:#ffd9a0;
   background:rgba(240,161,58,.14);border:1px solid rgba(240,161,58,.3);border-radius:999px;padding:5px 13px}
 /* ── KPI 카드 (히어로에 겹침) ── */
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:-44px 16px 18px;position:relative;z-index:2}
 .kpi{background:var(--card);border-radius:15px;box-shadow:var(--shadow);padding:14px 6px;text-align:center}
-.kpi-v{font-size:22px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.kpi-v small{font-size:11px;font-weight:700;color:var(--tx3);margin-left:1px}
+.kpi-v{font-size:1.375rem;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi-v small{font-size:0.6875rem;font-weight:700;color:var(--tx3);margin-left:1px}
 .kpi-v.green{color:var(--ac)}
 .kpi-v.blue{color:var(--pro)}
-.kpi-l{font-size:11px;color:var(--tx3);font-weight:700;margin-top:3px}
+.kpi-l{font-size:0.6875rem;color:var(--tx3);font-weight:700;margin-top:3px}
 /* ── 공통 섹션 카드 ── */
 .sec{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);margin:0 16px 16px;padding:20px 18px}
 .sec-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
-.sec-t{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.sec-t{font-size:1rem;font-weight:800;letter-spacing:-.02em}
 .sec-t i{font-style:normal;margin-right:6px}
-.sec-x{font-size:11px;color:var(--tx3);font-weight:600}
+.sec-x{font-size:0.6875rem;color:var(--tx3);font-weight:600}
 /* ── 드롭다운(아코디언) — 비포·애프터 날짜별 ── */
 .acc{border:1px solid var(--brd);border-radius:14px;margin-bottom:10px;overflow:hidden;background:var(--card)}
 .acc:last-child{margin-bottom:0}
 .acc-h{display:flex;align-items:center;gap:8px;padding:13px 14px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
-.acc-d{font-weight:800;font-size:14px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
-.acc-sub{font-size:11px;color:var(--tx3);font-weight:700}
-.acc-arw{margin-left:auto;color:var(--tx3);font-size:12px;transition:transform .25s}
+.acc-d{font-weight:800;font-size:0.875rem;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.acc-sub{font-size:0.6875rem;color:var(--tx3);font-weight:700}
+.acc-arw{margin-left:auto;color:var(--tx3);font-size:0.75rem;transition:transform .25s}
 .acc.open{border-color:rgba(0,184,132,.35)}
 .acc.open .acc-d{color:var(--ac)}
 .acc.open .acc-arw{transform:rotate(180deg)}
@@ -56,21 +56,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ba-col{position:relative;border-radius:13px;overflow:hidden;background:#000}
 .ba-col video{display:block;width:100%;aspect-ratio:9/14;object-fit:cover;background:#000}
-.ba-tag{position:absolute;top:8px;left:8px;z-index:2;font-size:9.5px;font-weight:800;letter-spacing:.08em;padding:3px 10px;border-radius:999px;color:#fff}
+.ba-tag{position:absolute;top:8px;left:8px;z-index:2;font-size:0.5938rem;font-weight:800;letter-spacing:.08em;padding:3px 10px;border-radius:999px;color:#fff}
 .ba-tag.b{background:var(--amber)}
 .ba-tag.a{background:var(--ac)}
 .ba-cap{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.72));
-  color:#fff;font-size:10.5px;font-weight:700;padding:16px 9px 7px;text-align:center}
+  color:#fff;font-size:0.6563rem;font-weight:700;padding:16px 9px 7px;text-align:center}
 .ba-ctrl{display:flex;gap:7px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}
-.ba-btn{padding:10px 18px;border-radius:999px;border:none;background:var(--tx);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
+.ba-btn{padding:10px 18px;border-radius:999px;border:none;background:var(--tx);color:#fff;font-weight:800;font-size:0.7813rem;cursor:pointer;font-family:inherit}
 .ba-btn.play{background:var(--ac)}
-.ba-sp{padding:7px 12px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:800;font-size:11.5px;cursor:pointer;font-family:inherit}
+.ba-sp{padding:7px 12px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:800;font-size:0.7188rem;cursor:pointer;font-family:inherit}
 .ba-sp.on{background:var(--ac);border-color:transparent;color:#fff}
-.ba-delta{margin-top:12px;text-align:center;font-size:13px;font-weight:700;color:var(--tx2)}
-.ba-delta b{color:var(--ac);font-size:15px}
+.ba-delta{margin-top:12px;text-align:center;font-size:0.8125rem;font-weight:700;color:var(--tx2)}
+.ba-delta b{color:var(--ac);font-size:0.9375rem}
 .ba-delta small{color:var(--tx3);font-weight:600}
 .ba-seekrow{display:flex;align-items:center;gap:9px;margin-top:12px;padding:0 2px}
-.ba-time{font-size:10.5px;color:var(--tx3);font-weight:700;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
+.ba-time{font-size:0.6563rem;color:var(--tx3);font-weight:700;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
 .ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:999px;background:rgba(13,20,28,.14);outline:none}
 .ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
 .ba-seek::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer}
@@ -78,28 +78,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .ba-one .ba-tag{position:static;display:inline-block;margin-bottom:8px}
 .ba-onev{border-radius:13px;overflow:hidden;background:#000}
 .ba-onev video{display:block;width:100%;max-height:420px;object-fit:contain;background:#000}
-.ba-onec{margin-top:8px;font-size:12px;color:var(--tx2);font-weight:700;text-align:center}
+.ba-onec{margin-top:8px;font-size:0.75rem;color:var(--tx2);font-weight:700;text-align:center}
 /* ── 추이 차트 ── */
 .chart svg{width:100%;height:auto;display:block}
 /* ── 클럽별 평균 (카드 행) ── */
 .club-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--brd)}
 .club-row:last-child{border-bottom:none}
 .club-ic{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#e9f8f2,#d7f1e6);color:var(--ac);
-  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;flex-shrink:0}
-.club-nm{font-size:14px;font-weight:800}
-.club-sub{font-size:11px;color:var(--tx3);font-weight:600}
+  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.75rem;flex-shrink:0}
+.club-nm{font-size:0.875rem;font-weight:800}
+.club-sub{font-size:0.6875rem;color:var(--tx3);font-weight:600}
 .club-val{margin-left:auto;text-align:right}
-.club-carry{font-size:19px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.club-carry small{font-size:11px;color:var(--tx3);font-weight:700}
+.club-carry{font-size:1.1875rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.club-carry small{font-size:0.6875rem;color:var(--tx3);font-weight:700}
 /* ── 스윙 영상 가로 스크롤 ── */
 .vids{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
 .vids::-webkit-scrollbar{display:none}
 .vid-card{flex:0 0 62%;scroll-snap-align:start;border-radius:13px;overflow:hidden;background:#000;position:relative}
 .vid-card video{display:block;width:100%;aspect-ratio:9/14;object-fit:cover;background:#000}
 .vid-meta{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));
-  color:#fff;padding:18px 10px 8px;font-size:11px;font-weight:700}
-.vid-meta small{display:block;font-weight:600;color:rgba(255,255,255,.72);font-size:10px}
-.vid-badge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:800;letter-spacing:.07em;padding:3px 9px;border-radius:999px;color:#fff}
+  color:#fff;padding:18px 10px 8px;font-size:0.6875rem;font-weight:700}
+.vid-meta small{display:block;font-weight:600;color:rgba(255,255,255,.72);font-size:0.625rem}
+.vid-badge{position:absolute;top:8px;left:8px;font-size:0.5625rem;font-weight:800;letter-spacing:.07em;padding:3px 9px;border-radius:999px;color:#fff}
 .vid-badge.b{background:var(--amber)}
 .vid-badge.a{background:var(--ac)}
 /* ── 레슨 일지 타임라인 (드롭다운) ── */
@@ -111,25 +111,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .tl-dot.pro{background:var(--pro)}
 .tl-dot.pt{background:var(--ac)}
 .tl-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
-.tl-role{font-size:9px;font-weight:800;letter-spacing:.06em;padding:3px 9px;border-radius:6px}
+.tl-role{font-size:0.5625rem;font-weight:800;letter-spacing:.06em;padding:3px 9px;border-radius:6px}
 .tl-role.pro{background:rgba(63,123,255,.1);color:var(--pro)}
 .tl-role.pt{background:rgba(0,184,132,.1);color:var(--ac)}
-.tl-author{font-size:12.5px;font-weight:700}
-.tl-date{font-size:11px;color:var(--tx3);margin-left:auto;font-variant-numeric:tabular-nums}
-.tl-arw{color:var(--tx3);font-size:11px;transition:transform .25s}
+.tl-author{font-size:0.7813rem;font-weight:700}
+.tl-date{font-size:0.6875rem;color:var(--tx3);margin-left:auto;font-variant-numeric:tabular-nums}
+.tl-arw{color:var(--tx3);font-size:0.6875rem;transition:transform .25s}
 .tl-item.open .tl-arw{transform:rotate(180deg)}
-.tl-prev{font-size:12px;color:var(--tx3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.tl-prev{font-size:0.75rem;color:var(--tx3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   background:var(--bg);border-radius:10px;padding:8px 12px}
 .tl-item.open .tl-prev{display:none}
 .tl-fold{display:none}
 .tl-item.open .tl-fold{display:block}
-.tl-body{font-size:13.5px;color:var(--tx2);line-height:1.75;white-space:pre-line;word-break:keep-all;
+.tl-body{font-size:0.8438rem;color:var(--tx2);line-height:1.75;white-space:pre-line;word-break:keep-all;
   background:var(--bg);border-radius:12px;padding:12px 14px}
 .tl-video{margin-top:8px;border-radius:12px;overflow:hidden;background:#000}
 .tl-video video{display:block;width:100%;max-height:340px;object-fit:contain}
 /* ── 푸터 ── */
-.foot{text-align:center;padding:26px 20px 10px;color:var(--tx3);font-size:11px;line-height:1.8}
+.foot{text-align:center;padding:26px 20px 10px;color:var(--tx3);font-size:0.6875rem;line-height:1.8}
 .foot b{color:var(--tx2)}
+/* ── 돋보기 (글씨 확대) — 버튼 자체는 px 고정이라 배율과 무관하게 같은 크기 ── */
+.rp-zoom{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);width:58px;height:58px;
+  border-radius:50%;border:none;background:#0d1114;color:#fff;font-size:19px;cursor:pointer;z-index:50;
+  box-shadow:0 4px 16px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:inherit}
+.rp-zoom small{font-size:10px;font-weight:800;color:#00d29a;line-height:1.2}
+/* ── 영상 다운로드 버튼 ── */
+.dl-btn{padding:9px 14px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);
+  font-weight:800;font-size:0.75rem;cursor:pointer;font-family:inherit}
+.dl-btn:disabled{opacity:.6}
+.ba-dlrow{display:flex;gap:8px;margin-top:10px}
+.ba-dlrow .dl-btn{flex:1}
+.dl-btn.one{display:block;width:100%;margin-top:10px}
+.vid-dl{position:absolute;top:8px;right:8px;z-index:2;width:34px;height:34px;border-radius:50%;border:none;
+  background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.tl-dlrow{margin-top:6px}
+.tl-dlrow .dl-btn{width:100%}
 .loading{text-align:center;padding:90px 20px;color:var(--tx3)}
 .spinner{width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -153,6 +169,7 @@ function renderReport(c, meta){
   var boot=!!window.__REPORT__;
   var r2base=boot ? '' : (cfg.R2_WORKER_URL||null);
   var canVid=(r2base!==null);
+  window.__R2BASE=r2base;   // 다운로드 버튼(rptDownload)이 영상 주소를 만들 때 사용
   var BR=Object.assign({name:'GOLF STUDIO', nameKo:'골프 스튜디오', measuredBy:'TRACKMAN'}, cfg.BRAND||{}, (c&&c.brand)||{});
   var storeKo=BR.store||BR.nameKo, storeEn=BR.storeEn||BR.name;
   function esc(x){ return String(x==null?'':x).replace(/[<>&"]/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[ch];}); }
@@ -211,11 +228,16 @@ function renderReport(c, meta){
         +'</div>';
       var bC=distM(p.b.carry,p.b.metric), aC=distM(p.a.carry,p.a.metric);
       if(bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 증가했어요!</b> <small>(캐리 기준)</small></div>';
+      inner+='<div class="ba-dlrow">'
+        +'<button class="dl-btn" data-k="'+esc(p.b.key)+'" data-n="비포_'+esc(p.date||String(p.b.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 비포 저장</button>'
+        +'<button class="dl-btn" data-k="'+esc(p.a.key)+'" data-n="애프터_'+esc(p.date||String(p.a.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 애프터 저장</button>'
+        +'</div>';
     } else {
       var one=p.b||p.a, isB=!!p.b;
       if(one) inner+='<div class="ba-one"><span class="ba-tag '+(isB?'b':'a')+'">'+(isB?'BEFORE':'AFTER')+'</span>'
         +'<div class="ba-onev"><video '+vAttr(one.key)+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'
-        +'<div class="ba-onec">'+baCap(one)+'</div></div>';
+        +'<div class="ba-onec">'+baCap(one)+'</div>'
+        +'<button class="dl-btn one" data-k="'+esc(one.key)+'" data-n="스윙_'+esc(p.date||String(one.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div>';
     }
     return inner;
   }
@@ -282,6 +304,7 @@ function renderReport(c, meta){
     t.videos.forEach(function(v){
       var badge=v.tag==='before'?'<span class="vid-badge b">BEFORE</span>':(v.tag==='after'?'<span class="vid-badge a">AFTER</span>':'');
       html+='<div class="vid-card">'+badge
+        +'<button class="vid-dl" data-k="'+esc(v.key)+'" data-n="스윙_'+esc(String(v.ts||'').slice(0,10))+'" onclick="rptDownload(this)" title="영상 저장">⬇</button>'
         +'<video src="'+vurl(v.key)+'" controls playsinline preload="metadata"></video>'
         +'<div class="vid-meta">'+esc(v.club||'샷')+(v.carry!=null?' · '+fmt(distM(v.carry,v.metric))+'m':'')+'<small>'+esc(String(v.ts||'').slice(0,10))+'</small></div>'
       +'</div>';
@@ -305,7 +328,8 @@ function renderReport(c, meta){
       (s.videos||[]).forEach(function(v){
         if(v.key && canVid){
           var u=vurl(v.key);
-          html+='<div class="tl-video"><video '+(open?('src="'+u+'"'):('data-src="'+u+'"'))+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>';
+          html+='<div class="tl-video"><video '+(open?('src="'+u+'"'):('data-src="'+u+'"'))+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'
+            +'<div class="tl-dlrow"><button class="dl-btn" data-k="'+esc(v.key)+'" data-n="레슨영상_'+esc(s.date||'')+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div>';
         }
       });
       html+='</div></div>';
@@ -314,10 +338,71 @@ function renderReport(c, meta){
   }
 
   html+='<div class="foot"><b>'+esc(storeKo)+'</b> · 데이터로 증명하는 코칭<br>본 리포트의 탄도 데이터는 '+esc(t&&t.measuredBy||BR.measuredBy)+' 로 측정되었습니다</div>';
+  html+='<button class="rp-zoom" onclick="rptZoom()" title="글씨 크기 확대">🔍<small>가</small></button>';
   document.getElementById('report').innerHTML=html;
 
   // 초기 펼침 상태 패널 배선 (아코디언 최신 날짜 · 구버전 단일 패널)
   [].slice.call(document.querySelectorAll('.ba-wrap.open, .ba-wrap:not(.acc)')).forEach(wireBA);
+  _rptApplyZoom();   // 저장해둔 글씨 배율 복원
+}
+
+// ── 돋보기 — 누를 때마다 가 → 가+ → 가++ → 가+++ → 가 순환. 선택은 기기에 기억 ──
+var _RPT_SCALES=[1,1.18,1.4,1.65];
+function _rptZoomIdx(){ var i=0; try{ i=parseInt(localStorage.getItem('rpt_ts')||'0',10)||0; }catch(e){} return ((i%_RPT_SCALES.length)+_RPT_SCALES.length)%_RPT_SCALES.length; }
+function _rptApplyZoom(){
+  var i=_rptZoomIdx();
+  document.documentElement.style.fontSize=(16*_RPT_SCALES[i])+'px';
+  var b=document.querySelector('.rp-zoom small');
+  if(b) b.textContent=['가','가+','가++','가+++'][i];
+}
+function rptZoom(){
+  var i=(_rptZoomIdx()+1)%_RPT_SCALES.length;
+  try{ localStorage.setItem('rpt_ts',String(i)); }catch(e){}
+  _rptApplyZoom();
+}
+
+// ── 영상 다운로드 — 아이폰: 공유시트(사진 앱에 저장) · 갤럭시/PC: 파일 다운로드 ──
+async function rptDownload(btn){
+  var key=btn.getAttribute('data-k'), name=btn.getAttribute('data-n')||'video';
+  if(!key||btn._busy) return;
+  var base=window.__R2BASE;
+  if(base==null){ alert('영상 다운로드를 사용할 수 없습니다.'); return; }
+  var url=(base||'')+'/'+encodeURIComponent(key);
+  var extM=String(key).match(/\.(mp4|mov|webm|m4v)$/i);
+  var fname=(name.replace(/[\\/:*?"<>|]/g,'_'))+'.'+(extM?extM[1].toLowerCase():'mp4');
+  var orig=btn.innerHTML; btn._busy=1; btn.disabled=true;
+  function restore(txt){ btn.innerHTML=txt||orig; btn._busy=0; btn.disabled=false;
+    if(txt) setTimeout(function(){ btn.innerHTML=orig; },1800); }
+  try{
+    btn.innerHTML='0%';
+    var res=await fetch(url);
+    if(!res.ok) throw new Error('다운로드 실패 ('+res.status+')');
+    var total=parseInt(res.headers.get('content-length')||'0',10), got=0, chunks=[], blob;
+    var reader=(res.body&&res.body.getReader)?res.body.getReader():null;
+    if(reader){
+      while(true){ var c=await reader.read(); if(c.done) break;
+        chunks.push(c.value); got+=c.value.length;
+        if(total) btn.innerHTML=Math.min(99,Math.round(got/total*100))+'%'; }
+      blob=new Blob(chunks,{type:'video/mp4'});
+    } else blob=await res.blob();
+    // 아이폰 — 공유시트를 띄워 "비디오 저장"으로 사진 앱에 저장
+    var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent||'');
+    if(isIOS && navigator.canShare && typeof File!=='undefined'){
+      try{
+        var f=new File([blob],fname,{type:'video/mp4'});
+        if(navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); restore('✅ 완료'); return; }
+      }catch(e){ if(e&&e.name==='AbortError'){ restore(); return; } }
+    }
+    // 갤럭시/PC — 다운로드 폴더로 저장
+    var bu=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=bu; a.download=fname;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{URL.revokeObjectURL(bu); a.remove();}catch(e){} },1500);
+    restore('✅ 완료');
+  }catch(e){
+    alert('영상 다운로드에 실패했습니다 — '+(e&&e.message||e));
+    restore();
+  }
 }
 
 // ── 드롭다운 토글 (비포·애프터 날짜 / 레슨 일지 공용) ──
