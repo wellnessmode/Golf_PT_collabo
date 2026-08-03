@@ -262,6 +262,7 @@ function _render(){
       ${isAdmin?'<button class="mp-btn live-admin-btn" onclick="event.stopPropagation();openLiveSession()">🏌️ 수업 센터</button>':''}
       <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 데모 화면</button>
+      <button class="mp-btn demo-btn" onclick="event.stopPropagation();openCustomerDemoReport()">🌐 예시 리포트</button>
       ${isAdmin?'<button class="mp-btn backup-btn" onclick="event.stopPropagation();backupData()">💾 데이터 백업</button><button class="mp-btn backup-btn" onclick="event.stopPropagation();triggerRestore()">↩︎ 백업 복구</button>':''}
       <div class="infodesk-summary">PT+골프 ${S.members.filter(function(m){return (m.memberType||'pt_lesson')==='pt_lesson';}).length}명 · 골프 ${S.members.filter(function(m){return m.memberType==='lesson';}).length}명 · 총 ${S.members.length}명</div>
     </div>

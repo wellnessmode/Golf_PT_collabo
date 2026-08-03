@@ -25,7 +25,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .hero-name small{font-size:1rem;font-weight:700;color:rgba(255,255,255,.72)}
 .hero-meta{font-size:0.7813rem;color:rgba(255,255,255,.55);margin-top:7px}
 .hero-goal{display:inline-block;margin-top:12px;font-size:0.75rem;font-weight:700;color:#ffd9a0;
-  background:rgba(240,161,58,.14);border:1px solid rgba(240,161,58,.3);border-radius:999px;padding:5px 13px}
+  background:rgba(240,161,58,.14);border:1px solid rgba(240,161,58,.3);border-radius:999px;padding:5px 13px;margin-right:8px}
+.demo-ribbon{display:inline-block;margin-top:12px;margin-right:8px;font-size:0.7rem;font-weight:800;color:#0b1f17;
+  background:#ffd769;border-radius:999px;padding:5px 12px}
 /* ── KPI 카드 (히어로에 겹침) ── */
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:-44px 16px 18px;position:relative;z-index:2}
 .kpi{background:var(--card);border-radius:15px;box-shadow:var(--shadow);padding:14px 6px;text-align:center}
@@ -248,6 +250,7 @@ function renderReport(c, meta){
   html+='<div class="hero"><div class="hero-brand">'+esc(storeEn)+'</div>'
     +'<div class="hero-name">'+esc(meta.memberName)+' <small>회원님 성과 리포트</small></div>'
     +'<div class="hero-meta">'+esc(storeKo)+' · '+esc((meta.createdAt||'').slice(0,10))+(m.handicap?' · 핸디캡 '+esc(m.handicap):'')+'</div>'
+    +(c.demo?'<div class="demo-ribbon">📋 상담용 예시 리포트 — 등록하시면 회원님 본인 데이터로 제공됩니다</div>':'')
     +(m.goal?'<div class="hero-goal">🎯 목표 · '+esc(m.goal)+'</div>':'')
     +'</div>';
 
