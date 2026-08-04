@@ -129,6 +129,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
   background:var(--bg);border-radius:12px;padding:12px 14px}
 .tl-video{margin-top:8px;border-radius:12px;overflow:hidden;background:#000}
 .tl-video video{display:block;width:100%;max-height:340px;object-fit:contain}
+.tl-note{margin-top:14px;font-size:0.6563rem;color:var(--tx3);line-height:1.65;word-break:keep-all;
+  background:var(--bg);border-radius:10px;padding:9px 12px}
 /* ── 푸터 ── */
 .foot{text-align:center;padding:26px 20px 10px;color:var(--tx3);font-size:0.6875rem;line-height:1.8}
 .foot b{color:var(--tx2)}
@@ -337,7 +339,9 @@ function renderReport(c, meta){
       });
       html+='</div></div>';
     });
-    html+='</div></div>';
+    html+='</div>'
+      +'<div class="tl-note">ⓘ 레슨 일지는 수업 중 음성 기록을 AI가 정리해 작성됩니다. 실제 지도 내용과 표현·용어가 일부 다를 수 있으니, 궁금한 부분은 담당 지도자에게 편하게 확인해 주세요.</div>'
+      +'</div>';
   }
 
   html+='<div class="foot"><b>'+esc(storeKo)+'</b> · 데이터로 증명하는 코칭<br>본 리포트의 탄도 데이터는 '+esc(t&&t.measuredBy||BR.measuredBy)+' 로 측정되었습니다</div>';
