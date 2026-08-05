@@ -443,40 +443,32 @@ function _buildReportContent(mid, m, data){
       var byDate={};
       shots.forEach(function(s){ var a=_shotAngles(s); if(!(a.dl||a.fo||a.club)) return;
         var day=String(s.ts||'').slice(0,10); if(!day) return; (byDate[day]=byDate[day]||[]).push(s); });
+      // 날짜별 → 그 날 "클럽별" 비포·애프터 목록. 클럽이 다른 샷은 절대 한 짝으로
+      // 묶이지 않는다 (태그 포함 — 태그는 영상 보관용으로도 쓰이므로 클럽 경계를 못 넘음).
+      // 각 클럽 안에서: 태그 짝 우선 → 첫 샷 vs 마지막 샷 → 1샷이면 단일.
       var baDates=Object.keys(byDate).sort().reverse().slice(0,12).map(function(day){
         var list=byDate[day].slice().sort(function(x,y){return String(x.ts).localeCompare(String(y.ts));});
         var grpOf=function(s){ try{ return _clubGroup((s.data||{}).club)||String((s.data||{}).club||''); }catch(e){ return String((s.data||{}).club||''); } };
-        var tb=null,ta=null;
-        list.forEach(function(s){ var tag=(s.data||{})._tag; if(tag==='before') tb=tb||s; if(tag==='after') ta=s; });
-        // 비포·애프터는 예외 없이 같은 클럽끼리만 — 태그가 서로 다른 클럽이면
-        // (태그는 영상 보관용으로도 쓰이므로) 짝으로 묶지 않고, 태그 샷이 속한
-        // 클럽 안에서 다시 짝을 찾는다. 우선순위: 애프터 태그 클럽 > 비포 태그 클럽
-        // > 드라이버 > 그 날 최다 샷 클럽.
-        var b=null, a2=null, tagged=false;
-        if(tb && ta && tb!==ta && grpOf(tb)===grpOf(ta)){ b=tb; a2=ta; tagged=true; }
-        else{
-          var byClub={};
-          list.forEach(function(s){ var g=grpOf(s); (byClub[g]=byClub[g]||[]).push(s); });
-          var pref=[]; if(ta) pref.push(grpOf(ta)); if(tb) pref.push(grpOf(tb));
-          var groups=Object.keys(byClub).filter(function(g){ return byClub[g].length>=2; })
-            .sort(function(x,y){
-              var px=pref.indexOf(x), py=pref.indexOf(y); px=px<0?9:px; py=py<0?9:py;
-              return px-py || ((y==='driver')?1:0)-((x==='driver')?1:0) || byClub[y].length-byClub[x].length;
-            });
-          if(groups.length){
-            var g0=groups[0], L=byClub[g0];
-            b=(tb&&grpOf(tb)===g0)?tb:L[0];
-            a2=(ta&&grpOf(ta)===g0)?ta:L[L.length-1];
+        var byClub={};
+        list.forEach(function(s){ var g=grpOf(s); (byClub[g]=byClub[g]||[]).push(s); });
+        var clubs=Object.keys(byClub).map(function(g){
+          var L=byClub[g], tbg=null, tag=null;
+          L.forEach(function(s){ var t2=(s.data||{})._tag; if(t2==='before') tbg=tbg||s; if(t2==='after') tag=s; });
+          var b=null, a2=null, tagged=false;
+          if(tbg && tag && tbg!==tag){ b=tbg; a2=tag; tagged=true; }
+          else if(L.length>=2){
+            b=tbg||L[0]; a2=tag||L[L.length-1];
             if(b===a2) a2=(L[L.length-1]!==b)?L[L.length-1]:(L[0]!==b?L[0]:null);
-            tagged=!!(tb&&ta&&grpOf(tb)===g0&&grpOf(ta)===g0);
-          }else{
-            // 같은 클럽 2샷이 없는 날 — 태그 샷(애프터 우선) 또는 마지막 샷 단일 표시
-            var solo=ta||tb||list[list.length-1];
-            if(solo===tb&&!ta) b=solo; else a2=solo;
           }
-        }
-        return {date:day, tagged:tagged, b:b?mk(b):null, a:a2?mk(a2):null};
-      }).filter(function(x){return x.b||x.a;});
+          else { var solo=tag||tbg||L[0]; if(solo===tbg&&!tag) b=solo; else a2=solo; }
+          var nm=''; try{ nm=_clubKo((L[L.length-1].data||{}).club)||''; }catch(e){}
+          return {key:g, name:nm||g, n:L.length, tagged:tagged, b:b?mk(b):null, a:a2?mk(a2):null};
+        }).filter(function(c){ return c.b||c.a; })
+        .sort(function(x,y){ return (y.tagged?1:0)-(x.tagged?1:0) || ((y.key==='driver')?1:0)-((x.key==='driver')?1:0) || y.n-x.n; });
+        var main=clubs[0]||null;
+        // b/a 는 대표 클럽(첫 항목) 미러 — 구버전 리포트 페이지 호환용
+        return {date:day, clubs:clubs, tagged:!!(main&&main.tagged), b:main?main.b:null, a:main?main.a:null};
+      }).filter(function(x){return x.clubs.length;});
       trackman={shotCount:shots.length, clubs:clubs,
         best:best?{ts:best.ts,club:best.data.club,carry:best.data.carry,ballSpeed:best.data.ballSpeed,smash:best.data.smash,metric:_isMetricShot(best.data)}:null,
         trend:trend, trendClub:trendSrc.length?(_clubKo(trendSrc[trendSrc.length-1].club)||''):'',
@@ -548,19 +540,28 @@ async function publishDemoReport(){
   alert('상담용 예시 리포트가 발행되었습니다.\n\n'+link+'\n\n주소는 항상 같으니 즐겨찾기 해두세요. (주소 복사됨)');
 }
 
-// 상담 예시 레슨일지 — 골프 레슨 + 골프 PT 협업 흐름이 보이도록 4주 스토리로 구성
+// 상담 예시 레슨일지 — 골프 프로 ↔ 골프 트레이너가 번갈아 쓴 4주 협업 스토리 8건
+// (최신순 표시 기준: 프로 → 트레이너 → 프로 → ... 퐁당퐁당)
 function _demoSessions(){
   var d=function(off){ return new Date(Date.now()-off*86400000).toISOString().slice(0,10); };
   var by=APP_BRAND.measuredBy;
   return [
     {date:d(0), time:'10:00', author:'담당 프로', role:'pro',
      content:'[4주차 · 드라이버 정밀 측정]\n오늘 '+by+' 측정에서 캐리가 첫 측정 대비 +12m 향상되었습니다. 백스윙 탑에서 오른팔 간격이 안정되면서 클럽 패스가 인투아웃 2°대로 정리된 것이 가장 큰 요인입니다.\n\n다음 과제\n· 페이스 투 패스 ±1° 유지\n· 티 높이 한 단계 낮춰 발사각 최적화', videos:[]},
-    {date:d(7), time:'11:00', author:'담당 트레이너', role:'trainer',
-     content:'[골프 PT 6회차 · 회전 가동성]\n흉추 회전 가동범위 좌우 편차 8° → 3° 개선. 힙 힌지 패턴이 안정되어 어드레스 유지가 수월해졌습니다.\n\n오늘 운동\n· 흉추 회전 스트레치 3세트\n· 케이블 우드찹 12회 × 3세트\n· 한발 균형 힙힌지 10회 × 3세트\n\n스윙 연계 효과: 회전이 커지면서 힘을 쓰지 않아도 헤드스피드가 유지됩니다.', videos:[]},
+    {date:d(2), time:'11:00', author:'담당 트레이너', role:'trainer',
+     content:'[골프 PT 8회차 · 회전 스피드]\n메디신볼 회전 던지기 파워가 4주 전 대비 15% 향상 — 헤드 스피드로 이어지는 회전력이 붙고 있습니다.\n\n오늘 운동\n· 메디신볼 로테이셔널 스로우 8회 × 4세트\n· 랜드마인 로테이션 10회 × 3세트\n· 사이드 플랭크 45초 × 3세트', videos:[]},
+    {date:d(7), time:'10:00', author:'담당 프로', role:'pro',
+     content:'[3주차 · 릴리스 타이밍]\n다운스윙에서 손목 각(라그)을 임팩트 직전까지 유지하는 연습. 릴리스가 빨라 잃던 헤드 스피드가 살아나면서 같은 힘으로 볼 스피드가 늘었습니다.\n\n드릴: 하프 스윙 셰도우 20회 → 티샷 10구 교대 반복', videos:[]},
+    {date:d(9), time:'11:00', author:'담당 트레이너', role:'trainer',
+     content:'[골프 PT 6회차 · 회전 가동성]\n흉추 회전 가동범위 좌우 편차 8° → 3° 개선. 힙 힌지 패턴이 안정되어 어드레스 유지가 수월해졌습니다.\n\n오늘 운동\n· 흉추 회전 스트레치 3세트\n· 케이블 우드찹 12회 × 3세트\n· 한발 균형 힙힌지 10회 × 3세트\n\n스윙 연계 효과: 회전이 커지면서 힘을 쓰지 않아도 헤드 스피드가 유지됩니다.', videos:[]},
     {date:d(14), time:'10:00', author:'담당 프로', role:'pro',
      content:'[2주차 · 임팩트 교정]\n어택 앵글 -3°(찍어치기) → +1° 개선, 스핀량이 적정 범위로 안정. 비포/애프터 영상을 비교하면 임팩트 순간 머리가 공 뒤에 남아있는 변화가 뚜렷합니다.\n\n연습 과제: 티샷 20구 중 15구 이상 페어웨이 폭 유지', videos:[]},
+    {date:d(16), time:'11:00', author:'담당 트레이너', role:'trainer',
+     content:'[골프 PT 4회차 · 하체 안정]\n한발 균형 유지 10초 → 25초. 다운스윙에서 하체가 먼저 리드하고 상체가 따라오는 분리(엑스팩터)가 만들어지기 시작했습니다.\n\n오늘 운동\n· 스플릿 스쿼트 10회 × 3세트\n· 밴드 힙 어브덕션 15회 × 3세트\n· 한발 밸런스 + 시선 고정 드릴', videos:[]},
     {date:d(21), time:'10:00', author:'담당 프로', role:'pro',
-     content:'[1회차 · 첫 측정 & 목표 설정]\n'+by+' 정밀 측정으로 현재 상태를 기록했습니다 — 드라이버 캐리 · 클럽 패스 · 페이스 앵글 기준값 확보.\n\n목표: 12주 내 드라이버 비거리 +20m, 허리 부담 없는 스윙\n일정: 주 2회 (골프 레슨 1 + 골프 PT 1)', videos:[]}
+     content:'[1주차 · 첫 측정 & 목표 설정]\n'+by+' 정밀 측정으로 현재 상태를 기록했습니다 — 드라이버 캐리 · 클럽 패스 · 페이스 앵글 기준값 확보.\n\n목표: 12주 내 드라이버 비거리 +20m, 허리 부담 없는 스윙\n일정: 주 2회 (골프 레슨 1 + 골프 PT 1)', videos:[]},
+    {date:d(23), time:'11:00', author:'담당 트레이너', role:'trainer',
+     content:'[골프 PT 1회차 · 신체 평가]\n스윙에 필요한 가동성·안정성 14개 항목 평가 완료. 흉추 회전 제한과 힙 힌지 패턴 보완이 우선 과제로 확인되어, 골프 레슨 진도와 연동한 12주 운동 플랜을 설계했습니다.', videos:[]}
   ];
 }
 
