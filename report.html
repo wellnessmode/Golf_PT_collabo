@@ -228,7 +228,7 @@ function renderReport(c, meta){
         +'<div class="ba-ctrl">'
         +'<button class="ba-btn play ba-play">▶ 동시 재생</button>'
         +'<button class="ba-btn ba-restart">⏮ 처음부터</button>'
-        +[0.25,0.5,1].map(function(sp){return '<button class="ba-sp'+(sp===0.5?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>';}).join('')
+        +[0.25,0.5,1].map(function(sp){return '<button class="ba-sp'+(sp===1?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>';}).join('')
         +'</div>';
       var bC=distM(p.b.carry,p.b.metric), aC=distM(p.a.carry,p.a.metric);
       if(bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 증가했어요!</b> <small>(캐리 기준)</small></div>';
@@ -434,7 +434,8 @@ function wireBA(root){
   root.setAttribute('data-ba-wired','1');
   var baVids=[].slice.call(root.querySelectorAll('.ba-grid video'));
   if(baVids.length!==2) return;
-  var rate=0.5, master=baVids[0], dragging=false;
+  // 기본 1배속 — 스윙 템포를 그대로 보는 게 기본, 느리게는 .25×/.5× 선택
+  var rate=1, master=baVids[0], dragging=false;
   var seek=root.querySelector('.ba-seek');
   var curEl=root.querySelector('.ba-time[data-role="cur"]'), durEl=root.querySelector('.ba-time[data-role="dur"]');
   var play=root.querySelector('.ba-play'), restart=root.querySelector('.ba-restart');
