@@ -277,7 +277,7 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
 // 클럽 딜리버리(초고속 카메라) 영상은 픽셀 형식이 4:2:2 등이라 리먹스한 mp4 를
 // 아이폰이 재생 못 한다 — 컨테이너만 바꾸면 "파일은 있는데 재생 불가" 상태가 됨.
 // 모든 재인코딩에 -pix_fmt yuv420p 강제: 이것이 브라우저/아이폰 호환의 핵심.
-async function convertFileToMp4(inputPath, ffmpegPath, forceEncode){
+async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
   var os = require('os'); var path = require('path'); var fs = require('fs');
   var { spawn } = require('child_process');
   var tmpOut = path.join(os.tmpdir(), 'gptv_'+Date.now()+'_'+Math.floor(Math.random()*1e6)+'.mp4');
@@ -294,6 +294,36 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode){
   function bad(r){ return r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024; }
   try{
     var r = { code: 1, err: '' };
+    // ── 슬로모션 속도 보정 — 아이폰이 "슬로 모션" 모드로 찍으면 파일 자체가
+    // 4배(120fps) 늘어져 저장돼 리포트에서 1배속인데도 느리게 보인다.
+    // 업로드 전에 실제 속도로 되돌린다. 단, 15초(slowmoMinSec) 미만의 짧은
+    // 클립은 이미 실속도 촬영으로 보고 건드리지 않는다 — 카메라 모드를 나중에
+    // 정상(비디오)으로 바꿔도 이 보정이 정상 영상을 망치지 않게 하는 안전장치.
+    var sp = (speedup && speedup > 1.01) ? speedup : 0;
+    if (sp){
+      var pr = await run(['-i', inputPath]);   // ffmpeg -i 는 변환 없이 정보만 출력(비정상 종료가 정상)
+      var dm = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(pr.err || '');
+      var durSec = dm ? ((+dm[1])*3600 + (+dm[2])*60 + parseFloat(dm[3])) : 0;
+      var hasAudio = /Stream #\d+:\d+.*Audio:/.test(pr.err || '');
+      var minSec = (CFG.slowmoMinSec != null ? CFG.slowmoMinSec : 15);
+      if (!durSec || durSec < minSec){ sp = 0; }
+      else {
+        var af = []; var rem = sp;
+        while (rem > 2.0001){ af.push('atempo=2'); rem /= 2; }
+        if (rem > 1.0001) af.push('atempo=' + (Math.round(rem*100)/100));
+        var args = ['-y','-i', inputPath, '-vf','setpts=PTS/'+sp, '-r','30',
+                    '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p'];
+        if (hasAudio) args = args.concat(['-af', af.join(','), '-c:a','aac','-b:a','128k']);
+        else args.push('-an');
+        args = args.concat(['-movflags','+faststart', tmpOut]);
+        r = await run(args);
+        if (!bad(r)){
+          try{ log('  속도 보정 ×' + sp + ' (' + durSec.toFixed(1) + 's → ' + (durSec/sp).toFixed(1) + 's) ' + path.basename(inputPath)); }catch(_){}
+          return fs.readFileSync(tmpOut);
+        }
+        try{ log('  속도 보정 실패 → 원래 속도로 변환: ' + (r.err||'').slice(0,120)); }catch(_){}
+      }
+    }
     if (!forceEncode){
       // 1) 리먹스(재인코딩 X) — 이미 아이폰 호환 H.264 면 즉시. faststart 로 스트리밍 재생.
       r = await run(['-y','-i', inputPath, '-c','copy','-movflags','+faststart', tmpOut]);
@@ -579,13 +609,22 @@ async function processVideoJob(job){
       return;
     }
     var vbase = job.bayId + '/' + job.shotId;
+    // 앵글별 슬로모션 보정 배율 — 아이폰(측면·정면)은 슬로모션 촬영분을 실속도로 복원(기본 ×4).
+    // 클럽 딜리버리는 원래 느리게 보는 영상이라 보정하지 않음. config.json 의
+    // videoSpeedup: {"dl":4,"fo":4,"club":1,"ball":1} 로 조정 가능.
+    function speedupFor(cat){
+      var d = { dl:4, fo:4, club:1, ball:1 };
+      var c = (CFG.videoSpeedup && typeof CFG.videoSpeedup === 'object') ? CFG.videoSpeedup : {};
+      var v = (c[cat] != null ? c[cat] : d[cat]);
+      return (typeof v === 'number' && v > 0) ? v : 1;
+    }
     // 한 소스를 mp4 로 변환/업로드하고 R2 키를 돌려주는 헬퍼
-    async function up(src, suffix){
+    async function up(src, suffix, cat){
       if (!src) return null;
       var buf = null;
       // 클럽 딜리버리(초고속 카메라)는 리먹스 금지 — 항상 아이폰 호환 재인코딩
       var forceEnc = (suffix === '_club');
-      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath, forceEnc); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
+      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath, forceEnc, speedupFor(cat)); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
       if (buf && buf.length){
         var mk = vbase + suffix + '.mp4';
         if (await uploadVideo(mk, buf, 'video/mp4')){ log('  MP4 업로드 ' + (buf.length/1e6).toFixed(1) + 'MB ← ' + src.name); return mk; }
@@ -600,10 +639,10 @@ async function processVideoJob(job){
       }catch(e){ log('  원본 영상 업로드 스킵(' + src.name + '): ' + e.message); }
       return null;
     }
-    var dlKey   = await up(dlSrc, '_scene');   // 측면(DL 아이폰)
-    var foKey   = await up(foSrc, '_fo');      // 정면(FO 아이폰)
-    var clubKey = await up(clubSrc, '_club');  // 클럽 딜리버리
-    var ballKey = await up(ballSrc, '_scene'); // 최후 폴백(측면·클럽 다 없을 때만)
+    var dlKey   = await up(dlSrc, '_scene', 'dl');   // 측면(DL 아이폰)
+    var foKey   = await up(foSrc, '_fo', 'fo');      // 정면(FO 아이폰)
+    var clubKey = await up(clubSrc, '_club', 'club');// 클럽 딜리버리
+    var ballKey = await up(ballSrc, '_scene', 'ball'); // 최후 폴백(측면·클럽 다 없을 때만)
     // 주(대표) 영상 — 칩·리포트 대표 재생용. DL > 클럽 > 볼 순.
     // 보충 패스에서 DL 이 늦게 오면 대표를 DL 로 업그레이드(mp4Key=dlKey).
     var mainKey = dlKey || (anyHave ? null : (clubKey || ballKey));

@@ -76,6 +76,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:999px;background:rgba(13,20,28,.14);outline:none}
 .ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
 .ba-seek::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer}
+/* 클럽 칩 — 날짜 안에서 클럽별 비포·애프터 전환 */
+.ba-clubs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ba-cc{padding:7px 13px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);
+  font-weight:800;font-size:0.75rem;cursor:pointer;font-family:inherit}
+.ba-cc.on{background:var(--ac);border-color:transparent;color:#fff}
+.ba-pane{display:none}
+.ba-pane.on{display:block}
 /* 한쪽만 있는 날 — 단일 영상 */
 .ba-one .ba-tag{position:static;display:inline-block;margin-bottom:8px}
 .ba-onev{border-radius:13px;overflow:hidden;background:#000}
@@ -94,6 +101,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .club-carry{font-size:1.1875rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .club-carry small{font-size:0.6875rem;color:var(--tx3);font-weight:700}
 /* ── 스윙 영상 가로 스크롤 ── */
+.vids-wrap{position:relative}
+.vnav{display:none;position:absolute;top:44%;transform:translateY(-50%);z-index:3;width:40px;height:40px;border-radius:50%;
+  border:none;background:rgba(13,17,20,.72);color:#fff;font-size:20px;font-weight:800;cursor:pointer;
+  align-items:center;justify-content:center;font-family:inherit}
+.vnav.prev{left:-4px}
+.vnav.next{right:-4px}
+@media (hover:hover) and (pointer:fine){ .vnav{display:flex} }
 .vids{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
 .vids::-webkit-scrollbar{display:none}
 .vid-card{flex:0 0 62%;scroll-snap-align:start;border-radius:13px;overflow:hidden;background:#000;position:relative}
@@ -213,8 +227,8 @@ function renderReport(c, meta){
 
   // ── 비포·애프터 패널 (날짜별 아코디언·구버전 단일 공용) ──
   var baCap=function(x){ return esc((x.club||'샷'))+(x.carry!=null?' · '+fmt(distM(x.carry,x.metric))+'m':''); };
-  // open=false 인 패널의 영상은 data-src 로 두고, 펼칠 때 src 를 넣는다(트래픽 절약).
-  function baInner(p, open){
+  // loaded=false 인 팬의 영상은 data-src 로 두고, 보여질 때 src 를 넣는다(트래픽 절약).
+  function paneHTML(p, open){
     var vAttr=function(key){ var u=vurl(key); return open?('src="'+u+'"'):('data-src="'+u+'"'); };
     var inner='';
     if(p.b&&p.a){
@@ -248,6 +262,22 @@ function renderReport(c, meta){
     }
     return inner;
   }
+  // 날짜 패널 = 클럽 칩 + 클럽별 팬 — 클럽을 눌러 그 클럽의 비포·애프터로 전환.
+  // 구버전 데이터(clubs 없음)는 단일 팬으로 그대로 렌더.
+  function baInner(p, open){
+    var clubs=(p.clubs&&p.clubs.length)?p.clubs:[{name:'', tagged:p.tagged, b:p.b, a:p.a, date:p.date}];
+    var h='';
+    if(clubs.length>1){
+      h+='<div class="ba-clubs">'+clubs.map(function(c,i){
+        return '<button class="ba-cc'+(i===0?' on':'')+'" onclick="__baClub(this,'+i+')">'+esc(c.name||'기타')+(c.tagged?' ★':'')+'</button>';
+      }).join('')+'</div>';
+    }
+    h+=clubs.map(function(c,i){
+      c.date=c.date||p.date;
+      return '<div class="ba-pane'+(i===0?' on':'')+'">'+paneHTML(c, open&&i===0)+'</div>';
+    }).join('');
+    return h;
+  }
 
   var html='';
 
@@ -272,9 +302,10 @@ function renderReport(c, meta){
     html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🎬</i>비포 · 애프터</div><div class="sec-x">레슨 날짜별 · 눌러서 펼치기</div></div>'
       +baList.map(function(p,i){
         var open=i===0;
+        var nClubs=(p.clubs&&p.clubs.length)||1;
         return '<div class="acc ba-wrap'+(open?' open':'')+'">'
           +'<div class="acc-h" onclick="__acc(this)"><span class="acc-d">'+esc(fmtDay(p.date))+'</span>'
-          +'<span class="acc-sub">'+(p.tagged?'프로 지정 비포·애프터':(p.b&&p.a?'레슨 시작 vs 마무리':'레슨 영상'))+'</span>'
+          +'<span class="acc-sub">'+(p.tagged?'프로 지정 비포·애프터':(p.b&&p.a?'레슨 시작 vs 마무리':'레슨 영상'))+(nClubs>1?' · 클럽 '+nClubs+'종':'')+'</span>'
           +'<span class="acc-arw">▾</span></div>'
           +'<div class="acc-b">'+baInner(p,open)+'</div></div>';
       }).join('')
@@ -306,9 +337,10 @@ function renderReport(c, meta){
     html+='</div>';
   }
 
-  // 스윙 영상
+  // 스윙 영상 — 모바일: 옆으로 스와이프 · PC: 좌우 화살표 버튼
   if(t && t.videos && t.videos.length && canVid){
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🎥</i>내 스윙 영상</div><div class="sec-x">옆으로 넘겨보세요</div></div><div class="vids">';
+    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🎥</i>내 스윙 영상</div><div class="sec-x">옆으로 넘겨보세요</div></div>'
+      +'<div class="vids-wrap"><button class="vnav prev" onclick="__vnav(this,-1)" title="이전 영상">‹</button><button class="vnav next" onclick="__vnav(this,1)" title="다음 영상">›</button><div class="vids">';
     t.videos.forEach(function(v){
       var badge=v.tag==='before'?'<span class="vid-badge b">BEFORE</span>':(v.tag==='after'?'<span class="vid-badge a">AFTER</span>':'');
       html+='<div class="vid-card">'+badge
@@ -317,7 +349,7 @@ function renderReport(c, meta){
         +'<div class="vid-meta">'+esc(v.club||'샷')+(v.carry!=null?' · '+fmt(distM(v.carry,v.metric))+'m':'')+'<small>'+esc(String(v.ts||'').slice(0,10))+'</small></div>'
       +'</div>';
     });
-    html+='</div></div>';
+    html+='</div></div></div>';
   }
 
   // 레슨 일지 타임라인 — 드롭다운 (최근 1건만 펼침, 나머지는 한 줄 미리보기)
@@ -351,8 +383,8 @@ function renderReport(c, meta){
   html+='<button class="rp-zoom" onclick="rptZoom()" title="글씨 크기 확대">🔍<small>가</small></button>';
   document.getElementById('report').innerHTML=html;
 
-  // 초기 펼침 상태 패널 배선 (아코디언 최신 날짜 · 구버전 단일 패널)
-  [].slice.call(document.querySelectorAll('.ba-wrap.open, .ba-wrap:not(.acc)')).forEach(wireBA);
+  // 초기 펼침 상태 패널 배선 (아코디언 최신 날짜 · 구버전 단일 패널) — 활성 팬만
+  [].slice.call(document.querySelectorAll('.ba-wrap.open .ba-pane.on, .ba-wrap:not(.acc) .ba-pane.on')).forEach(wireBA);
   _rptApplyZoom();   // 저장해둔 글씨 배율 복원
 }
 
@@ -421,14 +453,43 @@ function __acc(h){
   var box=h.parentNode;
   var open=box.classList.toggle('open');
   if(open){
+    // 클럽 팬이 있으면 "보이는 팬"의 영상만 로드 — 닫힌 클럽 팬은 칩을 눌렀을 때 로드
     [].slice.call(box.querySelectorAll('video[data-src]')).forEach(function(v){
+      var pn=v.closest ? v.closest('.ba-pane') : null;
+      if(pn && !pn.classList.contains('on')) return;
       v.src=v.getAttribute('data-src'); v.removeAttribute('data-src');
       try{ v.preload='metadata'; }catch(e){}
     });
-    wireBA(box);
+    wireBA(box.querySelector('.ba-pane.on')||box);
   }else{
     [].slice.call(box.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} });
   }
+}
+
+// ── 클럽 칩 전환 — 그 클럽의 비포·애프터 팬으로 교체 (첫 표시에 영상 로드+배선) ──
+function __baClub(btn, i){
+  var wrap=btn.closest ? btn.closest('.ba-wrap') : null;
+  if(!wrap) return;
+  [].slice.call(wrap.querySelectorAll('.ba-cc')).forEach(function(x,xi){ x.classList.toggle('on', xi===i); });
+  [].slice.call(wrap.querySelectorAll('.ba-pane')).forEach(function(pn,pi){
+    var on=(pi===i);
+    pn.classList.toggle('on', on);
+    if(on){
+      [].slice.call(pn.querySelectorAll('video[data-src]')).forEach(function(v){
+        v.src=v.getAttribute('data-src'); v.removeAttribute('data-src');
+        try{ v.preload='metadata'; }catch(e){}
+      });
+      wireBA(pn);
+    }else{
+      [].slice.call(pn.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} });
+    }
+  });
+}
+
+// ── 스윙 영상 캐러셀 좌우 넘김 (PC — 마우스 환경에서 화살표 표시) ──
+function __vnav(btn, dir){
+  var sc=btn.parentNode.querySelector('.vids');
+  if(sc) sc.scrollBy({left:dir*Math.round(sc.clientWidth*0.66), behavior:'smooth'});
 }
 
 // ── 비포·애프터 컨트롤 배선 (패널 단위) — 동시 재생 · 공용 시크바 · 배속 ──
