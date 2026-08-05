@@ -445,22 +445,36 @@ function _buildReportContent(mid, m, data){
         var day=String(s.ts||'').slice(0,10); if(!day) return; (byDate[day]=byDate[day]||[]).push(s); });
       var baDates=Object.keys(byDate).sort().reverse().slice(0,12).map(function(day){
         var list=byDate[day].slice().sort(function(x,y){return String(x.ts).localeCompare(String(y.ts));});
+        var grpOf=function(s){ try{ return _clubGroup((s.data||{}).club)||String((s.data||{}).club||''); }catch(e){ return String((s.data||{}).club||''); } };
         var tb=null,ta=null;
         list.forEach(function(s){ var tag=(s.data||{})._tag; if(tag==='before') tb=tb||s; if(tag==='after') ta=s; });
-        var tagged=!!(tb&&ta), b=tb, a2=ta;
-        // 자동 짝(태그 없음)은 반드시 같은 클럽끼리 — 비포 아이언·애프터 드라이버처럼
-        // 비교가 안 되는 짝 방지. 드라이버 우선, 없으면 그 날 가장 많이 친 클럽.
-        var grpOf=function(s){ try{ return _clubGroup((s.data||{}).club)||String((s.data||{}).club||''); }catch(e){ return String((s.data||{}).club||''); } };
-        if(!b&&!a2){
+        // 비포·애프터는 예외 없이 같은 클럽끼리만 — 태그가 서로 다른 클럽이면
+        // (태그는 영상 보관용으로도 쓰이므로) 짝으로 묶지 않고, 태그 샷이 속한
+        // 클럽 안에서 다시 짝을 찾는다. 우선순위: 애프터 태그 클럽 > 비포 태그 클럽
+        // > 드라이버 > 그 날 최다 샷 클럽.
+        var b=null, a2=null, tagged=false;
+        if(tb && ta && tb!==ta && grpOf(tb)===grpOf(ta)){ b=tb; a2=ta; tagged=true; }
+        else{
           var byClub={};
           list.forEach(function(s){ var g=grpOf(s); (byClub[g]=byClub[g]||[]).push(s); });
+          var pref=[]; if(ta) pref.push(grpOf(ta)); if(tb) pref.push(grpOf(tb));
           var groups=Object.keys(byClub).filter(function(g){ return byClub[g].length>=2; })
-            .sort(function(x,y){ return ((y==='driver')?1:0)-((x==='driver')?1:0) || byClub[y].length-byClub[x].length; });
-          if(groups.length){ var L=byClub[groups[0]]; b=L[0]; a2=L[L.length-1]; }
-          else { a2=list[list.length-1]; }
+            .sort(function(x,y){
+              var px=pref.indexOf(x), py=pref.indexOf(y); px=px<0?9:px; py=py<0?9:py;
+              return px-py || ((y==='driver')?1:0)-((x==='driver')?1:0) || byClub[y].length-byClub[x].length;
+            });
+          if(groups.length){
+            var g0=groups[0], L=byClub[g0];
+            b=(tb&&grpOf(tb)===g0)?tb:L[0];
+            a2=(ta&&grpOf(ta)===g0)?ta:L[L.length-1];
+            if(b===a2) a2=(L[L.length-1]!==b)?L[L.length-1]:(L[0]!==b?L[0]:null);
+            tagged=!!(tb&&ta&&grpOf(tb)===g0&&grpOf(ta)===g0);
+          }else{
+            // 같은 클럽 2샷이 없는 날 — 태그 샷(애프터 우선) 또는 마지막 샷 단일 표시
+            var solo=ta||tb||list[list.length-1];
+            if(solo===tb&&!ta) b=solo; else a2=solo;
+          }
         }
-        else if(b&&!a2){ var cA=list.filter(function(s){ return s!==b && grpOf(s)===grpOf(b); }); a2=cA.length?cA[cA.length-1]:null; }
-        else if(!b&&a2){ var cB=list.filter(function(s){ return s!==a2 && grpOf(s)===grpOf(a2); }); b=cB.length?cB[0]:null; }
         return {date:day, tagged:tagged, b:b?mk(b):null, a:a2?mk(a2):null};
       }).filter(function(x){return x.b||x.a;});
       trackman={shotCount:shots.length, clubs:clubs,

@@ -228,10 +228,13 @@ function renderReport(c, meta){
         +'<div class="ba-ctrl">'
         +'<button class="ba-btn play ba-play">▶ 동시 재생</button>'
         +'<button class="ba-btn ba-restart">⏮ 처음부터</button>'
-        +[0.25,0.5,1].map(function(sp){return '<button class="ba-sp'+(sp===1?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'1×':String(sp).replace('0.','.')+'×')+'</button>';}).join('')
+        +[0.25,0.5,1,2].map(function(sp){return '<button class="ba-sp'+(sp===1?' on':'')+'" data-sp="'+sp+'">'+(sp>=1?sp+'×':String(sp).replace('0.','.')+'×')+'</button>';}).join('')
         +'</div>';
+      // 증가 문구는 같은 클럽 비교일 때만 — 아이언→드라이버 비교에 "149m 증가" 같은
+      // 왜곡 문구가 나가지 않게 (구버전 발행분 방어)
       var bC=distM(p.b.carry,p.b.metric), aC=distM(p.a.carry,p.a.metric);
-      if(bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 증가했어요!</b> <small>(캐리 기준)</small></div>';
+      var sameClub=String(p.b.club||'')===String(p.a.club||'');
+      if(sameClub&&bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 증가했어요!</b> <small>(캐리 기준)</small></div>';
       inner+='<div class="ba-dlrow">'
         +'<button class="dl-btn" data-k="'+esc(p.b.key)+'" data-n="비포_'+esc(p.date||String(p.b.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 비포 저장</button>'
         +'<button class="dl-btn" data-k="'+esc(p.a.key)+'" data-n="애프터_'+esc(p.date||String(p.a.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 애프터 저장</button>'
