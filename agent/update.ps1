@@ -11,8 +11,20 @@ $files = @('agent.js','ftmf-parser.js')
 
 Write-Host ''
 Write-Host '=== Golf PT 에이전트 올인원 업데이트 ===' -ForegroundColor Cyan
-if (!(Test-Path "$dir\start-hidden.vbs")) { Write-Host "[오류] $dir 에 에이전트가 설치되어 있지 않습니다." -ForegroundColor Red; pause; exit 1 }
+# 신규 타석 PC 지원 — 폴더/런처가 없으면 "신규 설치 모드"로 전부 받아서 구성한다.
+$fresh = !(Test-Path "$dir\start-hidden.vbs")
+if ($fresh) {
+  Write-Host '[신규 설치 모드] C:\golfpt-sync 를 새로 구성합니다.' -ForegroundColor Yellow
+  New-Item -ItemType Directory -Path $dir -Force | Out-Null
+}
 Set-Location $dir
+# Node.js 필수 — 없으면 여기서 안내 후 중단
+$nodeChk = (Get-Command node -ErrorAction SilentlyContinue).Source
+if (!$nodeChk) {
+  Write-Host '[오류] Node.js 가 설치되어 있지 않습니다.' -ForegroundColor Red
+  Write-Host '       https://nodejs.org 에서 초록색 LTS 버튼으로 설치 후, 이 두 줄을 다시 실행하세요.'
+  pause; exit 1
+}
 
 # ── 1. 중지 (중지.bat 과 동일 + 떠돌이 런처까지 정리) ──────────
 Write-Host '[1/6] 에이전트 중지...'
@@ -57,6 +69,42 @@ if ($ok) {
   }
 } else {
   Write-Host '[유지] 다운로드/검증 실패 - 기존 파일 그대로 재시작만 합니다.' -ForegroundColor Yellow
+}
+
+# ── 4b. 런처(vbs) 없으면 받기 — 신규 설치용 ─────────────────
+if (!(Test-Path "$dir\start-hidden.vbs")) {
+  Write-Host '[신규] 런처(start-hidden.vbs) 다운로드...'
+  try {
+    Invoke-WebRequest -Uri "$base/start-hidden.vbs" -OutFile "$tmp\start-hidden.vbs" -UseBasicParsing
+    $vp = "$tmp\start-hidden.vbs"
+    $vhead = (Get-Content $vp -TotalCount 1 -Encoding UTF8)
+    if ((Get-Item $vp).Length -lt 200 -or $vhead -match '^\s*<') { throw '런처 파일이 비정상입니다(HTML/빈파일)' }
+    Copy-Item $vp "$dir\start-hidden.vbs" -Force
+  } catch {
+    Write-Host "[오류] 런처 다운로드 실패: $($_.Exception.Message)" -ForegroundColor Red
+    pause; exit 1
+  }
+}
+
+# ── 4c. config.json 없으면 샘플로 생성 후, 타석 설정을 받고 종료 ──
+#      (bay3 기본값 그대로 돌면 샷이 3번룸으로 잘못 귀속되므로 시작하지 않는다)
+if (!(Test-Path "$dir\config.json")) {
+  Write-Host '[신규] config.json 이 없어 샘플로 생성합니다...' -ForegroundColor Yellow
+  try { Invoke-WebRequest -Uri "$base/config.sample.json" -OutFile "$dir\config.json" -UseBasicParsing }
+  catch { Write-Host "[오류] 샘플 설정 다운로드 실패: $($_.Exception.Message)" -ForegroundColor Red; pause; exit 1 }
+  Write-Host ''
+  Write-Host '=====================================================' -ForegroundColor Yellow
+  Write-Host ' [필수] 지금 메모장이 열립니다 - 이 PC 타석에 맞게 수정:' -ForegroundColor Yellow
+  Write-Host ''
+  Write-Host '  1) "defaultBay": "bay3"   ->  "bay1" (1번타석) 또는 "bay2" (2번타석)'
+  Write-Host '  2) "bayMap": { ... }      ->  "bayMap": {}'
+  Write-Host '  3) "ffmpegPath": ""       ->  3번룸 PC 의 config.json 과 같은 값'
+  Write-Host '     (예: "C:\\ffmpeg\\bin\\ffmpeg.exe" - 그 위치에 ffmpeg 도 복사해둘 것)'
+  Write-Host ''
+  Write-Host '  저장(Ctrl+S) 후, 아까 그 두 줄을 다시 실행하면 시작됩니다.' -ForegroundColor Yellow
+  Write-Host '=====================================================' -ForegroundColor Yellow
+  Start-Process notepad.exe "$dir\config.json"
+  pause; exit 0
 }
 
 # ── 5. 자동시작 등록 보장 (설치_자동시작.bat 과 동일 — 이미 있으면 그대로 갱신) ──
