@@ -448,9 +448,19 @@ function _buildReportContent(mid, m, data){
         var tb=null,ta=null;
         list.forEach(function(s){ var tag=(s.data||{})._tag; if(tag==='before') tb=tb||s; if(tag==='after') ta=s; });
         var tagged=!!(tb&&ta), b=tb, a2=ta;
-        if(!b&&!a2){ if(list.length>=2){ b=list[0]; a2=list[list.length-1]; } else { a2=list[0]; } }
-        else if(b&&!a2&&list.length>=2&&list[list.length-1]!==b){ a2=list[list.length-1]; }
-        else if(!b&&a2&&list.length>=2&&list[0]!==a2){ b=list[0]; }
+        // 자동 짝(태그 없음)은 반드시 같은 클럽끼리 — 비포 아이언·애프터 드라이버처럼
+        // 비교가 안 되는 짝 방지. 드라이버 우선, 없으면 그 날 가장 많이 친 클럽.
+        var grpOf=function(s){ try{ return _clubGroup((s.data||{}).club)||String((s.data||{}).club||''); }catch(e){ return String((s.data||{}).club||''); } };
+        if(!b&&!a2){
+          var byClub={};
+          list.forEach(function(s){ var g=grpOf(s); (byClub[g]=byClub[g]||[]).push(s); });
+          var groups=Object.keys(byClub).filter(function(g){ return byClub[g].length>=2; })
+            .sort(function(x,y){ return ((y==='driver')?1:0)-((x==='driver')?1:0) || byClub[y].length-byClub[x].length; });
+          if(groups.length){ var L=byClub[groups[0]]; b=L[0]; a2=L[L.length-1]; }
+          else { a2=list[list.length-1]; }
+        }
+        else if(b&&!a2){ var cA=list.filter(function(s){ return s!==b && grpOf(s)===grpOf(b); }); a2=cA.length?cA[cA.length-1]:null; }
+        else if(!b&&a2){ var cB=list.filter(function(s){ return s!==a2 && grpOf(s)===grpOf(a2); }); b=cB.length?cB[0]:null; }
         return {date:day, tagged:tagged, b:b?mk(b):null, a:a2?mk(a2):null};
       }).filter(function(x){return x.b||x.a;});
       trackman={shotCount:shots.length, clubs:clubs,
@@ -488,6 +498,26 @@ async function publishDemoReport(){
   if(!confirm('이 회원의 측정 데이터와 스윙 영상으로 상담용 예시 리포트를 발행합니다.\n\n· 이름 → "홍길동" · 레슨일지 → 예시 문안으로 교체\n· 주소는 항상 같음 (다시 발행하면 갱신)\n\n계속할까요?')) return;
   try{ liveToastSafe('🎬 상담용 예시 리포트 발행 중...'); }catch(e){}
   var content=_buildReportContent(mid, m, data);
+  // 빼고 싶은 날짜의 영상 제외 (예: 복장이 아쉬운 날) — 측정 수치는 유지, 영상만 제외
+  try{
+    var _t=content.trackman;
+    if(_t){
+      var vd={};
+      (_t.videos||[]).forEach(function(v){ var d0=String(v.ts||'').slice(0,10); if(d0) vd[d0]=1; });
+      (_t.baDates||[]).forEach(function(p){ if(p.date) vd[p.date]=1; });
+      var allDays=Object.keys(vd).sort();
+      if(allDays.length){
+        var ans=prompt('영상에서 제외할 날짜가 있으면 입력하세요.\n(쉼표로 여러 개 · 없으면 그대로 확인)\n\n영상 있는 날짜: '+allDays.join(', '), '');
+        if(ans===null) return;   // 취소 → 발행 중단
+        var ex={}; ans.split(',').map(function(x){return x.trim();}).filter(Boolean).forEach(function(d0){ ex[d0]=1; });
+        if(Object.keys(ex).length){
+          _t.videos=(_t.videos||[]).filter(function(v){ return !ex[String(v.ts||'').slice(0,10)]; });
+          _t.baDates=(_t.baDates||[]).filter(function(p){ return !ex[p.date]; });
+          if(_t.beforeAfter && (ex[String(_t.beforeAfter.b.ts||'').slice(0,10)] || ex[String(_t.beforeAfter.a.ts||'').slice(0,10)])) _t.beforeAfter=null;
+        }
+      }
+    }
+  }catch(e){ console.warn('[demo] 날짜 제외 스킵:', e); }
   content.demo=true;
   content.member={name:'홍길동', registeredDate:'', handicap:'18', avgScore:'92',
     goal:'12주 내 드라이버 비거리 +20m · 통증 없는 스윙', focusPoints:''};
