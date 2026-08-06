@@ -623,8 +623,11 @@ async function processVideoJob(job){
     async function up(src, suffix, cat){
       if (!src) return null;
       var buf = null;
-      // 클럽 딜리버리(초고속 카메라)는 리먹스 금지 — 항상 아이폰 호환 재인코딩
-      var forceEnc = (suffix === '_club');
+      // 재인코딩 대상: ① 클럽 딜리버리(초고속 카메라) ② 모든 .mkv (트랙맨 내장 카메라 —
+      // 코덱/픽셀포맷이 아이폰 비호환 + 원본이 커서, 리먹스하면 "재생 불가 + 업로드 수 분"이
+      // 된다. H.264(yuv420p) 재인코딩으로 재생 호환 + 파일 대폭 축소 = 업로드도 빨라짐).
+      // 아이폰 영상(.mov/.mp4, 이미 H.264)만 리먹스로 빠르게 통과.
+      var forceEnc = (suffix === '_club') || /\.mkv$/i.test(src.name || '');
       if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath, forceEnc, speedupFor(cat)); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
       if (buf && buf.length){
         var mk = vbase + suffix + '.mp4';
