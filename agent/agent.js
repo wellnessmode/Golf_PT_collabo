@@ -284,6 +284,11 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
   function run(args){
     return new Promise(function(resolve){
       var p = spawn(ffmpegPath, args, { windowsHide:true });
+      // ⚠️ 핵심: ffmpeg 을 OS 최저 우선순위로 — TPS 는 실시간 측정 시스템이라
+      // 재인코딩이 CPU 를 독차지하면 샷 측정 결과(Fusion 출력)가 파일에 기록되다
+      // 잘리는 사고가 난다 (1번타석에서 실제 발생). 최저 우선순위면 ffmpeg 은
+      // 남는 CPU 만 쓰고 TPS 에 즉시 양보한다.
+      try{ require('os').setPriority(p.pid, 19); }catch(_){}
       var err=''; var killed=false;
       var killTimer = setTimeout(function(){ killed=true; try{ p.kill(); }catch(_){} }, 180000);
       p.stderr.on('data', function(d){ err += d.toString(); });
@@ -311,8 +316,8 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
         var af = []; var rem = sp;
         while (rem > 2.0001){ af.push('atempo=2'); rem /= 2; }
         if (rem > 1.0001) af.push('atempo=' + (Math.round(rem*100)/100));
-        var args = ['-y','-i', inputPath, '-vf','setpts=PTS/'+sp, '-r','30',
-                    '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p'];
+        var args = ['-y','-threads','2','-i', inputPath, '-vf','setpts=PTS/'+sp, '-r','30',
+                    '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','2'];
         if (hasAudio) args = args.concat(['-af', af.join(','), '-c:a','aac','-b:a','128k']);
         else args.push('-an');
         args = args.concat(['-movflags','+faststart', tmpOut]);
@@ -330,9 +335,9 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
     }
     if (forceEncode || bad(r)){
       // 2) 트랜스코드 — HEVC·4:2:2·10bit 등 전부 아이폰 호환 H.264(yuv420p) 로.
-      r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      r = await run(['-y','-threads','2','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','2','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
       if (bad(r)){
-        r = await run(['-y','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-an','-movflags','+faststart', tmpOut]);
+        r = await run(['-y','-threads','2','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','2','-an','-movflags','+faststart', tmpOut]);
         if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
       }
     }
