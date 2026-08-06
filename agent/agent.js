@@ -609,11 +609,12 @@ async function processVideoJob(job){
       return;
     }
     var vbase = job.bayId + '/' + job.shotId;
-    // 앵글별 슬로모션 보정 배율 — 아이폰(측면·정면)은 슬로모션 촬영분을 실속도로 복원(기본 ×4).
-    // 클럽 딜리버리는 원래 느리게 보는 영상이라 보정하지 않음. config.json 의
-    // videoSpeedup: {"dl":4,"fo":4,"club":1,"ball":1} 로 조정 가능.
+    // 앵글별 슬로모션 보정 배율 — 아이폰(측면·정면)은 슬로모션 촬영분을 실속도로 복원.
+    // 기본 ×8 (아이폰 슬로모션 240fps = 8배 늘어짐. ×4 로는 여전히 0.5배로 보였음).
+    // 클럽 딜리버리는 원래 느리게 보는 영상이라 보정하지 않음. 아이폰이 120fps 슬로모션이면
+    // config.json 에 videoSpeedup: {"dl":4,"fo":4} 로 낮추면 됨.
     function speedupFor(cat){
-      var d = { dl:4, fo:4, club:1, ball:1 };
+      var d = { dl:8, fo:8, club:1, ball:1 };
       var c = (CFG.videoSpeedup && typeof CFG.videoSpeedup === 'object') ? CFG.videoSpeedup : {};
       var v = (c[cat] != null ? c[cat] : d[cat]);
       return (typeof v === 'number' && v > 0) ? v : 1;

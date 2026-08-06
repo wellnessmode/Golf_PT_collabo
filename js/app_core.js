@@ -80,9 +80,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.57',
-  date:'2026-08-05',
+  version:'v9.58',
+  date:'2026-08-06',
   changes:[
+    '관리자 알림함(🔔) — 프로·트레이너·인포데스크가 회원 등록·수정, 세션일지 기록·수정·삭제, 평가 수정, 삭제 요청을 하면 관리자에게만 알림. 인포데스크 상단 🔔 배지 + 알림함(최근 50건·30일 보관) + 새 알림 토스트. 관리자 본인 행동은 알리지 않음',
+    '영상 슬로모션 보정 기본 ×8 로 상향 — ×4 보정 후에도 0.5배로 보이던 문제(아이폰 240fps 슬로모션 = 8배 늘어짐). 에이전트 업데이트 필요',
     '영상 슬로모션 자동 보정 — 아이폰 슬로 모션 촬영으로 4배 늘어진 영상을 에이전트가 업로드 전에 실제 속도로 복원 (15초 미만 정상 클립은 안 건드림 · 새로 올라오는 영상부터 적용 · 에이전트 업데이트 필요)',
     '비포·애프터 클럽별 드롭다운 — 날짜 안에서 클럽 칩(드라이버·아이언 등)을 눌러 그 클럽의 비포/애프터로 전환. 클럽이 다른 샷은 어떤 경우에도 한 짝으로 섞이지 않음',
     '레슨 일지 예시 8건 — 골프 프로 ↔ 트레이너가 번갈아 쓴 4주 협업 스토리로 확장 (상담용 예시 리포트 재발행 시 적용)',
@@ -711,6 +713,26 @@ function logAudit(category, action, target, meta){
   S.auditLog.push(entry);
   if(S.auditLog.length>1000) S.auditLog = S.auditLog.slice(-1000);
   try{save();}catch(e){}
+  try{_notifyOwner(entry);}catch(e){}
+}
+
+// ── 관리자(대표) 알림 — 프로·트레이너·인포데스크의 주요 등록/수정을 클라우드에 남겨
+// 관리자 기기의 🔔 알림함에서 확인. reports 테이블을 재활용(member_id='notice')해
+// DB 스키마 변경 없이 동작. 관리자 본인의 행동은 알리지 않는다.
+var NOTIFY_ACTIONS = {'회원 등록':1,'회원 수정':1,'세션 기록':1,'세션 수정':1,'세션 삭제':1,'평가 수정':1,'삭제 요청':1};
+function _notifyOwner(entry){
+  if(S.currentRole==='admin') return;
+  if(!NOTIFY_ACTIONS[entry.action]) return;
+  if(typeof cloud==='undefined'||!cloud||!cloud.enabled) return;
+  var row={ id:'ntc_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),
+    member_id:'notice', member_name:String(entry.target||'').slice(0,80),
+    created_by:entry.user||'',
+    content:{ notice:true, action:entry.action, category:entry.category,
+              user:entry.user, role:entry.role, target:entry.target, time:entry.time } };
+  (async function(){
+    try{ if((await cloud._w('upsert','reports',{rows:[row]}))===true) return; }catch(e){}
+    try{ await cloud.client.from('reports').upsert(row); }catch(e){}
+  })();
 }
 
 // ============ Activity Log ============
