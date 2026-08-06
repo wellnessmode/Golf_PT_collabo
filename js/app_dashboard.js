@@ -453,7 +453,9 @@ function _buildReportContent(mid, m, data){
         list.forEach(function(s){ var g=grpOf(s); (byClub[g]=byClub[g]||[]).push(s); });
         var clubs=Object.keys(byClub).map(function(g){
           var L=byClub[g], tbg=null, tag=null;
-          L.forEach(function(s){ var t2=(s.data||{})._tag; if(t2==='before') tbg=tbg||s; if(t2==='after') tag=s; });
+          // 같은 날 같은 클럽에 태그가 여러 개면 "마지막으로 지정한 것"이 의도 —
+          // 비포·애프터 모두 최신 태그를 쓴다 (비포를 다시 지정하면 예전 영상 대신 새 영상)
+          L.forEach(function(s){ var t2=(s.data||{})._tag; if(t2==='before') tbg=s; if(t2==='after') tag=s; });
           var b=null, a2=null, tagged=false;
           if(tbg && tag && tbg!==tag){ b=tbg; a2=tag; tagged=true; }
           else if(L.length>=2){
