@@ -874,7 +874,12 @@ body.role-select .app{background:#0d1117}
 }
 
 /* Media viewer overlay */
-.media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer;backdrop-filter:blur(4px)}
+/* 안전영역 패딩 — 세로 화면에서 영상이 길면 탭(측면/정면/클럽)이 화면 맨 위까지
+   올라가 아이폰 다이나믹 아일랜드·시계에 가려 못 누르던 문제 방지 */
+.media-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;z-index:300;cursor:pointer;backdrop-filter:blur(4px);
+  padding-top:max(14px, env(safe-area-inset-top));padding-bottom:max(14px, env(safe-area-inset-bottom));
+  padding-left:max(8px, env(safe-area-inset-left));padding-right:max(8px, env(safe-area-inset-right));box-sizing:border-box}
+.media-overlay>div{max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .media-overlay img{max-width:92%;max-height:92%;object-fit:contain;border-radius:var(--r)}
 
 /* ================================================================
@@ -1287,7 +1292,8 @@ body.role-select .app{background:#0d1117}
 .pv-foot span{display:block;font-size:0.594em;color:#a8aeb6;margin-top:6px;letter-spacing:.2px}
 
 /* 영상 모달 */
-.pv-vm{position:fixed;inset:0;background:rgba(10,12,15,.86);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.pv-vm{position:fixed;inset:0;background:rgba(10,12,15,.86);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;
+  padding:max(20px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left))}
 .pv-vm-box{background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
 .pv-vm-vid{aspect-ratio:3/4;background:linear-gradient(160deg,#1a2027,#0a0c0f);position:relative;display:flex;align-items:center;justify-content:center;border-radius:14px 14px 0 0}
 .pv-vm-info{padding:18px 20px}
