@@ -35,9 +35,16 @@ function formatElapsed(startedAt){
   return h>0 ? (h+'시간 '+m+'분') : (m+'분');
 }
 // 해당 베이의 "이번 활성세션 중" 굿샷만 (세션 시작 이후 ts)
+// 숫자 시각 비교 + 2분 허용 — 문자열 포맷 차이(Z vs +00:00)나 시계 오차로
+// 방금 친 샷이 카운트에서 빠지는 것 방지. 시작시각이 깨져 있으면(파싱 불가)
+// "0개 고정" 버그 대신 베이의 샷을 그대로 보여준다.
 function liveBayShots(bayId, act){
+  var st = act ? Date.parse(act.startedAt) : NaN;
   return S.shotEvents.filter(function(s){
-    return s.bayId===bayId && (!act || s.ts >= act.startedAt);
+    if(s.bayId!==bayId) return false;
+    if(!act || isNaN(st)) return true;
+    var t = Date.parse(s.ts);
+    return isNaN(t) ? true : (t >= st - 120000);
   });
 }
 function shotSilenceMin(shots){
@@ -117,8 +124,9 @@ function _vidChip(s){
   }
   if (d._videoPending){
     var t0 = s._rcvAt || Date.parse(d.measuredAt || s.ts) || 0;
-    if (t0 && Date.now()-t0 < 5*60000){
-      var pct = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/30000*100)));
+    if (t0 && Date.now()-t0 < 8*60000){
+      // 90초 기준 추정 — 내장 카메라(대용량) 변환·업로드까지 감안한 현실적인 속도
+      var pct = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/90000*100)));
       return '<span class="vid-uploading">🎞 <span class="vid-pct" data-t0="'+t0+'">'+pct+'%</span></span>';
     }
   }
@@ -285,14 +293,14 @@ function _cntdnHtml(t0, max){
   var left = Math.max(0, max - Math.floor((Date.now()-(t0||Date.now()))/1000));
   return '<span data-cntdn data-t0="'+(t0||Date.now())+'" data-max="'+max+'">'+(left>0?('약 '+left+'초 남음'):'거의 다 됐어요...')+'</span>';
 }
-// 진행률 틱커 — 1.5초마다 화면의 % 만 직접 갱신 (재렌더 없이). 약 30초 기준 추정치.
+// 진행률 틱커 — 1.5초마다 화면의 % 만 직접 갱신 (재렌더 없이). 약 90초 기준 추정치.
 if (!window.__vidPctTimer){
   window.__vidPctTimer = setInterval(function(){
     try{
       var els = document.querySelectorAll('.vid-pct[data-t0]');
       for (var i=0;i<els.length;i++){
         var t0 = parseInt(els[i].getAttribute('data-t0'),10)||0; if(!t0) continue;
-        els[i].textContent = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/30000*100))) + '%';
+        els[i].textContent = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/90000*100))) + '%';
       }
     }catch(e){}
   }, 1500);
@@ -455,7 +463,9 @@ function _patchLivePartials(){
       var shotsEl = card.querySelector('.bay-shots');
       if(shotsEl){
         var shotsCnt = (typeof liveBayShots==='function') ? liveBayShots(bayId, act).length : 0;
-        shotsEl.innerHTML = shotsCnt>0 ? ('저장된 샷 <strong>'+shotsCnt+'</strong>개') : '아직 저장된 샷 없음';
+        var todayCnt2 = (S.shotEvents||[]).filter(function(s){ return s.bayId===bayId && String(s.ts).slice(0,10)===today(); }).length;
+        shotsEl.innerHTML = shotsCnt>0 ? ('저장된 샷 <strong>'+shotsCnt+'</strong>개')
+          : (todayCnt2>0 ? ('이번 수업 샷 없음 · 오늘 '+todayCnt2+'개는 아래 목록에') : '아직 저장된 샷 없음');
       }
     }
     // 2) 페이지 하단 .shot-log 갱신 (선택 모드 중이면 보호 — render 트리거)
@@ -1520,11 +1530,14 @@ function renderBayCard(bay, canCoach, isAdmin){
   body += '<div class="bay-member"><div class="member-avatar '+memberColor(act.memberId)+'">'+initials(act.memberName)+'</div>'
         + '<div class="bay-member-info"><div class="bay-member-name">'+act.memberName+'님</div>'
         + '<div class="bay-author '+roleCls+'">'+act.author+' · '+elapsed+' 경과</div></div></div>';
+  // 세션 샷이 0개여도 오늘 이 타석 샷이 있으면 알려줌 — "샷이 사라졌나?" 혼란 방지
+  // (카드는 이번 세션 시작 이후만 셈. 이전 샷은 아래 '최근 저장된 샷' 목록에 있음)
+  var todayBayCnt = (S.shotEvents||[]).filter(function(s){ return s.bayId===bay.id && String(s.ts).slice(0,10)===today(); }).length;
   body += '<div class="bay-shots">'
         + (shots.length>0
             ? ('저장된 샷 <strong>'+shots.length+'</strong>개'
                + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
-            : '아직 저장된 샷 없음')
+            : (todayBayCnt>0 ? '이번 수업 샷 없음 · 오늘 '+todayBayCnt+'개는 아래 목록에' : '아직 저장된 샷 없음'))
         + '</div>';
 
   // 레슨 모드 — '방금 친 샷' 을 베이카드 상단(회원 바로 아래)에 크게 띄움.
