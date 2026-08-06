@@ -39,6 +39,7 @@ var processed = {};
 var _beforeStart = {};
 var _shotBest = {};        // shotId → 지금까지 보낸 측정 완성도 점수(더 완전한 값만 반영)
 var _videoQueuedFor = {};  // shotId → 영상 작업 큐에 넣었는지(샷당 1회만)
+var _fpShot = {};          // 측정값 지문 → {id,t} — 다른 측정ID로 온 같은 스윙 병합용(3분 창)
 var _recentShots = {};     // bay → [{evMs,id}] 최근 샷(같은 물리적 샷의 여러 stmf 를 시각 근접으로 병합)
 // 같은 물리적 샷의 여러 stmf 를 하나의 shotId 로 — 측정시각 ±1.5초 이내면 같은 샷으로 본다.
 // (초 단위 반올림 버킷은 경계에서 갈라지므로, 근접 비교로 견고하게)
@@ -509,6 +510,27 @@ async function handleFtmf(filePath){
   } else {
     shotId = 'tm_' + (parsed.measurementId || (Date.now()+''+Math.random().toString(36).slice(2,6)));
   }
+  // ── 2차 중복 병합(측정값 지문) — TPS 가 한 스윙을 "서로 다른 측정 ID" 의 파일
+  // 두 개로 내보내면 위 ID 기준으로는 딴 샷이 돼 앱에 두 장씩 뜬다 (1번타석에서
+  // 실제 발생: 캐리·스핀까지 완전히 동일한 카드 2장). 클럽+캐리+볼스피드+스핀이
+  // 소수점까지 같은 샷이 3분 안에 또 오면 같은 스윙으로 보고 같은 shotId 로 병합.
+  try {
+    var ddfp = parsed.data || {};
+    if (ddfp.carry != null && ddfp.ballSpeed != null && ddfp.spin != null) {
+      var fp = bayId + '|' + (ddfp.club || '') + '|' + Number(ddfp.carry).toFixed(1)
+             + '|' + Number(ddfp.ballSpeed).toFixed(1) + '|' + Math.round(Number(ddfp.spin));
+      var seen = _fpShot[fp];
+      if (seen && (Date.now() - seen.t) < 180000 && seen.id !== shotId) {
+        log('중복 측정 파일 병합: ' + fname + ' → ' + seen.id + ' (동일 측정값)');
+        shotId = seen.id;
+      }
+      _fpShot[fp] = { id: shotId, t: Date.now() };
+      if (Object.keys(_fpShot).length > 300) {
+        var cut = Date.now() - 600000;
+        Object.keys(_fpShot).forEach(function(k){ if (_fpShot[k].t < cut) delete _fpShot[k]; });
+      }
+    }
+  } catch (e) {}
   // 같은 샷의 여러 측정 중 '가장 완전한' 값만 반영(덜 완전한 게 더 완전한 걸 덮지 않게).
   var score = scoreMeasurement(parsed.data);
   var betterOrNew = (_shotBest[shotId] == null) || (score > _shotBest[shotId]);
