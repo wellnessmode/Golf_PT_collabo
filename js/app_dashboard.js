@@ -1271,3 +1271,77 @@ function _clubKo(c){
     SandWedge:'샌드웨지',Putter:'퍼터'};
   return map[c]||c;
 }
+
+// ============ 관리자 알림함 (🔔) ============
+// 직원(프로·트레이너·인포데스크)이 회원 등록·일지 작성 등을 하면 클라우드에 알림이
+// 남고(app_core._notifyOwner), 관리자 기기가 주기적으로 가져와 배지·토스트로 보여준다.
+async function _fetchNotices(force){
+  if(S.currentRole!=='admin') return;
+  if(typeof cloud==='undefined'||!cloud||!cloud.enabled||!cloud.client) return;
+  var now=Date.now();
+  if(!force && window.__ntcLast && now-window.__ntcLast<45000) return;
+  window.__ntcLast=now;
+  try{
+    var r=await cloud.client.from('reports').select('id,member_name,created_by,created_at,content')
+      .eq('member_id','notice').order('created_at',{ascending:false}).limit(50);
+    if(r.error||!Array.isArray(r.data)) return;
+    var prevTop=(S._notices&&S._notices[0])?S._notices[0].id:null;
+    S._notices=r.data;
+    var unread=_noticeUnread();
+    // 새 알림 도착 → 토스트 (첫 로드는 조용히)
+    if(prevTop!==null && S._notices[0] && S._notices[0].id!==prevTop && unread>0){
+      var c0=(S._notices[0].content)||{};
+      try{ liveToastSafe('🔔 '+(c0.user||'직원')+' · '+(c0.action||'새 활동')+(c0.target?' — '+c0.target:'')); }catch(e){}
+    }
+    if(unread!==window.__ntcShown){ window.__ntcShown=unread; try{render();}catch(e){} }
+    // 30일 지난 알림은 하루 한 번 정리
+    if(!window.__ntcPruned || now-window.__ntcPruned>86400000){
+      window.__ntcPruned=now;
+      var cutoff=new Date(now-30*86400000).toISOString();
+      try{ cloud._w('delete','reports',{filters:[{col:'member_id',op:'eq',val:'notice'},{col:'created_at',op:'lt',val:cutoff}]}); }catch(e){}
+    }
+  }catch(e){}
+}
+function _noticeSeenTs(){ try{ return localStorage.getItem('ntc_seen')||''; }catch(e){ return ''; } }
+function _noticeUnread(){
+  var last=_noticeSeenTs();
+  return (S._notices||[]).filter(function(n){ return String(n.created_at||'')>last; }).length;
+}
+function openNotices(){
+  _fetchNotices(true);
+  var esc=function(x){ return String(x==null?'':x).replace(/[<>&"]/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[ch];}); };
+  var seen=_noticeSeenTs();
+  var rows=(S._notices||[]).map(function(n){
+    var c=n.content||{};
+    var isNew=String(n.created_at||'')>seen;
+    var when=String(n.created_at||'').replace('T',' ').slice(5,16);
+    var roleKo=c.role==='pro'?'프로':(c.role==='trainer'?'트레이너':(c.role==='infodesk'?'인포데스크':''));
+    return '<div class="ntc-it'+(isNew?' new':'')+'">'
+      +'<div class="t">'+esc(when)+' · '+esc(c.user||n.created_by||'')+(roleKo?' ('+roleKo+')':'')+'</div>'
+      +'<div><b>'+esc(c.action||'활동')+'</b>'+(c.target?' — '+esc(c.target):'')+'</div>'
+      +'</div>';
+  }).join('')||'<div class="ntc-empty">알림이 없습니다.<br>직원이 회원 등록·일지 작성을 하면 여기에 쌓입니다.</div>';
+  var old=document.getElementById('ntc-ov'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='ntc-ov'; ov.className='ntc-ov';
+  ov.innerHTML='<div class="ntc-card">'
+    +'<div class="ntc-hd">🔔 직원 활동 알림<span style="font-weight:600;font-size:12px;color:#8b93a0">최근 50건 · 30일 보관</span></div>'
+    +'<div class="ntc-list">'+rows+'</div>'
+    +'<div class="ntc-ft"><button class="ntc-x" onclick="closeNotices(false)">닫기</button>'
+    +'<button class="ntc-ok" onclick="closeNotices(true)">모두 읽음</button></div>'
+    +'</div>';
+  ov.addEventListener('click',function(e){ if(e.target===ov) closeNotices(false); });
+  document.body.appendChild(ov);
+}
+function closeNotices(markRead){
+  var ov=document.getElementById('ntc-ov'); if(ov) ov.remove();
+  if(markRead){
+    try{ localStorage.setItem('ntc_seen', new Date().toISOString()); }catch(e){}
+    window.__ntcShown=0;
+    try{render();}catch(e){}
+  }
+}
+// 폴링 — 관리자 로그인 상태에서만 실제 조회 (60초 간격 + 부팅 8초 후 1회)
+if(!window.__ntcTimer){
+  window.__ntcTimer=setInterval(function(){ try{_fetchNotices(false);}catch(e){} },60000);
+  setTimeout(function(){ try{_fetchNotices(true);}catch(e){} },8000);
+}

@@ -260,6 +260,7 @@ function _render(){
     <div class="sidebar-section-label">전체 회원 관리</div>
     <div class="infodesk-tools">
       ${isAdmin?'<button class="mp-btn live-admin-btn" onclick="event.stopPropagation();openLiveSession()">🏌️ 수업 센터</button>':''}
+      ${isAdmin?('<button class="mp-btn" onclick="event.stopPropagation();openNotices()">🔔 알림'+(window.__ntcShown?('<span class="ntc-badge">'+window.__ntcShown+'</span>'):'')+'</button>'):''}
       <button class="mp-btn" onclick="event.stopPropagation();openDashboard()">대시보드</button>
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openDemoPerformance()">📊 데모 화면</button>
       <button class="mp-btn demo-btn" onclick="event.stopPropagation();openCustomerDemoReport()">🌐 예시 리포트</button>

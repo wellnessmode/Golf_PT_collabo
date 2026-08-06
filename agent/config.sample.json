@@ -12,7 +12,7 @@
   "defaultBay": "bay3",
   "uploadVideo": true,
   "ffmpegPath": "",
-  "videoSpeedup": { "dl": 4, "fo": 4, "club": 1, "ball": 1 },
+  "videoSpeedup": { "dl": 8, "fo": 8, "club": 1, "ball": 1 },
   "slowmoMinSec": 15,
   "intervalSec": 5,
   "verbose": true,
