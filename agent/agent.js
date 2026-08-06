@@ -284,11 +284,12 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
   function run(args){
     return new Promise(function(resolve){
       var p = spawn(ffmpegPath, args, { windowsHide:true });
-      // ⚠️ 핵심: ffmpeg 을 OS 최저 우선순위로 — TPS 는 실시간 측정 시스템이라
+      // ⚠️ 핵심: ffmpeg 을 TPS 보다 낮은 우선순위로 — TPS 는 실시간 측정 시스템이라
       // 재인코딩이 CPU 를 독차지하면 샷 측정 결과(Fusion 출력)가 파일에 기록되다
-      // 잘리는 사고가 난다 (1번타석에서 실제 발생). 최저 우선순위면 ffmpeg 은
-      // 남는 CPU 만 쓰고 TPS 에 즉시 양보한다.
-      try{ require('os').setPriority(p.pid, 19); }catch(_){}
+      // 잘리는 사고가 난다 (1번타석에서 실제 발생). '보통보다 낮음(10)'은 TPS 가
+      // CPU 를 원하면 항상 양보하면서도, 최저(19)처럼 굶어서 변환이 수 분씩
+      // 걸리는 문제는 없다.
+      try{ require('os').setPriority(p.pid, 10); }catch(_){}
       var err=''; var killed=false;
       var killTimer = setTimeout(function(){ killed=true; try{ p.kill(); }catch(_){} }, 180000);
       p.stderr.on('data', function(d){ err += d.toString(); });
@@ -313,11 +314,14 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
       var minSec = (CFG.slowmoMinSec != null ? CFG.slowmoMinSec : 15);
       if (!durSec || durSec < minSec){ sp = 0; }
       else {
+        // 해상도 캡 — 폰 시청용은 긴 변 1280 이면 충분. 인코딩량이 절반 이하로 줄어
+        // 변환·업로드가 크게 빨라진다 (작은 영상은 그대로 — 업스케일 없음).
+        var SCALE_VF = "scale=w='min(iw,1280)':h='min(ih,1280)':force_original_aspect_ratio=decrease:force_divisible_by=2";
         var af = []; var rem = sp;
         while (rem > 2.0001){ af.push('atempo=2'); rem /= 2; }
         if (rem > 1.0001) af.push('atempo=' + (Math.round(rem*100)/100));
-        var args = ['-y','-threads','2','-i', inputPath, '-vf','setpts=PTS/'+sp, '-r','30',
-                    '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','2'];
+        var args = ['-y','-threads','4','-i', inputPath, '-vf','setpts=PTS/'+sp+','+SCALE_VF, '-r','30',
+                    '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','4'];
         if (hasAudio) args = args.concat(['-af', af.join(','), '-c:a','aac','-b:a','128k']);
         else args.push('-an');
         args = args.concat(['-movflags','+faststart', tmpOut]);
@@ -335,9 +339,9 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
     }
     if (forceEncode || bad(r)){
       // 2) 트랜스코드 — HEVC·4:2:2·10bit 등 전부 아이폰 호환 H.264(yuv420p) 로.
-      r = await run(['-y','-threads','2','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','2','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      r = await run(['-y','-threads','4','-i', inputPath, '-vf',"scale=w='min(iw,1280)':h='min(ih,1280)':force_original_aspect_ratio=decrease:force_divisible_by=2", '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','4','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
       if (bad(r)){
-        r = await run(['-y','-threads','2','-i', inputPath, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','2','-an','-movflags','+faststart', tmpOut]);
+        r = await run(['-y','-threads','4','-i', inputPath, '-vf',"scale=w='min(iw,1280)':h='min(ih,1280)':force_original_aspect_ratio=decrease:force_divisible_by=2", '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','4','-an','-movflags','+faststart', tmpOut]);
         if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
       }
     }
