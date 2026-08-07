@@ -1038,7 +1038,7 @@ function updateAssessDate(val){
 function addSession(){
   const ns = S.newSession;
   if(!ns.content.trim()){alert('운동/레슨 내용을 입력하세요'); return;}
-  if(ns._aiPending && !confirm('🤖 AI 정리가 아직 진행 중입니다.\n지금 저장하면 받아쓰기 메모 상태로 저장됩니다.\n\n그래도 저장할까요? (취소 후 몇 초 기다리면 AI 정리가 반영됩니다)')) return;
+  // AI 정리 진행 중이어도 그냥 저장 — 결과가 도착하면 저장된 일지에 자동 반영된다(아래 _savedTo).
   const mid = S.selectedMember;
   if(!S.sessions[mid]) S.sessions[mid] = [];
   var media = (ns.media||[]).slice();
@@ -1067,13 +1067,32 @@ function addSession(){
   syncSessionUp(mid, s);
   generateLocalSummary(mid, s);
   render();
-  // 녹음 일지를 AI 정리 전(원문 조각 상태)으로 저장했다면 → 백그라운드로 AI 정리해
-  // '저장된 일지'를 자동 교체. 프로가 저장을 빨리 눌러도(또는 AI가 늦어도) 알아서 정리됨.
+  // 녹음 일지를 AI 정리 전(원문 조각 상태)으로 저장한 경우:
+  // (1) AI 요청이 이미 진행 중이면 → 저장 위치만 남기고(_savedTo) 그 결과를 재사용 (요청 중복 없음)
+  // (2) 진행 중인 요청이 없으면(실패 후 저장 등) → 새로 백그라운드 정리
   try{
-    if(s.rawTranscript && typeof aiEnabled==='function' && aiEnabled() && String(s.content||'').indexOf('AI 정리 대기')!==-1){
-      bgAiCleanupSaved(mid, s.id, s.rawTranscript, s.author, ns._tmSummary||'');
+    if(String(s.content||'').indexOf('AI 정리 대기')!==-1 && typeof aiEnabled==='function' && aiEnabled()){
+      if(ns._aiPending){
+        ns._savedTo={ mid:mid, sessId:s.id, tmSummary:ns._tmSummary||'' };
+        try{ liveToastSafe('💾 저장 완료 — AI 정리가 끝나면 자동 반영됩니다'); }catch(e){}
+      } else if(s.rawTranscript){
+        bgAiCleanupSaved(mid, s.id, s.rawTranscript, s.author, ns._tmSummary||'');
+      }
     }
   }catch(e){}
+}
+
+// AI 정리 결과를 '저장된 일지'에 반영 — 사람이 이미 수정했으면 건드리지 않는다.
+function applyAiResultToSaved(mid, sessId, better, tmSummary){
+  var arr = S.sessions[mid]||[]; var s = arr.find(function(x){return x.id===sessId;});
+  if(!s || !better) return false;
+  if(String(s.content||'').indexOf('AI 정리 대기')===-1) return false;   // 그 사이 정리됨/사람이 수정 → 건드리지 않음
+  s.content = better + (tmSummary||'');
+  try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
+  if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
+  try{ render(); }catch(e){}
+  try{ var nm=(S.members.find(function(m){return m.id===mid;})||{}).name||''; liveToastSafe('🤖 '+nm+' 일지 AI 정리 완료'); }catch(e){}
+  return true;
 }
 
 // 저장된 녹음 일지를 백그라운드에서 AI 정리 → 자동 교체 (프로가 저장 후 기다릴 필요 없음)
@@ -1081,19 +1100,12 @@ function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
   if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return;
   if(typeof aiSummarizeWithClaude!=='function') return;
   aiSummarizeWithClaude(transcript, author).then(function(better){
-    var arr = S.sessions[mid]||[]; var s = arr.find(function(x){return x.id===sessId;});
-    if(!s) return;
-    if(String(s.content||'').indexOf('AI 정리 대기')===-1) return;   // 그 사이 정리됨/사람이 수정 → 건드리지 않음
     if(!better){
       // 실패 — 원문 조각 상태 유지. 관리자 기기에서 [🤖 AI로 다시 정리]로 재시도 가능.
       try{ if(window.__aiLastError) console.warn('[ai] bg cleanup fail:', window.__aiLastError); }catch(e){}
       return;
     }
-    s.content = better + (tmSummary||'');
-    try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
-    if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
-    try{ render(); }catch(e){}
-    try{ var nm=(S.members.find(function(m){return m.id===mid;})||{}).name||''; liveToastSafe('🤖 '+nm+' 일지 AI 정리 완료'); }catch(e){}
+    applyAiResultToSaved(mid, sessId, better, tmSummary);
   });
 }
 

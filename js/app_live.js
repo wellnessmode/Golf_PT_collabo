@@ -391,8 +391,17 @@ function _buildPendingShotsHTML(bayId){
   var all = savedRecent.concat(pend);
   if(!all.length) return '';
   all.sort(function(a,b){ var ra=a._rcvAt||0, rb=b._rcvAt||0; if(ra&&rb) return rb-ra; return String(b.ts||'').localeCompare(String(a.ts||'')); });
-  var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ 방금 친 샷 — 비포/애프터로 저장<span class="ps-count">'+all.length+'</span></div>';
-  all.slice(0,6).forEach(function(s){
+  // 기본은 최근 6개(수업 중 라이브 선별용). [전체 샷]을 누르면 이 세션의 모든 샷을
+  // "처음 친 샷부터" 펼쳐서 — 레슨 끝에 첫 샷을 📌 비포로 지정할 수 있다 (레슨 중 폰 조작 불필요).
+  var showAll = !!(S._psShowAll && S._psShowAll[bayId]);
+  var list = showAll ? all.slice().reverse() : all.slice(0,6);
+  var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ '
+        + (showAll?'이 수업 전체 샷 — 처음 친 샷부터':'방금 친 샷 — 비포/애프터로 저장')
+        + '<span class="ps-count">'+all.length+'</span>'
+        + (all.length>6||showAll ? '<button type="button" class="ps-showall" onclick="togglePsShowAll(\''+bayId+'\')">'+(showAll?'최근만 보기':'전체 샷 ⏮')+'</button>' : '')
+        + '</div>';
+  if(showAll) html += '<div class="ps-allhint">맨 위가 이 수업의 <b>처음 친 샷</b> — 📌 비포로 지정하면 리포트에 교정 전 스윙으로 남습니다</div>';
+  list.forEach(function(s){
     var d=s.data||{}; var m=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
     // 거리=미터(트랙맨 원본 그대로). 야드 데이터(옛것)는 미터로 환산.
     var carry=d.carry!=null?Math.round((m?d.carry:d.carry*0.9144)*10)/10:null;
@@ -691,6 +700,12 @@ function saveLessonShot(shotId, bayId, tag){
   liveToast('✓ '+act.memberName+'님에게 저장'+(tag?(tag==='before'?' — 📌 비포 영상':' — ✅ 애프터 영상'):''),'ok');
   if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(e){} }
 }
+// '방금 친 샷' 전체/최근 보기 토글 — 레슨 끝에 처음 샷을 비포로 지정할 때 사용
+function togglePsShowAll(bayId){
+  if(!S._psShowAll) S._psShowAll={};
+  S._psShowAll[bayId]=!S._psShowAll[bayId];
+  render();
+}
 // 저장 취소 — 샷을 다시 미배정(대기) 상태로 되돌린다
 function cancelLessonShot(shotId){
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
@@ -814,12 +829,15 @@ function endLiveSession(bayId){
   }
   var bay = getBay(bayId);
   var hasVoice = (act._transcript||'').trim().length>0;
+  var pendCnt = (typeof pendingShotsForBay==='function') ? pendingShotsForBay(bayId).length : 0;
   var msg = bay.name+' · '+act.memberName+'님 세션을 종료할까요?\n'
-    + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리합니다)' : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)');
+    + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리합니다)' : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)')
+    + (pendCnt ? '\n\n💡 비포/애프터 지정은 종료 전에만 가능해요 — [전체 샷 ⏮]에서 처음 친 샷도 지정할 수 있습니다 (미저장 샷 '+pendCnt+'개)' : '');
   if(!confirm(msg)) return;
   var transcript = act._transcript||'', memberId = act.memberId, author = act.author;
   if(S.voiceBay===bayId) stopVoice(bayId);
   delete S.activeSessions[bayId];
+  try{ if(S._psShowAll) delete S._psShowAll[bayId]; }catch(e){}   // 전체 샷 보기 토글 초기화
   save();
   logActivity('라이브 세션 종료', memberId, bay.name);
   logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
@@ -1349,24 +1367,37 @@ function openVoiceDraft(memberId, author, transcript){
   S.newSession={ date:today(), time:nowHalfHour(), author:author, content:prefill, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''], _tmSummary:summary };
   S.showAddSession=true;
   if(aiEnabled()){
-    S.newSession._aiPending=true; S.newSession._aiPendingAt=Date.now();
+    var ns=S.newSession;
+    ns._aiPending=true; ns._aiPendingAt=Date.now();
     aiSummarizeWithClaude(transcript,author).then(function(better){
-      if(!S.newSession) return;
-      S.newSession._aiPending=false;
+      ns._aiPending=false;
+      // 프로가 AI를 기다리지 않고 이미 저장했으면 → 결과를 '저장된 일지'에 바로 반영
+      // (addSession 이 ns._savedTo 에 저장 위치를 남김. 두 번째 AI 요청 없이 이 결과를 재사용)
+      if(ns._savedTo){
+        var to=ns._savedTo;
+        if(better){
+          if(typeof applyAiResultToSaved==='function') applyAiResultToSaved(to.mid, to.sessId, better, to.tmSummary);
+        } else if(typeof bgAiCleanupSaved==='function'){
+          // 진행 중이던 요청이 실패 → 저장본 대상으로 한 번 더 시도
+          bgAiCleanupSaved(to.mid, to.sessId, transcript, author, to.tmSummary);
+        }
+        return;
+      }
+      if(S.newSession!==ns) return;   // 다른 회원 폼으로 교체됨 → 이 결과는 폐기
       if(better && S.showAddSession){
-        if(S.newSession.content===prefill){
+        if(ns.content===prefill){
           // 사용자가 아직 손 안 댐 → AI 정리로 교체
-          S.newSession.content = better + summary;
+          ns.content = better + summary;
           try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
         } else {
           // 사용자가 수정 중 → 덮어쓰지 않고 보관, 버튼으로 교체 가능
-          S.newSession._aiAlt = better + summary;
+          ns._aiAlt = better + summary;
           try{ liveToast('🤖 AI 정리 완료 — 수정 중이어서 자동 반영 안 함 (버튼으로 교체 가능)','ok'); }catch(e){}
         }
       } else if(!better){
         // AI 실패를 눈에 보이게 — 조용히 받아쓰기 메모로 저장되는 사고 방지
-        S.newSession._aiFailed=true;
-        S.newSession._aiFailReason=window.__aiLastError||'';
+        ns._aiFailed=true;
+        ns._aiFailReason=window.__aiLastError||'';
         try{ liveToast('⚠️ AI 정리 실패 — 받아쓰기 메모 상태입니다. [AI 정리 다시 시도]를 눌러주세요','err'); }catch(e){}
       }
       try{ render(); }catch(e){}
@@ -1386,15 +1417,21 @@ function retryAiSummarize(){
   if(!aiEnabled()){ alert('AI 정리가 설정되지 않았습니다.\n워커에 ANTHROPIC_API_KEY 시크릿을 등록하거나(권장), 관리자 모드의 AI 설정에서 키를 입력하세요.'); return; }
   ns._aiPending=true; ns._aiPendingAt=Date.now(); ns._aiFailed=false; render();
   aiSummarizeWithClaude(src, ns.author).then(function(better){
-    if(!S.newSession) return;
-    S.newSession._aiPending=false;
+    ns._aiPending=false;
+    // 재시도 중에 저장하고 폼을 닫았으면 → 결과를 저장된 일지에 반영 (addSession 이 _savedTo 를 남김)
+    if(ns._savedTo && better && typeof applyAiResultToSaved==='function'){
+      var to=ns._savedTo;
+      applyAiResultToSaved(to.mid, to.sessId, better, to.tmSummary);
+      return;
+    }
+    if(S.newSession!==ns) return;
     if(better){
-      S.newSession.content = better + (S.newSession._tmSummary||'');
-      S.newSession._aiAlt=null;
+      ns.content = better + (ns._tmSummary||'');
+      ns._aiAlt=null;
       try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
     } else {
-      S.newSession._aiFailed=true;
-      S.newSession._aiFailReason=window.__aiLastError||'';
+      ns._aiFailed=true;
+      ns._aiFailReason=window.__aiLastError||'';
       try{ liveToast('⚠️ AI 정리 실패 — '+(window.__aiLastError||'워커 AI 설정 확인'),'err'); }catch(e){}
     }
     try{ render(); }catch(e){}
