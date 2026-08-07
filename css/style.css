@@ -595,7 +595,7 @@ body.role-select .app{background:#0d1117}
   background:#0a0d10;color:#fff;display:flex;flex-direction:column}
 .role-hero .hero-bg{position:fixed;inset:0;z-index:0}
 .role-hero .hero-photos,.role-hero .hero-cine{position:absolute;inset:0}
-.hero-photo{position:absolute;inset:0;opacity:0;transition:opacity .5s ease;will-change:opacity}
+.hero-photo{position:absolute;inset:0;opacity:0;transition:opacity .35s ease;will-change:opacity}
 .hero-photo.on{opacity:1}
 /* 세로(모바일·태블릿 세로): 사진을 화면에 꽉 채우는 풀블리드 커버 — hp-fill 만 보임 */
 .hp-fill,.hp-fit{position:absolute;inset:0;background-size:cover;background-position:center top;background-repeat:no-repeat;will-change:transform}
@@ -1700,6 +1700,9 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .pending-shots.big{margin:8px 0 12px;padding:10px;background:linear-gradient(180deg,#f0fbf6,#eaf6f0);border:1.5px solid #b6e2cc;border-radius:14px}
 .ps-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#0d6f4a;margin-bottom:8px;letter-spacing:-.01em}
 .ps-count{margin-left:auto;background:#0d6f4a;color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px}
+.ps-showall{background:#fff;border:1.5px solid #0d6f4a;color:#0d6f4a;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.ps-showall:active{background:#0d6f4a;color:#fff}
+.ps-allhint{font-size:11.5px;color:#7a5a1e;background:#fff8ea;border:1px solid #f0dfb4;border-radius:9px;padding:7px 10px;margin-bottom:8px;line-height:1.5}
 .ps-card{background:#fff;border:1.5px solid #d4e9dd;border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(13,111,74,.06)}
 .ps-card.new{animation:psNew 1.6s ease-out;border-color:#00b884;box-shadow:0 0 0 3px rgba(0,184,132,.18)}
 @keyframes psNew{

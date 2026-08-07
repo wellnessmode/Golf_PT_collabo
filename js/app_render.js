@@ -1,5 +1,5 @@
-// 랜딩 인트로 몬타주: 사진이 1.5초씩 페이드로 지나가고(그동안 터치 불가·로그인 UI 없음),
-// 마지막 장에서 3초 후 로그인(역할 선택) 화면이 2초 페이드 인. 페이지 로드당 1회만 재생.
+// 랜딩 인트로 몬타주: 사진이 0.5초씩 페이드로 지나가고(그동안 터치 불가·로그인 UI 없음),
+// 마지막 장에서 1초 후 로그인(역할 선택) 화면이 2초 페이드 인. 페이지 로드당 1회만 재생.
 // 첫 장의 카운트는 스플래시가 완전히 사라지고 + 첫 사진 로딩이 끝난 뒤에야 시작 —
 // 앱 구동 직후 로딩·스플래시 시간이 첫 사진 노출시간을 잡아먹지 않게.
 function heroIntroAdvance(){
@@ -12,8 +12,8 @@ function heroIntroAdvance(){
   }
   intro.idx++;
   for(var i=0;i<slides.length;i++) slides[i].classList.toggle('on', i===intro.idx);
-  // 마지막 장에 도달하면 3초 머문 뒤 종료, 아니면 1.5초 뒤 다음 장
-  intro.timer=setTimeout(heroIntroAdvance, intro.idx>=slides.length-1 ? 3000 : 1500);
+  // 마지막 장에 도달하면 1초 머문 뒤 종료, 아니면 0.5초 뒤 다음 장
+  intro.timer=setTimeout(heroIntroAdvance, intro.idx>=slides.length-1 ? 1000 : 500);
 }
 function renderRoleSelector(){
   var root=document.getElementById('root');
@@ -86,13 +86,13 @@ function renderRoleSelector(){
     } else {
       var intro={ idx:0, done:false, timer:null, started:false };
       window.__heroIntro=intro;
-      // 첫 장 1.5초 카운트는 (1) 스플래시가 DOM 에서 제거되고 (2) 첫 사진 로딩 완료 후 시작.
+      // 첫 장 0.5초 카운트는 (1) 스플래시가 DOM 에서 제거되고 (2) 첫 사진 로딩 완료 후 시작.
       var imgReady=false, splashGone=false;
       var startClock=function(){
         if(intro.started||intro.done||window.__heroIntro!==intro) return;
         if(!imgReady||!splashGone) return;
         intro.started=true;
-        intro.timer=setTimeout(heroIntroAdvance, 1500);
+        intro.timer=setTimeout(heroIntroAdvance, 500);
       };
       var first=new Image();
       first.onload=first.onerror=function(){ imgReady=true; startClock(); };
@@ -402,7 +402,7 @@ function _render(){
         <div class="form-group"><label class="form-label">레슨 시간</label><select class="form-input" onchange="updateNS('time',this.value)">${sessionTimeOptions(S.newSession.time)}</select></div>
       </div>
       <div class="form-group"><label class="form-label">담당자</label><div class="radio-group">${INSTRUCTORS.map(function(inst){var canPick=inst.name===S.currentUser||S.currentRole==='admin';var sel=S.newSession.author===inst.name?(inst.role==='pro'?' sel-pro':' sel-trainer'):'';if(!canPick) return '<div class="radio-opt disabled" style="opacity:0.4;pointer-events:none">'+inst.name+'</div>';return '<div class="radio-opt'+sel+'" onclick="updateNS(\'author\',\''+inst.name+'\')">'+ inst.name+'</div>';}).join('')}</div></div>
-      ${S.newSession._aiPending?'<div class="ai-pending">🤖 AI가 레슨 내용을 정리하는 중 · '+(typeof _cntdnHtml==='function'?_cntdnHtml(S.newSession._aiPendingAt,20):'약 20초')+' — 완료 후 저장하는 것을 권장</div>':''}
+      ${S.newSession._aiPending?'<div class="ai-pending">🤖 AI가 레슨 내용을 정리하는 중 · '+(typeof _cntdnHtml==='function'?_cntdnHtml(S.newSession._aiPendingAt,20):'약 20초')+' — 기다릴 필요 없이 지금 저장해도 완료되면 자동 반영됩니다</div>':''}
       ${(!S.newSession._aiPending&&S.newSession._aiFailed)?'<div class="ai-pending" style="background:#fdecec;color:#993c1d">⚠️ AI 정리 실패 — 아래는 받아쓰기 메모입니다. <button type="button" class="ex-add-btn" onclick="retryAiSummarize()">🤖 AI 정리 다시 시도</button>'+(S.newSession._aiFailReason?'<div style="font-size:11px;margin-top:5px;opacity:.85;word-break:break-all">사유: '+String(S.newSession._aiFailReason).replace(/</g,"&lt;")+'</div>':'')+'</div>':''}
       ${(!S.newSession._aiPending&&S.newSession._aiAlt)?'<div class="ai-pending">🤖 AI 정리가 준비됐습니다 (수정 중이어서 자동 반영 안 함) <button type="button" class="ex-add-btn" onclick="applyAiAlt()">AI 정리로 교체</button></div>':''}
       ${(S.editSessionId&&!S.newSession._aiPending&&((S.newSession.rawTranscript&&S.newSession.rawTranscript.trim())||String(S.newSession.content||'').indexOf('AI 정리 대기')!==-1))?'<div class="ai-pending" style="background:#eef6ff;color:#1a4a7a">🎙 급하게 저장돼 조각으로 남은 녹음 메모입니다. 형식 있는 일지로 정리할 수 있어요. <button type="button" class="ex-add-btn" onclick="if(confirm(\'현재 내용을 AI 정리 결과로 교체합니다. 계속할까요?\'))retryAiSummarize()">🤖 AI로 다시 정리</button></div>':''}
