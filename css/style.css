@@ -1507,6 +1507,9 @@ body.role-select .app{background:#0d1117}
 .pv-dl-btn{display:block;width:100%;padding:11px 14px;margin:0 0 12px;background:#00a878;color:#fff;border:none;border-radius:10px;
   font-weight:800;font-size:0.812em;font-family:inherit;cursor:pointer;text-align:center;line-height:1.4}
 .pv-dl-btn small{display:block;font-size:0.594em;font-weight:600;opacity:.82;margin-top:2px}
+.pv-del-btn{display:block;width:100%;box-sizing:border-box;padding:10px 14px;margin:0 0 12px;background:#fff;color:#c0392b;border:1.5px solid #e8b0a8;border-radius:10px;font-weight:800;font-size:0.8em;text-align:center;cursor:pointer}
+.pv-del-btn small{display:block;font-size:0.72em;font-weight:600;opacity:.75;margin-top:2px}
+.pv-del-btn:active{background:#fdecec;transform:scale(.98)}
 .pv-dl-btn:active{transform:scale(.98)}
 .pv-vm-tagb{display:inline-block;font-size:0.562em;font-weight:800;letter-spacing:.06em;padding:2px 8px;border-radius:999px;vertical-align:2px;margin-left:4px}
 .pv-vm-tagb.b{background:#fde8d8;color:#b45309}

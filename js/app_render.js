@@ -77,6 +77,14 @@ function renderRoleSelector(){
   // 인트로 몬타주 시작/정리. 재렌더 때마다 기존 타이머는 먼저 정리한다.
   try{ if(window.__heroRot){ clearInterval(window.__heroRot); window.__heroRot=null; } }catch(e){}
   if(introing){
+    // 화면 탭 = 즉시 다음 장 (마지막 장에서 탭하면 바로 로그인). 기다릴 필요 없음.
+    var heroEl=root.querySelector('.role-hero');
+    if(heroEl) heroEl.addEventListener('click', function(){
+      var it=window.__heroIntro; if(!it||it.done) return;
+      it.started=true;                                   // 시작 대기(스플래시/사진 로딩) 중이어도 탭이면 바로 진행
+      try{ if(it.timer) clearTimeout(it.timer); }catch(e){}
+      heroIntroAdvance();
+    });
     if(window.__heroIntro && !window.__heroIntro.done){
       // 이미 몬타주 진행 중인데 재렌더로 DOM만 새로 그려진 경우 —
       // 현재 인덱스를 그대로 반영하고 타이머는 건드리지 않는다(끊김 방지).
