@@ -586,6 +586,25 @@ function setPerfClub(c){ S.perfClub=c; render(); }
 function setPerfVidFilter(f){ S.perfVidFilter=f; render(); }
 function openPerfShot(idx){ S.perfShotModal=idx; S.perfShotView=0; render(); }
 function closePerfShot(){ S.perfShotModal=null; S.perfShotView=0; render(); }
+// 리포트에서 샷 삭제 (프로·트레이너·관리자) — 다른 회원의 영상이 실수로 잘못
+// 저장된 경우를 위한 복구 수단. R2 영상(전 앵글)·측정 기록·서버 레코드까지 제거.
+function deletePerfShot(shotId){
+  if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin'){ alert('프로·트레이너·관리자만 삭제할 수 있습니다'); return; }
+  var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;});
+  if(!s){ alert('샷을 찾을 수 없습니다'); return; }
+  var club=(typeof _clubKo==='function'?_clubKo(s.data&&s.data.club):(s.data&&s.data.club))||'샷';
+  if(!confirm('이 샷을 리포트에서 삭제할까요?\n\n'+club+' · '+String(s.ts).slice(0,16).replace('T',' ')
+    +'\n\n영상(모든 앵글)과 측정 기록이 완전히 삭제됩니다.\n잘못 저장된 다른 회원의 영상을 제거할 때 사용하세요.\n\n※ 되돌릴 수 없습니다')) return;
+  try{ r2RemoveShotVideos(s); }catch(e){}
+  S.shotEvents=(S.shotEvents||[]).filter(function(x){return x.id!==shotId;});
+  save();
+  try{ cloud.deleteShot(shotId); }catch(e){}
+  try{ logActivity('리포트 샷 삭제', s.memberId, club+' · '+String(s.ts).slice(0,10)); }catch(e){}
+  try{ logAudit('session','리포트 샷 삭제', s.memberName||'', {shotId:shotId, club:club, ts:s.ts, tag:(s.data&&s.data._tag)||''}); }catch(e){}
+  S.perfShotModal=null; S.perfShotView=0;
+  render();
+  try{ liveToastSafe('🗑 샷 삭제됨 — 영상·측정 기록 제거'); }catch(e){}
+}
 // 샷 모달 안 앵글 전환 (측면/정면/클럽) — 재렌더 없이 비디오 src 만 교체.
 // 클럽 딜리버리는 좌우 반전 + 확대 + 기본 0.5× 슬로우.
 function setPerfShotView(i, key, isClub){
@@ -1242,6 +1261,7 @@ function renderPerformance(){
         +'<div class="pv-vm-info">'
           +'<div class="pv-vm-h"><div class="pv-vm-club">'+(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+String(sm.ts).slice(0,16).replace('T',' ')+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
           +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:\''+vidUrl+'\', \''+fname+'\')">⬇ 영상 저장</button>':'')
+          +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin'))?'<button class="pv-del-btn" onclick="deletePerfShot(\''+sm.id+'\')">🗑 이 샷 삭제 <small>잘못 저장된 영상 제거 · 되돌릴 수 없음</small></button>':'')
           +'<div class="pv-vm-tiles">'+vmt('캐리', dm.carry!=null?_fmtNum(pfDistFrom(dm.carry,metric)):'—', pfDistU())
             +vmt('토탈', dm.total!=null?_fmtNum(pfDistFrom(dm.total,metric)):'—', pfDistU())
             +vmt('볼 스피드', dm.ballSpeed!=null?_fmtNum(pfSpdFrom(dm.ballSpeed,metric)):'—', pfSpdU())
