@@ -324,10 +324,13 @@ function openShotVideo(shotId){
   var tabsHtml = views.length>1
     ? '<div class="vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===0?' on':'')+'" data-vi="'+i+'">'+v.label+'</button>';}).join('')+'</div>'
     : '';
-  div.innerHTML = '<div style="width:min(94vw,560px)">'
+  // 상단 고정 ✕ — 세로 영상은 내용이 한 화면을 넘어 하단 닫기가 안 보이는 문제 해결.
+  // 영상 높이도 (탭+시크바+배속+닫기)를 뺀 화면 높이로 제한해 최대한 한 화면에 들어가게.
+  div.innerHTML = '<button class="vv-close-top" onclick="this.closest(\'.media-overlay\').remove()">✕ 닫기</button>'
+    + '<div style="width:min(94vw,560px)">'
     + tabsHtml
     + '<div class="vid-wrap">'
-      + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" autoplay playsinline style="width:100%;max-height:76vh;border-radius:12px;background:#000"></video>'
+      + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" autoplay playsinline style="width:100%;max-height:76vh;max-height:calc(100dvh - 230px);border-radius:12px;background:#000"></video>'
       + _cvSeekRowHTML()
       + _clubPathOverlayHTML(d)
     + '</div>'
@@ -1564,9 +1567,11 @@ function renderBayCard(bay, canCoach, isAdmin){
 
   var body = '<div class="bay-active">';
   if(stale){ body += '<div class="bay-stale">⚠️ 어제 시작된 세션입니다.<br>굿샷이 차단됩니다 — 종료 후 다시 시작하세요.</div>'; }
+  // 이름 옆 [종료] — 카드 맨 아래까지 스크롤하지 않고 바로 종료 (아래 큰 종료 버튼도 유지)
   body += '<div class="bay-member"><div class="member-avatar '+memberColor(act.memberId)+'">'+initials(act.memberName)+'</div>'
         + '<div class="bay-member-info"><div class="bay-member-name">'+act.memberName+'님</div>'
-        + '<div class="bay-author '+roleCls+'">'+act.author+' · '+elapsed+' 경과</div></div></div>';
+        + '<div class="bay-author '+roleCls+'">'+act.author+' · '+elapsed+' 경과</div></div>'
+        + '<button class="bay-end-top" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button></div>';
   // 세션 샷이 0개여도 오늘 이 타석 샷이 있으면 알려줌 — "샷이 사라졌나?" 혼란 방지
   // (카드는 이번 세션 시작 이후만 셈. 이전 샷은 아래 '최근 저장된 샷' 목록에 있음)
   var todayBayCnt = (S.shotEvents||[]).filter(function(s){ return s.bayId===bay.id && String(s.ts).slice(0,10)===today(); }).length;

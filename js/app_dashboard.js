@@ -1256,6 +1256,7 @@ function renderPerformance(){
       vidHtml='<div class="pv-vm-novid"><div class="pv-vplay" style="width:54px;height:54px;font-size:18px">▶</div><div class="pv-vm-novid-t">영상 없음</div></div>';
     }
     html+='<div class="pv-vm on" onclick="if(event.target===this)closePerfShot()">'
+      +'<button class="vv-close-top" onclick="closePerfShot()">✕ 닫기</button>'
       +'<div class="pv-vm-box">'
         +'<div class="pv-vm-vid">'+vidHtml+'</div>'
         +'<div class="pv-vm-info">'
