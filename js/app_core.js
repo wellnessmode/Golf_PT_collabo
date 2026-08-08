@@ -80,9 +80,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.66',
-  date:'2026-08-07',
+  version:'v9.67',
+  date:'2026-08-08',
   changes:[
+    '새 버전 자동 감지 — 앱이 10분마다(그리고 앱으로 돌아올 때마다) 새 버전이 나왔는지 확인해 하단에 "🔄 탭하면 업데이트" 배너 표시. 아이폰 홈화면 앱이 며칠씩 옛 버전(v9.52)에 머물던 문제의 근본 해결',
+    '배포 정체 우회 — 깃허브 페이지즈 장애로 33시간 막혀 있던 배포 대기열을 새 큐로 우회 (static.yml concurrency 그룹 교체)',
     '리포트에서 샷 삭제 — 다른 회원의 영상이 실수로 잘못 저장된 경우, 성과 리포트의 샷 상세에서 [🗑 이 샷 삭제]로 프로·트레이너·관리자가 영상(모든 앵글)·측정 기록을 완전히 제거 (감사 로그 기록)',
     '인트로 사진 탭으로 스킵 — 가만 있으면 0.5초마다 자동으로 넘어가고, 화면을 탭하면 즉시 다음 사진으로 (마지막 장에서 탭하면 바로 로그인)',
     '앱 실행 인트로 3배 빨라짐 — 랜딩 사진 몬타주가 장당 1.5초 → 0.5초로 넘어가고 마지막 장 대기도 3초 → 1초 (실행 후 로그인까지 확 짧아짐)',
@@ -1132,6 +1134,36 @@ async function reloadApp(){
   }
 }
 function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(msg,'ok'); }catch(e){} }
+
+// ============ 새 버전 감지 → 업데이트 배너 ============
+// iOS PWA 는 며칠씩 리로드 없이 살아남아 배포가 나가도 옛 버전이 계속 뜬다(v9.52 사건).
+// version.json 을 주기적으로(10분 + 앱 복귀 시) 확인해 새 버전이면 하단 배너를 띄우고,
+// 탭하면 새로고침. 판별은 문자열 불일치가 아니라 숫자 비교 — 배포가 밀려 옛 버전이
+// 내려오는 동안(페이지즈 장애 등) 엉뚱한 "다운그레이드 배너"가 뜨지 않게.
+function _verNum(v){ var m=/^v?(\d+)\.(\d+)/.exec(String(v||'')); return m ? (+m[1])*1000+(+m[2]) : 0; }
+async function checkAppUpdate(){
+  try{
+    var r=await fetch('version.json?_='+Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    var j=await r.json();
+    var nv=j&&j.version;
+    if(!nv || _verNum(nv)<=_verNum(APP_VERSION.version)) return;
+    // 새 서비스워커도 미리 받아두기 — 배너 탭 한 번으로 완전히 새 버전
+    try{ if(navigator.serviceWorker){ var reg=await navigator.serviceWorker.getRegistration(); if(reg) reg.update(); } }catch(e){}
+    var b=document.getElementById('upd-banner');
+    if(!b){
+      b=document.createElement('div'); b.id='upd-banner';
+      b.onclick=function(){ b.textContent='업데이트 중...'; location.reload(); };
+      document.body.appendChild(b);
+    }
+    b.innerHTML='🔄 새 버전 '+nv+' — <b>탭하면 업데이트</b> <span>(현재 '+APP_VERSION.version+')</span>';
+  }catch(e){}
+}
+try{
+  setInterval(checkAppUpdate, 10*60000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(checkAppUpdate, 1500); });
+  setTimeout(checkAppUpdate, 8000);
+}catch(e){}
 
 async function refreshFromCloud(){
   if(!cloud.enabled) return;S.cloudSync='loading';render();

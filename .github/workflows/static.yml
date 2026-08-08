@@ -10,9 +10,12 @@ permissions:
   pages: write
   id-token: write
 
+# 그룹명을 pages → pages-v2 로 변경 (2026-08-08): 페이지즈 장애로 run #286이
+# "pages" 그룹의 자리를 33시간째 점유해 후속 배포가 전부 막혔음. 새 그룹으로
+# 우회해 신규 푸시가 즉시 배포되게 한다. cancel-in-progress 로 오래된 대기 run 정리.
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "pages-v2"
+  cancel-in-progress: true
 
 jobs:
   deploy:
