@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.68',
+  version:'v9.69',
   date:'2026-08-08',
   changes:[
+    '수업 녹음 중엔 업데이트 배너 숨김 — 녹음·받아쓰기 진행 중 배너를 탭해 새로고침하면 녹음이 끊기므로, 녹음 중엔 배너가 아예 안 뜨고 녹음 종료 후 다시 나타남',
     '샷 영상 화면 상단 [✕ 닫기] — 세로 영상에서 닫기가 화면 아래로 밀려 스크롤해야 하던 문제. 영상 높이도 조절해 배속·닫기까지 한 화면에 들어오게 (라이브·리포트 모두)',
     '타석 카드 이름 옆 [⏹ 종료] — 레슨 진행 중 카드 맨 아래까지 내리지 않고 회원 이름 줄에서 바로 세션 종료',
     '새 버전 자동 감지 — 앱이 10분마다(그리고 앱으로 돌아올 때마다) 새 버전이 나왔는지 확인해 하단에 "🔄 탭하면 업데이트" 배너 표시. 아이폰 홈화면 앱이 며칠씩 옛 버전(v9.52)에 머물던 문제의 근본 해결',
@@ -1143,8 +1144,15 @@ function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(ms
 // 탭하면 새로고침. 판별은 문자열 불일치가 아니라 숫자 비교 — 배포가 밀려 옛 버전이
 // 내려오는 동안(페이지즈 장애 등) 엉뚱한 "다운그레이드 배너"가 뜨지 않게.
 function _verNum(v){ var m=/^v?(\d+)\.(\d+)/.exec(String(v||'')); return m ? (+m[1])*1000+(+m[2]) : 0; }
+// 수업 녹음·받아쓰기 중인지 — 이때 배너를 탭해 새로고침하면 진행 중 녹음이 끊기므로 배너 금지
+function _updBlocked(){
+  try{ if(typeof _rec!=='undefined' && _rec.bayId) return true; }catch(e){}
+  try{ if(S && S.voiceBay) return true; }catch(e){}
+  return false;
+}
 async function checkAppUpdate(){
   try{
+    if(_updBlocked()){ var eb=document.getElementById('upd-banner'); if(eb) eb.remove(); return; }
     var r=await fetch('version.json?_='+Date.now(), {cache:'no-store'});
     if(!r.ok) return;
     var j=await r.json();
