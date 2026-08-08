@@ -978,6 +978,7 @@ function startVoice(bayId){
     rec.onend=function(){ if(S.voiceBay===bayId && _voiceRec===rec){ try{ rec.start(); }catch(e){ S.voiceBay=null; render(); } } };
     rec.start();
     _voiceRec = rec; S.voiceBay = bayId;
+    try{ var ub=document.getElementById('upd-banner'); if(ub) ub.remove(); }catch(e){}   // 녹음 중 업데이트 배너 숨김
     render();
   }catch(e){ console.warn('[voice] start fail:', e); liveToast('받아쓰기 시작 실패','err'); S.voiceBay=null; render(); }
 }
@@ -985,6 +986,7 @@ function stopVoice(bayId){
   S.voiceBay = null;
   if(_voiceRec){ try{ _voiceRec.onend=null; _voiceRec.stop(); }catch(e){} _voiceRec=null; }
   save(); render();
+  try{ setTimeout(function(){ if(typeof checkAppUpdate==='function') checkAppUpdate(); }, 5000); }catch(e){}   // 녹음 끝 → 밀린 업데이트 배너 재표시
 }
 function updateVoicePreview(bayId, interim){
   var a=S.activeSessions[bayId]; if(!a) return;
@@ -1155,6 +1157,7 @@ async function startBayRec(bayId){
     var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
     // txBase = 녹음 시작 전 이미 있던 메모, tx = 이번 녹음으로 쌓이는 텍스트(자체 버퍼)
     _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0, txBase:(act._transcript||'').trim(), tx:''};
+    try{ var ub=document.getElementById('upd-banner'); if(ub) ub.remove(); }catch(e){}   // 녹음 중 업데이트 배너 숨김
     try{ if(navigator.wakeLock) _rec.wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
     _startSegment();
     _rec.uiTimer=setInterval(_recUpdateUI, 1000);   // 초시계·텍스트만 갱신(render X)
@@ -1177,6 +1180,7 @@ async function stopBayRec(bayId){
   try{ _rec.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
   _rec.bayId=null; _rec.mr=null; _rec.stream=null;
   render();
+  try{ setTimeout(function(){ if(typeof checkAppUpdate==='function') checkAppUpdate(); }, 5000); }catch(e){}   // 녹음 끝 → 밀린 업데이트 배너 재표시
 }
 async function sttTranscribe(blob){
   if(!r2.enabled) throw new Error('worker 미설정');
