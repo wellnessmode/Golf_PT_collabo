@@ -1716,6 +1716,9 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .ai-item{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:8px;font-size:12.5px;line-height:1.5;color:#3a4a5c;cursor:pointer}
 .ai-item.on{background:#fff;color:#173a5e;font-weight:600;box-shadow:0 1px 2px rgba(23,58,94,.08)}
 .ai-item input{margin-top:2px;flex-shrink:0;accent-color:#0d6f4a}
+.dash-live-btn{display:block;width:100%;box-sizing:border-box;margin:0 0 14px;padding:16px 18px;background:linear-gradient(135deg,#0d6f4a,#00915f);color:#fff;border:none;border-radius:14px;font-size:15.5px;font-weight:800;text-align:left;cursor:pointer;box-shadow:0 4px 14px rgba(13,111,74,.25)}
+.dash-live-btn small{display:block;font-size:11.5px;font-weight:600;opacity:.85;margin-top:3px}
+.dash-live-btn:active{transform:scale(.985)}
 #upd-banner{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:99999;background:#0d6f4a;color:#fff;font-size:13.5px;font-weight:700;text-align:center;padding:13px 16px;border-radius:12px;box-shadow:0 6px 22px rgba(13,111,74,.45);cursor:pointer;animation:updIn .35s ease-out}
 #upd-banner span{font-size:11px;font-weight:600;opacity:.8}
 @keyframes updIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
