@@ -1267,14 +1267,23 @@ async function aiSummarizeWithClaude(transcript, author){
       +(isPro
         ? '골프 스윙 도메인 지식으로 용어를 바로잡아라(예: 샬로잉/코킹/힌징/라그/온플레인/히프턴/체중이동/임팩트/릴리스/페이스앵글/어택앵글 등).\n'
         : '골프 피지컬·기능성 트레이닝 지식으로 용어를 바로잡아라(가동성/안정성/코어/회전/체중이동/유연성/근력).\n')
+      +'\n[화자 구분 — 매우 중요]\n'
+      +'녹음은 마이크 하나로 녹음되어 화자 표시가 없다. 대부분은 지도자('+roleLabel+')의 발화이고, 회원 발화는 짧은 대답·질문 위주다.\n'
+      +'- 누가 말했는지 불확실한 문장을 회원의 상태·컨디션으로 단정하지 마라. (실제 사고 예: 지도자가 자기 라운드 얘기로 "골프 쳤는데 더웠다"고 한 것을 회원 컨디션 저하로 기록하고 "체력 보강"을 처방함 — 이런 오류 절대 금지)\n'
+      +'- 레슨 지도와 무관한 사담·잡담(날씨, 라운드 후기, 식사, 근황)은 일지에 넣지 않는다.\n'
+      +'- 지도자가 명시적으로 말하지 않은 처방·권고·과제를 만들어내지 마라.\n'
+      +'- 회원 관련 특이사항(통증·요청 등)은 회원이 말한 것이 문맥상 분명할 때만 기록한다.\n'
       +'\n다음 마크다운 형식을 반드시 지켜 출력한다(빈 섹션은 생략):\n'
-      +'## 📋 오늘의 핵심\n2~3문장으로 이번 레슨의 주제·결론.\n\n'
+      +'## 📋 오늘의 핵심\n1~2문장으로 이번 레슨의 주제·결론.\n\n'
       +'## 🎯 교정 포인트\n- **[부위/동작]** 문제점 → 교정 방법 (실제 언급된 것만, 각 1줄)\n\n'
       +'## 🏌️ 드릴·연습\n- **[드릴명]** 방법/횟수/의도\n\n'
       +'## 📈 트랙맨·수치 (원문에 언급 시)\n- 클럽/캐리/구질 등 실제 말한 수치만\n\n'
       +'## 📝 다음 과제\n- 회원이 집/다음까지 할 것\n\n'
-      +'## 💬 특이사항\n- 통증·컨디션·멘탈·요청 등\n\n'
-      +'규칙: (1) 원문에 없는 내용 금지 (2) 애매하면 넣지 말고 생략 (3) 실제 말한 교정/드릴은 빠뜨리지 말 것 (4) 확률·추측 표현("~인 것 같습니다") 금지 (5) 코치가 회원에게 지시한 핵심은 최대한 보존.';
+      +'## 💬 특이사항\n- 통증·컨디션·멘탈·요청 등 (화자가 회원임이 분명한 것만)\n\n'
+      +'[항목 수·핵심 표시]\n'
+      +'- 불릿은 전체 합쳐 최대 8개, 각 1줄. 사소한 것은 과감히 생략.\n'
+      +'- 전체 불릿 중 이번 레슨에서 가장 중요한 2~3개 앞에 [핵심] 을 붙여라. 예: - [핵심] **[백스윙]** ... ([핵심]은 반드시 2~3개, 일지에는 이것만 기본으로 실린다)\n'
+      +'\n규칙: (1) 원문에 없는 내용 금지 (2) 애매하면 넣지 말고 생략 (3) 실제 말한 교정/드릴은 빠뜨리지 말 것 (4) 확률·추측 표현("~인 것 같습니다") 금지 (5) 코치가 회원에게 지시한 핵심은 최대한 보존.';
     var payload={
       model:cfg.ANTHROPIC_MODEL||'claude-haiku-4-5',
       max_tokens:maxTok,
@@ -1354,6 +1363,54 @@ function structureTranscript(transcript, author){
   }catch(e){}
   return '[레슨 녹음 메모'+(tags.length?' · '+tags.slice(0,4).join('·'):'')+' — AI 정리 대기]\n'+bullets.join('\n');
 }
+// ---------- AI 정리 항목 분해/조립 — 핵심 2~3개만 일지에, 나머지는 체크로 추가 ----------
+// AI 출력(섹션별 마크다운)을 항목 리스트로 분해. [핵심] 표시된 항목이 기본 선택.
+function aiParseSummary(md){
+  var lines=String(md||'').split('\n');
+  var items=[], head=[], curTag='', inHead=false;
+  lines.forEach(function(ln){
+    var t=ln.trim();
+    var h=/^##\s*(.+)$/.exec(t);
+    if(h){ curTag=(h[1].match(/^\S+/)||[''])[0]; inHead=h[1].indexOf('오늘의 핵심')!==-1; return; }
+    if(/^[-•]\s+/.test(t)){
+      var body=t.replace(/^[-•]\s+/,'');
+      var core=body.indexOf('[핵심]')!==-1;
+      body=body.replace(/\[핵심\]\s*/g,'').trim();
+      if(body) items.push({t:body, tag:(inHead?'':curTag), on:core});
+      return;
+    }
+    if(inHead && t) head.push(t);
+  });
+  // AI가 [핵심]을 안 붙였으면 앞 3개를 기본 선택 (핵심 없는 일지 방지)
+  if(items.length && !items.some(function(i){return i.on;})) items.slice(0,3).forEach(function(i){i.on=true;});
+  return { head:head.join(' ').trim(), items:items };
+}
+// 선택된 항목들로 일지 본문 구성
+function aiBuildContent(head, items){
+  var out='## 📋 오늘의 핵심\n'+(head||'').trim();
+  var sel=(items||[]).filter(function(i){return i.on;});
+  if(sel.length) out+='\n\n'+sel.map(function(i){return '- '+(i.tag&&i.tag!=='📋'?i.tag+' ':'')+i.t;}).join('\n');
+  return out;
+}
+// AI 결과(원문 md)를 newSession 에 반영 — 핵심만 본문에, 전체 항목은 체크 리스트로
+function aiApplyToForm(ns, md){
+  var pr=aiParseSummary(md);
+  if(!pr.items.length && !pr.head){ ns._aiBuilt=md; ns._aiHead=null; ns._aiItems=null; return md; }  // 형식 밖 출력은 그대로 사용
+  ns._aiHead=pr.head; ns._aiItems=pr.items;
+  ns._aiBuilt=aiBuildContent(pr.head, pr.items);
+  return ns._aiBuilt;
+}
+// 항목 체크 토글 (일지 작성 폼)
+function toggleAiItem(idx){
+  var ns=S.newSession; if(!ns||!ns._aiItems||!ns._aiItems[idx]) return;
+  var untouched = ns.content === (ns._aiBuilt||'') + (ns._tmSummary||'');
+  if(!untouched && !confirm('일지 내용을 직접 수정하셨습니다.\n항목 선택을 바꾸면 본문이 AI 정리(선택 항목 기준)로 다시 채워집니다.\n계속할까요?')) { render(); return; }
+  ns._aiItems[idx].on=!ns._aiItems[idx].on;
+  ns._aiBuilt=aiBuildContent(ns._aiHead, ns._aiItems);
+  ns.content=ns._aiBuilt+(ns._tmSummary||'');
+  render();
+}
+
 // 종료 시: 구조화 + 트랙맨 요약 → 기존 세션카드 모달에 프리필 (트레이너 검토 후 저장)
 function openVoiceDraft(memberId, author, transcript){
   var m=S.members.find(function(x){return x.id===memberId;});
@@ -1393,12 +1450,12 @@ function openVoiceDraft(memberId, author, transcript){
       if(S.newSession!==ns) return;   // 다른 회원 폼으로 교체됨 → 이 결과는 폐기
       if(better && S.showAddSession){
         if(ns.content===prefill){
-          // 사용자가 아직 손 안 댐 → AI 정리로 교체
-          ns.content = better + summary;
-          try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
+          // 사용자가 아직 손 안 댐 → 핵심만 본문에, 전체 항목은 체크 리스트로
+          ns.content = aiApplyToForm(ns, better) + summary;
+          try{ liveToast('🤖 AI 정리 완료 — 핵심만 담았어요, 항목 체크로 추가 가능','ok'); }catch(e){}
         } else {
           // 사용자가 수정 중 → 덮어쓰지 않고 보관, 버튼으로 교체 가능
-          ns._aiAlt = better + summary;
+          ns._aiAlt = aiApplyToForm(ns, better) + summary;
           try{ liveToast('🤖 AI 정리 완료 — 수정 중이어서 자동 반영 안 함 (버튼으로 교체 가능)','ok'); }catch(e){}
         }
       } else if(!better){
@@ -1433,9 +1490,9 @@ function retryAiSummarize(){
     }
     if(S.newSession!==ns) return;
     if(better){
-      ns.content = better + (ns._tmSummary||'');
+      ns.content = aiApplyToForm(ns, better) + (ns._tmSummary||'');
       ns._aiAlt=null;
-      try{ liveToast('🤖 AI 정리 완료 — 검토 후 저장','ok'); }catch(e){}
+      try{ liveToast('🤖 AI 정리 완료 — 핵심만 담았어요, 항목 체크로 추가 가능','ok'); }catch(e){}
     } else {
       ns._aiFailed=true;
       ns._aiFailReason=window.__aiLastError||'';
