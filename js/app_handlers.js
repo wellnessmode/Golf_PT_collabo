@@ -1087,7 +1087,15 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
   var arr = S.sessions[mid]||[]; var s = arr.find(function(x){return x.id===sessId;});
   if(!s || !better) return false;
   if(String(s.content||'').indexOf('AI 정리 대기')===-1) return false;   // 그 사이 정리됨/사람이 수정 → 건드리지 않음
-  s.content = better + (tmSummary||'');
+  // 저장된 일지에는 핵심 항목만 (폼과 동일 정책 — 전체는 녹음 원문으로 확인 가능)
+  var bt=better;
+  try{
+    if(typeof aiParseSummary==='function'){
+      var pr=aiParseSummary(better);
+      if(pr.items.length||pr.head) bt=aiBuildContent(pr.head, pr.items);
+    }
+  }catch(e){}
+  s.content = bt + (tmSummary||'');
   try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
   if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
   try{ render(); }catch(e){}
