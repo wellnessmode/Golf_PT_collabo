@@ -124,8 +124,9 @@ function saveEditSession(){
 // ============ 대시보드 ============
 function openDashboard(){S.showDashboard=true;S.showLiveSession=false;S.selectedMember=null;render();}
 function closeDashboard(){S.showDashboard=false;render();}
+// 홈 대시보드 — 회원을 선택하지 않은 기본 화면 (로그인 착지점).
+// 예전엔 담당 첫 회원이 자동 선택돼 "첫 화면이 맨날 로버트" 였음.
 function renderDashboard(){
-  if(!S.showDashboard) return '';
   var isInfo = S.currentRole==='infodesk'||S.currentRole==='admin';
   var visibleMembers = S.members.filter(function(m){
     if(isInfo) return true;
@@ -136,6 +137,8 @@ function renderDashboard(){
   var proSessions = 0;
   var trainerSessions = 0;
   var thisMonthSessions = 0;
+  var todaySessions = 0;
+  var todayStr = today();
   var thisMonth = today().slice(0,7);
   var expiringMembers = [];
   var recentActivity = [];
@@ -146,6 +149,7 @@ function renderDashboard(){
       if(getRole(s.author)==='pro') proSessions++;
       else trainerSessions++;
       if(s.date.slice(0,7)===thisMonth) thisMonthSessions++;
+      if(s.date===todayStr) todaySessions++;
       recentActivity.push({member:m.name, date:s.date, time:s.time||'', author:s.author, content:s.content, id:s.id, _addedAt:s._addedAt});
     });
     // 레슨/PT 각각 만료 임박 체크
@@ -183,18 +187,20 @@ function renderDashboard(){
     return {name:m.name, id:m.id, total:sess.length, lessonPct:lessonPct, ptPct:ptPct, pro:st.pro, trainer:st.trainer, lessonTotal:lessonTotal, ptTotal:ptTotal};
   }).sort(function(a,b){return b.total-a.total;});
 
+  var isStaff = S.currentRole==='pro'||S.currentRole==='trainer';
+  var todayLabel = (function(){ var d=new Date(); return (d.getMonth()+1)+'월 '+d.getDate()+'일 '+['일','월','화','수','목','금','토'][d.getDay()]+'요일'; })();
   return `
   <div class="dashboard">
     <div class="dash-header">
-      <h2>대시보드</h2>
-      <span class="dash-ver">${APP_VERSION.version} · ${APP_VERSION.date}</span>
-      <button class="btn" onclick="closeDashboard()">닫기</button>
+      <h2>${isStaff?('안녕하세요, '+S.currentUser+'님 👋'):'대시보드'}</h2>
+      <span class="dash-ver">${todayLabel} · ${APP_VERSION.version}</span>
     </div>
+    ${S.currentRole!=='infodesk'?'<button class="dash-live-btn" onclick="openLiveSession()">🏌️ 수업 센터 <small>타석 레슨 시작 · 트랙맨 샷 자동 저장</small></button>':''}
     <div class="dash-stats">
+      <div class="dash-stat"><div class="ds-val green">${todaySessions}</div><div class="ds-lbl">오늘 세션</div></div>
+      <div class="dash-stat"><div class="ds-val blue">${thisMonthSessions}</div><div class="ds-lbl">이번 달</div></div>
       <div class="dash-stat"><div class="ds-val">${totalMembers}</div><div class="ds-lbl">회원</div></div>
       <div class="dash-stat"><div class="ds-val">${totalSessions}</div><div class="ds-lbl">총 세션</div></div>
-      <div class="dash-stat"><div class="ds-val blue">${thisMonthSessions}</div><div class="ds-lbl">이번 달</div></div>
-      <div class="dash-stat"><div class="ds-val green">${proSessions}</div><div class="ds-lbl">프로 세션</div></div>
       <div class="dash-stat"><div class="ds-val amber">${trainerSessions}</div><div class="ds-lbl">PT 세션</div></div>
     </div>
     <div class="dash-grid">

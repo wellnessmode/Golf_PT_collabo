@@ -398,7 +398,7 @@ function _render(){
       </div>
     </div>
     ` : `
-    ${S.showDashboard ? renderDashboard() : `<div class="no-member"><div class="no-member-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:14px;font-weight:600;color:var(--tx-3)">회원을 선택하세요</div><div style="font-size:12px;color:var(--tx-3)">좌측에서 회원을 클릭하거나 새 회원을 등록하세요</div></div>`}`)}
+    ${renderDashboard()}`)}
   </div>
 
   ${S.showAddSession ? `
