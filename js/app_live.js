@@ -537,21 +537,25 @@ function purgeStaleUnassigned(){
 var _vidRetentionDone = false;
 function purgeOldShotVideos(){
   if(_vidRetentionDone) return;                     // 세션당 1회
-  if(S.currentRole!=='admin') return;               // 관리자 기기에서만 (다기기 경합 방지)
+  // 프로·트레이너·관리자 기기 모두 실행 — 관리자 전용이던 시절엔 관리자가 수업 센터를
+  // 안 열면 미보관 영상이 무한 누적돼 R2 요금이 계속 나왔음(2026-08 청구서 135GB).
+  // R2 삭제는 멱등이라 여러 기기가 겹쳐 실행해도 안전. 호출 시점은 loadLive 직후(최신 _kept 반영).
+  if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
   _vidRetentionDone = true;
   var days = (window.APP_CONFIG && APP_CONFIG.SHOT_VIDEO_KEEP_DAYS) || 3;
   var cutoff = Date.now() - days*24*3600*1000;
   var targets = (S.shotEvents||[]).filter(function(s){
     if(s.data && s.data._kept) return false;                                   // 선별 저장 샷 보호
-    if(!(s.videoR2Key || (s.data && s.data.videoMp4R2Key))) return false;      // 영상 없는 샷
+    var d = s.data||{};
+    if(!(s.videoR2Key || d.videoMp4R2Key || d.videoDL || d.videoFO || d.videoClub)) return false;   // 영상 없는 샷
     var t = Date.parse(s.ts);
     return !isNaN(t) && t < cutoff;
   });
   if(!targets.length) return;
   targets.forEach(function(s){
-    r2RemoveShotVideos(s);                          // R2 삭제 (키 지우기 전에!)
+    r2RemoveShotVideos(s);                          // R2 삭제 (키 지우기 전에!) — 전 앵글 포함
     s.videoR2Key = null;
-    if(s.data) delete s.data.videoMp4R2Key;
+    if(s.data){ delete s.data.videoMp4R2Key; delete s.data.videoDL; delete s.data.videoFO; delete s.data.videoClub; }
     try{ cloud.clearShotVideo(s); }catch(e){}       // 다른 기기에도 "영상 없음" 전파
   });
   try{ save(); }catch(e){}
