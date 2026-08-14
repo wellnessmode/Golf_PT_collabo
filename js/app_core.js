@@ -80,9 +80,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.72',
+  version:'v9.73',
   date:'2026-08-11',
   changes:[
+    '녹음 전문 유실 근본 수리 — 받아쓴 전문을 세그먼트마다 서버(R2)에 백업하고, 종료 시 전문이 비어 있으면 서버 백업에서 자동 복구. 다른 기기·자동 종료로 세션이 사라져도 이 기기에 남은 전문을 일지 초안으로 살려냄 (김현수님 50분 레슨 유실 사고 재발 방지)',
+    '음성 변환이 끝나기 전엔 업데이트 배너를 띄우지 않음 — 녹음 종료 직후 변환 대기 중 배너를 탭해 새로고침하면 마지막 조각이 날아가던 위험 차단',
     'R2 저장비 원인 수리 — 3일 지난 미보관 샷 영상 자동 정리가 관리자 기기에서만 돌던 것을 프로·트레이너 기기(매일 수업 센터 사용)로 확대. 정면·클럽 앵글만 있는 샷도 정리 대상에 포함 (월 $2 청구의 재발 방지)',
     '로그인 첫 화면 = 홈 대시보드 — 인트로 지나면 인사말·오늘/이번달 세션·수업 센터 바로가기·만료 임박·최근 활동이 보이는 홈으로. 예전처럼 담당 첫 회원(로버트)이 자동으로 열리지 않음',
     'AI 일지가 핵심 2~3개만 담음 — 정리 내용이 너무 길던 문제. AI가 [핵심] 2~3개를 골라 일지에 싣고, 나머지 항목은 체크 리스트로 보여줘 프로·트레이너가 골라서 추가 (저장 후 백그라운드 정리도 동일)',
@@ -595,6 +597,37 @@ function bayMode(bayId, act){
 function applyRemoteActive(remoteActive){
   var prev = S.activeSessions || {};
   var next = remoteActive || {};
+  // 지난번에 못 연 복구 대기 전문이 있으면 재시도 (일지 작성이 끝난 뒤 폴링에서)
+  if(S._lostTx && S._lostTx.length && !S.showAddSession){
+    var _it=S._lostTx[0];
+    try{
+      if(typeof openVoiceDraft==='function' && openVoiceDraft(_it.memberId, _it.author, _it.tx)){
+        S._lostTx.shift(); try{ save(); }catch(e){}
+        liveToastSafe('🎙 대기 중이던 녹음 전문을 복구했어요 — 일지를 저장하세요');
+      }
+    }catch(e){}
+  }
+  // 다른 기기에서 세션이 종료돼 서버 목록에서 사라졌는데 이 기기에 받아쓴 전문이
+  // 남아 있으면 — 조용히 버리지 않고 일지 초안으로 복구한다.
+  // (2026-08-11 김현수 50분 레슨 유실 사고: 종료가 다른 경로로 일어나며 폴링이
+  //  로컬 세션 객체를 통째로 버려 전문이 증발했음)
+  Object.keys(prev).forEach(function(b){
+    if(next[b]) return;
+    var p = prev[b];
+    var tx = p && String(p._transcript||'').trim();
+    if(!tx || p.author!==S.currentUser) return;
+    if(typeof _rec!=='undefined' && _rec.bayId===b) return;   // 이 기기에서 녹음 중이면 폴링 잡음 — 건드리지 않음
+    try{
+      if(typeof openVoiceDraft==='function' && !S.showAddSession && openVoiceDraft(p.memberId, p.author, tx)){
+        liveToastSafe('🎙 다른 곳에서 종료된 세션의 녹음 전문을 복구했어요 — 일지를 저장하세요');
+      } else {
+        // 일지 작성 중 등으로 지금 못 열면 보관함에 쌓아두고 폴링에서 재시도
+        S._lostTx = S._lostTx || [];
+        S._lostTx.push({ memberId:p.memberId, author:p.author, tx:tx, at:new Date().toISOString() });
+        try{ save(); }catch(e){}
+      }
+    }catch(e){}
+  });
   Object.keys(next).forEach(function(b){
     var n = next[b], p = prev[b];
     if(p && p.memberId === n.memberId){
@@ -777,10 +810,10 @@ function initials(name){if(!name) return '?';const p=name.trim().split(/\s+/);if
 function save(){
   if(S.activityLog&&S.activityLog.length>50) S.activityLog=S.activityLog.slice(-50);
   if(S.auditLog&&S.auditLog.length>100) S.auditLog=S.auditLog.slice(-100);
-  try{var data={members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds,_dirtyAssess:S._dirtyAssess,_draftSession:(S.showAddSession?S.newSession:null),_draftMember:S.selectedMember};var _isAdm=(S.currentRole==='admin');var str=JSON.stringify(data,function(k,v){if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;if((k==='rawTranscript'||k==='supplement')&&!_isAdm) return undefined;return v;});localStorage.setItem('golf_pt_v2',str);return true;}catch(e){try{S.activityLog=[];S.auditLog=S.auditLog?S.auditLog.slice(-20):[];S.handovers={};localStorage.setItem('golf_pt_v2',JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds}));return true;}catch(e2){console.warn('[save] localStorage full');return false;}}
+  try{var data={members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds,_dirtyAssess:S._dirtyAssess,_draftSession:(S.showAddSession?S.newSession:null),_draftMember:S.selectedMember,_lostTx:S._lostTx||[]};var _isAdm=(S.currentRole==='admin');var str=JSON.stringify(data,function(k,v){if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;if((k==='rawTranscript'||k==='supplement')&&!_isAdm) return undefined;return v;});localStorage.setItem('golf_pt_v2',str);return true;}catch(e){try{S.activityLog=[];S.auditLog=S.auditLog?S.auditLog.slice(-20):[];S.handovers={};localStorage.setItem('golf_pt_v2',JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds}));return true;}catch(e2){console.warn('[save] localStorage full');return false;}}
 }
 function estimateStorageSize(){try{return JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,lastSeen:S.lastSeen}).length;}catch(e){return 0;}}
-function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=CONFIG_BAYS_SET?BAYS_DEFAULT.slice():((p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice());S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};S.deletedMemberIds=p.deletedMemberIds||{};S._dirtyAssess=p._dirtyAssess||{};S._draftSession=p._draftSession||null;S._draftMember=p._draftMember||null;}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();}
+function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=CONFIG_BAYS_SET?BAYS_DEFAULT.slice():((p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice());S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};S.deletedMemberIds=p.deletedMemberIds||{};S._dirtyAssess=p._dirtyAssess||{};S._draftSession=p._draftSession||null;S._draftMember=p._draftMember||null;S._lostTx=p._lostTx||[];}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();}
 function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}
   // 세션 복원(리로드/재개)도 로그인 상태 → 자동 업데이트가 계속 동작하도록 플래그 세팅
   if(S.currentRole){ try{window.__authed=true;}catch(e){} }}
@@ -1152,8 +1185,9 @@ function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(ms
 function _verNum(v){ var m=/^v?(\d+)\.(\d+)/.exec(String(v||'')); return m ? (+m[1])*1000+(+m[2]) : 0; }
 // 수업 녹음·받아쓰기 중인지 — 이때 배너를 탭해 새로고침하면 진행 중 녹음이 끊기므로 배너 금지
 function _updBlocked(){
-  try{ if(typeof _rec!=='undefined' && _rec.bayId) return true; }catch(e){}
+  try{ if(typeof _rec!=='undefined' && (_rec.bayId || _rec.pendingStt>0)) return true; }catch(e){}   // 녹음 중 + 종료 후 변환 대기 중
   try{ if(S && S.voiceBay) return true; }catch(e){}
+  try{ if(S && S.activeSessions && Object.keys(S.activeSessions).some(function(b){ var a=S.activeSessions[b]; return a && a._sttBusy; })) return true; }catch(e){}   // "마지막 조각 변환 중"
   return false;
 }
 async function checkAppUpdate(){
