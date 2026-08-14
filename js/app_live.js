@@ -498,11 +498,18 @@ function autoEndStaleSessions(remoteActive){
   Object.keys(src).forEach(function(bayId){
     var act = src[bayId];
     if(act && isStaleSession(act)){
+      // 로컬에 받아쓴 전문이 남아 있으면 버리지 않고 일지 초안으로 (유실 방지)
+      var local = S.activeSessions && S.activeSessions[bayId];
+      var tx = local && (local._transcript||'').trim();
+      var mid = (local||act).memberId, author=(local||act).author;
       delete src[bayId];
       if(S.activeSessions) delete S.activeSessions[bayId];
       try{ cloud.endActiveSession(bayId); }catch(e){}
       try{ logAudit('session','방치 세션 자동종료', act.memberName||'', {bay:bayId, startedAt:act.startedAt}); }catch(e){}
       console.warn('[live] 방치 세션 자동종료:', bayId, act.memberName, act.startedAt);
+      if(tx && author===S.currentUser){
+        try{ if(openVoiceDraft(mid, author, tx)) liveToastSafe('🎙 어제 세션의 녹음 전문을 일지 초안으로 복구했어요'); }catch(e){}
+      }
     }
   });
 }
@@ -807,6 +814,7 @@ function autoEndOverdueSessions(){
     if(act._sttBusy && act._sttBusyAt && Date.now()-act._sttBusyAt<90000) return;   // 음성 변환 중(90초 이내)이면 보류 — 오래 걸린 건 걸린 것이므로 진행
     var transcript=(act._transcript||'').trim();
     var memberId=act.memberId, author=act.author, memberName=act.memberName, bayName=getBay(bayId).name;
+    var _bkAct={ startedAt: act.startedAt };
     if(S.voiceBay===bayId){ try{ stopVoice(bayId); }catch(e){} }
     delete S.activeSessions[bayId];
     try{ cloud.endActiveSession(bayId); }catch(e){}
@@ -814,8 +822,16 @@ function autoEndOverdueSessions(){
     logAudit('session','세션 자동 종료('+hours+'시간 초과)', memberName, {bay:bayName, author:author});
     ended.push(bayName+' · '+memberName+'님');
     // 담당자 본인 기기 + 받아쓴 내용 있음 → 일지 초안으로 복구 (조용히 버리지 않음)
-    if(transcript && author===S.currentUser){
-      try{ openVoiceDraft(memberId, author, transcript); }catch(e){}
+    if(author===S.currentUser){
+      if(transcript){
+        try{ openVoiceDraft(memberId, author, transcript); }catch(e){}
+      } else {
+        // 이 기기에 전문이 없으면(다른 기기에서 녹음 등) 서버 백업에서 복구
+        _fetchTranscriptBackup(bayId, _bkAct).then(function(bk){
+          if(!bk) return;
+          try{ if(openVoiceDraft(memberId, author, bk)){ liveToastSafe('🎙 서버 백업에서 녹음 전문을 복구했어요 — 일지를 저장하세요'); render(); } }catch(e){}
+        });
+      }
     }
   });
   if(ended.length){
@@ -826,7 +842,7 @@ function autoEndOverdueSessions(){
 }
 
 // ============ 세션 종료 (수동) ============
-function endLiveSession(bayId){
+async function endLiveSession(bayId){
   var act = S.activeSessions[bayId]; if(!act) return;
   if(typeof _rec!=='undefined' && _rec.bayId===bayId){ liveToast('🎙 녹음 [종료·글변환]을 먼저 눌러주세요','err'); return; }
   if(act._sttBusy){
@@ -842,6 +858,7 @@ function endLiveSession(bayId){
     + (pendCnt ? '\n\n💡 비포/애프터 지정은 종료 전에만 가능해요 — [전체 샷 ⏮]에서 처음 친 샷도 지정할 수 있습니다 (미저장 샷 '+pendCnt+'개)' : '');
   if(!confirm(msg)) return;
   var transcript = act._transcript||'', memberId = act.memberId, author = act.author;
+  var _bkAct = { startedAt: act.startedAt };   // 서버 백업 키 계산용 (삭제 전에 캡처)
   if(S.voiceBay===bayId) stopVoice(bayId);
   delete S.activeSessions[bayId];
   try{ if(S._psShowAll) delete S._psShowAll[bayId]; }catch(e){}   // 전체 샷 보기 토글 초기화
@@ -849,6 +866,13 @@ function endLiveSession(bayId){
   logActivity('라이브 세션 종료', memberId, bay.name);
   logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
   cloud.endActiveSession(bayId);
+  // 전문이 비어 있으면(페이지가 죽었거나 다른 기기에서 종료 등) 서버 백업에서 복구 시도
+  if(!transcript.trim()){
+    try{
+      var _bk=await _fetchTranscriptBackup(bayId, _bkAct);
+      if(_bk){ transcript=_bk; liveToast('🎙 서버 백업에서 녹음 전문을 복구했어요','ok'); }
+    }catch(e){}
+  }
   // 라이브 세션 종료 = 세션 기록 생성 (일원화). 음성 있으면 AI 정리, 없으면 빈 카드.
   if(transcript.trim()){
     openVoiceDraft(memberId, author, transcript);
@@ -974,7 +998,7 @@ function startVoice(bayId){
         if(ev.results[i].isFinal) finalT+=t; else interim+=t;
       }
       var a=S.activeSessions[bayId]; if(!a) return;
-      if(finalT){ a._transcript=((a._transcript||'')+' '+finalT).replace(/\s+/g,' ').trim(); save(); }
+      if(finalT){ a._transcript=((a._transcript||'')+' '+finalT).replace(/\s+/g,' ').trim(); save(); _backupTranscript(bayId, a); }
       if(S.voiceBay===bayId) updateVoicePreview(bayId, interim);
     };
     rec.onerror=function(e){ console.warn('[voice] error:', e&&e.error); };
@@ -1082,6 +1106,32 @@ function _startSegment(){
 // '이어붙이기'가 아니라 '전체 덮어쓰기'라서, 폴링 등 무엇이 act 를 갈아끼워도
 // 다음 세그먼트가 지금까지의 전문을 다시 써 넣는다 — 텍스트 유실 원천 차단.
 function _recFullText(){ return ((_rec.txBase||'')+' '+(_rec.tx||'')).trim(); }
+// ---------- 전사 서버 백업 (2026-08-11 김현수 50분 레슨 유실 사고 재발 방지) ----------
+// 받아쓴 전문이 "녹음한 기기의 localStorage"에만 있어서, 페이지가 죽거나 다른 기기가
+// 세션을 종료하면 통째로 사라졌다. 이제 세그먼트마다 R2(rec/)에 전문을 덮어써 두고,
+// 종료 시 전문이 비어 있으면 서버 백업에서 복구한다. rec/ 라이프사이클(30일)로 자동 정리.
+function _recBackupKey(bayId, act){
+  var t=Date.parse(act&&act.startedAt); if(isNaN(t)) t=0;
+  return 'rec/tx_'+bayId+'_'+t+'.txt';
+}
+function _backupTranscript(bayId, act, force){
+  try{
+    if(!act || !(act._transcript||'').trim()) return;
+    if(typeof r2==='undefined' || !r2.enabled) return;
+    var now=Date.now();
+    if(!force && act._txBackupAt && now-act._txBackupAt<8000) return;   // 과도한 업로드 방지
+    act._txBackupAt=now;
+    r2.upload(_recBackupKey(bayId, act), new Blob([act._transcript], {type:'text/plain'}));
+  }catch(e){}
+}
+async function _fetchTranscriptBackup(bayId, act){
+  try{
+    if(typeof r2==='undefined' || !r2.enabled) return '';
+    var res=await fetch(r2.url(_recBackupKey(bayId, act)));
+    if(!res || !res.ok) return '';
+    return String(await res.text()||'').trim();
+  }catch(e){ return ''; }
+}
 // Whisper 환각 필터 — 무음/잡음 구간에서 유튜브 자막 문구 등을 지어내는 유명 버그.
 // 실제 레슨 일지에 "자막 제공 및 광고는..." 같은 문장이 섞여 저장되는 것을 차단.
 var _STT_HALLU = [
@@ -1119,7 +1169,7 @@ async function _handleSegment(blob, isFinal){
   if(text){
     _rec.tx=((_rec.tx||'')+' '+text).trim();     // 녹음기 버퍼 — 폴링과 무관하게 절대 안 사라짐
     var act=S.activeSessions[bayId];
-    if(act){ act._transcript=_recFullText(); try{save();}catch(e){} }
+    if(act){ act._transcript=_recFullText(); try{save();}catch(e){} _backupTranscript(bayId, act); }
     _recUpdateUI();   // render 없이 실시간 텍스트만 갱신
   }
   if(isFinal){ _finishRec(); }
@@ -1139,6 +1189,7 @@ function _finishRec(){
     if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
     delete act._sttBusy; delete act._sttBusyAt;
     try{save();}catch(e){}
+    _backupTranscript(bayId, act, true);   // 최종 전문 서버 백업 (스로틀 무시)
   }
   _rec._lastBay=null; _rec._finishT0=null;
   var failN=_rec.failN||0, emptyN=_rec.emptyN||0;
