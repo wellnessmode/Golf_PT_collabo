@@ -200,8 +200,19 @@ function renderDashboard(){
     ${(function(){
       var dm=visibleMembers.filter(function(m){return m.reportDirty&&m.reportId;});
       if(!dm.length) return '';
+      // 오래 밀린 순으로 — 며칠씩 방치된 검토부터 위에
+      dm.sort(function(a,b){ return String(a.reportDirty).localeCompare(String(b.reportDirty)); });
       return '<div class="dash-card dash-review-card"><h3>📤 리포트 검토 대기 <b>'+dm.length+'</b>명 <small>검토 완료를 눌러야 회원 링크에 반영됩니다</small></h3>'
-        +dm.map(function(m){return '<button class="dash-review-row" onclick="selectMember(\''+m.id+'\');openPerformance()"><span>'+m.name+'</span><em>검토하기 →</em></button>';}).join('')
+        +dm.map(function(m){
+          var last=(S.sessions[m.id]||[]).slice().sort(sessionCompare)[0];
+          var lastD=last&&last.date ? String(last.date).slice(5).replace('-','.') : '';
+          var days=Math.floor((Date.now()-(Date.parse(m.reportDirty)||Date.now()))/86400000);
+          var wait=days<=0?'오늘':days+'일째 대기';
+          return '<button class="dash-review-row" onclick="selectMember(\''+m.id+'\');openPerformance()">'
+            +'<span>'+m.name+(lastD?'<small>레슨 '+lastD+'</small>':'')+'</span>'
+            +'<i class="drr-days'+(days>=3?' late':'')+'">'+wait+'</i>'
+            +'<em>검토 →</em></button>';
+        }).join('')
         +'</div>';
     })()}
     <div class="dash-stats">
