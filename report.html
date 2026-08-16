@@ -20,17 +20,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
   padding:calc(env(safe-area-inset-top) + 30px) 22px 74px;position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;inset:0;
   background:radial-gradient(70% 55% at 82% 8%,rgba(0,210,154,.2),transparent 65%);pointer-events:none}
-.hero-brand{font-size:0.6563rem;font-weight:800;letter-spacing:.16em;color:var(--ac2);text-transform:uppercase;margin-bottom:14px}
-.hero-name{font-size:1.6875rem;font-weight:900;letter-spacing:-.03em;line-height:1.25}
-.hero-name small{font-size:1rem;font-weight:700;color:rgba(255,255,255,.72)}
-.hero-meta{font-size:0.7813rem;color:rgba(255,255,255,.55);margin-top:7px}
+.hero-brand{font-size:0.6563rem;font-weight:800;letter-spacing:.16em;color:var(--ac2);text-transform:uppercase;margin-bottom:16px}
+.hero-row{display:flex;align-items:center;gap:14px}
+.hero-av{width:52px;height:52px;border-radius:17px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.05rem;font-weight:900;color:#062018;background:linear-gradient(145deg,#00d29a,#00b884);
+  box-shadow:0 4px 14px rgba(0,210,154,.35)}
+.hero-name{font-size:1.5625rem;font-weight:900;letter-spacing:-.03em;line-height:1.25}
+.hero-name small{display:block;font-size:0.8438rem;font-weight:700;color:rgba(255,255,255,.66);letter-spacing:0;margin-top:2px}
+.hero-meta{font-size:0.7813rem;color:rgba(255,255,255,.55);margin-top:6px}
 .hero-goal{display:inline-block;margin-top:12px;font-size:0.75rem;font-weight:700;color:#ffd9a0;
   background:rgba(240,161,58,.14);border:1px solid rgba(240,161,58,.3);border-radius:999px;padding:5px 13px;margin-right:8px}
 .demo-ribbon{display:inline-block;margin-top:12px;margin-right:8px;font-size:0.7rem;font-weight:800;color:#0b1f17;
   background:#ffd769;border-radius:999px;padding:5px 12px}
 /* ── KPI 카드 (히어로에 겹침) ── */
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:-44px 16px 18px;position:relative;z-index:2}
-.kpi{background:var(--card);border-radius:15px;box-shadow:var(--shadow);padding:14px 6px;text-align:center}
+.kpi{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:15px 6px 13px;text-align:center;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 4px 4px;background:linear-gradient(90deg,#00d29a,#00b884);opacity:.85}
 .kpi-v{font-size:1.375rem;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .kpi-v small{font-size:0.6875rem;font-weight:700;color:var(--tx3);margin-left:1px}
 .kpi-v.green{color:var(--ac)}
@@ -68,7 +73,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .ba-btn.play{background:var(--ac)}
 .ba-sp{padding:7px 12px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:800;font-size:0.7188rem;cursor:pointer;font-family:inherit}
 .ba-sp.on{background:var(--ac);border-color:transparent;color:#fff}
-.ba-delta{margin-top:12px;text-align:center;font-size:0.8125rem;font-weight:700;color:var(--tx2)}
+.ba-delta{margin-top:12px;text-align:center;font-size:0.8125rem;font-weight:700;color:#0d6f4a;
+  background:linear-gradient(135deg,#eefaf4,#e4f6ee);border:1px solid rgba(0,184,132,.22);border-radius:12px;padding:10px 12px}
 .ba-delta b{color:var(--ac);font-size:0.9375rem}
 .ba-delta small{color:var(--tx3);font-weight:600}
 .ba-seekrow{display:flex;align-items:center;gap:9px;margin-top:12px;padding:0 2px}
@@ -139,15 +145,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard',
 .tl-item.open .tl-prev{display:none}
 .tl-fold{display:none}
 .tl-item.open .tl-fold{display:block}
-.tl-body{font-size:0.8438rem;color:var(--tx2);line-height:1.75;white-space:pre-line;word-break:keep-all;
-  background:var(--bg);border-radius:12px;padding:12px 14px}
+.tl-body{font-size:0.8438rem;color:var(--tx2);line-height:1.75;word-break:keep-all;
+  background:var(--bg);border-radius:12px;padding:13px 15px}
+.tl-body .md-h{font-size:0.8125rem;font-weight:800;color:var(--tx);margin:10px 0 5px;letter-spacing:-.01em}
+.tl-body .md-h:first-child{margin-top:0}
+.tl-body .md-ul{margin:2px 0 6px;padding-left:17px}
+.tl-body .md-ul li{margin-bottom:4px}
+.tl-body .md-ul li::marker{color:var(--ac)}
+.tl-body .md-p{margin-bottom:5px}
+.tl-body .md-p:last-child,.tl-body .md-ul:last-child{margin-bottom:0}
+.tl-body b{color:var(--tx);font-weight:800}
 .tl-video{margin-top:8px;border-radius:12px;overflow:hidden;background:#000}
 .tl-video video{display:block;width:100%;max-height:340px;object-fit:contain}
 .tl-note{margin-top:14px;font-size:0.6563rem;color:var(--tx3);line-height:1.65;word-break:keep-all;
   background:var(--bg);border-radius:10px;padding:9px 12px}
 /* ── 푸터 ── */
-.foot{text-align:center;padding:26px 20px 10px;color:var(--tx3);font-size:0.6875rem;line-height:1.8}
-.foot b{color:var(--tx2)}
+.foot{text-align:center;padding:28px 20px 12px;color:var(--tx3);font-size:0.6875rem;line-height:1.8}
+.foot b{color:var(--tx2);font-size:0.7813rem}
+.foot::before{content:"⛳";display:block;font-size:1.1rem;margin-bottom:6px;opacity:.6}
 /* ── 돋보기 (글씨 확대) — 버튼 자체는 px 고정이라 배율과 무관하게 같은 크기 ── */
 .rp-zoom{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);width:58px;height:58px;
   border-radius:50%;border:none;background:#0d1114;color:#fff;font-size:19px;cursor:pointer;z-index:50;
@@ -196,6 +211,21 @@ function renderReport(c, meta){
   function fmt(v,dec){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec!=null?dec:0); }
   function fmtDay(day){ try{ var d=new Date(String(day)+'T00:00:00'); var w=['일','월','화','수','목','금','토'][d.getDay()];
     return String(day).replace(/-/g,'.')+(w?' ('+w+')':''); }catch(e){ return String(day); } }
+  // 경량 마크다운 → HTML — 일지가 "## 제목 / - 불릿 / **볼드**" 형식(AI 정리)이라
+  // 기호가 그대로 노출되던 문제 수정. 일반 텍스트 일지는 줄 단위 문단으로 그대로.
+  function mdHtml(txt){
+    var out=[], inUl=false;
+    String(txt||'').split('\n').forEach(function(ln){
+      var t=ln.trim();
+      var body=esc(t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+      if(/^##\s+/.test(t)){ if(inUl){out.push('</ul>');inUl=false;} out.push('<div class="md-h">'+body.replace(/^##\s+/,'')+'</div>'); }
+      else if(/^[-•·]\s+/.test(t)){ if(!inUl){out.push('<ul class="md-ul">');inUl=true;} out.push('<li>'+body.replace(/^[-•·]\s+/,'')+'</li>'); }
+      else if(t===''){ if(inUl){out.push('</ul>');inUl=false;} }
+      else { if(inUl){out.push('</ul>');inUl=false;} out.push('<div class="md-p">'+body+'</div>'); }
+    });
+    if(inUl) out.push('</ul>');
+    return out.join('');
+  }
   function miniLine(vals,labels){
     var W=520,H=150,pad={t:14,r:12,b:24,l:34},n=vals.length;
     if(n<2) return '';
@@ -281,10 +311,14 @@ function renderReport(c, meta){
 
   var html='';
 
-  // 히어로 — 정식 상호로 표기
+  // 히어로 — 정식 상호로 표기. 고정 링크는 계속 갱신되므로 "업데이트 날짜"를 보여준다.
+  var updDay=String(c.publishedAt||meta.createdAt||'').slice(0,10);
+  var initials=esc(String(meta.memberName||'').slice(0,2));
   html+='<div class="hero"><div class="hero-brand">'+esc(storeEn)+'</div>'
+    +'<div class="hero-row"><div class="hero-av">'+initials+'</div><div>'
     +'<div class="hero-name">'+esc(meta.memberName)+' <small>회원님 성과 리포트</small></div>'
-    +'<div class="hero-meta">'+esc(storeKo)+' · '+esc((meta.createdAt||'').slice(0,10))+(m.handicap?' · 핸디캡 '+esc(m.handicap):'')+'</div>'
+    +'<div class="hero-meta">'+esc(storeKo)+(updDay?' · 업데이트 '+esc(updDay.replace(/-/g,'.')):'')+(m.handicap?' · 핸디캡 '+esc(m.handicap):'')+'</div>'
+    +'</div></div>'
     +(c.demo?'<div class="demo-ribbon">📋 상담용 예시 리포트 — 등록하시면 회원님 본인 데이터로 제공됩니다</div>':'')
     +(m.goal?'<div class="hero-goal">🎯 목표 · '+esc(m.goal)+'</div>':'')
     +'</div>';
@@ -329,9 +363,14 @@ function renderReport(c, meta){
     html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🏌️</i>클럽별 평균</div><div class="sec-x">'+esc(t.measuredBy||BR.measuredBy)+' 실측</div></div>';
     t.clubs.forEach(function(a){
       var sp=a.ballSpeed==null?null:(a.metric?a.ballSpeed:a.ballSpeed*0.44704);
+      // 값이 없는 항목은 줄에서 아예 뺀다 — "볼 —㎧ · 스매시 —" 같은 표기 방지
+      var subs=[a.n+'구'];
+      if(sp!=null&&!isNaN(sp)) subs.push('볼 '+fmt(sp,1)+'㎧');
+      if(a.smash!=null&&!isNaN(a.smash)) subs.push('스매시 '+Number(a.smash).toFixed(2));
+      var tot=distM(a.total,a.metric);
       html+='<div class="club-row"><div class="club-ic">'+esc(String(a.name||'').slice(0,3))+'</div>'
-        +'<div><div class="club-nm">'+esc(a.name)+'</div><div class="club-sub">'+a.n+'구 · 볼 '+fmt(sp,1)+'㎧ · 스매시 '+(a.smash!=null?Number(a.smash).toFixed(2):'—')+'</div></div>'
-        +'<div class="club-val"><div class="club-carry">'+fmt(distM(a.carry,a.metric))+'<small> m</small></div><div class="club-sub">토탈 '+fmt(distM(a.total,a.metric))+'m</div></div>'
+        +'<div><div class="club-nm">'+esc(a.name)+'</div><div class="club-sub">'+subs.join(' · ')+'</div></div>'
+        +'<div class="club-val"><div class="club-carry">'+fmt(distM(a.carry,a.metric))+'<small> m</small></div>'+(tot!=null&&!isNaN(tot)?'<div class="club-sub">토탈 '+fmt(tot)+'m</div>':'')+'</div>'
       +'</div>';
     });
     html+='</div>';
@@ -358,13 +397,13 @@ function renderReport(c, meta){
     c.sessions.forEach(function(s,i){
       var isPro=(s.role||'').indexOf('pro')!==-1;
       var open=i===0;
-      var prevTxt=String(s.content||'').replace(/\s+/g,' ').trim();
+      var prevTxt=String(s.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\[핵심\]\s*/g,'').replace(/\s+/g,' ').trim();
       var prev=prevTxt.slice(0,46)+(prevTxt.length>46?'…':'');
       html+='<div class="tl-item'+(open?' open':'')+'"><span class="tl-dot '+(isPro?'pro':'pt')+'"></span>'
         +'<div class="tl-head" onclick="__acc(this)"><span class="tl-role '+(isPro?'pro':'pt')+'">'+(isPro?'골프 레슨':'골프 PT')+'</span>'
         +'<span class="tl-author">'+esc(s.author||'')+'</span><span class="tl-date">'+esc(s.date||'')+(s.time?' '+esc(s.time):'')+'</span><span class="tl-arw">▾</span></div>'
         +(prev?'<div class="tl-prev">'+esc(prev)+'</div>':'')
-        +'<div class="tl-fold"><div class="tl-body">'+esc(s.content||'')+'</div>';
+        +'<div class="tl-fold"><div class="tl-body">'+mdHtml(s.content||'')+'</div>';
       (s.videos||[]).forEach(function(v){
         if(v.key && canVid){
           var u=vurl(v.key);

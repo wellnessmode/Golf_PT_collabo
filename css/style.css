@@ -1719,6 +1719,17 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .dash-live-btn{display:block;width:100%;box-sizing:border-box;margin:0 0 14px;padding:16px 18px;background:linear-gradient(135deg,#0d6f4a,#00915f);color:#fff;border:none;border-radius:14px;font-size:15.5px;font-weight:800;text-align:left;cursor:pointer;box-shadow:0 4px 14px rgba(13,111,74,.25)}
 .dash-live-btn small{display:block;font-size:11.5px;font-weight:600;opacity:.85;margin-top:3px}
 .dash-live-btn:active{transform:scale(.985)}
+.pv-review{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0;padding:10px 14px;border-radius:11px;font-size:.72em;font-weight:600;background:#eef7f2;color:#0d6f4a;border:1px solid #cfe8db}
+.pv-review.dirty{background:#fff7e8;color:#7a5a1e;border-color:#f0dfb4}
+.pv-review button{margin-left:auto;padding:9px 16px;border:none;border-radius:9px;background:#0d6f4a;color:#fff;font-weight:800;font-size:1em;cursor:pointer;white-space:nowrap}
+.pv-review.dirty button{background:#e8930c}
+.pv-review button.ghost{background:transparent;color:#0d6f4a;border:1.5px solid #9ecdb6;font-weight:700}
+.pv-review button:active{transform:scale(.97)}
+.dash-review-card{margin-bottom:14px;border-color:#f0dfb4;background:#fffdf6}
+.dash-review-card h3 small{display:block;font-size:11px;font-weight:600;color:#a08040;margin-top:3px}
+.dash-review-row{display:flex;align-items:center;width:100%;box-sizing:border-box;padding:11px 13px;margin-top:8px;background:#fff;border:1.5px solid #f0dfb4;border-radius:10px;font-size:13.5px;font-weight:700;color:#5a4a20;cursor:pointer}
+.dash-review-row em{margin-left:auto;font-style:normal;font-size:12px;font-weight:800;color:#e8930c}
+.dash-review-row:active{background:#fff7e8}
 #upd-banner{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:99999;background:#0d6f4a;color:#fff;font-size:13.5px;font-weight:700;text-align:center;padding:13px 16px;border-radius:12px;box-shadow:0 6px 22px rgba(13,111,74,.45);cursor:pointer;animation:updIn .35s ease-out}
 #upd-banner span{font-size:11px;font-weight:600;opacity:.8}
 @keyframes updIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}

@@ -197,6 +197,13 @@ function renderDashboard(){
       <span class="dash-ver">${todayLabel} · ${APP_VERSION.version}</span>
     </div>
     ${S.currentRole!=='infodesk'?'<button class="dash-live-btn" onclick="openLiveSession()">🏌️ 수업 센터 <small>타석 레슨 시작 · 트랙맨 샷 자동 저장</small></button>':''}
+    ${(function(){
+      var dm=visibleMembers.filter(function(m){return m.reportDirty&&m.reportId;});
+      if(!dm.length) return '';
+      return '<div class="dash-card dash-review-card"><h3>📤 리포트 검토 대기 <b>'+dm.length+'</b>명 <small>검토 완료를 눌러야 회원 링크에 반영됩니다</small></h3>'
+        +dm.map(function(m){return '<button class="dash-review-row" onclick="selectMember(\''+m.id+'\');openPerformance()"><span>'+m.name+'</span><em>검토하기 →</em></button>';}).join('')
+        +'</div>';
+    })()}
     <div class="dash-stats">
       <div class="dash-stat"><div class="ds-val green">${todaySessions}</div><div class="ds-lbl">오늘 세션</div></div>
       <div class="dash-stat"><div class="ds-val blue">${thisMonthSessions}</div><div class="ds-lbl">이번 달</div></div>

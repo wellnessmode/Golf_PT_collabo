@@ -383,6 +383,8 @@ async function sharePerfSummary(){
   var row={id:reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content};
   var saved=await _saveReportRow(row);
   if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
+  // 공유 = 최신 내용 발행이므로 '검토 대기' 해제
+  if(m.reportDirty){ delete m.reportDirty; try{ save(); }catch(e){} try{ cloud.upsertMember(m); }catch(e){} }
   // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
   // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE(전용 도메인)가 응답하면 그 주소로,
   // 응답이 없으면 워커 기본 주소로. 둘 다 없으면 기존 report.html 경로(구버전 폴백).
@@ -412,27 +414,39 @@ function _memberFixedReportId(m){
   try{ cloud.upsertMember(m); }catch(e){}
   return m.reportId;
 }
-// 고정 리포트 자동 갱신 — 일지/샷이 바뀔 때 호출. 링크를 이미 공유한 회원(reportId 보유)만.
-// 회원은 받은 링크를 아무 때나 열면 오늘 레슨 내용까지 보인다 (매일 보내줄 필요 없음).
-var _autoPubBusy={};
-async function autoPublishReport(mid){
+// 리포트 변경 대기 표시 — 일지/샷이 바뀌면 바로 발행하지 않고 "검토 대기"로만 표시.
+// 프로가 성과 리포트에서 내용을 검토하고 [검토 완료] 버튼을 눌러야 회원 링크에 반영된다.
+// (AI 정리 오류·잘못 저장된 영상이 검토 없이 회원에게 나가는 것 방지)
+function autoPublishReport(mid){ markReportDirty(mid); }   // 기존 호출부 호환
+function markReportDirty(mid){
   try{
-    if(!mid || _autoPubBusy[mid]) return;
     var m=S.members.find(function(x){return x.id===mid;});
-    if(!m || !m.reportId) return;                       // 링크를 준 적 없는 회원은 발행 안 함
-    if(typeof cloud==='undefined' || !cloud.enabled) return;
-    _autoPubBusy[mid]=true;
-    setTimeout(async function(){                        // 연속 저장(일지+AI 반영 등) 몰아서 1회 발행
-      _autoPubBusy[mid]=false;
-      try{
-        var mm=S.members.find(function(x){return x.id===mid;}); if(!mm||!mm.reportId) return;
-        var data=buildPerfData(mid); if(!data) return;
-        var content=_buildReportContent(mid, mm, data);
-        await _saveReportRow({id:mm.reportId, member_id:mid, member_name:mm.name, created_by:S.currentUser||'', content:content});
-        console.log('[report] 고정 리포트 자동 갱신:', mm.name);
-      }catch(e){ console.warn('[report] 자동 갱신 실패:', e&&e.message); }
-    }, 4000);
+    if(!m || !m.reportId) return;                       // 링크를 준 적 없는 회원은 대상 아님
+    if(m.reportDirty) return;
+    m.reportDirty=new Date().toISOString();
+    try{ save(); }catch(e){}
+    try{ cloud.upsertMember(m); }catch(e){}             // 다른 기기(다른 프로·관리자)에도 대기 표시
   }catch(e){}
+}
+// [검토 완료] — 지금 화면의 리포트 내용을 회원 고정 링크에 발행
+async function reviewPublishReport(mid){
+  var m=S.members.find(function(x){return x.id===mid;});
+  if(!m){ alert('회원을 찾을 수 없습니다'); return; }
+  if(!m.reportId){ alert('아직 리포트 링크를 공유한 적이 없는 회원입니다.\n[리포트 공유]로 먼저 링크를 만들어 보내주세요.'); return; }
+  if(typeof cloud==='undefined' || !cloud.enabled){ alert('클라우드 미연결 — 반영할 수 없습니다.'); return; }
+  try{ liveToastSafe('📤 회원 리포트에 반영 중...'); }catch(e){}
+  try{
+    var data=buildPerfData(mid); if(!data){ alert('리포트 데이터가 없습니다'); return; }
+    var content=_buildReportContent(mid, m, data);
+    var ok=await _saveReportRow({id:m.reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content});
+    if(!ok){ alert('반영 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
+    delete m.reportDirty;
+    try{ save(); }catch(e){}
+    try{ cloud.upsertMember(m); }catch(e){}
+    try{ logActivity('리포트 검토 완료', mid, ''); }catch(e){}
+    render();
+    try{ liveToastSafe('✅ '+m.name+'님 리포트 링크에 반영됐어요'); }catch(e){}
+  }catch(e){ alert('반영 실패: '+(e&&e.message||e)); }
 }
 // 리포트 row 저장 — 프록시(서비스 키) 우선, 실패 시 직접 upsert 폴백
 async function _saveReportRow(row){
@@ -521,6 +535,7 @@ function _buildReportContent(mid, m, data){
     member:{name:m.name, registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
     totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
     sessions:sessions, trackman:trackman, customer:true,
+    publishedAt:new Date().toISOString(),   // 고정 링크는 계속 갱신되므로 "언제 기준 리포트인지" 표시용
     brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, store:APP_BRAND.store, storeEn:APP_BRAND.storeEn, measuredBy:APP_BRAND.measuredBy}
   };
 }
@@ -923,6 +938,13 @@ function renderPerformance(){
     +'</div>'
     +'<div class="pv-title">PERFORMANCE <span>REPORT</span>'+(S.perfDemo?'<span class="pv-demo">DEMO</span>':'')+'</div>'
     +'<div class="pv-meta">'+(m.registeredDate||'')+' – 현재 · MEASURED BY '+APP_BRAND.measuredBy+'</div>'
+    +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin') && m.reportId)
+      ? '<div class="pv-review'+(m.reportDirty?' dirty':'')+'">'
+        +(m.reportDirty
+          ? '<span>📝 저장된 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 아래 내용을 검토하세요</span><button onclick="reviewPublishReport(\''+m.id+'\')">✅ 검토 완료 — 회원 링크에 반영</button>'
+          : '<span>✅ 회원 링크가 최신 상태입니다</span><button class="ghost" onclick="reviewPublishReport(\''+m.id+'\')">다시 반영</button>')
+        +'</div>'
+      : '')
     +(S.perfDemo?'<div class="pv-meta" style="color:#d97706;font-weight:700">※ 상담용 데모 데이터입니다 — 실제 회원 측정값이 아닙니다</div>':'')
   +'</div>';
 
