@@ -1734,6 +1734,9 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .drr-days.late{color:#fff;background:#d95b43}
 .dash-review-row em{margin-left:10px;font-style:normal;font-size:12px;font-weight:800;color:#e8930c;flex-shrink:0}
 .dash-review-row:active{background:#fff7e8}
+.dash-recent-item.clickable{cursor:pointer;border-radius:9px;-webkit-tap-highlight-color:transparent}
+.dash-recent-item.clickable:active{background:#f0f4f2}
+.dr-open{margin-left:auto;flex-shrink:0;font-size:11px;font-weight:800;color:#0d6f4a;white-space:nowrap}
 #upd-banner{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:99999;background:#0d6f4a;color:#fff;font-size:13.5px;font-weight:700;text-align:center;padding:13px 16px;border-radius:12px;box-shadow:0 6px 22px rgba(13,111,74,.45);cursor:pointer;animation:updIn .35s ease-out}
 #upd-banner span{font-size:11px;font-weight:600;opacity:.8}
 @keyframes updIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}

@@ -124,6 +124,15 @@ function saveEditSession(){
 
 // ============ 대시보드 ============
 function openDashboard(){S.showDashboard=true;S.showLiveSession=false;S.selectedMember=null;render();}
+// 대시보드 최근 활동 → 해당 회원의 그 일지를 펼쳐서 열기
+function openSessionFromDash(mid, sid){
+  if(!S.openSessions) S.openSessions={};
+  S.openSessions[sid]=true;
+  selectMember(mid);
+  setTimeout(function(){
+    try{ var el=document.querySelector('.session-hd[onclick*="'+sid+'"]'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+  }, 150);
+}
 function closeDashboard(){S.showDashboard=false;render();}
 // 홈 대시보드 — 회원을 선택하지 않은 기본 화면 (로그인 착지점).
 // 예전엔 담당 첫 회원이 자동 선택돼 "첫 화면이 맨날 로버트" 였음.
@@ -151,7 +160,7 @@ function renderDashboard(){
       else trainerSessions++;
       if(s.date.slice(0,7)===thisMonth) thisMonthSessions++;
       if(s.date===todayStr) todaySessions++;
-      recentActivity.push({member:m.name, date:s.date, time:s.time||'', author:s.author, content:s.content, id:s.id, _addedAt:s._addedAt});
+      recentActivity.push({member:m.name, mid:m.id, date:s.date, time:s.time||'', author:s.author, content:s.content, id:s.id, _addedAt:s._addedAt});
     });
     // 레슨/PT 각각 만료 임박 체크
     ['golfLessonExpiry','golfPTExpiry','expiry'].forEach(function(key){
@@ -256,7 +265,8 @@ function renderDashboard(){
       <h3>최근 활동 (최근 15건)</h3>
       <div class="dash-recent">
         ${recentActivity.map(function(a){
-          return '<div class="dash-recent-item"><span class="dr-date">'+a.date+(a.time?'<em class="dr-time">'+timeLabel(a.time)+'</em>':'')+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+a.content.slice(0,50)+(a.content.length>50?'…':'')+'</span></div>';
+          var prevTxt=String(a.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\s+/g,' ').trim();
+          return '<div class="dash-recent-item clickable" onclick="openSessionFromDash(\''+a.mid+'\',\''+a.id+'\')"><span class="dr-date">'+a.date+(a.time?'<em class="dr-time">'+timeLabel(a.time)+'</em>':'')+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+prevTxt.slice(0,50)+(prevTxt.length>50?'…':'')+'</span><span class="dr-open">열기 ›</span></div>';
         }).join('')||'<div class="empty-state" style="padding:20px">최근 활동이 없습니다</div>'}
       </div>
     </div>
