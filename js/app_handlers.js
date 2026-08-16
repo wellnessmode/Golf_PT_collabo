@@ -718,9 +718,11 @@ async function openStorageAudit(){
     var days=(window.APP_CONFIG&&APP_CONFIG.SHOT_VIDEO_KEEP_DAYS)||3;
     var recentCut=Date.now()-days*24*3600*1000;
     var keep={};
+    // 회원별 최근 8개(영상 보유) 샷도 보호 — 자동 보관 정책(purgeOldShotVideos)과 동일 기준
+    var prot=(typeof _memberRecentVideoShotIds==='function') ? _memberRecentVideoShotIds(8) : {};
     (S.shotEvents||[]).forEach(function(s){
       var t=Date.parse(s.ts);
-      var protect=(s.data&&s.data._kept) || (!isNaN(t)&&t>=recentCut);
+      var protect=(s.data&&s.data._kept) || (!isNaN(t)&&t>=recentCut) || prot[s.id];
       if(!protect) return;
       if(s.videoR2Key) keep[s.videoR2Key]=1;
       if(s.data&&s.data.videoMp4R2Key) keep[s.data.videoMp4R2Key]=1;
