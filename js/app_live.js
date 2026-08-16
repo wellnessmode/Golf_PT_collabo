@@ -541,6 +541,18 @@ function purgeStaleUnassigned(){
 // 영상 보관 정책 — "앱에서 저장(선별)한 샷"만 영상 영구 보관.
 // 연습모드 자동귀속 샷의 영상은 SHOT_VIDEO_KEEP_DAYS(기본 3일) 후 자동 삭제.
 // 측정 데이터(수치·행)는 유지되므로 성과 리포트 그래프는 그대로 나온다.
+// 회원별 최근 N개 "영상 보유" 샷 ID 집합 — 보관 정책과 스토리지 진단이 공용으로 보호
+function _memberRecentVideoShotIds(n){
+  var byM={}, prot={};
+  (S.shotEvents||[]).slice().sort(function(a,b){ return String(b.ts||'').localeCompare(String(a.ts||'')); }).forEach(function(s){
+    if(!s.memberId || (typeof AGENT_EMPTY_MEMBER!=='undefined' && s.memberId===AGENT_EMPTY_MEMBER)) return;
+    var d=s.data||{};
+    if(!(s.videoR2Key || d.videoMp4R2Key || d.videoDL || d.videoFO || d.videoClub)) return;
+    var arr=byM[s.memberId]=byM[s.memberId]||[];
+    if(arr.length<n){ arr.push(1); prot[s.id]=1; }
+  });
+  return prot;
+}
 var _vidRetentionDone = false;
 function purgeOldShotVideos(){
   if(_vidRetentionDone) return;                     // 세션당 1회
@@ -551,8 +563,12 @@ function purgeOldShotVideos(){
   _vidRetentionDone = true;
   var days = (window.APP_CONFIG && APP_CONFIG.SHOT_VIDEO_KEEP_DAYS) || 3;
   var cutoff = Date.now() - days*24*3600*1000;
+  // 회원 귀속 샷은 "회원별 최근 8개(영상 보유)"를 태그 없이도 보호 — 비포/애프터를
+  // 안 눌러도 리포트의 스윙 영상 캐러셀이 비지 않게 (2026-08-16 윤명숙 리포트 영상 0개 사고)
+  var prot = _memberRecentVideoShotIds(8);
   var targets = (S.shotEvents||[]).filter(function(s){
     if(s.data && s.data._kept) return false;                                   // 선별 저장 샷 보호
+    if(prot[s.id]) return false;                                               // 회원별 최근 영상 보호
     var d = s.data||{};
     if(!(s.videoR2Key || d.videoMp4R2Key || d.videoDL || d.videoFO || d.videoClub)) return false;   // 영상 없는 샷
     var t = Date.parse(s.ts);
