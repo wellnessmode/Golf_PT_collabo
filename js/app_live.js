@@ -712,6 +712,7 @@ function saveLessonShot(shotId, bayId, tag){
   logActivity('레슨 샷 저장'+(tag?' ('+(tag==='before'?'비포':'애프터')+')':''), act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
   render();
   liveToast('✓ '+act.memberName+'님에게 저장'+(tag?(tag==='before'?' — 📌 비포 영상':' — ✅ 애프터 영상'):''),'ok');
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(act.memberId); }catch(e){}   // 고정 리포트 링크 자동 갱신
   if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(e){} }
 }
 // '방금 친 샷' 전체/최근 보기 토글 — 레슨 끝에 처음 샷을 비포로 지정할 때 사용

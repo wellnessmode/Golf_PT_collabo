@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.73',
-  date:'2026-08-11',
+  version:'v9.74',
+  date:'2026-08-14',
   changes:[
+    '회원 고정 리포트 링크 — [리포트 공유]가 회원마다 하나의 영구 링크를 만들고, 이후 일지 저장·수정·삭제, 비포/애프터 저장, 샷 삭제 때마다 링크 내용이 자동 최신화. 회원은 받은 링크를 즐겨찾기 해두고 아무 때나 열면 오늘 레슨까지 보임 (매번 새로 보낼 필요 없음)',
     '녹음 전문 유실 근본 수리 — 받아쓴 전문을 세그먼트마다 서버(R2)에 백업하고, 종료 시 전문이 비어 있으면 서버 백업에서 자동 복구. 다른 기기·자동 종료로 세션이 사라져도 이 기기에 남은 전문을 일지 초안으로 살려냄 (김현수님 50분 레슨 유실 사고 재발 방지)',
     '음성 변환이 끝나기 전엔 업데이트 배너를 띄우지 않음 — 녹음 종료 직후 변환 대기 중 배너를 탭해 새로고침하면 마지막 조각이 날아가던 위험 차단',
     'R2 저장비 원인 수리 — 3일 지난 미보관 샷 영상 자동 정리가 관리자 기기에서만 돌던 것을 프로·트레이너 기기(매일 수업 센터 사용)로 확대. 정면·클럽 앵글만 있는 샷도 정리 대상에 포함 (월 $2 청구의 재발 방지)',
@@ -527,7 +528,7 @@ const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) session
 // (_meta 는 화면에 첨부파일로 안 보이게 media 목록에서 걸러낸다)
 var _mArr=Array.isArray(r.media)?r.media:(r.media?r.media:[]);var _tMeta='';_mArr=_mArr.filter(function(m){if(m&&m.type==='_meta'){if(m.time)_tMeta=m.time;return false;}return true;});
 sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:_mArr});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
-  async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
+  async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
   async upsertSession(memberId,s){if(!this.enabled) return false;var mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});
     // 레슨 시간을 media JSON 에도 백업 — sessions.time 컬럼이 없는 DB(마이그레이션 전)는

@@ -377,12 +377,9 @@ async function sharePerfSummary(){
     })();
   }
   var content=_buildReportContent(mid, m, data);
-  // 링크 ID는 추측 불가능한 난수로 — 링크를 아는 사람만 열 수 있는 구조라 엔트로피가 곧 보안이다.
-  var reportId='rpt_'+(function(){
-    try{ var u=new Uint8Array(16); crypto.getRandomValues(u);
-      return Array.prototype.map.call(u,function(b){return ('0'+b.toString(36)).slice(-2);}).join('').slice(0,24); }
-    catch(e){ return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12); }
-  })();
+  // 회원당 고정 링크 — 한 번 공유한 링크가 계속 최신 리포트를 보여준다 (일지 저장 시 자동 갱신).
+  // ID는 추측 불가능한 난수 — 링크를 아는 사람만 열 수 있는 구조라 엔트로피가 곧 보안이다.
+  var reportId=_memberFixedReportId(m);
   var row={id:reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content};
   var saved=await _saveReportRow(row);
   if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
@@ -396,12 +393,47 @@ async function sharePerfSummary(){
   // 링크는 문구 끝에 한 칸 띄고 바로 붙인다 — 줄바꿈으로 분리하면 카톡이 링크를
   // 미리보기 카드로 빼가면서 문구 끝에 빈 줄이 남는다. (url 필드를 따로 주면
   // iOS 가 줄바꿈으로 이어붙이므로 text 안에 포함해서 보냄)
-  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요. '+link;
+  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.\n이 링크는 레슨 때마다 자동으로 최신 내용으로 갱신됩니다 — 즐겨찾기 해두세요! '+link;
   try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
   try{ await navigator.clipboard.writeText(text); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
   prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
 }
 
+// 회원 고정 리포트 ID — 최초 공유 때 한 번 만들고 회원 데이터에 저장(기기 간 동기화).
+// 이후 공유·자동 갱신 모두 같은 ID를 재사용해 "링크 하나 = 항상 최신 리포트"가 된다.
+function _memberFixedReportId(m){
+  if(m.reportId) return m.reportId;
+  m.reportId='rpt_'+(function(){
+    try{ var u=new Uint8Array(16); crypto.getRandomValues(u);
+      return Array.prototype.map.call(u,function(b){return ('0'+b.toString(36)).slice(-2);}).join('').slice(0,24); }
+    catch(e){ return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12); }
+  })();
+  try{ save(); }catch(e){}
+  try{ cloud.upsertMember(m); }catch(e){}
+  return m.reportId;
+}
+// 고정 리포트 자동 갱신 — 일지/샷이 바뀔 때 호출. 링크를 이미 공유한 회원(reportId 보유)만.
+// 회원은 받은 링크를 아무 때나 열면 오늘 레슨 내용까지 보인다 (매일 보내줄 필요 없음).
+var _autoPubBusy={};
+async function autoPublishReport(mid){
+  try{
+    if(!mid || _autoPubBusy[mid]) return;
+    var m=S.members.find(function(x){return x.id===mid;});
+    if(!m || !m.reportId) return;                       // 링크를 준 적 없는 회원은 발행 안 함
+    if(typeof cloud==='undefined' || !cloud.enabled) return;
+    _autoPubBusy[mid]=true;
+    setTimeout(async function(){                        // 연속 저장(일지+AI 반영 등) 몰아서 1회 발행
+      _autoPubBusy[mid]=false;
+      try{
+        var mm=S.members.find(function(x){return x.id===mid;}); if(!mm||!mm.reportId) return;
+        var data=buildPerfData(mid); if(!data) return;
+        var content=_buildReportContent(mid, mm, data);
+        await _saveReportRow({id:mm.reportId, member_id:mid, member_name:mm.name, created_by:S.currentUser||'', content:content});
+        console.log('[report] 고정 리포트 자동 갱신:', mm.name);
+      }catch(e){ console.warn('[report] 자동 갱신 실패:', e&&e.message); }
+    }, 4000);
+  }catch(e){}
+}
 // 리포트 row 저장 — 프록시(서비스 키) 우선, 실패 시 직접 upsert 폴백
 async function _saveReportRow(row){
   try{ if((await cloud._w('upsert','reports',{rows:[row]}))===true) return true; }catch(e){ console.warn('[report] proxy upsert fail:', e); }
@@ -604,6 +636,7 @@ function deletePerfShot(shotId){
   S.perfShotModal=null; S.perfShotView=0;
   render();
   try{ liveToastSafe('🗑 샷 삭제됨 — 영상·측정 기록 제거'); }catch(e){}
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(s.memberId); }catch(e){}   // 고정 리포트 링크 자동 갱신
 }
 // 샷 모달 안 앵글 전환 (측면/정면/클럽) — 재렌더 없이 비디오 src 만 교체.
 // 클럽 딜리버리는 좌우 반전 + 확대 + 기본 0.5× 슬로우.

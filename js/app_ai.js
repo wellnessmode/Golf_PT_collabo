@@ -119,6 +119,7 @@ function saveEditSession(){
   S.showAddSession = false;
   save(); render();
   syncSessionUp(mid, sess);
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
 }
 
 // ============ 대시보드 ============
@@ -508,6 +509,7 @@ async function deleteSession(id){
   logAudit('session','세션 삭제', (S.members.find(function(x){return x.id===mid;})||{}).name||'', {sessionId:id, date:sess&&sess.date, author:sess&&sess.author});
   save(); render();
   try{ await cloud.deleteSession(id); }catch(e){ console.warn('[cloud] deleteSession await fail:', e); }
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
 }
 
 // ============ 기존 세션 자동 분석 (로컬) ============

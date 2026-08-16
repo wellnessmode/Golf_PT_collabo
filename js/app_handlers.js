@@ -1066,6 +1066,7 @@ function addSession(){
   render();
   syncSessionUp(mid, s);
   generateLocalSummary(mid, s);
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
   render();
   // 녹음 일지를 AI 정리 전(원문 조각 상태)으로 저장한 경우:
   // (1) AI 요청이 이미 진행 중이면 → 저장 위치만 남기고(_savedTo) 그 결과를 재사용 (요청 중복 없음)
@@ -1098,6 +1099,7 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
   s.content = bt + (tmSummary||'');
   try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
   if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
   try{ render(); }catch(e){}
   try{ var nm=(S.members.find(function(m){return m.id===mid;})||{}).name||''; liveToastSafe('🤖 '+nm+' 일지 AI 정리 완료'); }catch(e){}
   return true;
