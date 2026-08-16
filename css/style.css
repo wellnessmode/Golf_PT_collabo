@@ -1728,7 +1728,11 @@ input,textarea{word-break:break-word;overflow-wrap:break-word}
 .dash-review-card{margin-bottom:14px;border-color:#f0dfb4;background:#fffdf6}
 .dash-review-card h3 small{display:block;font-size:11px;font-weight:600;color:#a08040;margin-top:3px}
 .dash-review-row{display:flex;align-items:center;width:100%;box-sizing:border-box;padding:11px 13px;margin-top:8px;background:#fff;border:1.5px solid #f0dfb4;border-radius:10px;font-size:13.5px;font-weight:700;color:#5a4a20;cursor:pointer}
-.dash-review-row em{margin-left:auto;font-style:normal;font-size:12px;font-weight:800;color:#e8930c}
+.dash-review-row span small{display:block;font-size:11px;font-weight:600;color:#a08040;margin-top:1px}
+.dash-review-row i{margin-left:auto;font-style:normal;flex-shrink:0}
+.drr-days{font-size:11px;font-weight:800;color:#7a5a1e;background:#fff3d6;border-radius:999px;padding:4px 10px}
+.drr-days.late{color:#fff;background:#d95b43}
+.dash-review-row em{margin-left:10px;font-style:normal;font-size:12px;font-weight:800;color:#e8930c;flex-shrink:0}
 .dash-review-row:active{background:#fff7e8}
 #upd-banner{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:99999;background:#0d6f4a;color:#fff;font-size:13.5px;font-weight:700;text-align:center;padding:13px 16px;border-radius:12px;box-shadow:0 6px 22px rgba(13,111,74,.45);cursor:pointer;animation:updIn .35s ease-out}
 #upd-banner span{font-size:11px;font-weight:600;opacity:.8}
