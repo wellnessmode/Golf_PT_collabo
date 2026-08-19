@@ -1203,10 +1203,15 @@ function renderPerformance(){
         return '<div class="pv-sess-vid"><video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video><div class="pv-sess-vlabel">'+esc(v.s.date)+(v.s.time?' '+esc(timeLabel(v.s.time)):'')+' · '+label+'</div></div>';
       }).join('')+'</div>';
     }
+    // 각 일지는 눌러서 펼침 — 회원용 리포트 페이지와 동일한 드롭다운 (예전엔 한 줄 미리보기만)
     html+='<div class="pv-lessons">'+_recent.slice(0,6).map(function(s){
       var r=getRole(s.author); var tag=r==='pro'?'GOLF PRO':(r==='trainer'?'GOLF PT':'관리자');
-      var txt=String(s.content||'').replace(/\s+/g,' ').trim();
-      return '<div class="pv-lesson-row"><span class="pv-lesson-date">'+esc(s.date)+(s.time?' '+esc(timeLabel(s.time)):'')+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span><span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span></div>';
+      var txt=String(s.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\s+/g,' ').trim();
+      var body=(typeof mdLite==='function')?mdLite(s.content||''):esc(s.content||'').replace(/\n/g,'<br>');
+      return '<div class="pv-lesson-row exp" onclick="this.classList.toggle(\'open\')">'
+        +'<div class="pv-lesson-hd"><span class="pv-lesson-date">'+esc(s.date)+(s.time?' '+esc(timeLabel(s.time)):'')+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span><span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span><span class="pv-lesson-arw">▾</span></div>'
+        +'<div class="pv-lesson-body">'+body+'</div>'
+        +'</div>';
     }).join('')+'</div>';
     if(!(data.shots&&data.shots.length)){
       html+='<div class="pv-shotcount">🎯 트랙맨 라이브 수업에서 샷을 저장하면 비거리·구질·성장 그래프가 이 리포트에 자동으로 더해집니다.</div>';
