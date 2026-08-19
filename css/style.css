@@ -1491,6 +1491,13 @@ body.role-select .app{background:#0d1117}
 .pv-sess-vlabel{font-size:0.656em;color:var(--tx-3,#7a8089);padding:5px 8px;background:var(--bg-3,#f6f8fa);text-align:center}
 .pv-lessons{display:flex;flex-direction:column;gap:6px}
 .pv-lesson-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-3,#f6f8fa);border-radius:8px}
+.pv-lesson-row.exp{display:block;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pv-lesson-hd{display:flex;align-items:center;gap:8px}
+.pv-lesson-arw{margin-left:auto;flex-shrink:0;font-size:0.65em;color:var(--tx-3,#7a8089);transition:transform .2s}
+.pv-lesson-row.open .pv-lesson-arw{transform:rotate(180deg)}
+.pv-lesson-row.open .pv-lesson-txt{display:none}
+.pv-lesson-body{display:none;margin-top:9px;padding:11px 13px;background:#fff;border:1px solid var(--brd,#e3e7eb);border-radius:9px;font-size:0.78em;line-height:1.75;color:var(--tx-2,#57606a);cursor:auto;word-break:keep-all}
+.pv-lesson-row.open .pv-lesson-body{display:block}
 .pv-lesson-date{font-size:0.688em;color:var(--tx-3,#7a8089);white-space:nowrap;min-width:74px}
 .pv-lesson-tag{font-size:0.531em;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:5px;white-space:nowrap}
 .pv-lesson-tag.pro{background:rgba(56,104,214,.1);color:#3868d6}
