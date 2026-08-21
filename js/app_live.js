@@ -1217,6 +1217,7 @@ function _finishRec(){
   var bayId=_rec._lastBay;
   var act=bayId && S.activeSessions[bayId];
   var full=_recFullText();
+  try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}   // 녹음이 정상 마무리됨 — 자동 재개 마커 해제
   if(act){
     if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
     delete act._sttBusy; delete act._sttBusyAt;
@@ -1236,6 +1237,28 @@ function _finishRec(){
   }
   render();
 }
+// 끊긴 녹음 자동 재개 — 갤럭시 절전 등이 화면 꺼진 웹앱을 죽이면 녹음도 함께 죽는다.
+// 재시작 시 복구 마커가 남아 있고 그 타석 세션이 아직 진행 중이면, 담당자 기기에서
+// 녹음을 자동으로 다시 시작한다 (이전 전문은 세그먼트마다 저장돼 있어 이어붙음).
+function resumeInterruptedRec(){
+  try{
+    var raw=localStorage.getItem('golf_pt_rec_active'); if(!raw) return;
+    var info=null; try{ info=JSON.parse(raw); }catch(e){}
+    if(!info || !info.bayId || Date.now()-(info.at||0) > 6*3600*1000){ try{localStorage.removeItem('golf_pt_rec_active');}catch(e){} return; }
+    if(_rec.bayId) return;                                            // 이미 녹음 중
+    if(S.currentRole!=='pro' && S.currentRole!=='trainer') return;    // 담당자 기기에서만
+    if(info.author && info.author!==S.currentUser) return;
+    var act=S.activeSessions[info.bayId];
+    if(!act || act.author!==S.currentUser){ try{localStorage.removeItem('golf_pt_rec_active');}catch(e){} return; }   // 세션이 이미 끝남
+    try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}
+    S.showLiveSession=true; S.showDashboard=false; S.selectedMember=null;
+    try{ if(typeof startLivePolling==='function') startLivePolling(); }catch(e){}
+    startBayRec(info.bayId);                                          // 마이크 권한은 이미 허용됨 — 제스처 없이 재개
+    try{ liveToastSafe('🎙 중단됐던 녹음을 자동으로 다시 시작했어요 — 이전 내용은 저장돼 있습니다'); }catch(e){}
+    try{ render(); }catch(e){}
+  }catch(e){}
+}
+try{ setTimeout(resumeInterruptedRec, 4000); }catch(e){}   // 부팅(자동 로그인 복원) 후
 async function startBayRec(bayId){
   if(!recSupported()){ liveToast('이 기기는 녹음을 지원하지 않습니다','err'); return; }
   if(_rec.bayId){ liveToast('이미 '+getBay(_rec.bayId).name+'에서 녹음 중입니다','err'); return; }
@@ -1244,6 +1267,8 @@ async function startBayRec(bayId){
     var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
     // txBase = 녹음 시작 전 이미 있던 메모, tx = 이번 녹음으로 쌓이는 텍스트(자체 버퍼)
     _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0, txBase:(act._transcript||'').trim(), tx:''};
+    // 진행 중 표시 — 앱이 죽어도(갤럭시 절전 킬 등) 재시작 시 녹음을 자동 재개하기 위한 복구 마커
+    try{ localStorage.setItem('golf_pt_rec_active', JSON.stringify({bayId:bayId, at:Date.now(), author:S.currentUser||''})); }catch(e){}
     try{ var ub=document.getElementById('upd-banner'); if(ub) ub.remove(); }catch(e){}   // 녹음 중 업데이트 배너 숨김
     try{ if(navigator.wakeLock) _rec.wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
     _startSegment();
@@ -1257,6 +1282,7 @@ async function startBayRec(bayId){
 }
 async function stopBayRec(bayId){
   if(_rec.bayId!==bayId || !_rec.mr) return;
+  try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}   // 의도적 종료 — 자동 재개 마커 해제
   _rec.stopping=true;
   _rec._lastBay=bayId;
   clearInterval(_rec.uiTimer); clearTimeout(_rec.segTimer); clearTimeout(_rec.autoStop);

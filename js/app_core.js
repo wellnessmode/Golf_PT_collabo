@@ -83,8 +83,9 @@ const APP_VERSION = {
   version:'v9.80',
   date:'2026-08-19',
   changes:[
-    '녹음 중 앱이 첫 화면으로 튕기던 문제 수정 — 새 버전 자동 적용(리로드)이 녹음·받아쓰기·음성 변환·수업 진행 중에는 절대 실행되지 않게 차단, 레슨이 끝난 뒤에 적용 (갤럭시 "녹음 중 홈으로 튕김" 원인)',
-    '녹음 중 화면 꺼짐 방지 강화 — 화면이 꺼졌다 켜지면 화면 꺼짐 방지(wakeLock)를 자동 재획득',
+    '녹음 자동 복구 — 갤럭시 절전 등으로 앱이 죽어서 첫 화면으로 튕겨도, 다시 열면 진행 중이던 세션의 녹음이 자동으로 다시 시작됨 (이전 녹음 내용은 저장돼 있어 이어붙음)',
+    '녹음 중 앱이 첫 화면으로 튕기던 원인 차단 — 새 버전 자동 적용(리로드)이 녹음·받아쓰기·음성 변환·수업 진행 중에는 절대 실행되지 않게, 레슨이 끝난 뒤에 적용',
+    '녹음 중 화면 꺼짐 방지 강화 — 화면이 꺼졌다 켜지면 화면 꺼짐 방지(wakeLock)를 자동 재획득. 녹음 중에는 폰 화면을 켠 채 두는 것을 권장',
     '성과 리포트 레슨 기록 펼침 — 앱에서 보는 성과 리포트의 세션일지도 회원용 페이지처럼 눌러서 전체 내용을 펼쳐볼 수 있음 (한 줄 미리보기만 되던 문제)',
     '회원 영상 보호 강화 — 비포/애프터로 저장하지 않아도 회원별 최근 8개 샷 영상은 자동 보관(3일 정리·스토리지 정리에서 제외). 리포트의 스윙 영상이 비지 않게 (윤명숙님 리포트 영상 0개 원인 보완)',
     '대시보드 최근 활동 클릭 → 일지 열림 — 홈의 최근 활동(세션 일지) 항목을 누르면 그 회원 화면으로 이동해 해당 일지가 펼쳐진 채 열림. 미리보기의 마크다운 기호도 제거',
@@ -835,6 +836,7 @@ function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwM
   // 로그인 착지 = 대시보드 홈. 예전엔 담당 첫 회원(로버트)이 자동 선택돼 "첫 화면이 맨날 로버트" 문제.
   S.selectedMember=null;S.showDashboard=true;S.showLiveSession=false;render();
   try{ setTimeout(ensureOwnerWatchMember, 5000); }catch(e){}
+  try{ setTimeout(function(){ if(typeof resumeInterruptedRec==='function') resumeInterruptedRec(); }, 2500); }catch(e){}   // 로그인 후 끊긴 녹음 자동 재개
   // 로그인하는 순간 최신 버전 자동 적용 — 앱을 껐다 켜지 않아도 갱신되도록.
   // (대기 중인 새 SW가 있으면 즉시 활성→리로드. 세션은 해시+세션스토리지로 복원돼 대시보드 유지)
   try{ if(window.__checkAppUpdate) setTimeout(window.__checkAppUpdate, 500); }catch(e){}
