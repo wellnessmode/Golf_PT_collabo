@@ -615,6 +615,12 @@ function applyRemoteActive(remoteActive){
       if(typeof openVoiceDraft==='function' && openVoiceDraft(_it.memberId, _it.author, _it.tx)){
         S._lostTx.shift(); try{ save(); }catch(e){}
         liveToastSafe('🎙 대기 중이던 녹음 전문을 복구했어요 — 일지를 저장하세요');
+      } else {
+        // 영구 실패 항목(삭제된 회원·관찰용 회원 등)이 큐 머리를 점거하면 뒤의 일반 회원
+        // 전문 복구까지 막힌다 — 몇 번 시도해도 안 열리면 버린다
+        _it._tries=(_it._tries||0)+1;
+        var _mm=S.members.find(function(x){return x.id===_it.memberId;});
+        if(!_mm || _mm.ownerWatch || _it._tries>=30){ S._lostTx.shift(); try{ save(); }catch(e){} }
       }
     }catch(e){}
   }
@@ -627,6 +633,7 @@ function applyRemoteActive(remoteActive){
     var p = prev[b];
     var tx = p && String(p._transcript||'').trim();
     if(!tx || p.author!==S.currentUser) return;
+    if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(p.memberId)) return;   // 관찰용 회원 — 일지 복구 대상 아님
     if(typeof _rec!=='undefined' && _rec.bayId===b) return;   // 이 기기에서 녹음 중이면 폴링 잡음 — 건드리지 않음
     try{
       if(typeof openVoiceDraft==='function' && !S.showAddSession && openVoiceDraft(p.memberId, p.author, tx)){
@@ -804,10 +811,11 @@ function _notifyOwner(entry){
 // ============ Activity Log ============
 function logActivity(action, memberId, detail){
   var mName='';var m=S.members.find(function(x){return x.id===memberId;});if(m) mName=m.name;
+  if(m && m.ownerWatch) return;   // 관찰용 회원 활동은 활동 로그(알림 벨)에 기록 안 함 — 전 직원에게 노출되는 로그
   S.activityLog.push({time:new Date().toISOString(),user:S.currentUser||'시스템',action:action,memberId:memberId||'',memberName:mName,detail:detail||''});
   if(S.activityLog.length>200) S.activityLog=S.activityLog.slice(-200);
 }
-function getUnreadCount(){if(!S.currentUser) return 0;var last=S.lastSeen[S.currentUser]||'';return S.activityLog.filter(function(e){return e.time>last&&e.user!==S.currentUser;}).length;}
+function getUnreadCount(){if(!S.currentUser) return 0;var last=S.lastSeen[S.currentUser]||'';return S.activityLog.filter(function(e){return e.time>last&&e.user!==S.currentUser&&!(typeof isOwnerWatchMember==='function'&&isOwnerWatchMember(e.memberId));}).length;}
 function markSeen(){if(!S.currentUser)return;S.lastSeen[S.currentUser]=new Date().toISOString();save();}
 
 // ============ Helpers ============
@@ -1224,7 +1232,7 @@ function _verNum(v){ var m=/^v?(\d+)\.(\d+)/.exec(String(v||'')); return m ? (+m
 function _updBlocked(){
   try{ if(typeof _rec!=='undefined' && (_rec.bayId || _rec.pendingStt>0)) return true; }catch(e){}   // 녹음 중 + 종료 후 변환 대기 중
   try{ if(S && S.voiceBay) return true; }catch(e){}
-  try{ if(S && S.activeSessions && Object.keys(S.activeSessions).some(function(b){ var a=S.activeSessions[b]; return a && a._sttBusy; })) return true; }catch(e){}   // "마지막 조각 변환 중"
+  try{ if(S && S.activeSessions && Object.keys(S.activeSessions).some(function(b){ var a=S.activeSessions[b]; return a && a._sttBusy && (!a._sttBusyAt || Date.now()-a._sttBusyAt<90000); })) return true; }catch(e){}   // "마지막 조각 변환 중" (90초 지난 스테일 플래그는 무시 — 업데이트 무기한 차단 방지)
   return false;
 }
 async function checkAppUpdate(){

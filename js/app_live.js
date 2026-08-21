@@ -837,7 +837,7 @@ function autoEndOverdueSessions(){
     try{ cloud.endActiveSession(bayId); }catch(e){}
     logActivity('세션 자동 종료('+hours+'시간 초과)', memberId, bayName);
     logAudit('session','세션 자동 종료('+hours+'시간 초과)', memberName, {bay:bayName, author:author});
-    ended.push(bayName+' · '+memberName+'님');
+    if(!(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId))) ended.push(bayName+' · '+memberName+'님');   // 관찰용 회원은 토스트에서 제외
     // 담당자 본인 기기 + 받아쓴 내용 있음 → 일지 초안으로 복구 (조용히 버리지 않음)
     if(author===S.currentUser){
       if(transcript){
@@ -874,6 +874,7 @@ async function endLiveSession(bayId){
     + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리합니다)' : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)')
     + (pendCnt ? '\n\n💡 비포/애프터 지정은 종료 전에만 가능해요 — [전체 샷 ⏮]에서 처음 친 샷도 지정할 수 있습니다 (미저장 샷 '+pendCnt+'개)' : '');
   if(!confirm(msg)) return;
+  try{ window.__busyHold = Date.now() + 15000; }catch(e){}   // 종료 처리~일지 카드 열림 사이 SW 리로드 보류
   var transcript = act._transcript||'', memberId = act.memberId, author = act.author;
   var _bkAct = { startedAt: act.startedAt };   // 서버 백업 키 계산용 (삭제 전에 캡처)
   if(S.voiceBay===bayId) stopVoice(bayId);
@@ -1062,7 +1063,10 @@ try{
     if(document.visibilityState!=='visible') return;
     try{
       if(_rec.bayId && navigator.wakeLock && (!_rec.wakeLock || _rec.wakeLock.released)){
-        _rec.wakeLock = await navigator.wakeLock.request('screen');
+        var lk = await navigator.wakeLock.request('screen');
+        // await 사이에 녹음이 끝났으면(자동 종료·수동 종료 경합) 새 락을 바로 해제 — 화면 잠금 누수 방지
+        if(!_rec.bayId){ try{ lk.release(); }catch(e){} return; }
+        _rec.wakeLock = lk;
       }
     }catch(e){}
   });
