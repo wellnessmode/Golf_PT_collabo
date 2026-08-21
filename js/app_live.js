@@ -883,6 +883,10 @@ async function endLiveSession(bayId){
   logActivity('라이브 세션 종료', memberId, bay.name);
   logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
   cloud.endActiveSession(bayId);
+  // 관찰용 회원(타석 점검) — 일지 작성 없이 조용히 종료
+  if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId)){
+    liveToast('⏹ '+bay.name+' 세션 종료','ok'); render(); return;
+  }
   // 전문이 비어 있으면(페이지가 죽었거나 다른 기기에서 종료 등) 서버 백업에서 복구 시도
   if(!transcript.trim()){
     try{
@@ -1052,6 +1056,17 @@ function updateVoiceText(bayId, val){
 // → R2 에 원본 백업 + /stt(Whisper) 로 한국어 텍스트 변환 → 받아쓰기 칸에 합류
 // → 세션 종료 시 기존 AI 일지 정리 파이프라인 그대로 사용
 var _rec = { bayId:null, stream:null, mr:null, chunks:[], startedAt:0, uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0 };
+// 화면이 꺼졌다 켜지면 wakeLock 이 해제돼 있음 — 녹음 중이면 재획득 (갤럭시 백그라운드 킬 방어)
+try{
+  document.addEventListener('visibilitychange', async function(){
+    if(document.visibilityState!=='visible') return;
+    try{
+      if(_rec.bayId && navigator.wakeLock && (!_rec.wakeLock || _rec.wakeLock.released)){
+        _rec.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    }catch(e){}
+  });
+}catch(e){}
 var REC_SEG_MS = 20000;   // 20초마다 잘라 변환 — Whisper 30초 창에 가깝게 늘려 단어 중간 절단·헛인식↓ (실시간 표시는 유지)
 function recSupported(){
   try{ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder!=='undefined'); }catch(e){ return false; }
@@ -1487,6 +1502,7 @@ function toggleAiItem(idx){
 function openVoiceDraft(memberId, author, transcript){
   var m=S.members.find(function(x){return x.id===memberId;});
   if(!m) return false;
+  if(m.ownerWatch) return false;   // 관찰용 회원은 일지 초안 생성 안 함 (자동 종료·복구 경로 포함)
   var accessible=(S.currentRole==='admin'||S.currentRole==='infodesk')||(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1);
   var authorOk=author===S.currentUser && INSTRUCTORS.some(function(i){return i.name===author;});
   if(!accessible || !authorOk) return false;

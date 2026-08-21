@@ -283,7 +283,13 @@ function _render(){
     `}
     <input class="sidebar-search" placeholder="회원 검색..." value="${(S.memberSearch||'').replace(/"/g,'&quot;')}" oninput="filterMemberRows(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" onclick="event.stopPropagation()">
     <div class="member-list">
-      ${S.members.filter(function(m){var mType=m.memberType||'pt_lesson';if(!isInfo){if(mType!==S.sidebarTab) return false;if(!(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;}return true;}).map(function(m){
+      ${S.members.filter(function(m){
+        if(m.ownerWatch){
+          if(S.currentRole==='infodesk') return false;                                              // 인포데스크에겐 숨김
+          if(!isInfo && !(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;    // 담당자 외 직원 숨김
+          return true;                                                                              // 담당자·관리자: 탭과 무관하게 표시
+        }
+        var mType=m.memberType||'pt_lesson';if(!isInfo){if(mType!==S.sidebarTab) return false;if(!(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)) return false;}return true;}).map(function(m){
         var _cho=getChosung(m.name); var _q=(S.memberSearch||'').trim().toLowerCase();
         var _hide=_q&&m.name.toLowerCase().indexOf(_q)===-1&&_cho.indexOf(getChosung(_q))===-1;
         return `

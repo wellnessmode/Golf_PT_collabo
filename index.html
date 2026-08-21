@@ -139,21 +139,33 @@
     if (window.__bioActive) return true;
     // 로그인 전(역할 선택/비번/생체 화면)에도 보류 — 로그인 끝난 뒤 적용
     if (!window.__authed) return true;
+    // 🎙 수업 녹음·받아쓰기·음성 변환 중엔 절대 reload 금지 — 리로드가 녹음을 끊고
+    // 앱을 첫 화면으로 튕겨보냄 (2026-08 갤럭시 폴드 "녹음 중 홈으로 튕김" 사고)
+    try{ if (typeof _updBlocked==='function' && _updBlocked()) return true; }catch(e){}
+    // 라이브 수업 진행 중(수업 센터 열림 + 활성 세션)에도 보류 — 레슨 끝나면 적용
+    try{ if (typeof S!=='undefined' && S && S.showLiveSession && S.activeSessions && Object.keys(S.activeSessions).length) return true; }catch(e){}
     // 일지/회원 작성 폼이 열려 있으면 보류 — 작성 중 리로드로 내용 날리지 않게
     try{ if (typeof S!=='undefined' && S && (S.showAddSession || S.showAddMember)) return true; }catch(e){}
     // 스토리지 정리(대량 삭제) 진행 중에도 보류 — 리로드가 정리를 끊지 않게
     try{ if (typeof S!=='undefined' && S && S.storageAudit && S.storageAudit.purging && !S.storageAudit.purging.finished) return true; }catch(e){}
     var ae = document.activeElement;
-    return ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+    return !!(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable));
   }
+  window.__swBusy = isBusy;   // 진단·테스트용
   function applyUpdate(){
-    if (reloaded || !waitingWorker) return;
-    if (isBusy()) return;            // 입력 중이면 보류
+    if (reloaded) return;
+    if (isBusy()) return;            // 녹음·수업·입력 중이면 보류 (아래 재시도에서 다시 확인)
+    // 다른 기기/탭이 먼저 SKIP_WAITING 을 보내 컨트롤이 이미 바뀐 경우 — 한가해진 지금 리로드
+    if (window.__pendingSwReload){ reloaded = true; location.reload(); return; }
+    if (!waitingWorker) return;
     try { waitingWorker.postMessage({ type: 'SKIP_WAITING' }); } catch(e){}
   }
-  // 새 SW가 컨트롤을 잡으면 1회 reload → 즉시 최신 화면
+  // 새 SW가 컨트롤을 잡으면 reload → 최신 화면. 단, 녹음·수업 중이면 보류했다가
+  // 주기 재시도(applyUpdate)에서 한가할 때 리로드 (레슨 도중 강제 리로드 금지)
   navigator.serviceWorker.addEventListener('controllerchange', function(){
-    if (reloaded) return; reloaded = true;
+    if (reloaded) return;
+    if (isBusy()){ window.__pendingSwReload = true; return; }
+    reloaded = true;
     location.reload();
   });
 

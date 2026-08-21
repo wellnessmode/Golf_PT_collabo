@@ -139,6 +139,7 @@ function closeDashboard(){S.showDashboard=false;render();}
 function renderDashboard(){
   var isInfo = S.currentRole==='infodesk'||S.currentRole==='admin';
   var visibleMembers = S.members.filter(function(m){
+    if(m.ownerWatch && S.currentRole==='infodesk') return false;   // 관찰용 회원은 인포데스크에게 숨김
     if(isInfo) return true;
     return m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1;
   });
