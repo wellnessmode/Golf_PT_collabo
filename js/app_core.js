@@ -80,9 +80,12 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.79',
-  date:'2026-08-16',
+  version:'v9.80',
+  date:'2026-08-19',
   changes:[
+    '녹음 자동 복구 — 갤럭시 절전 등으로 앱이 죽어서 첫 화면으로 튕겨도, 다시 열면 진행 중이던 세션의 녹음이 자동으로 다시 시작됨 (이전 녹음 내용은 저장돼 있어 이어붙음)',
+    '녹음 중 앱이 첫 화면으로 튕기던 원인 차단 — 새 버전 자동 적용(리로드)이 녹음·받아쓰기·음성 변환·수업 진행 중에는 절대 실행되지 않게, 레슨이 끝난 뒤에 적용',
+    '녹음 중 화면 꺼짐 방지 강화 — 화면이 꺼졌다 켜지면 화면 꺼짐 방지(wakeLock)를 자동 재획득. 녹음 중에는 폰 화면을 켠 채 두는 것을 권장',
     '성과 리포트 레슨 기록 펼침 — 앱에서 보는 성과 리포트의 세션일지도 회원용 페이지처럼 눌러서 전체 내용을 펼쳐볼 수 있음 (한 줄 미리보기만 되던 문제)',
     '회원 영상 보호 강화 — 비포/애프터로 저장하지 않아도 회원별 최근 8개 샷 영상은 자동 보관(3일 정리·스토리지 정리에서 제외). 리포트의 스윙 영상이 비지 않게 (윤명숙님 리포트 영상 0개 원인 보완)',
     '대시보드 최근 활동 클릭 → 일지 열림 — 홈의 최근 활동(세션 일지) 항목을 누르면 그 회원 화면으로 이동해 해당 일지가 펼쳐진 채 열림. 미리보기의 마크다운 기호도 제거',
@@ -535,7 +538,7 @@ const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) session
 // (_meta 는 화면에 첨부파일로 안 보이게 media 목록에서 걸러낸다)
 var _mArr=Array.isArray(r.media)?r.media:(r.media?r.media:[]);var _tMeta='';_mArr=_mArr.filter(function(m){if(m&&m.type==='_meta'){if(m.time)_tMeta=m.time;return false;}return true;});
 sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:_mArr});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
-  async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
+  async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',ownerWatch:m.ownerWatch||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
   async upsertSession(memberId,s){if(!this.enabled) return false;var mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});
     // 레슨 시간을 media JSON 에도 백업 — sessions.time 컬럼이 없는 DB(마이그레이션 전)는
@@ -612,6 +615,12 @@ function applyRemoteActive(remoteActive){
       if(typeof openVoiceDraft==='function' && openVoiceDraft(_it.memberId, _it.author, _it.tx)){
         S._lostTx.shift(); try{ save(); }catch(e){}
         liveToastSafe('🎙 대기 중이던 녹음 전문을 복구했어요 — 일지를 저장하세요');
+      } else {
+        // 영구 실패 항목(삭제된 회원·관찰용 회원 등)이 큐 머리를 점거하면 뒤의 일반 회원
+        // 전문 복구까지 막힌다 — 몇 번 시도해도 안 열리면 버린다
+        _it._tries=(_it._tries||0)+1;
+        var _mm=S.members.find(function(x){return x.id===_it.memberId;});
+        if(!_mm || _mm.ownerWatch || _it._tries>=30){ S._lostTx.shift(); try{ save(); }catch(e){} }
       }
     }catch(e){}
   }
@@ -624,6 +633,7 @@ function applyRemoteActive(remoteActive){
     var p = prev[b];
     var tx = p && String(p._transcript||'').trim();
     if(!tx || p.author!==S.currentUser) return;
+    if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(p.memberId)) return;   // 관찰용 회원 — 일지 복구 대상 아님
     if(typeof _rec!=='undefined' && _rec.bayId===b) return;   // 이 기기에서 녹음 중이면 폴링 잡음 — 건드리지 않음
     try{
       if(typeof openVoiceDraft==='function' && !S.showAddSession && openVoiceDraft(p.memberId, p.author, tx)){
@@ -801,10 +811,11 @@ function _notifyOwner(entry){
 // ============ Activity Log ============
 function logActivity(action, memberId, detail){
   var mName='';var m=S.members.find(function(x){return x.id===memberId;});if(m) mName=m.name;
+  if(m && m.ownerWatch) return;   // 관찰용 회원 활동은 활동 로그(알림 벨)에 기록 안 함 — 전 직원에게 노출되는 로그
   S.activityLog.push({time:new Date().toISOString(),user:S.currentUser||'시스템',action:action,memberId:memberId||'',memberName:mName,detail:detail||''});
   if(S.activityLog.length>200) S.activityLog=S.activityLog.slice(-200);
 }
-function getUnreadCount(){if(!S.currentUser) return 0;var last=S.lastSeen[S.currentUser]||'';return S.activityLog.filter(function(e){return e.time>last&&e.user!==S.currentUser;}).length;}
+function getUnreadCount(){if(!S.currentUser) return 0;var last=S.lastSeen[S.currentUser]||'';return S.activityLog.filter(function(e){return e.time>last&&e.user!==S.currentUser&&!(typeof isOwnerWatchMember==='function'&&isOwnerWatchMember(e.memberId));}).length;}
 function markSeen(){if(!S.currentUser)return;S.lastSeen[S.currentUser]=new Date().toISOString();save();}
 
 // ============ Helpers ============
@@ -832,6 +843,8 @@ function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'
 function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwModal=false;S.pwError=false;S.pendingRole=null;S.bioError='';try{window.__authed=true;}catch(e){}try{sessionStorage.setItem('golf_pt_auth',role+':'+user);}catch(e){}try{localStorage.setItem('golf_pt_last_user',JSON.stringify({role:role,user:user}));}catch(e){}location.hash=role+(role!=='infodesk'?'-'+encodeURIComponent(user):'');if(role==='pro'||role==='trainer') S.newSession.author=user;
   // 로그인 착지 = 대시보드 홈. 예전엔 담당 첫 회원(로버트)이 자동 선택돼 "첫 화면이 맨날 로버트" 문제.
   S.selectedMember=null;S.showDashboard=true;S.showLiveSession=false;render();
+  try{ setTimeout(ensureOwnerWatchMember, 5000); }catch(e){}
+  try{ setTimeout(function(){ if(typeof resumeInterruptedRec==='function') resumeInterruptedRec(); }, 2500); }catch(e){}   // 로그인 후 끊긴 녹음 자동 재개
   // 로그인하는 순간 최신 버전 자동 적용 — 앱을 껐다 켜지 않아도 갱신되도록.
   // (대기 중인 새 SW가 있으면 즉시 활성→리로드. 세션은 해시+세션스토리지로 복원돼 대시보드 유지)
   try{ if(window.__checkAppUpdate) setTimeout(window.__checkAppUpdate, 500); }catch(e){}
@@ -1185,6 +1198,30 @@ async function reloadApp(){
 }
 function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(msg,'ok'); }catch(e){} }
 
+// ---------- 오너 관찰용 회원 ----------
+// 최현승 트레이너 전용 "타석 점검" 회원 — 타석에 배정해 현재 치는 샷을 실시간으로
+// 보기 위한 용도. 세션 종료 시 일지 작성 없음. 담당자(최현승)와 관리자에게만 보이고
+// 인포데스크·다른 직원에게는 숨김.
+var OWNER_WATCH_USER = '최현승 트레이너';
+function isOwnerWatchMember(mid){
+  try{ var m=S.members.find(function(x){return x.id===mid;}); return !!(m && m.ownerWatch); }catch(e){ return false; }
+}
+function ensureOwnerWatchMember(){
+  try{
+    if(S.currentRole!=='trainer' || S.currentUser!==OWNER_WATCH_USER) return;
+    if(S.members.some(function(m){return m.ownerWatch;})) return;
+    var m={ id:uid(), name:'타석 점검', color:'av-green', memberType:'lesson', ownerWatch:1,
+      assignedTo:[OWNER_WATCH_USER], registeredDate:today(), phone:'', email:'',
+      golfLessonCount:'', golfPTCount:'' };
+    S.members.push(m);
+    try{ save(); }catch(e){}
+    try{ cloud.upsertMember(m); }catch(e){}
+    try{ render(); }catch(e){}
+  }catch(e){}
+}
+// 로그인 직후 클라우드 동기화가 끝날 시간을 준 뒤 1회 확인 (기기 간 중복 생성 방지)
+try{ setTimeout(ensureOwnerWatchMember, 6000); }catch(e){}
+
 // ============ 새 버전 감지 → 업데이트 배너 ============
 // iOS PWA 는 며칠씩 리로드 없이 살아남아 배포가 나가도 옛 버전이 계속 뜬다(v9.52 사건).
 // version.json 을 주기적으로(10분 + 앱 복귀 시) 확인해 새 버전이면 하단 배너를 띄우고,
@@ -1195,7 +1232,7 @@ function _verNum(v){ var m=/^v?(\d+)\.(\d+)/.exec(String(v||'')); return m ? (+m
 function _updBlocked(){
   try{ if(typeof _rec!=='undefined' && (_rec.bayId || _rec.pendingStt>0)) return true; }catch(e){}   // 녹음 중 + 종료 후 변환 대기 중
   try{ if(S && S.voiceBay) return true; }catch(e){}
-  try{ if(S && S.activeSessions && Object.keys(S.activeSessions).some(function(b){ var a=S.activeSessions[b]; return a && a._sttBusy; })) return true; }catch(e){}   // "마지막 조각 변환 중"
+  try{ if(S && S.activeSessions && Object.keys(S.activeSessions).some(function(b){ var a=S.activeSessions[b]; return a && a._sttBusy && (!a._sttBusyAt || Date.now()-a._sttBusyAt<90000); })) return true; }catch(e){}   // "마지막 조각 변환 중" (90초 지난 스테일 플래그는 무시 — 업데이트 무기한 차단 방지)
   return false;
 }
 async function checkAppUpdate(){

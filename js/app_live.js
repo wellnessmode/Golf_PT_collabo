@@ -837,7 +837,7 @@ function autoEndOverdueSessions(){
     try{ cloud.endActiveSession(bayId); }catch(e){}
     logActivity('세션 자동 종료('+hours+'시간 초과)', memberId, bayName);
     logAudit('session','세션 자동 종료('+hours+'시간 초과)', memberName, {bay:bayName, author:author});
-    ended.push(bayName+' · '+memberName+'님');
+    if(!(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId))) ended.push(bayName+' · '+memberName+'님');   // 관찰용 회원은 토스트에서 제외
     // 담당자 본인 기기 + 받아쓴 내용 있음 → 일지 초안으로 복구 (조용히 버리지 않음)
     if(author===S.currentUser){
       if(transcript){
@@ -874,6 +874,7 @@ async function endLiveSession(bayId){
     + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리합니다)' : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)')
     + (pendCnt ? '\n\n💡 비포/애프터 지정은 종료 전에만 가능해요 — [전체 샷 ⏮]에서 처음 친 샷도 지정할 수 있습니다 (미저장 샷 '+pendCnt+'개)' : '');
   if(!confirm(msg)) return;
+  try{ window.__busyHold = Date.now() + 15000; }catch(e){}   // 종료 처리~일지 카드 열림 사이 SW 리로드 보류
   var transcript = act._transcript||'', memberId = act.memberId, author = act.author;
   var _bkAct = { startedAt: act.startedAt };   // 서버 백업 키 계산용 (삭제 전에 캡처)
   if(S.voiceBay===bayId) stopVoice(bayId);
@@ -883,6 +884,10 @@ async function endLiveSession(bayId){
   logActivity('라이브 세션 종료', memberId, bay.name);
   logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
   cloud.endActiveSession(bayId);
+  // 관찰용 회원(타석 점검) — 일지 작성 없이 조용히 종료
+  if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId)){
+    liveToast('⏹ '+bay.name+' 세션 종료','ok'); render(); return;
+  }
   // 전문이 비어 있으면(페이지가 죽었거나 다른 기기에서 종료 등) 서버 백업에서 복구 시도
   if(!transcript.trim()){
     try{
@@ -1052,6 +1057,20 @@ function updateVoiceText(bayId, val){
 // → R2 에 원본 백업 + /stt(Whisper) 로 한국어 텍스트 변환 → 받아쓰기 칸에 합류
 // → 세션 종료 시 기존 AI 일지 정리 파이프라인 그대로 사용
 var _rec = { bayId:null, stream:null, mr:null, chunks:[], startedAt:0, uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0 };
+// 화면이 꺼졌다 켜지면 wakeLock 이 해제돼 있음 — 녹음 중이면 재획득 (갤럭시 백그라운드 킬 방어)
+try{
+  document.addEventListener('visibilitychange', async function(){
+    if(document.visibilityState!=='visible') return;
+    try{
+      if(_rec.bayId && navigator.wakeLock && (!_rec.wakeLock || _rec.wakeLock.released)){
+        var lk = await navigator.wakeLock.request('screen');
+        // await 사이에 녹음이 끝났으면(자동 종료·수동 종료 경합) 새 락을 바로 해제 — 화면 잠금 누수 방지
+        if(!_rec.bayId){ try{ lk.release(); }catch(e){} return; }
+        _rec.wakeLock = lk;
+      }
+    }catch(e){}
+  });
+}catch(e){}
 var REC_SEG_MS = 20000;   // 20초마다 잘라 변환 — Whisper 30초 창에 가깝게 늘려 단어 중간 절단·헛인식↓ (실시간 표시는 유지)
 function recSupported(){
   try{ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder!=='undefined'); }catch(e){ return false; }
@@ -1202,6 +1221,7 @@ function _finishRec(){
   var bayId=_rec._lastBay;
   var act=bayId && S.activeSessions[bayId];
   var full=_recFullText();
+  try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}   // 녹음이 정상 마무리됨 — 자동 재개 마커 해제
   if(act){
     if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
     delete act._sttBusy; delete act._sttBusyAt;
@@ -1221,6 +1241,28 @@ function _finishRec(){
   }
   render();
 }
+// 끊긴 녹음 자동 재개 — 갤럭시 절전 등이 화면 꺼진 웹앱을 죽이면 녹음도 함께 죽는다.
+// 재시작 시 복구 마커가 남아 있고 그 타석 세션이 아직 진행 중이면, 담당자 기기에서
+// 녹음을 자동으로 다시 시작한다 (이전 전문은 세그먼트마다 저장돼 있어 이어붙음).
+function resumeInterruptedRec(){
+  try{
+    var raw=localStorage.getItem('golf_pt_rec_active'); if(!raw) return;
+    var info=null; try{ info=JSON.parse(raw); }catch(e){}
+    if(!info || !info.bayId || Date.now()-(info.at||0) > 6*3600*1000){ try{localStorage.removeItem('golf_pt_rec_active');}catch(e){} return; }
+    if(_rec.bayId) return;                                            // 이미 녹음 중
+    if(S.currentRole!=='pro' && S.currentRole!=='trainer') return;    // 담당자 기기에서만
+    if(info.author && info.author!==S.currentUser) return;
+    var act=S.activeSessions[info.bayId];
+    if(!act || act.author!==S.currentUser){ try{localStorage.removeItem('golf_pt_rec_active');}catch(e){} return; }   // 세션이 이미 끝남
+    try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}
+    S.showLiveSession=true; S.showDashboard=false; S.selectedMember=null;
+    try{ if(typeof startLivePolling==='function') startLivePolling(); }catch(e){}
+    startBayRec(info.bayId);                                          // 마이크 권한은 이미 허용됨 — 제스처 없이 재개
+    try{ liveToastSafe('🎙 중단됐던 녹음을 자동으로 다시 시작했어요 — 이전 내용은 저장돼 있습니다'); }catch(e){}
+    try{ render(); }catch(e){}
+  }catch(e){}
+}
+try{ setTimeout(resumeInterruptedRec, 4000); }catch(e){}   // 부팅(자동 로그인 복원) 후
 async function startBayRec(bayId){
   if(!recSupported()){ liveToast('이 기기는 녹음을 지원하지 않습니다','err'); return; }
   if(_rec.bayId){ liveToast('이미 '+getBay(_rec.bayId).name+'에서 녹음 중입니다','err'); return; }
@@ -1229,6 +1271,8 @@ async function startBayRec(bayId){
     var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
     // txBase = 녹음 시작 전 이미 있던 메모, tx = 이번 녹음으로 쌓이는 텍스트(자체 버퍼)
     _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0, txBase:(act._transcript||'').trim(), tx:''};
+    // 진행 중 표시 — 앱이 죽어도(갤럭시 절전 킬 등) 재시작 시 녹음을 자동 재개하기 위한 복구 마커
+    try{ localStorage.setItem('golf_pt_rec_active', JSON.stringify({bayId:bayId, at:Date.now(), author:S.currentUser||''})); }catch(e){}
     try{ var ub=document.getElementById('upd-banner'); if(ub) ub.remove(); }catch(e){}   // 녹음 중 업데이트 배너 숨김
     try{ if(navigator.wakeLock) _rec.wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
     _startSegment();
@@ -1242,6 +1286,7 @@ async function startBayRec(bayId){
 }
 async function stopBayRec(bayId){
   if(_rec.bayId!==bayId || !_rec.mr) return;
+  try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}   // 의도적 종료 — 자동 재개 마커 해제
   _rec.stopping=true;
   _rec._lastBay=bayId;
   clearInterval(_rec.uiTimer); clearTimeout(_rec.segTimer); clearTimeout(_rec.autoStop);
@@ -1487,6 +1532,7 @@ function toggleAiItem(idx){
 function openVoiceDraft(memberId, author, transcript){
   var m=S.members.find(function(x){return x.id===memberId;});
   if(!m) return false;
+  if(m.ownerWatch) return false;   // 관찰용 회원은 일지 초안 생성 안 함 (자동 종료·복구 경로 포함)
   var accessible=(S.currentRole==='admin'||S.currentRole==='infodesk')||(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1);
   var authorOk=author===S.currentUser && INSTRUCTORS.some(function(i){return i.name===author;});
   if(!accessible || !authorOk) return false;

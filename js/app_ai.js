@@ -139,6 +139,7 @@ function closeDashboard(){S.showDashboard=false;render();}
 function renderDashboard(){
   var isInfo = S.currentRole==='infodesk'||S.currentRole==='admin';
   var visibleMembers = S.members.filter(function(m){
+    if(m.ownerWatch) return false;   // 관찰용 회원은 통계·목록 어디에도 산입 안 함 (사이드바에서만 접근)
     if(isInfo) return true;
     return m.assignedTo && m.assignedTo.indexOf(S.currentUser)!==-1;
   });
