@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v9.81';
+const CACHE_NAME = 'golf-pt-v9.82';
 const ASSETS = [
   './',
   './index.html',
