@@ -246,6 +246,8 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
   function run(args){
     return new Promise(function(resolve){
       var p = spawn(ffmpegPath, args, { windowsHide:true });
+      // TPS 에 항상 양보 — 보통보다 낮음(10). 재인코딩이 측정 기록을 잘리게 하지 않게.
+      try{ require('os').setPriority(p.pid, 10); }catch(_){}
       var err='';
       // 하드 타임아웃 — ffmpeg 이 멈추면 죽인다. 시간제한이 없으면 에이전트 전체가
       // 살아있는 채로 영원히 정지(자동재시작 루프도 프로세스가 죽어야만 작동).
@@ -257,11 +259,20 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
     });
   }
   try{
-    // 1) 빠른 리먹스 (재인코딩 X) — 코덱이 H.264/AAC 면 즉시 끝
-    var r = await run(['-y','-i', tmpIn, '-c','copy','-movflags','+faststart', tmpOut]);
+    // ⚠️ 리먹스(-c copy) 금지 — 트랙맨 내장 카메라 mkv 는 H.264 가 아닌 코덱이 흔한데,
+    // mp4 컨테이너가 그런 코덱도 받아줘서 리먹스가 "성공"해 버리면 아이폰에서 재생
+    // 불가한 _scene.mp4 가 올라간다 (2026-08 bay2 "파일은 있는데 재생 안 됨" 사고).
+    // 항상 H.264(yuv420p) 재인코딩 + 해상도 캡(폰 시청용 1280) — v9.60/63 낱개 파일
+    // 경로와 동일 규칙을 ftmf 내장 scene.mkv 경로에도 적용.
+    var r = await run(['-y','-threads','4','-i', tmpIn,
+      '-vf',"scale=w='min(iw,1280)':h='min(ih,1280)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+      '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','4',
+      '-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
     if (r.code !== 0 || !fs.existsSync(tmpOut) || fs.statSync(tmpOut).size < 1024){
-      // 2) 폴백: 트랜스코드 (H.264 + AAC)
-      r = await run(['-y','-i', tmpIn, '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart', tmpOut]);
+      // 폴백: 오디오 스트림이 없거나 이상한 파일 — 영상만 재인코딩
+      r = await run(['-y','-threads','4','-i', tmpIn,
+        '-vf',"scale=w='min(iw,1280)':h='min(ih,1280)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+        '-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-threads','4','-an','-movflags','+faststart', tmpOut]);
       if (r.code !== 0) throw new Error('ffmpeg 종료 '+r.code+': '+r.err.slice(0,200));
     }
     var out = fs.readFileSync(tmpOut);

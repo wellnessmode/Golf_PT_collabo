@@ -519,10 +519,18 @@ function autoEndStaleSessions(remoteActive){
 var _stalePurgeDone = false;
 function purgeStaleUnassigned(){
   if(_stalePurgeDone) return;                       // 세션당 1회
-  if(S.currentRole!=='admin') return;               // 관리자 기기에서만 (다기기 경합 방지)
+  // 프로·트레이너·관리자 기기 모두 실행 — 관리자 전용이던 시절엔 미배정 샷이
+  // 수백 개씩 쌓였음(2026-08 실측 635개). 삭제는 멱등이라 다기기 겹침 안전.
+  if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
   var cutoff = Date.now() - 24*3600*1000;
   var stale = (S.shotEvents||[]).filter(function(s){
-    if(s.memberName) return false;                  // 귀속된 샷 보호
+    if(s.memberName){
+      // 귀속된 샷 보호 — 단, 관찰용(타석 점검) 샷은 하루 지나면 행·영상 함께 정리
+      // (점검용이라 기록 가치 없음 + 최근 샷 1000개 창을 잠식해 실회원 샷을 밀어냄)
+      if(!(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(s.memberId))) return false;
+      var actW=S.activeSessions[s.bayId];
+      if(actW && actW.memberId===s.memberId) return false;   // 점검 세션 진행 중이면 보호
+    }
     if(s._pendingBay && S.activeSessions[s._pendingBay]) return false;  // 진행 중 레슨 대기샷 보호
     var t = Date.parse(s.ts);
     return !isNaN(t) && t < cutoff;
@@ -546,6 +554,7 @@ function _memberRecentVideoShotIds(n){
   var byM={}, prot={};
   (S.shotEvents||[]).slice().sort(function(a,b){ return String(b.ts||'').localeCompare(String(a.ts||'')); }).forEach(function(s){
     if(!s.memberId || (typeof AGENT_EMPTY_MEMBER!=='undefined' && s.memberId===AGENT_EMPTY_MEMBER)) return;
+    if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(s.memberId)) return;   // 관찰용 샷은 보호 대상 아님
     var d=s.data||{};
     if(!(s.videoR2Key || d.videoMp4R2Key || d.videoDL || d.videoFO || d.videoClub)) return;
     var arr=byM[s.memberId]=byM[s.memberId]||[];
