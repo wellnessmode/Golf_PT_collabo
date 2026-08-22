@@ -660,9 +660,13 @@ function openLiveForMember(memberId){
 }
 function pickBayForMember(bayId){
   var memberId=S.liveBayPickFor; if(!memberId) return;
-  if(S.activeSessions[bayId]){ liveToast(getBay(bayId).name+'은(는) 사용 중입니다','err'); return; }
   var dup=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===memberId;});
   if(dup){ liveToast(getBay(dup).name+'에서 이미 진행 중입니다','err'); S.liveBayPickFor=null; render(); return; }
+  if(S.activeSessions[bayId]){
+    // 앞 타임 세션이 안 꺼져 있음 — 막지 않고 확인 후 인수
+    if(!_takeOverConfirm(bayId)) return;
+    if(!forceEndPrevSession(bayId)) return;
+  }
   var m=S.members.find(function(x){return x.id===memberId;}); if(!m){ S.liveBayPickFor=null; render(); return; }
   S.liveConfirm={bayId:bayId, memberId:memberId, memberName:m.name};  // 기존 명시 컨펌 모달 재사용
   S.liveBayPickFor=null;
@@ -776,17 +780,63 @@ function renderBayPickModal(){
     + '<div class="baypick-grid">'
     + bays.map(function(b){
         var occ=S.activeSessions[b.id];
-        return '<button class="baypick '+b.color+(occ?' occ':'')+'"'+(occ?' disabled':' onclick="pickBayForMember(\''+b.id+'\')"')+'>'
-          + '<span class="bp-name">'+b.name+'</span><span class="bp-sub">'+(occ?occ.memberName+' 진행중':'여기서 시작')+'</span></button>';
+        // 사용 중인 타석도 누를 수 있음 — 앞 타임 세션 종료 확인 후 인수 (연속 레슨)
+        return '<button class="baypick '+b.color+(occ?' occ':'')+'" onclick="pickBayForMember(\''+b.id+'\')">'
+          + '<span class="bp-name">'+b.name+'</span><span class="bp-sub">'+(occ?occ.memberName+' 진행중 · 종료 후 시작':'여기서 시작')+'</span></button>';
       }).join('')
     + '</div>'
     + '<div class="modal-actions"><button class="btn" onclick="cancelBayPick()">취소</button></div>'
     + '</div></div>';
 }
 
+// ============ 앞 타임 세션 인수 (같은 타석 연속 레슨) ============
+// 앞 프로가 세션 종료를 잊고 가면 다음 프로가 그 타석에서 시작을 못 했다 —
+// 막는 대신 "앞 세션을 종료하고 새로 시작할까요?" 확인 후 인수한다.
+// 이 기기에는 남의 일지 카드를 열지 않는다: 앞 담당자가 받아쓴 전문은 그 담당자
+// 기기의 폴링(applyRemoteActive)이 세션 소멸을 감지해 일지 초안으로 복구한다(v9.73).
+function _takeOverConfirm(bayId){
+  var act=S.activeSessions[bayId]; if(!act) return true;
+  var mins=Math.round((Date.now()-new Date(act.startedAt).getTime())/60000);
+  var dur=isNaN(mins)||mins<0?'':' · '+(mins>=60?Math.floor(mins/60)+'시간 '+(mins%60)+'분':mins+'분')+' 경과';
+  return confirm('⚠️ '+getBay(bayId).name+'에 앞 타임 레슨이 아직 켜져 있어요\n\n'
+    + act.memberName+'님 · 담당 '+(act.author||'?')+dur+'\n\n'
+    + '앞 세션을 종료하고 새로 시작할까요?\n'
+    + '(앞 담당자가 받아쓴 녹음은 그 담당자 기기에서 일지 초안으로 자동 복구됩니다)');
+}
+function forceEndPrevSession(bayId){
+  var act=S.activeSessions[bayId]; if(!act) return true;
+  if(typeof _rec!=='undefined' && _rec.bayId===bayId){ liveToast('🎙 이 기기에서 녹음 중인 세션입니다 — [종료·글변환]을 먼저 눌러주세요','err'); return false; }
+  var memberId=act.memberId, memberName=act.memberName, author=act.author;
+  var tx=String(act._transcript||'').trim();
+  var bayName=getBay(bayId).name;
+  if(S.voiceBay===bayId){ try{ stopVoice(bayId); }catch(e){} }
+  delete S.activeSessions[bayId];
+  try{ if(S._psShowAll) delete S._psShowAll[bayId]; }catch(e){}
+  save();
+  logActivity('앞 세션 종료(다음 레슨 시작)', memberId, bayName);
+  logAudit('session','앞 세션 종료(다음 레슨 시작)', memberName, {bay:bayName, prevAuthor:author, by:S.currentUser});
+  try{ cloud.endActiveSession(bayId); }catch(e){}
+  // 앞 세션이 내 것이었고 받아쓴 내용이 있으면 초안/보관함으로 회수 (조용히 버리지 않음)
+  if(tx && author===S.currentUser && !(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId))){
+    try{
+      if(!S.showAddSession && openVoiceDraft(memberId, author, tx)){
+        liveToastSafe('🎙 앞 세션의 녹음 전문을 일지 초안으로 복구했어요 — 저장 후 새 세션을 시작하세요');
+      } else {
+        S._lostTx=S._lostTx||[];
+        S._lostTx.push({memberId:memberId, author:author, tx:tx, at:new Date().toISOString()});
+        try{ save(); }catch(e){}
+      }
+    }catch(e){}
+  }
+  return true;
+}
+
 // ============ 세션 시작 (회원 배정 → 명시 컨펌) ============
 function openLiveStart(bayId){
-  if(S.activeSessions[bayId]){ liveToast('이미 진행 중인 세션이 있습니다','err'); return; }
+  if(S.activeSessions[bayId]){
+    if(!_takeOverConfirm(bayId)) return;
+    if(!forceEndPrevSession(bayId)) return;
+  }
   S.liveStartBay=bayId; S.liveStartQuery=''; render();
   setTimeout(function(){var i=document.querySelector('.live-search-input');if(i) i.focus();},50);
 }
@@ -807,8 +857,10 @@ function cancelLiveConfirm(){ S.liveConfirm=null; render(); }
 function confirmLiveStart(){
   var c = S.liveConfirm; if(!c) return;
   var bay = getBay(c.bayId);
-  // 이중 안전 체크 (컨펌 사이에 상태가 바뀌었을 수 있음)
-  if(S.activeSessions[c.bayId]){ liveToast(bay.name+'에 이미 진행 중인 세션이 있습니다','err'); S.liveConfirm=null; render(); return; }
+  // 이중 안전 체크 (컨펌 사이에 상태가 바뀌었을 수 있음 — 폴링이 앞 세션을 되살린 경우 포함)
+  if(S.activeSessions[c.bayId]){
+    if(!_takeOverConfirm(c.bayId) || !forceEndPrevSession(c.bayId)){ S.liveConfirm=null; render(); return; }
+  }
   var dupBay = Object.keys(S.activeSessions).find(function(b){ return S.activeSessions[b].memberId===c.memberId; });
   if(dupBay){ liveToast('해당 회원이 이미 '+getBay(dupBay).name+'에서 진행 중입니다','err'); S.liveConfirm=null; render(); return; }
   var author = S.currentUser || '관리자';
