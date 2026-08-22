@@ -780,6 +780,9 @@ function renderBayPickModal(){
     + '<div class="baypick-grid">'
     + bays.map(function(b){
         var occ=S.activeSessions[b.id];
+        // 관찰용(타석 점검) 세션은 담당자·관리자 외에는 빈 타석으로 표기 (조용히 인수됨)
+        if(occ && typeof isOwnerWatchMember==='function' && isOwnerWatchMember(occ.memberId)
+           && !(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) occ=null;
         // 사용 중인 타석도 누를 수 있음 — 앞 타임 세션 종료 확인 후 인수 (연속 레슨)
         return '<button class="baypick '+b.color+(occ?' occ':'')+'" onclick="pickBayForMember(\''+b.id+'\')">'
           + '<span class="bp-name">'+b.name+'</span><span class="bp-sub">'+(occ?occ.memberName+' 진행중 · 종료 후 시작':'여기서 시작')+'</span></button>';
@@ -796,6 +799,9 @@ function renderBayPickModal(){
 // 기기의 폴링(applyRemoteActive)이 세션 소멸을 감지해 일지 초안으로 복구한다(v9.73).
 function _takeOverConfirm(bayId){
   var act=S.activeSessions[bayId]; if(!act) return true;
+  // 관찰용(타석 점검) 세션은 묻지 않고 조용히 인수 — 확인창에 이름·담당자가 뜨면
+  // 다른 직원에게 드러난다. 끄는 걸 잊어도 다음 레슨 시작이 그냥 진행되게.
+  if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(act.memberId)) return true;
   var mins=Math.round((Date.now()-new Date(act.startedAt).getTime())/60000);
   var dur=isNaN(mins)||mins<0?'':' · '+(mins>=60?Math.floor(mins/60)+'시간 '+(mins%60)+'분':mins+'분')+' 경과';
   return confirm('⚠️ '+getBay(bayId).name+'에 앞 타임 레슨이 아직 켜져 있어요\n\n'
@@ -1787,6 +1793,10 @@ function renderClassPickModal(){
 
 function renderBayCard(bay, canCoach, isAdmin){
   var act = S.activeSessions[bay.id];
+  // 관찰용(타석 점검) 세션은 담당자·관리자 외에는 빈 타석으로 보임 — [+ 회원 배정]을
+  // 누르면 조용히 인수되므로(_takeOverConfirm) 다른 직원에겐 막히지도, 드러나지도 않음
+  if(act && typeof isOwnerWatchMember==='function' && isOwnerWatchMember(act.memberId)
+     && !(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) act = null;
   var typeLabel = bay.type==='lesson_only' ? '레슨 전용' : '연습 · 레슨';
   var head = '<div class="bay-card-hd '+bay.color+'"><span class="bay-name">'+bay.name+'</span><span class="bay-type">'+typeLabel+'</span></div>';
 
@@ -1906,10 +1916,14 @@ function renderShotLog(isAdmin){
     if(ra&&rb) return rb-ra;
     return String(b.ts||'').localeCompare(String(a.ts||''));
   });
+  // 관찰용(타석 점검) 회원의 샷은 담당자·관리자 외의 샷 목록에 표시하지 않음
+  if(!(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())){
+    all = all.filter(function(s){ return !(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(s.memberId)); });
+  }
   var assigned = all.filter(function(s){ return !(s._unassigned && !s.memberName); });
   var unassignedAll = all.filter(function(s){ return s._unassigned && !s.memberName; });
   var mockCount = (S.shotEvents||[]).filter(function(s){return s.source==='mock';}).length;
-  var total = S.shotEvents.length;
+  var total = all.length;
   var showUn = !!S._showUnassigned;
   var selMode = !!S._shotSelMode;
   if(!S._shotSel) S._shotSel = {};

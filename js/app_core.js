@@ -80,7 +80,7 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.82',
+  version:'v9.83',   // v9.83: 내역 비공개 변경(운영 편의)만 포함 — changes 에 새 항목 없음
   date:'2026-08-22',
   changes:[
     '같은 타석 연속 레슨 개선 — 앞 타임 세션이 안 꺼져 있어도 시작이 막히지 않고, 확인 후 앞 세션을 종료하고 바로 새 레슨 시작 (앞 담당자의 녹음 전문은 그 기기에서 일지 초안으로 자동 복구)',
@@ -1208,6 +1208,11 @@ function liveToastSafe(msg){ try{ if(typeof liveToast==='function') liveToast(ms
 var OWNER_WATCH_USER = '최현승 트레이너';
 function isOwnerWatchMember(mid){
   try{ var m=S.members.find(function(x){return x.id===mid;}); return !!(m && m.ownerWatch); }catch(e){ return false; }
+}
+// 관찰용 회원(타석 점검)을 이 기기 사용자에게 보여도 되는가 — 담당자·관리자만.
+// (사이드바 필터와 같은 규칙. 수업 센터의 타석 카드·샷 목록 비노출에 사용)
+function canSeeOwnerWatch(){
+  return S.currentRole==='admin' || S.currentUser===OWNER_WATCH_USER;
 }
 function ensureOwnerWatchMember(){
   try{
