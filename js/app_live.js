@@ -1433,6 +1433,14 @@ function setAnthropicKey(){
   liveToast(v?'🤖 AI 정리 켜짐 (이 기기 전용)':'AI 정리 꺼짐 (내장 정리 사용)','ok');
 }
 
+// fetch + 타임아웃 — 응답이 영영 안 오면 AI 정리가 '진행 중'에 영구히 갇힌다 (실패로 전환해 재시도 경로로)
+function _fetchT(url, opts, ms){
+  var ac=(typeof AbortController!=='undefined')?new AbortController():null;
+  var t=ac?setTimeout(function(){ try{ac.abort();}catch(_){} }, ms||45000):null;
+  var o=ac?Object.assign({},opts,{signal:ac.signal}):opts;
+  return fetch(url,o).finally(function(){ if(t) clearTimeout(t); });
+}
+
 // Claude 정리 — 골프 특화 구조화. 1순위 워커 프록시, 2순위 브라우저 직접, 실패 시 null→로컬 폴백.
 async function aiSummarizeWithClaude(transcript, author){
   try{
@@ -1483,7 +1491,7 @@ async function aiSummarizeWithClaude(transcript, author){
     if(cfg.AI_VIA_WORKER && wbase && wauth){
       try{
         var wurl=String(wbase).replace(/\/+$/,'')+'/claude';
-        var wres=await fetch(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)});
+        var wres=await _fetchT(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)},60000);
         var wbodyText=''; try{ wbodyText=await wres.text(); }catch(_){}
         if(wres.ok){
           var wj=null; try{ wj=JSON.parse(wbodyText); }catch(_){}
@@ -1501,7 +1509,7 @@ async function aiSummarizeWithClaude(transcript, author){
     // 2순위: 브라우저 직접 호출 (이 기기 localStorage 키)
     var key=getAnthropicKey();
     if(!key){ if(!window.__aiLastError) window.__aiLastError='AI 정리 미설정 (워커 프록시·기기 키 모두 없음)'; return null; }
-    var res=await fetch('https://api.anthropic.com/v1/messages',{
+    var res=await _fetchT('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
