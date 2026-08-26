@@ -1740,6 +1740,7 @@ function renderLiveSession(){
   }
   html += '<div class="live-sub">베이에 회원을 배정하면, 트랙맨 샷이 <strong>그 회원에게 저장</strong>됩니다. '
        +  '<span class="live-live-tag">● TrackMan 실시간 연동</span></div>';
+  html += _staleAgentWarnHTML(bays, isAdmin);
   html += '<div class="bay-grid">';
   bays.forEach(function(bay){ html += renderBayCard(bay, canCoach, isAdmin); });
   html += '</div>';
@@ -1797,6 +1798,30 @@ function renderClassPickModal(){
     + '</div>'
     + '<div class="modal-actions"><button class="btn" onclick="closeClassPick()">취소</button></div>'
     + '</div></div>';
+}
+
+// 타석 PC 에이전트 구버전 경고 (관리자 기기만) — 에이전트를 고쳐도 그 PC 에서
+// update.ps1 을 안 돌리면 반영되지 않는데, 예전엔 확인할 방법이 없어 "고쳤는데
+// 왜 그대로냐"가 반복됐다. 오늘 들어온 샷의 _agentVer 로 판별한다.
+// (구버전은 _agentVer 자체를 안 실어 보내므로 '없음'도 구버전으로 본다)
+var AGENT_VERSION_EXPECTED = 9;
+function _staleAgentWarnHTML(bays, isAdmin){
+  try{
+    if(!isAdmin) return '';
+    var since = Date.now() - 24*3600*1000;
+    var latest = {};   // bayId → 가장 최근 샷의 _agentVer (없으면 0)
+    (S.shotEvents||[]).forEach(function(s){
+      if(s.source!=='agent' || !s.bayId) return;
+      var t=Date.parse(s.ts); if(isNaN(t) || t<since) return;
+      if(latest[s.bayId] && latest[s.bayId].t>t) return;
+      latest[s.bayId]={ t:t, v:((s.data&&s.data._agentVer)||0) };
+    });
+    var stale = Object.keys(latest).filter(function(b){ return latest[b].v < AGENT_VERSION_EXPECTED; })
+      .map(function(b){ return getBay(b).name; });
+    if(!stale.length) return '';
+    return '<div class="agent-stale">⚠️ '+stale.join(' · ')+' PC 에이전트가 구버전입니다<br>'
+         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환 수정이 아직 적용되지 않았습니다</small></div>';
+  }catch(e){ return ''; }
 }
 
 function renderBayCard(bay, canCoach, isAdmin){

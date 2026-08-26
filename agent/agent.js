@@ -15,6 +15,12 @@
 //  실행: node agent.js   (config.json 같은 폴더)
 //  설정: config.json 참조
 // ============================================================
+// 에이전트 버전 — 샷 행에 함께 실려 앱이 "이 타석 PC 가 구버전인지"를 알 수 있게 한다.
+// 영상 변환 로직을 고쳐도 타석 PC 에서 update.ps1 을 안 돌리면 반영되지 않는데,
+// 예전엔 그걸 확인할 방법이 없어 "고쳤는데 왜 그대로냐" 혼선이 반복됐다.
+// ⚠️ 변환·업로드 로직을 고칠 때마다 이 숫자를 올릴 것.
+const AGENT_VERSION = 9;
+
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -346,8 +352,22 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
       }
     }
     if (!forceEncode){
-      // 1) 리먹스(재인코딩 X) — 이미 아이폰 호환 H.264 면 즉시. faststart 로 스트리밍 재생.
-      r = await run(['-y','-i', inputPath, '-c','copy','-movflags','+faststart', tmpOut]);
+      // ⚠️ 리먹스 전에 반드시 코덱을 확인한다. 확장자(.mov/.mp4)는 코덱을 보장하지 않는다 —
+      // HEVC·4:2:2·10bit 원본을 리먹스하면 mp4 가 그것도 받아줘서 "성공"해 버리고,
+      // 결과적으로 아이폰에서 재생 불가한 파일이 올라간다 (2026-08 타석 영상 사고와 동종).
+      // H.264 + yuv420p 인 것만 리먹스로 빠르게 통과시키고, 나머지는 재인코딩한다.
+      var pi = await run(['-i', inputPath]);          // 변환 없이 정보만 (비정상 종료가 정상)
+      var vs = /Stream #\d+:\d+.*Video:\s*([a-zA-Z0-9_]+)[^\n]*/.exec(pi.err || '');
+      var vcodec = vs ? vs[1].toLowerCase() : '';
+      var vline  = vs ? vs[0] : '';
+      var safe = (vcodec === 'h264') && /yuvj?420p/.test(vline);
+      if (safe){
+        // 1) 리먹스(재인코딩 X) — 이미 아이폰 호환 H.264 면 즉시. faststart 로 스트리밍 재생.
+        r = await run(['-y','-i', inputPath, '-c','copy','-movflags','+faststart', tmpOut]);
+      } else {
+        try{ log('  재생호환 재인코딩(' + (vcodec||'코덱불명') + ') ' + path.basename(inputPath)); }catch(_){}
+        forceEncode = true;
+      }
     }
     if (forceEncode || bad(r)){
       // 2) 트랜스코드 — HEVC·4:2:2·10bit 등 전부 아이폰 호환 H.264(yuv420p) 로.
@@ -568,6 +588,7 @@ async function handleFtmf(filePath){
     author: '',
     ts: nowIso,
     data: Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime,
+      _agentVer: AGENT_VERSION,   // 앱이 타석 PC 에이전트 구버전을 감지하는 데 사용
       // 앱이 "영상 준비 중" 표시를 띄울 수 있게 예고 — 연결 완료/포기 시 해제됨
       _videoPending: (CFG.uploadVideo && ((parsed.videos && parsed.videos.length) || parsed.isDirectStmf)) ? 1 : undefined }, parsed.data),
     video_r2_key: null,
