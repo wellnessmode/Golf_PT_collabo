@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.83',   // v9.83: 내역 비공개 변경(운영 편의)만 포함 — changes 에 새 항목 없음
-  date:'2026-08-22',
+  version:'v9.84',
+  date:'2026-08-25',
   changes:[
+    '레슨 일지 AI 정리 누락 수리 — 저장 직후 앱을 닫으면 AI 정리가 끊겨 받아쓰기 메모로 남던 문제. 이제 앱을 다시 열면 남은 일지(최근 7일)를 자동으로 마저 정리합니다',
     '같은 타석 연속 레슨 개선 — 앞 타임 세션이 안 꺼져 있어도 시작이 막히지 않고, 확인 후 앞 세션을 종료하고 바로 새 레슨 시작 (앞 담당자의 녹음 전문은 그 기기에서 일지 초안으로 자동 복구)',
     '타석 내장 카메라 영상이 아이폰에서 재생 안 되던 문제 수정 — 특수 코덱이 변환 없이 통과되던 것을 항상 재생 호환(H.264)으로 재인코딩 (⚠️ 타석 PC 에이전트 업데이트 필요 — update.ps1)',
     '미배정 샷 자동 정리 강화 — 하루 지난 미배정 샷(영상 포함)이 프로·트레이너 기기에서도 자동 정리됨 (수백 개씩 쌓이던 문제)',
@@ -847,6 +848,7 @@ function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwM
   // 로그인 착지 = 대시보드 홈. 예전엔 담당 첫 회원(로버트)이 자동 선택돼 "첫 화면이 맨날 로버트" 문제.
   S.selectedMember=null;S.showDashboard=true;S.showLiveSession=false;render();
   try{ setTimeout(ensureOwnerWatchMember, 5000); }catch(e){}
+  try{ setTimeout(function(){ if(typeof retryPendingAiSummaries==='function') retryPendingAiSummaries(); }, 8000); }catch(e){}
   try{ setTimeout(function(){ if(typeof resumeInterruptedRec==='function') resumeInterruptedRec(); }, 2500); }catch(e){}   // 로그인 후 끊긴 녹음 자동 재개
   // 로그인하는 순간 최신 버전 자동 적용 — 앱을 껐다 켜지 않아도 갱신되도록.
   // (대기 중인 새 SW가 있으면 즉시 활성→리로드. 세션은 해시+세션스토리지로 복원돼 대시보드 유지)
@@ -1229,6 +1231,12 @@ function ensureOwnerWatchMember(){
 }
 // 로그인 직후 클라우드 동기화가 끝날 시간을 준 뒤 1회 확인 (기기 간 중복 생성 방지)
 try{ setTimeout(ensureOwnerWatchMember, 6000); }catch(e){}
+// 'AI 정리 대기'로 남은 일지 자동 재시도 — 부팅 후 + 앱 복귀 때
+// (저장 직후 앱을 닫으면 AI 요청이 브라우저와 함께 죽어 받아쓰기 조각으로 남는 사고)
+try{ setTimeout(function(){ if(typeof retryPendingAiSummaries==='function') retryPendingAiSummaries(); }, 9000); }catch(e){}
+try{ document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible') setTimeout(function(){ if(typeof retryPendingAiSummaries==='function') retryPendingAiSummaries(); }, 2500);
+}); }catch(e){}
 
 // ============ 새 버전 감지 → 업데이트 배너 ============
 // iOS PWA 는 며칠씩 리로드 없이 살아남아 배포가 나가도 옛 버전이 계속 뜬다(v9.52 사건).

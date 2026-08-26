@@ -1109,16 +1109,59 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
 
 // 저장된 녹음 일지를 백그라운드에서 AI 정리 → 자동 교체 (프로가 저장 후 기다릴 필요 없음)
 function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
-  if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return;
-  if(typeof aiSummarizeWithClaude!=='function') return;
-  aiSummarizeWithClaude(transcript, author).then(function(better){
+  if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return Promise.resolve(false);
+  if(typeof aiSummarizeWithClaude!=='function') return Promise.resolve(false);
+  return aiSummarizeWithClaude(transcript, author).then(function(better){
     if(!better){
-      // 실패 — 원문 조각 상태 유지. 관리자 기기에서 [🤖 AI로 다시 정리]로 재시도 가능.
+      // 실패 — 원문 조각 상태 유지. 스위퍼(retryPendingAiSummaries)가 부팅·앱 복귀 때 재시도.
       try{ if(window.__aiLastError) console.warn('[ai] bg cleanup fail:', window.__aiLastError); }catch(e){}
-      return;
+      return false;
     }
-    applyAiResultToSaved(mid, sessId, better, tmSummary);
+    return applyAiResultToSaved(mid, sessId, better, tmSummary);
   });
+}
+
+// ============ 'AI 정리 대기' 잔존 일지 자동 재시도 (스위퍼) ============
+// 프로가 저장 직후 앱을 닫으면(레슨 종료 → 폰 주머니) 진행 중이던 AI 요청이
+// 브라우저와 함께 죽어 일지가 받아쓰기 조각 상태로 영구히 남았다
+// (2026-08-24 오지영 일지 실사고 — "종종 정리가 안 된다"의 원인).
+// 실패·중단된 정리를 부팅과 앱 복귀 시점에 찾아 다시 돌린다.
+var _aiSweepAttempts = {};   // sessId → 시도 횟수 (앱 실행당)
+var _aiSweepBusy = false;
+var _aiSweepLastRun = 0;
+function retryPendingAiSummaries(){
+  try{
+    if(_aiSweepBusy) return;
+    if(Date.now()-_aiSweepLastRun < 60000) return;   // 60초 스로틀 (복귀 연타 방지)
+    if(typeof aiEnabled!=='function' || !aiEnabled()) return;
+    if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
+    _aiSweepLastRun = Date.now();
+    var cutoff = Date.now() - 7*24*3600*1000;        // 최근 7일만
+    var cands = [];
+    Object.keys(S.sessions||{}).forEach(function(mid){
+      (S.sessions[mid]||[]).forEach(function(s){
+        if(String(s.content||'').indexOf('AI 정리 대기')===-1) return;
+        if(!String(s.rawTranscript||'').trim()) return;
+        // 담당자 본인 기기 또는 관리자 기기만 — 여러 기기의 중복 API 호출 억제
+        // (겹쳐 돌아도 applyAiResultToSaved 가 '대기' 마커 확인 후 교체하므로 안전)
+        if(S.currentRole!=='admin' && s.author!==S.currentUser) return;
+        var t = Date.parse(s._addedAt||s.date); if(isNaN(t) || t<cutoff) return;
+        if((_aiSweepAttempts[s.id]||0)>=3) return;   // 앱 실행당 세션별 3회까지
+        cands.push({mid:mid, s:s});
+      });
+    });
+    if(!cands.length) return;
+    _aiSweepBusy = true;
+    var next = function(i){
+      if(i>=cands.length || i>=5){ _aiSweepBusy=false; return; }   // 한 번에 최대 5건, 순차
+      var c=cands[i], s=c.s;
+      _aiSweepAttempts[s.id]=(_aiSweepAttempts[s.id]||0)+1;
+      var tm=''; try{ var m=String(s.content||'').match(/\n\n\[트랙맨\][^\n]*/); tm=m?m[0]:''; }catch(e){}
+      var go=function(){ setTimeout(function(){ next(i+1); }, 1500); };
+      Promise.resolve(bgAiCleanupSaved(c.mid, s.id, s.rawTranscript, s.author, tm)).then(go, go);
+    };
+    next(0);
+  }catch(e){ _aiSweepBusy=false; }
 }
 
 // ============ AI 세션 요약 + 운동 추천 ============
