@@ -1077,13 +1077,43 @@ function addSession(){
     if(String(s.content||'').indexOf('AI 정리 대기')!==-1 && typeof aiEnabled==='function' && aiEnabled()){
       if(ns._aiPending){
         ns._savedTo={ mid:mid, sessId:s.id, tmSummary:ns._tmSummary||'' };
+        _aiInflight[s.id]=Date.now();   // 진행 중 표시 — 스위퍼 중복 호출·SW 리로드 방지
         try{ liveToastSafe('💾 저장 완료 — AI 정리가 끝나면 자동 반영됩니다'); }catch(e){}
       } else if(s.rawTranscript){
         bgAiCleanupSaved(mid, s.id, s.rawTranscript, s.author, ns._tmSummary||'');
       }
+      // 안전망: 진행 중이던 요청이 어떤 이유로든 결과를 못 돌려주면(네트워크 끊김·탭 절전·
+      // 조용한 실패) 앱이 켜져 있는 동안 몇 번 더 스스로 재시도한다 — 부팅·복귀 트리거만으로는
+      // "저장하고 앱을 계속 보고 있는" 경우를 못 잡았다
+      [25000, 75000, 180000].forEach(function(ms){ setTimeout(function(){ try{ retryPendingAiSummaries(true); }catch(e){} }, ms); });
     }
   }catch(e){}
 }
+
+// 받아쓰기 메모(본문)에서 AI 정리 소스 추출 — 원문(rawTranscript)이 없을 때의 폴백.
+// 헤더([레슨 녹음 메모 …]), 불릿 기호, 트랙맨 요약 줄을 걷어낸 조각 텍스트.
+function _aiSourceFromContent(content){
+  return String(content||'').replace(/^\[레슨 녹음 메모[^\]]*\]\s*/,'').replace(/^[•\-·]\s*/gm,'').replace(/\n\[트랙맨\][\s\S]*$/,'').trim();
+}
+// 재시도용 소스 결정 (Promise<string>): 기기의 원문 → 클라우드 원문(그 순간만 읽고 저장 안 함)
+// → 본문의 받아쓰기 조각. 프로 기기는 loadAll 이 원문을 안 싣기 때문에 두 번째 단계가 핵심.
+function _aiSourceForSession(s){
+  var local=String((s&&s.rawTranscript)||'').trim();
+  if(local) return Promise.resolve(local);
+  var fb=_aiSourceFromContent(s&&s.content);
+  var p=(typeof cloud!=='undefined' && cloud && typeof cloud.fetchSessionRaw==='function') ? cloud.fetchSessionRaw(s.id) : Promise.resolve('');
+  return Promise.resolve(p).then(function(raw){ raw=String(raw||'').trim(); return raw.length>fb.length ? raw : fb; }, function(){ return fb; });
+}
+// 진행 중인 AI 정리 요청 (sessId → 시작 시각). 90초 지나면 죽은 것으로 본다.
+var _aiInflight = {};
+function _aiInflightActive(sid){ var t=_aiInflight[sid]; return !!(t && Date.now()-t<90000); }
+// SW 자동 리로드 가드용 — 일지 AI 요청이 하나라도 살아 있으면 리로드 보류
+window.__aiBusy = function(){
+  try{
+    if(S && S.newSession && S.newSession._aiPending) return true;
+    return Object.keys(_aiInflight).some(_aiInflightActive);
+  }catch(e){ return false; }
+};
 
 // AI 정리 결과를 '저장된 일지'에 반영 — 사람이 이미 수정했으면 건드리지 않는다.
 function applyAiResultToSaved(mid, sessId, better, tmSummary){
@@ -1098,7 +1128,18 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
       if(pr.items.length||pr.head) bt=aiBuildContent(pr.head, pr.items);
     }
   }catch(e){}
+  var rawBefore = s.content;
   s.content = bt + (tmSummary||'');
+  delete _aiInflight[sessId];
+  // 'AI 분석' 박스(로컬 요약)도 정리된 본문 기준으로 다시 — 받아쓰기 조각 기반 요약이 남지 않게
+  try{ delete s._ai; if(typeof generateLocalSummary==='function') generateLocalSummary(mid, s); }catch(e){}
+  // 이 일지의 수정 폼이 열려 있고 아직 손대지 않은 상태면 폼 내용도 갱신 — 폼의 옛 조각을
+  // 그대로 [수정 저장]해서 방금 된 정리를 되돌리는 경합 방지
+  try{
+    if(S.showAddSession && S.editSessionId===sessId && S.newSession && String(S.newSession.content||'').trim()===String(rawBefore||'').trim()){
+      S.newSession.content = s.content;
+    }
+  }catch(e){}
   try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
   if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
   try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
@@ -1111,14 +1152,34 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
 function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
   if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return Promise.resolve(false);
   if(typeof aiSummarizeWithClaude!=='function') return Promise.resolve(false);
+  _aiInflight[sessId]=Date.now();
   return aiSummarizeWithClaude(transcript, author).then(function(better){
+    delete _aiInflight[sessId];
     if(!better){
-      // 실패 — 원문 조각 상태 유지. 스위퍼(retryPendingAiSummaries)가 부팅·앱 복귀 때 재시도.
+      // 실패 — 원문 조각 상태 유지. 스위퍼(retryPendingAiSummaries)가 재시도.
       try{ if(window.__aiLastError) console.warn('[ai] bg cleanup fail:', window.__aiLastError); }catch(e){}
       return false;
     }
     return applyAiResultToSaved(mid, sessId, better, tmSummary);
-  });
+  }, function(){ delete _aiInflight[sessId]; return false; });
+}
+
+// 일지 카드의 [🤖 AI 정리 중] 배지 탭 — 수정 폼을 거치지 않고 그 자리에서 즉시 재시도
+function retryAiForSession(mid, sid){
+  try{
+    var s=(S.sessions[mid]||[]).find(function(x){return x.id===sid;}); if(!s) return;
+    if(_aiInflightActive(sid)){ liveToastSafe('🤖 AI 정리 진행 중 — 잠시만요'); return; }
+    if(typeof aiEnabled!=='function' || !aiEnabled()){ alert('AI 정리가 설정되지 않았습니다. 관리자에게 알려주세요.'); return; }
+    var tm=''; try{ var m=String(s.content||'').match(/\n\n\[트랙맨\][^\n]*/); tm=m?m[0]:''; }catch(e){}
+    _aiInflight[sid]=Date.now();   // 소스 조회 중에도 겹쳐 탭/스위퍼 방지
+    liveToastSafe('🤖 AI 정리 시작 — 약 10~20초');
+    _aiSourceForSession(s).then(function(src){
+      if(!src){ delete _aiInflight[sid]; liveToastSafe('정리할 내용이 없습니다'); return; }
+      return bgAiCleanupSaved(mid, sid, src, s.author, tm).then(function(ok){
+        if(!ok) liveToastSafe('⚠️ AI 정리 실패 — '+(window.__aiLastError||'잠시 후 다시 탭해주세요'));
+      });
+    });
+  }catch(e){}
 }
 
 // ============ 'AI 정리 대기' 잔존 일지 자동 재시도 (스위퍼) ============
@@ -1129,10 +1190,11 @@ function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
 var _aiSweepAttempts = {};   // sessId → 시도 횟수 (앱 실행당)
 var _aiSweepBusy = false;
 var _aiSweepLastRun = 0;
-function retryPendingAiSummaries(){
+// force=true: 저장 직후 예약 재시도 등 — 60초 스로틀을 건너뛴다
+function retryPendingAiSummaries(force){
   try{
     if(_aiSweepBusy) return;
-    if(Date.now()-_aiSweepLastRun < 60000) return;   // 60초 스로틀 (복귀 연타 방지)
+    if(!force && Date.now()-_aiSweepLastRun < 60000) return;   // 60초 스로틀 (복귀 연타 방지)
     if(typeof aiEnabled!=='function' || !aiEnabled()) return;
     if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
     _aiSweepLastRun = Date.now();
@@ -1141,10 +1203,14 @@ function retryPendingAiSummaries(){
     Object.keys(S.sessions||{}).forEach(function(mid){
       (S.sessions[mid]||[]).forEach(function(s){
         if(String(s.content||'').indexOf('AI 정리 대기')===-1) return;
-        if(!String(s.rawTranscript||'').trim()) return;
+        // 원문이 기기에 없어도(프로 기기는 loadAll 이 원문을 안 실음) 건너뛰지 않는다 —
+        // 실행 시점에 _aiSourceForSession 이 클라우드 원문 → 본문 조각 순으로 소스를 정한다.
+        // 예전엔 원문 없으면 그냥 건너뛰어 프로 기기에서 스위퍼가 아무것도 못 했다.
+        if(!String(s.rawTranscript||'').trim() && _aiSourceFromContent(s.content).length < 20) return;
         // 담당자 본인 기기 또는 관리자 기기만 — 여러 기기의 중복 API 호출 억제
         // (겹쳐 돌아도 applyAiResultToSaved 가 '대기' 마커 확인 후 교체하므로 안전)
         if(S.currentRole!=='admin' && s.author!==S.currentUser) return;
+        if(_aiInflightActive(s.id)) return;           // 이미 요청 진행 중 — 겹쳐 쏘지 않음
         var t = Date.parse(s._addedAt||s.date); if(isNaN(t) || t<cutoff) return;
         if((_aiSweepAttempts[s.id]||0)>=3) return;   // 앱 실행당 세션별 3회까지
         cands.push({mid:mid, s:s});
@@ -1158,7 +1224,11 @@ function retryPendingAiSummaries(){
       _aiSweepAttempts[s.id]=(_aiSweepAttempts[s.id]||0)+1;
       var tm=''; try{ var m=String(s.content||'').match(/\n\n\[트랙맨\][^\n]*/); tm=m?m[0]:''; }catch(e){}
       var go=function(){ setTimeout(function(){ next(i+1); }, 1500); };
-      Promise.resolve(bgAiCleanupSaved(c.mid, s.id, s.rawTranscript, s.author, tm)).then(go, go);
+      _aiInflight[s.id]=Date.now();
+      _aiSourceForSession(s).then(function(src){
+        if(!src){ delete _aiInflight[s.id]; return false; }
+        return bgAiCleanupSaved(c.mid, s.id, src, s.author, tm);
+      }).then(go, go);
     };
     next(0);
   }catch(e){ _aiSweepBusy=false; }

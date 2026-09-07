@@ -80,9 +80,11 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.85',
-  date:'2026-08-26',
+  version:'v9.86',
+  date:'2026-09-07',
   changes:[
+    '레슨 일지 AI 정리가 저장 후 자동 반영되지 않던 문제 수리 — 프로 기기에서 녹음 원문이 빠져 자동 재시도가 막히던 원인 제거, 저장 직후 자동 재시도 강화, 정리 중인 일지엔 카드에 "🤖 AI 정리 중" 표시(탭하면 즉시 재시도)',
+    '일지 아래 AI 분석 박스가 정리 전 받아쓰기 기준으로 남던 문제 수정 — 정리·수정 후 자동 갱신',
     '타석 영상 재생 호환 강화 — 확장자만 보고 변환 없이 통과되던 경로를 실제 코덱 검사로 차단 (아이폰 재생 불가 영상 방지)',
     '타석 PC 에이전트가 구버전이면 수업 센터에 경고 표시 — 업데이트 누락으로 영상 수정이 적용 안 되던 문제를 눈에 보이게',
     '레슨 일지 AI 정리 누락 수리 — 저장 직후 앱을 닫으면 AI 정리가 끊겨 받아쓰기 메모로 남던 문제. 이제 앱을 다시 열면 남은 일지(최근 7일)를 자동으로 마저 정리합니다',
@@ -539,6 +541,8 @@ const cloud = {
   async loadAll(){if(!this.enabled) return null;try{const [mRes,aRes,sRes]=await Promise.all([this.client.from('members').select('*').order('created_at',{ascending:true}),this.client.from('assessments').select('*'),this.client.from('sessions').select('*').order('date',{ascending:true})]);if(mRes.error) throw mRes.error;if(aRes.error) throw aRes.error;if(sRes.error) throw sRes.error;const members=(mRes.data||[]).map(r=>{var extra=r.data||{};return Object.assign({id:r.id,name:r.name,color:r.color||'av-green'},extra);});const assessments={};(aRes.data||[]).forEach(r=>{if(!assessments[r.member_id]) assessments[r.member_id]={};assessments[r.member_id][r.item_key]={result:r.result||'미검사',note:r.note||''};});// 녹음 원문(supplement 컬럼)은 관리자 기기에만 내려받는다.
 // 트레이너·프로 기기에는 원문을 아예 싣지 않아, 본인 레슨 대화가 남지 않는다.
 var _admRaw=(S.currentRole==='admin');
+// ※ 프로 기기에서 'AI 정리 대기' 재시도가 필요할 때는 원문을 기기에 남기지 않고
+//   그 순간에만 cloud.fetchSessionRaw() 로 읽어 쓴다 (app_handlers._aiSourceForSession).
 const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) sessions[r.member_id]=[];
 // 레슨 시간: time 컬럼(있으면 우선) → media JSON 에 백업된 _meta 항목에서 복원.
 // (_meta 는 화면에 첨부파일로 안 보이게 media 목록에서 걸러낸다)
@@ -546,6 +550,9 @@ var _mArr=Array.isArray(r.media)?r.media:(r.media?r.media:[]);var _tMeta='';_mAr
 sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:_mArr});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
   async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',ownerWatch:m.ownerWatch||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
+  // 한 일지의 녹음 원문만 그 자리에서 읽기 — 'AI 정리 대기' 재시도용. 기기에 저장하지 않는다
+  // (프로 기기에 원문을 안 남기는 loadAll 설계 유지). 실패/없음이면 '' → 호출측이 본문으로 폴백.
+  async fetchSessionRaw(sid){if(!this.enabled||!sid) return '';try{const r=await this.client.from('sessions').select('supplement').eq('id',sid).maybeSingle();return (r&&r.data&&r.data.supplement)||'';}catch(e){return '';}},
   async upsertSession(memberId,s){if(!this.enabled) return false;var mediaMeta=(s.media||[]).map(function(m){return {type:m.type,view:m.view||'other',name:m.name||'',mimeType:m.mimeType||'',size:m.size||0,mediaId:m.mediaId||null,r2Key:m.r2Key||m.mediaId||null,data:(m.type==='url'?(m.data||''):undefined)};});
     // 레슨 시간을 media JSON 에도 백업 — sessions.time 컬럼이 없는 DB(마이그레이션 전)는
     // 아래 폴백이 time 만 빼고 재전송해 시간이 조용히 유실됐다("저장해도 사라짐"의 원인).

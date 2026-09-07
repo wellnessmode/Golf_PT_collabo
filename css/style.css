@@ -394,6 +394,8 @@ body.role-select .app{display:block;height:auto;min-height:100vh;background:var(
 .session-author{font-size:12px;font-weight:600;color:var(--tx)}
 .session-date{font-size:11px;color:var(--tx-3);font-variant-numeric:tabular-nums}
 .new-badge{background:var(--err);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:auto;letter-spacing:.03em}
+.ai-wait-chip{background:#eef6ff;color:#1a4a7a;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;margin-left:6px;white-space:nowrap;cursor:pointer;border:1px solid rgba(26,74,122,.18)}
+.ai-wait-chip:active{opacity:.7}
 .session-bd{padding:14px 16px;background:var(--bg-1)}
 .session-content{font-size:13px;color:var(--tx-2);line-height:1.7}
 .session-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}

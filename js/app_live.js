@@ -1667,13 +1667,19 @@ function retryAiSummarize(){
   var ns=S.newSession;
   if(!ns || ns._aiPending) return;
   // 원문(rawTranscript)이 있으면 그걸로, 없으면(관리자 아닌 기기 등) 현재 메모 내용을 소스로 정리.
-  var src = (ns.rawTranscript && ns.rawTranscript.trim())
-    ? ns.rawTranscript
-    : String(ns.content||'').replace(/^\[레슨 녹음 메모[^\]]*\]\s*/,'').replace(/^[•\-·]\s*/gm,'').replace(/\n\[트랙맨\][\s\S]*$/,'').trim();
-  if(!src){ alert('정리할 내용이 없습니다.'); return; }
   if(!aiEnabled()){ alert('AI 정리가 설정되지 않았습니다.\n워커에 ANTHROPIC_API_KEY 시크릿을 등록하거나(권장), 관리자 모드의 AI 설정에서 키를 입력하세요.'); return; }
+  // 소스: 기기 원문 → (수정 폼이면) 클라우드 원문을 그 순간만 읽기 → 본문 조각 폴백
+  var srcP = (ns.rawTranscript && ns.rawTranscript.trim())
+    ? Promise.resolve(ns.rawTranscript)
+    : (S.editSessionId && typeof _aiSourceForSession==='function'
+        ? _aiSourceForSession({ id:S.editSessionId, content:ns.content })
+        : Promise.resolve(typeof _aiSourceFromContent==='function' ? _aiSourceFromContent(ns.content) : String(ns.content||'').trim()));
   ns._aiPending=true; ns._aiPendingAt=Date.now(); ns._aiFailed=false; render();
-  aiSummarizeWithClaude(src, ns.author).then(function(better){
+  srcP.then(function(src){
+    if(!src){ ns._aiPending=false; alert('정리할 내용이 없습니다.'); render(); return null; }
+    return aiSummarizeWithClaude(src, ns.author);
+  }).then(function(better){
+    if(better===null && !ns._aiPending) return;   // 소스 없음으로 위에서 종료
     ns._aiPending=false;
     // 재시도 중에 저장하고 폼을 닫았으면 → 결과를 저장된 일지에 반영 (addSession 이 _savedTo 를 남김)
     if(ns._savedTo && better && typeof applyAiResultToSaved==='function'){

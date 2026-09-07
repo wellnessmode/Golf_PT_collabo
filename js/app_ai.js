@@ -111,8 +111,12 @@ function saveEditSession(){
   if(!S.newSession.content.trim()){alert('내용을 입력하세요');return;}
   sess.date = S.newSession.date;
   sess.time = S.newSession.time || undefined;
+  var _contentChanged = sess.content !== S.newSession.content.trim();
   sess.content = S.newSession.content.trim();
   sess.media = (S.newSession.media||[]).slice();
+  // 내용이 바뀌면 'AI 분석' 박스(로컬 요약)도 다시 만든다 — 예전엔 처음 저장 때 것이 그대로 남아
+  // 받아쓰기 조각 기반의 엉뚱한 요약이 정리된 일지 밑에 계속 보였다
+  if(_contentChanged){ try{ delete sess._ai; generateLocalSummary(mid, sess); }catch(e){} }
   logActivity('세션 수정', mid, sess.content.slice(0,40));
   logAudit('session','세션 수정',(S.members.find(function(x){return x.id===mid;})||{}).name||'',{date:sess.date,content:sess.content.slice(0,80)});
   S.editSessionId = null;
