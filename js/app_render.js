@@ -385,6 +385,7 @@ function _render(){
                 <div class="session-author">${s.author}</div>
                 <div class="session-date">${s.date}${s.time?' · '+timeLabel(s.time):''}</div>
                 ${s.author!==S.currentUser&&s._addedAt&&s._addedAt>(S.lastSeen[S.currentUser]||'')?'<span class="new-badge">NEW</span>':''}
+                ${String(s.content||'').indexOf('AI 정리 대기')!==-1&&(s.author===S.currentUser||isAdmin)?'<span class="ai-wait-chip" onclick="event.stopPropagation();retryAiForSession(\''+S.selectedMember+'\',\''+s.id+'\')">🤖 AI 정리 중 · 탭하면 재시도</span>':''}
                 ${(function(){var mm=s.media||[];var nv=mm.filter(function(x){var t=x.mimeType||inferMime(x.name||'')||(x.data||'');return String(t).indexOf('video')!==-1;}).length;var ni=mm.length-nv;var b='';if(nv>0)b+='<span class="media-chip vid">🎬'+(nv>1?nv:'')+'</span>';if(ni>0)b+='<span class="media-chip img">📷'+(ni>1?ni:'')+'</span>';return b;})()}
                 <div class="session-chevron">▼</div>
               </div>
