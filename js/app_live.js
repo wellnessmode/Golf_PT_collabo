@@ -124,10 +124,17 @@ function _vidChip(s){
   }
   if (d._videoPending){
     var t0 = s._rcvAt || Date.parse(d.measuredAt || s.ts) || 0;
-    if (t0 && Date.now()-t0 < 8*60000){
-      // 90초 기준 추정 — 내장 카메라(대용량) 변환·업로드까지 감안한 현실적인 속도
-      var pct = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/90000*100)));
-      return '<span class="vid-uploading">🎞 <span class="vid-pct" data-t0="'+t0+'">'+pct+'%</span></span>';
+    var el = t0 ? Date.now()-t0 : 0;
+    if (t0 && el < 30*60000){
+      // 90초까지는 추정 %(내장 카메라 변환·업로드 감안). 그 뒤로는 %가 97에서 멈춰 "거의 다 됐나?"
+      // 오해를 부르므로 경과 시간을 그대로 보여준다 — 타석 PC 대기열이 밀린 상태가 눈에 보이게.
+      // (구버전 에이전트는 원본을 통째로 올려 한 건에 수 분 → 연타 시 대기열 정체)
+      if (el < 90000){
+        var pct = Math.max(3, Math.round(el/90000*100));
+        return '<span class="vid-uploading">🎞 <span class="vid-pct" data-t0="'+t0+'">'+pct+'%</span></span>';
+      }
+      var mins = Math.floor(el/60000);
+      return '<span class="vid-uploading slow" title="타석 PC 에서 변환·업로드 대기 중">🎞 <span class="vid-pct" data-t0="'+t0+'">'+(mins<1?'처리 중':mins+'분째')+'</span></span>';
     }
   }
   return '';
@@ -293,14 +300,23 @@ function _cntdnHtml(t0, max){
   var left = Math.max(0, max - Math.floor((Date.now()-(t0||Date.now()))/1000));
   return '<span data-cntdn data-t0="'+(t0||Date.now())+'" data-max="'+max+'">'+(left>0?('약 '+left+'초 남음'):'거의 다 됐어요...')+'</span>';
 }
-// 진행률 틱커 — 1.5초마다 화면의 % 만 직접 갱신 (재렌더 없이). 약 90초 기준 추정치.
+// 진행률 틱커 — 1.5초마다 화면의 표시만 직접 갱신 (재렌더 없이). _vidChip 과 같은 규칙:
+// 90초까지는 추정 %, 그 뒤로는 "N분째"(타석 PC 대기열 정체가 보이게).
+function _vidPctText(t0){
+  var el = Date.now()-t0;
+  if (el < 90000) return Math.max(3, Math.round(el/90000*100)) + '%';
+  var mins = Math.floor(el/60000);
+  return mins<1 ? '처리 중' : mins+'분째';
+}
 if (!window.__vidPctTimer){
   window.__vidPctTimer = setInterval(function(){
     try{
       var els = document.querySelectorAll('.vid-pct[data-t0]');
       for (var i=0;i<els.length;i++){
         var t0 = parseInt(els[i].getAttribute('data-t0'),10)||0; if(!t0) continue;
-        els[i].textContent = Math.min(97, Math.max(3, Math.round((Date.now()-t0)/90000*100))) + '%';
+        els[i].textContent = _vidPctText(t0);
+        var p = els[i].parentNode;
+        if (p && p.classList && Date.now()-t0 >= 90000) p.classList.add('slow');
       }
     }catch(e){}
   }, 1500);
@@ -1826,7 +1842,7 @@ function _staleAgentWarnHTML(bays, isAdmin){
       .map(function(b){ return getBay(b).name; });
     if(!stale.length) return '';
     return '<div class="agent-stale">⚠️ '+stale.join(' · ')+' PC 에이전트가 구버전입니다<br>'
-         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환 수정이 아직 적용되지 않았습니다</small></div>';
+         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환 수정과 업로드 속도 개선(원본 통째 업로드 → 압축 변환)이 아직 적용되지 않았습니다</small></div>';
   }catch(e){ return ''; }
 }
 
@@ -1967,7 +1983,9 @@ function renderShotLog(isAdmin){
   var selMode = !!S._shotSelMode;
   if(!S._shotSel) S._shotSel = {};
   var selCount = Object.keys(S._shotSel).filter(function(k){return S._shotSel[k];}).length;
-  var shots = assigned.slice(0,30);
+  // 기본 30개, [더 보기]로 30개씩 추가 — 연타 중엔 완료된 샷이 30개 밖으로 밀려 못 보던 문제
+  var lim = Math.max(30, parseInt(S._shotLogLimit,10)||30);
+  var shots = assigned.slice(0,lim);
 
   var html = '<div class="shot-log"><div class="shot-log-hd">최근 저장된 샷 '+total+'개'
            + (canCoach && total>0 && !selMode ? ' <button class="small-btn sel-mode-btn" onclick="enterShotSelMode()">☑︎ 선택</button>' : '')
@@ -2021,9 +2039,17 @@ function renderShotLog(isAdmin){
         + (!selMode && canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
         + '</div>';
     }).join('') + '</div>';
+    if(!selMode && assigned.length>lim){
+      html += '<button class="shot-more-btn" onclick="showMoreShots()">▼ 더 보기 ('+Math.min(30, assigned.length-lim)+'개 · 남은 '+(assigned.length-lim)+'개)</button>';
+    }
   }
   html += '</div>';
   return html;
+}
+function showMoreShots(){
+  S._shotLogLimit = Math.max(30, parseInt(S._shotLogLimit,10)||30) + 30;
+  if(typeof _patchShotLogOnly==='function' && _patchShotLogOnly()) return;
+  if(typeof render==='function') render();
 }
 function toggleUnassigned(){ S._showUnassigned = !S._showUnassigned; if(typeof render==='function') render(); }
 // ===== 샷 선택 모드 (체크박스 다중 삭제) =====
