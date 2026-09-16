@@ -1504,23 +1504,37 @@ async function aiSummarizeWithClaude(transcript, author){
     // AI_WORKER_URL 있으면 그쪽, 없으면 R2_WORKER_URL 재사용
     var wbase=cfg.AI_WORKER_URL||cfg.R2_WORKER_URL;
     var wauth=cfg.AI_WORKER_KEY||cfg.R2_API_KEY;
-    if(cfg.AI_VIA_WORKER && wbase && wauth){
-      try{
-        var wurl=String(wbase).replace(/\/+$/,'')+'/claude';
-        var wres=await _fetchT(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)},60000);
-        var wbodyText=''; try{ wbodyText=await wres.text(); }catch(_){}
-        if(wres.ok){
-          var wj=null; try{ wj=JSON.parse(wbodyText); }catch(_){}
-          var wt=parse(wj); if(wt) return wt;
-          // 200인데 본문에 error(예: Anthropic {type:'error'})가 담겨오는 경우
-          window.__aiLastError='워커 200이지만 응답 이상: '+String((wj&&wj.error&&(wj.error.message||wj.error.type))||wbodyText).slice(0,200);
-        } else {
-          var wmsg=wbodyText; try{ var we=JSON.parse(wbodyText); wmsg=(we.error&&(we.error.message||we.error.type))||we.detail||we.error||wbodyText; }catch(_){}
-          window.__aiLastError='워커 '+wres.status+': '+String(wmsg).slice(0,200);
-          console.warn('[claude] worker http', wres.status, String(wbodyText).slice(0,200));
-        }
-      }catch(e){ window.__aiLastError='워커 통신 오류: '+(e&&e.message||e); console.warn('[claude] worker fail:', e&&e.message); }
-      // 워커 실패 → 아래 직접 키 폴백 시도(있으면)
+    // 워커 후보를 순서대로 시도: AI 전용 워커(AI_WORKER_URL) → R2 워커. 앞이 실패(미배포·404·
+    // 통신오류·Anthropic 403 등)하면 다음으로 넘어간다. 2026-09-15 정우진 프로 기기에서
+    // "워커 403: Request not allowed" 반복 — Anthropic 이 지원하지 않는 지역의 Cloudflare
+    // 엣지에서 워커가 실행된 경우로, 스마트 배치를 켠 AI 전용 워커를 우선 경로로 둔다.
+    var wbases=[];
+    [cfg.AI_WORKER_URL, cfg.R2_WORKER_URL].forEach(function(b){ b=String(b||'').replace(/\/+$/,''); if(b && wbases.indexOf(b)===-1) wbases.push(b); });
+    if(cfg.AI_VIA_WORKER && wbases.length && wauth){
+      for(var wi=0; wi<wbases.length; wi++){
+        try{
+          var wurl=wbases[wi]+'/claude';
+          var wres=await _fetchT(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)},60000);
+          var wbodyText=''; try{ wbodyText=await wres.text(); }catch(_){}
+          if(wres.ok){
+            var wj=null; try{ wj=JSON.parse(wbodyText); }catch(_){}
+            var wt=parse(wj); if(wt) return wt;
+            // 200인데 본문에 error(예: Anthropic {type:'error'})가 담겨오는 경우
+            window.__aiLastError='워커 200이지만 응답 이상: '+String((wj&&wj.error&&(wj.error.message||wj.error.type))||wbodyText).slice(0,200);
+          } else {
+            var wmsg=wbodyText; try{ var we=JSON.parse(wbodyText); wmsg=(we.error&&(we.error.message||we.error.type))||we.detail||we.error||wbodyText; }catch(_){}
+            if(wres.status===403 && /request not allowed/i.test(String(wmsg))){
+              // Anthropic 지역 차단 — 워커가 실행된 엣지 위치 문제. 사용자가 할 일은 없고 재시도로 풀린다.
+              window.__aiLastError='AI 서버 지역 차단(워커 403) — 잠시 후 자동 재시도됩니다. 계속되면 관리자에게 알려주세요';
+            } else {
+              window.__aiLastError='워커 '+wres.status+': '+String(wmsg).slice(0,200);
+            }
+            console.warn('[claude] worker http', wres.status, wurl, String(wbodyText).slice(0,200));
+          }
+        }catch(e){ window.__aiLastError='워커 통신 오류: '+(e&&e.message||e); console.warn('[claude] worker fail:', wurl, e&&e.message); }
+        // 이 워커 실패 → 다음 후보로
+      }
+      // 모든 워커 실패 → 아래 직접 키 폴백 시도(있으면)
     }
     // 2순위: 브라우저 직접 호출 (이 기기 localStorage 키)
     var key=getAnthropicKey();
@@ -1873,29 +1887,18 @@ function renderBayCard(bay, canCoach, isAdmin){
   var body = '<div class="bay-active">';
   if(stale){ body += '<div class="bay-stale">⚠️ 어제 시작된 세션입니다.<br>굿샷이 차단됩니다 — 종료 후 다시 시작하세요.</div>'; }
   // 이름 옆 [종료] — 카드 맨 아래까지 스크롤하지 않고 바로 종료 (아래 큰 종료 버튼도 유지)
+  // 회원 전화번호 — 녹음 화면에서 바로 보이게(정우진 프로 건의). 탭하면 전화.
+  var _bm = S.members.find(function(x){return x.id===act.memberId;});
+  var _phone = (_bm && _bm.phone && canCoach) ? String(_bm.phone).trim() : '';
   body += '<div class="bay-member"><div class="member-avatar '+memberColor(act.memberId)+'">'+initials(act.memberName)+'</div>'
-        + '<div class="bay-member-info"><div class="bay-member-name">'+act.memberName+'님</div>'
+        + '<div class="bay-member-info"><div class="bay-member-name">'+act.memberName+'님'
+        + (_phone ? ' <a class="bay-phone" href="tel:'+_phone.replace(/[^0-9+]/g,'')+'" onclick="event.stopPropagation()">📞 '+esc(_phone)+'</a>' : '')
+        + '</div>'
         + '<div class="bay-author '+roleCls+'">'+act.author+' · '+elapsed+' 경과</div></div>'
         + '<button class="bay-end-top" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button></div>';
-  // 세션 샷이 0개여도 오늘 이 타석 샷이 있으면 알려줌 — "샷이 사라졌나?" 혼란 방지
-  // (카드는 이번 세션 시작 이후만 셈. 이전 샷은 아래 '최근 저장된 샷' 목록에 있음)
-  var todayBayCnt = (S.shotEvents||[]).filter(function(s){ return s.bayId===bay.id && String(s.ts).slice(0,10)===today(); }).length;
-  body += '<div class="bay-shots">'
-        + (shots.length>0
-            ? ('저장된 샷 <strong>'+shots.length+'</strong>개'
-               + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
-            : (todayBayCnt>0 ? '이번 수업 샷 없음 · 오늘 '+todayBayCnt+'개는 아래 목록에' : '아직 저장된 샷 없음'))
-        + '</div>';
-
-  // 레슨 모드 — '방금 친 샷' 을 베이카드 상단(회원 바로 아래)에 크게 띄움.
-  // 페이지 아래쪽에 작게 보이던 문제 해결 + 새 샷은 _isNew 로 강조.
-  var modeEarly = bayMode(bay.id, act);
-  if(!stale && modeEarly==='lesson'){
-    var psHTML = _buildPendingShotsHTML(bay.id);
-    if(psHTML){ body += psHTML;
-    }
-  }
-  // 수업 녹음 — 🎙 녹음하면 20초마다 아래에 글이 실시간으로 붙고, ⏹ 종료 시 자동 저장.
+  // 수업 녹음 블록 — 회원 이름 "바로 아래"에 둔다(정우진 프로 건의: 녹음 버튼이 위쪽이면 좋겠다).
+  // 예전엔 샷 카운트·'방금 친 샷' 아래에 있어 매번 스크롤해야 했다.
+  // 🎙 녹음하면 20초마다 글이 실시간으로 붙고, ⏹ 종료 시 자동 저장.
   // 변환 서버(Groq) 미설정이면 녹음 대신 메모 입력 안내 (헷갈리지 않게).
   var sttOff = (window._sttReady === false);
   if(!stale){
@@ -1923,6 +1926,23 @@ function renderBayCard(bay, canCoach, isAdmin){
               +   '<textarea class="vi-area" placeholder="수업 내용을 입력하거나 키보드 마이크 🎤 로 받아쓰세요." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
               + '</div>';
       }
+    }
+  }
+  // 세션 샷이 0개여도 오늘 이 타석 샷이 있으면 알려줌 — "샷이 사라졌나?" 혼란 방지
+  // (카드는 이번 세션 시작 이후만 셈. 이전 샷은 아래 '최근 저장된 샷' 목록에 있음)
+  var todayBayCnt = (S.shotEvents||[]).filter(function(s){ return s.bayId===bay.id && String(s.ts).slice(0,10)===today(); }).length;
+  body += '<div class="bay-shots">'
+        + (shots.length>0
+            ? ('저장된 샷 <strong>'+shots.length+'</strong>개'
+               + (silence!==null && silence>=30 ? ' · <span class="bay-silence">'+silence+'분간 없음</span>' : ''))
+            : (todayBayCnt>0 ? '이번 수업 샷 없음 · 오늘 '+todayBayCnt+'개는 아래 목록에' : '아직 저장된 샷 없음'))
+        + '</div>';
+
+  // 레슨 모드 — '방금 친 샷' 을 녹음 블록 아래에 크게 띄움. 새 샷은 _isNew 로 강조.
+  var modeEarly = bayMode(bay.id, act);
+  if(!stale && modeEarly==='lesson'){
+    var psHTML = _buildPendingShotsHTML(bay.id);
+    if(psHTML){ body += psHTML;
     }
   }
   var mode = modeEarly;

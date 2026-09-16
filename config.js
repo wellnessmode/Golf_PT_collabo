@@ -33,7 +33,9 @@ window.APP_CONFIG = {
   // 레슨 한 타임은 최대 ~50분. 종료를 잊어도 다음 이용자 샷이 계속 귀속되지 않게.
   SESSION_AUTO_END_HOURS: 2,
   AI_VIA_WORKER: true,
-  AI_WORKER_URL: '',   // Claude 프록시 워커 주소. 비우면 R2_WORKER_URL 사용. (예: https://ng-claude.ceo-5ef.workers.dev)
+  // AI 전용 워커(스마트 배치) — Anthropic 지역 차단(403 Request not allowed) 회피용. 앱은 이 주소를
+  // 먼저 시도하고 실패하면 R2_WORKER_URL 로 자동 폴백하므로, 배포 전에도 안전. (worker/AI-워커-분리-배포.md)
+  AI_WORKER_URL: 'https://golf-pt-ai.ceo-fc9.workers.dev',
   AI_WORKER_KEY: '',   // 워커 인증용 키(시크릿 아님, 게이트용). 비우면 R2_API_KEY 사용.
   ANTHROPIC_API_KEY: '',
   ANTHROPIC_MODEL: 'claude-haiku-4-5',

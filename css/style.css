@@ -2026,3 +2026,7 @@ select.form-input{appearance:none;-webkit-appearance:none;background-image:url("
 .ntc-ok{background:#00b884;color:#fff}
 .ntc-x{background:#eef1f4;color:#454c55}
 .ntc-empty{padding:34px 16px;text-align:center;color:#8b93a0;font-size:13px;line-height:1.7}
+
+/* v9.88 타석 카드 회원 전화번호 (정우진 프로 건의) */
+.bay-phone{display:inline-block;margin-left:8px;font-size:12px;font-weight:700;color:#1a4a7a;background:#eef6ff;padding:2px 9px;border-radius:9px;text-decoration:none;white-space:nowrap;vertical-align:middle}
+.bay-phone:active{opacity:.7}
