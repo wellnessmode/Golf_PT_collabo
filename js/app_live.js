@@ -546,7 +546,12 @@ function purgeStaleUnassigned(){
       if(!(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(s.memberId))) return false;
       var actW=S.activeSessions[s.bayId];
       if(actW && actW.memberId===s.memberId) return false;   // 점검 세션 진행 중이면 보호
+      if(s.data && s.data._kept) return false;               // 점검 중 [저장]한 샷은 리포트용 — 지우지 않음
     }
+    // 원본 영상을 받은 샷(orig)은 원본 보관 기간(7일, purgeOldOrigVideos) 동안 행도 보호.
+    // 요청만 걸린 샷(_origReq)은 PC 가 영영 응답 안 할 수도 있으니 요청 후 7일까지만 보호
+    if(s.data && s.data.orig) return false;
+    if(s.data && s.data._origReq==1 && Date.now()-(Date.parse(s.data._origReqAt||'')||0) < 7*24*3600*1000) return false;
     if(s._pendingBay && S.activeSessions[s._pendingBay]) return false;  // 진행 중 레슨 대기샷 보호
     var t = Date.parse(s.ts);
     return !isNaN(t) && t < cutoff;
@@ -610,6 +615,25 @@ function purgeOldShotVideos(){
   console.warn('[live] 보관정책: 미보관 샷 영상 '+targets.length+'건 정리(데이터 유지)');
   try{ liveToastSafe('🎞 '+days+'일 지난 미보관 샷 영상 '+targets.length+'개 자동 정리(수치는 유지)'); }catch(e){}
 }
+// 원본 영상(요청해서 PC 에서 올린 고화질 파일)은 7일 뒤 자동 삭제 — 원본은 크기가 커서
+// 오래 두면 무료 용량을 잠식한다. 삭제 후 행은 일반 규칙(미배정 24h 등)으로 돌아간다.
+var ORIG_VIDEO_KEEP_DAYS = 7;
+var _origRetentionDone = false;
+function purgeOldOrigVideos(){
+  if(_origRetentionDone) return;
+  if(!(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) return;   // 요청 주체 기기에서만
+  _origRetentionDone = true;
+  var cutoff = Date.now() - ORIG_VIDEO_KEEP_DAYS*24*3600*1000;
+  var n=0;
+  (S.shotEvents||[]).forEach(function(s){
+    var o=s.data && s.data.orig; if(!o || !o.at) return;
+    var t=Date.parse(o.at); if(isNaN(t) || t>=cutoff) return;
+    ['dl','fo','club','scene'].forEach(function(k){ try{ if(o[k] && typeof r2!=='undefined' && r2.enabled) r2.remove(o[k]); }catch(e){} });
+    delete s.data.orig; n++;
+    try{ cloud.updateShotData(s); }catch(e){}
+  });
+  if(n){ try{ save(); }catch(e){} console.warn('[live] 원본 영상 보관기간 만료 '+n+'건 정리'); }
+}
 
 async function _livePollTick(){
   if(!S.showLiveSession) { stopLivePolling(); return; }
@@ -636,7 +660,7 @@ async function _livePollTick(){
     // 영상 상태 변화 감지 — 데이터 먼저 오고 영상이 나중에 붙는 구조라, 영상 키/업로드중
     // 플래그가 바뀌면 재렌더해야 "업로드중 → 🎬 보기" 전환이 화면에 반영된다.
     var vidSig = (live.shotEvents||[]).slice(-80).map(function(s){
-      var d=s.data||{}; return s.id+((d.videoMp4R2Key||d.videoDL)?'v':((d.videoFO||d.videoClub)?'f':(s.videoR2Key?'k':(d._videoPending?'p':'-'))));
+      var d=s.data||{}; return s.id+((d.videoMp4R2Key||d.videoDL)?'v':((d.videoFO||d.videoClub)?'f':(s.videoR2Key?'k':(d._videoPending?'p':'-'))))+(d.orig?'o':'')+(d._origReq==1?'r':'')+(d._origErr?'e':'');
     }).join('');
     var vidChanged = (window._liveLastVidSig!==undefined) && (window._liveLastVidSig!==vidSig);
     window._liveLastVidSig = vidSig;
@@ -647,13 +671,17 @@ async function _livePollTick(){
     var oldMap={}; (S.shotEvents||[]).forEach(function(s){oldMap[s.id]=s;});
     S.shotEvents = (live.shotEvents||[]).map(function(s){
       var o=oldMap[s.id];
-      if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; if(o._uiSavedAt) s._uiSavedAt=o._uiSavedAt; }
+      if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; if(o._uiSavedAt) s._uiSavedAt=o._uiSavedAt;
+        // 방금 보낸 원본 요청 플래그가 서버 반영 전 폴링 응답에 덮이지 않게 (60초 창)
+        try{ if(o.data && o.data._origReq==1 && s.data && s.data._origReq!=1 && !s.data.orig && Date.now()-(Date.parse(o.data._origReqAt||'')||0)<60000){ s.data._origReq=1; s.data._origReqAt=o.data._origReqAt; } }catch(e){}
+      }
       return s;
     });
     autoEndOverdueSessions(); // 2시간 넘게 켜진 세션 자동 종료 — 이후 샷이 계속 귀속되는 것 차단
     if(typeof reconcileAgentShots==='function') reconcileAgentShots();
     purgeStaleUnassigned();   // 첫 폴링에서 24h+ 미배정 노이즈 자동 청소(관리자)
     purgeOldShotVideos();     // 보관정책: 미보관 샷 영상 3일 후 자동 삭제(관리자, 데이터 유지)
+    purgeOldOrigVideos();     // 원본 영상 7일 후 자동 삭제 (요청 주체 기기)
     // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
     if(!changed) return;
     try{save();}catch(e){}
@@ -1777,6 +1805,9 @@ function renderLiveSession(){
   html += '<div class="live-sub">베이에 회원을 배정하면, 트랙맨 샷이 <strong>그 회원에게 저장</strong>됩니다. '
        +  '<span class="live-live-tag">● TrackMan 실시간 연동</span></div>';
   html += _staleAgentWarnHTML(bays, isAdmin);
+  if(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch()){
+    html += '<div class="orig-bar"><button class="btn orig-open-btn" onclick="openOrigPanel()">🎞 원본 영상 요청 <small>최근 24시간 샷 · 고화질 원본 내려받기</small></button></div>';
+  }
   html += '<div class="bay-grid">';
   bays.forEach(function(bay){ html += renderBayCard(bay, canCoach, isAdmin); });
   html += '</div>';
@@ -1789,7 +1820,91 @@ function renderLiveSession(){
   html += renderReassignModal();
   html += renderBayPickModal();
   html += renderClassPickModal();
+  html += renderOrigPanel();
   return html;
+}
+
+// ===== 원본 영상 요청 패널 — 담당자(타석 점검)·관리자 전용 =====
+// 타석 PC 에는 트랙맨이 샷마다 고화질 원본(아이폰 측면·정면, 클럽 딜리버리, 내장캠)을 날짜별로
+// 남긴다. 앱엔 폰 시청용 압축본만 올라오므로, 원본이 필요하면 여기서 샷을 골라 [원본 요청]
+// → 그 타석 PC 에이전트가 원본 파일을 그대로 R2(orig/…)에 올리고 행에 data.orig 로 키를 남긴다
+// → 이 패널에 ⬇ 버튼이 생긴다. 원본은 7일 뒤 자동 삭제(purgeOldOrigVideos).
+function openOrigPanel(){ if(!(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) return; S._origPanel=true; if(!S._origBay) S._origBay='all'; render(); }
+function closeOrigPanel(){ S._origPanel=false; render(); }
+function setOrigBay(b){ S._origBay=b||'all'; render(); }
+function _origShots(){
+  var since=Date.now()-24*3600*1000, bayF=S._origBay||'all';
+  return (S.shotEvents||[]).filter(function(s){
+    if(s.source!=='agent') return false;
+    if(bayF!=='all' && s.bayId!==bayF) return false;
+    var t=Date.parse(s.ts); return !isNaN(t) && t>=since;
+  }).sort(function(a,b){ return String(b.ts||'').localeCompare(String(a.ts||'')); });
+}
+function requestOrigVideo(sid){
+  var s=(S.shotEvents||[]).find(function(x){return x.id===sid;}); if(!s) return;
+  s.data=s.data||{}; s.data._origReq=1; s.data._origReqAt=new Date().toISOString(); delete s.data._origErr;
+  try{ save(); }catch(e){}
+  try{ cloud.updateShotData(s); }catch(e){}
+  try{ logAudit('session','원본 영상 요청', s.memberName||'미배정', {bay:s.bayId, shotId:s.id}); }catch(e){}
+  liveToastSafe('🎞 원본 요청 보냄 — 타석 PC 가 올리면 ⬇ 버튼이 생겨요 (보통 1~3분)');
+  render();
+}
+function cancelOrigRequest(sid){
+  var s=(S.shotEvents||[]).find(function(x){return x.id===sid;}); if(!s||!s.data) return;
+  delete s.data._origReq; delete s.data._origReqAt;
+  try{ save(); }catch(e){} try{ cloud.updateShotData(s); }catch(e){}
+  render();
+}
+function _origFname(s, angle, key){
+  var d=new Date(s.ts); var p=function(n){return ('0'+n).slice(-2);};
+  var ext=((/\.(mkv|mov|mp4)$/i.exec(key||'')||[])[1]||'mp4').toLowerCase();
+  return (getBay(s.bayId).name||s.bayId)+'_'+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+'_'+angle+'.'+ext;
+}
+function renderOrigPanel(){
+  if(!S._origPanel) return '';
+  if(!(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) return '';
+  var bays=(S.bays&&S.bays.length)?S.bays:BAYS_DEFAULT;
+  var bayF=S._origBay||'all';
+  var chips='<div class="orig-bays"><button class="chip'+(bayF==='all'?' on':'')+'" onclick="setOrigBay(\'all\')">전체</button>'
+    + bays.map(function(b){ return '<button class="chip'+(bayF===b.id?' on':'')+'" onclick="setOrigBay(\''+b.id+'\')">'+b.name+'</button>'; }).join('')+'</div>';
+  var rows=_origShots();
+  var ANG={dl:'측면',fo:'정면',club:'클럽',scene:'내장캠'};
+  var list = rows.length===0 ? '<div class="empty-state">최근 24시간에 들어온 샷이 없습니다</div>'
+    : '<div class="orig-list">'+rows.slice(0,150).map(function(s){
+        var d=s.data||{}; var t=new Date(s.ts); var p=function(n){return ('0'+n).slice(-2);};
+        var when=p(t.getMonth()+1)+'/'+p(t.getDate())+' '+p(t.getHours())+':'+p(t.getMinutes());
+        var metric=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
+        var carry=d.carry!=null&&d.carry!==''?(Math.round((metric?parseFloat(d.carry):parseFloat(d.carry)*0.9144)*10)/10)+'m':'';
+        var who=s.memberName?esc(s.memberName):'<span class="unassigned-tag">미배정</span>';
+        var st='', act='';
+        var o=d.orig;
+        if(o && (o.dl||o.fo||o.club||o.scene)){
+          st='<span class="orig-st ok">✅ 원본 도착'+(o.at?' · '+new Date(o.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'')+'</span>';
+          ['dl','fo','club','scene'].forEach(function(k){
+            if(!o[k]) return;
+            var mb=(o.bytes&&o.bytes[k])?' '+(o.bytes[k]/1e6).toFixed(0)+'MB':'';
+            act+='<button class="small-btn" onclick="downloadShotVideo(this,\''+r2.url(o[k])+'\',\''+_origFname(s,k,o[k])+'\')">⬇ '+ANG[k]+' 원본'+mb+'</button>';
+          });
+        } else if(d._origReq==1){
+          var mins=d._origReqAt?Math.floor((Date.now()-Date.parse(d._origReqAt))/60000):0;
+          st='<span class="orig-st">⏳ 요청됨 · '+(mins<1?'방금':mins+'분')+(mins>=10?' — PC 응답 없음(에이전트·구버전 확인)':'')+'</span>';
+          act='<button class="small-btn" onclick="cancelOrigRequest(\''+s.id+'\')">요청 취소</button>';
+        } else if(d._origErr){
+          st='<span class="orig-st err">⚠️ '+esc(String(d._origErr))+'</span>';
+          act='<button class="small-btn" onclick="requestOrigVideo(\''+s.id+'\')">다시 요청</button>';
+        } else {
+          act='<button class="small-btn primary" onclick="requestOrigVideo(\''+s.id+'\')">🎞 원본 요청</button>';
+        }
+        return '<div class="orig-row"><div class="orig-hd"><span class="orig-t">'+when+'</span><span class="shot-bay '+getBay(s.bayId).color+'">'+getBay(s.bayId).name+'</span>'
+          + '<span>'+esc(d.club||'')+'</span><span class="orig-m">'+carry+'</span><span class="orig-m">'+who+'</span>'+_vidChip(s)+st+'</div>'
+          + (act?'<div class="orig-act">'+act+'</div>':'')+'</div>';
+      }).join('')+'</div>';
+  return '<div class="modal-overlay orig-panel" onclick="if(event.target===this)closeOrigPanel()"><div class="modal">'
+    + '<div class="modal-title">🎞 원본 영상 요청 <small style="font-weight:600;color:var(--tx-3)">최근 24시간</small></div>'
+    + '<div class="orig-note">타석 PC 에 저장된 고화질 원본(측면·정면·클럽·내장캠)을 요청하면 그 PC 에이전트가 올려줍니다. 보통 1~3분, 파일이 크면 더 걸려요. 원본은 <b>7일 뒤 자동 삭제</b>됩니다. 🎬 보기는 폰 시청용 압축본입니다.</div>'
+    + chips + list
+    + '<div class="modal-actions"><button class="btn" onclick="closeOrigPanel()">닫기</button></div>'
+    + '</div></div>';
 }
 
 // ===== 수업 센터 — 회원 선택 (라이브 수업 / 일지만 기록 공용) =====
@@ -1840,7 +1955,7 @@ function renderClassPickModal(){
 // update.ps1 을 안 돌리면 반영되지 않는데, 예전엔 확인할 방법이 없어 "고쳤는데
 // 왜 그대로냐"가 반복됐다. 오늘 들어온 샷의 _agentVer 로 판별한다.
 // (구버전은 _agentVer 자체를 안 실어 보내므로 '없음'도 구버전으로 본다)
-var AGENT_VERSION_EXPECTED = 9;
+var AGENT_VERSION_EXPECTED = 10;
 function _staleAgentWarnHTML(bays, isAdmin){
   try{
     if(!isAdmin) return '';

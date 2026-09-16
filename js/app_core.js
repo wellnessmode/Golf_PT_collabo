@@ -80,7 +80,7 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.89',
+  version:'v9.90',   // v9.90: 내역 비공개 변경(운영 편의)만 포함 — changes 에 새 항목 없음
   date:'2026-09-16',
   changes:[
     '생체 로그인이 갑자기 안 될 때 자동 복구 — 폰 업데이트 등으로 등록이 풀리면 비밀번호 로그인 뒤 바로 다시 등록되게, 실패 사유도 표시. 비밀번호 창에 [지문·Face ID 다시 등록] 링크 추가',
@@ -764,6 +764,7 @@ function r2RemoveShotVideos(s){
   try{ if(s.data && s.data.videoFO) r2.remove(s.data.videoFO); }catch(e){}   // 정면 각도도 함께 삭제(고아 방지)
   try{ if(s.data && s.data.videoDL && s.data.videoDL!==s.data.videoMp4R2Key) r2.remove(s.data.videoDL); }catch(e){}
   try{ if(s.data && s.data.videoClub) r2.remove(s.data.videoClub); }catch(e){}   // 클럽 딜리버리 각도
+  try{ var o=s.data && s.data.orig; if(o){ ['dl','fo','club','scene'].forEach(function(k){ if(o[k]) r2.remove(o[k]); }); } }catch(e){}   // 요청해서 받은 원본 파일
 }
 
 // ============ 상태 ============
