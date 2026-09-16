@@ -19,7 +19,7 @@
 // 영상 변환 로직을 고쳐도 타석 PC 에서 update.ps1 을 안 돌리면 반영되지 않는데,
 // 예전엔 그걸 확인할 방법이 없어 "고쳤는데 왜 그대로냐" 혼선이 반복됐다.
 // ⚠️ 변환·업로드 로직을 고칠 때마다 이 숫자를 올릴 것.
-const AGENT_VERSION = 9;
+const AGENT_VERSION = 10;
 
 const fs = require('fs');
 const path = require('path');
@@ -238,6 +238,129 @@ async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
   if (res2.status >= 200 && res2.status < 300) return true;
   log('  ! 영상키 업데이트 실패(직접) ' + res2.status);
   return false;
+}
+
+// ---- 행 data 부분 갱신 (video_r2_key 는 건드리지 않음) — 원본 영상 요청 결과 기록용 ----
+async function patchShotData(shotId, extra){
+  var cur = await fetchShotData(shotId);
+  var data = Object.assign({}, cur || {});
+  Object.keys(extra||{}).forEach(function(k){ if (extra[k] === null) delete data[k]; else data[k] = extra[k]; });
+  var values = { data: data };
+  if (CFG.useDbProxy && CFG.R2_WORKER_URL && CFG.R2_API_KEY){
+    var purl = CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/db';
+    var pres = await httpRequest(purl, { method:'POST', headers:{ 'X-API-Key':CFG.R2_API_KEY, 'Content-Type':'application/json' } },
+      JSON.stringify({ op:'update', table:'shot_events', values:values, filters:[{col:'id',op:'eq',val:shotId}] }));
+    return pres.status >= 200 && pres.status < 300;
+  }
+  var url2 = CFG.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/shot_events?id=eq.' + encodeURIComponent(shotId);
+  var res2 = await httpRequest(url2, { method:'PATCH', headers:{
+    'apikey':CFG.SUPABASE_ANON_KEY, 'Authorization':'Bearer '+CFG.SUPABASE_ANON_KEY,
+    'Content-Type':'application/json', 'Prefer':'return=minimal' } }, JSON.stringify(values));
+  return res2.status >= 200 && res2.status < 300;
+}
+
+// ============ 원본 영상 요청 처리 (앱의 [원본 요청] → 이 PC 의 고화질 원본을 그대로 업로드) ============
+// 앱(담당자·관리자 전용 패널)이 행에 data._origReq=1 을 남기면, 이 타석 PC 가 20초마다 찾아
+// 트랙맨이 남긴 원본(아이폰 측면/정면 .mov, 클럽 딜리버리, ftmf 내장캠 scene.mkv)을 변환 없이
+// R2 의 orig/<bay>/<shotId>_<앵글>.<확장자> 로 올리고, data.orig={dl,fo,club,scene,at,bytes} 를 기록한다.
+// 원본은 앱이 7일 뒤 자동 삭제. 한 파일 상한 95MB — 워커 경유 업로드는 Cloudflare 요청 본문 한도(100MB)에
+// 걸리므로 그보다 큰 파일은 건너뛰고 사유를 기록한다 (아이폰 슬로모션 장초 클립 등).
+var ORIG_MAX_BYTES = 95 * 1024 * 1024;
+var _origLastPoll = 0, _origBusy = false, _origDone = {};
+function myBays(){
+  var out = [];
+  var bm = (CFG.bayMap && typeof CFG.bayMap === 'object') ? CFG.bayMap : {};
+  Object.keys(bm).forEach(function(k){ if (bm[k] && out.indexOf(bm[k])===-1) out.push(bm[k]); });
+  var d = CFG.defaultBay || 'bay3'; if (out.indexOf(d)===-1) out.push(d);
+  return out;
+}
+// ftmf 원본 경로: processed 에 shotId 로 기록된 파일명을 감시 폴더에서 다시 찾는다
+function findFtmfForShot(shotId){
+  var names = Object.keys(processed);
+  for (var i = 0; i < names.length; i++){
+    var p = processed[names[i]];
+    if (!p || p.id !== shotId) continue;
+    var dirs = Array.isArray(CFG.watchDirs) ? CFG.watchDirs : [CFG.watchDir];
+    for (var d = 0; d < dirs.length; d++){
+      if (!dirs[d]) continue;
+      var files = listFtmfFiles(dirs[d], 2);
+      for (var f = 0; f < files.length; f++){ if (path.basename(files[f]) === names[i]) return files[f]; }
+    }
+  }
+  return null;
+}
+async function processOrigRequest(row){
+  var shotId = row.id, bayId = row.bay_id || CFG.defaultBay || 'bay3';
+  var data = row.data || {};
+  var evMs = Date.parse(data.measuredAt || row.ts) || 0;
+  var found = {}, bytes = {}, skipped = [];
+  // 1) Videos 폴더 원본 (아이폰 측면/정면, 클럽 딜리버리, 볼 카메라)
+  var vids = findShotVideos(evMs, shotId);
+  var cats = [['dl','dl'],['fo','fo'],['club','club']];
+  if (!vids.dl && vids.ball) cats.push(['ball','scene']);   // 측면이 없으면 볼 카메라를 내장캠 슬롯에
+  for (var i = 0; i < cats.length; i++){
+    var src = vids[cats[i][0]], angle = cats[i][1];
+    if (!src || src._taken) continue;
+    try{
+      var st = fs.statSync(src.fp);
+      if (st.size > ORIG_MAX_BYTES){ skipped.push(angle + ' ' + (st.size/1e6).toFixed(0) + 'MB(상한 초과)'); continue; }
+      var ext = ((src.name.match(/\.(mkv|mov|mp4)$/i)||[])[1]||'mp4').toLowerCase();
+      var ct = ext==='mov' ? 'video/quicktime' : (ext==='mkv' ? 'video/x-matroska' : 'video/mp4');
+      var key = 'orig/' + bayId + '/' + shotId + '_' + angle + '.' + ext;
+      var buf = fs.readFileSync(src.fp);
+      if (await uploadVideo(key, buf, ct)){ found[angle] = key; bytes[angle] = buf.length; log('  원본 업로드 ' + angle + ' ' + (buf.length/1e6).toFixed(1) + 'MB ← ' + src.name); }
+      else skipped.push(angle + ' 업로드 실패');
+    }catch(e){ skipped.push(angle + ' ' + (e.message||e)); }
+  }
+  // 2) ftmf 내장캠 원본(scene.mkv) — 아직 내장캠 슬롯이 비었을 때
+  if (!found.scene){
+    var fp = findFtmfForShot(shotId);
+    if (fp){
+      try{
+        var fbuf = fs.readFileSync(fp);
+        var outer = require('./ftmf-parser.js').readZipEntries(fbuf);
+        var sceneName = require('./ftmf-parser.js').findEntry(outer, '_scene.mkv');
+        if (sceneName){
+          var vbuf = require('./ftmf-parser.js').extractEntry(fbuf, outer[sceneName]);
+          if (vbuf.length > ORIG_MAX_BYTES) skipped.push('내장캠 ' + (vbuf.length/1e6).toFixed(0) + 'MB(상한 초과)');
+          else {
+            var skey = 'orig/' + bayId + '/' + shotId + '_scene.mkv';
+            if (await uploadVideo(skey, vbuf, 'video/x-matroska')){ found.scene = skey; bytes.scene = vbuf.length; log('  원본 업로드 내장캠 ' + (vbuf.length/1e6).toFixed(1) + 'MB ← ' + path.basename(fp)); }
+            else skipped.push('내장캠 업로드 실패');
+          }
+        }
+      }catch(e){ skipped.push('내장캠 ' + (e.message||e)); }
+    }
+  }
+  var any = Object.keys(found).length > 0;
+  var extra = { _origReq: 0, _agentVer: AGENT_VERSION };
+  if (any) { extra.orig = Object.assign({ at: new Date().toISOString(), bytes: bytes }, found); extra._origErr = null; }
+  else extra._origErr = 'PC 에서 원본 파일을 찾지 못함' + (skipped.length ? ' (' + skipped.join(', ') + ')' : '') ;
+  if (any && skipped.length) extra._origNote = skipped.join(', ');
+  var ok = await patchShotData(shotId, extra);
+  log((any ? '✓ 원본 요청 처리 ' : '! 원본 요청 실패 ') + shotId + ' → ' + Object.keys(found).join(',') + (skipped.length ? ' / 건너뜀: ' + skipped.join(', ') : '') + (ok ? '' : ' (행 갱신 실패)'));
+  _origDone[shotId] = Date.now();
+}
+async function origRequestTick(){
+  if (_origBusy || Date.now() - _origLastPoll < 20000) return;
+  _origLastPoll = Date.now();
+  if (!CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY) return;
+  var bays = myBays().map(encodeURIComponent).join(',');
+  var url = CFG.SUPABASE_URL.replace(/\/+$/,'') + '/rest/v1/shot_events?select=id,bay_id,ts,data&bay_id=in.(' + bays + ')&data-%3E%3E_origReq=eq.1&order=ts.desc&limit=5';
+  var res;
+  try{ res = await httpRequest(url, { method:'GET', headers:{ 'apikey':CFG.SUPABASE_ANON_KEY, 'Authorization':'Bearer '+CFG.SUPABASE_ANON_KEY }, timeoutMs:12000 }); }
+  catch(e){ return; }
+  if (!res || res.status !== 200) return;
+  var rows; try{ rows = JSON.parse(res.body.toString()); }catch(e){ return; }
+  if (!Array.isArray(rows) || !rows.length) return;
+  var row = null;
+  for (var i = 0; i < rows.length; i++){ var r = rows[i]; if (!_origDone[r.id] || Date.now() - _origDone[r.id] > 10*60000){ row = r; break; } }
+  if (!row) return;
+  _origBusy = true;
+  log('🎞 원본 요청 수신 ' + row.id + ' (' + row.bay_id + ')');
+  processOrigRequest(row)
+    .catch(function(e){ log('원본 요청 처리 오류 ' + row.id + ': ' + (e&&e.message||e)); _origDone[row.id] = Date.now(); })
+    .then(function(){ _origBusy = false; _watchdogTick(); });
 }
 
 // ---- R2: 영상 업로드 (워커 PUT /{key}) ----
@@ -863,6 +986,8 @@ async function scan(){
       })
       .then(function(){ _videoBusy = false; _watchdogTick(); });
   }
+  // 원본 영상 요청 — 20초마다 앱이 남긴 요청을 확인해 백그라운드로 처리 (변환 큐와 별개)
+  try{ await origRequestTick(); }catch(e){}
   // 하트비트 (5분마다) — 감시가 살아있는지 + 에이전트 눈에 보이는 "최신 파일"이 뭔지.
   // 샷을 쳤는데 앱에 안 뜰 때: 이 줄의 최신 파일 시각이 안 올라가면 TPS가 파일을
   // 안 쓰고 있는 것(트랙맨 설정/활동 저장 문제), 올라가는데 처리가 없으면 에이전트 문제.
