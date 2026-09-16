@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.88',
+  version:'v9.89',
   date:'2026-09-16',
   changes:[
+    '생체 로그인이 갑자기 안 될 때 자동 복구 — 폰 업데이트 등으로 등록이 풀리면 비밀번호 로그인 뒤 바로 다시 등록되게, 실패 사유도 표시. 비밀번호 창에 [지문·Face ID 다시 등록] 링크 추가',
     '타석 카드 개선(정우진 프로 건의) — 회원 전화번호 표시(탭하면 전화), 🎙 수업 녹음 버튼을 회원 이름 바로 아래로 이동',
     'AI 정리 "워커 403: Request not allowed" 대응 — AI 서버 지역 차단 시 예비 경로로 자동 전환하고 사유를 알기 쉽게 표시',
     '수업 센터 샷 목록 [더 보기] — 연타 중에 완료된 샷이 30개 밖으로 밀려 못 보던 문제 (30개씩 더 펼침)',
@@ -943,7 +944,11 @@ function setDeviceTrust(on){try{if(on)localStorage.setItem('golf_pt_trust_device
 function submitPassword(){var p=S.pendingRole;if(!p)return;var key=p.role==='infodesk'?'infodesk':(p.role==='admin'?'관리자':p.user);if(S.pwInput===getPassword(key)){logAudit('auth','로그인',p.user||key,{role:p.role,method:'password'});
   // 생체 미지원 기기에서 '자동 로그인' 체크 시 → 이 기기 신뢰 저장
   if(!bio.available && S.trustDevice){ setDeviceTrust(true); }
-  if(bio.available && !bio.isRegistered(p.role,p.user)){S.bioEnrollFor={role:p.role,user:p.user};S.showPwModal=false;render();return;}activateRole(p.role,p.user);}else{S.pwError=true;render();}}
+  // 생체 등록 모달: (1) 아직 등록 안 됨 (2) 등록은 돼 있는데 이번에 생체 인증이 실패함(등록 정보가 풀린 것)
+  //  — 예전엔 (1)만 있어서, 폰 업데이트 등으로 등록이 풀리면 다시 등록할 길이 없이 매번 비밀번호를 쳐야 했다
+  //  (2026-09 갤럭시 폴드 "일주일 전부터 생체 로그인이 안 됨" 사례). 재등록은 기존 등록 정보를 덮어쓴다.
+  var _bf=S._bioFail; var _stale=!!(_bf && _bf.role===p.role && _bf.user===p.user);
+  if(bio.available && (!bio.isRegistered(p.role,p.user) || _stale)){S.bioEnrollFor={role:p.role,user:p.user,reenroll:_stale};S._bioFail=null;S.showPwModal=false;render();return;}activateRole(p.role,p.user);}else{S.pwError=true;render();}}
 function cancelPassword(){S.showPwModal=false;S.pendingRole=null;S.pwError=false;S.bioError='';render();}
 
 // ============ 생체 인증 (Face ID / 지문 / 홍채) — WebAuthn ============
@@ -1031,14 +1036,31 @@ async function bioAutoTry(){
     var ok=await bio.verify(p.role,p.user);
     S.bioBusy=false;
     if(ok){logAudit('auth','로그인',p.user||p.role,{role:p.role,method:'biometric'});activateRole(p.role,p.user);return;}
-    S.bioError='생체 인증 실패 — 비밀번호로 로그인하세요';
+    // 인증창이 뜨기 전에 거부된 경우(이미 로그인 상태·미지원·등록 정보 없음) — 원인을 구분해 표시
+    S._bioFail={role:p.role,user:p.user,err:'nocred'};
+    S.bioError='생체 인증을 시작하지 못했어요 — 비밀번호로 로그인하면 바로 다시 등록됩니다';
   }catch(e){
     S.bioBusy=false;
-    S.bioError=(e&&e.name==='NotAllowedError')?'생체 인증 취소됨':'생체 인증 오류';
+    // 실패 원인(NotAllowedError = 취소 또는 이 기기에 그 등록 정보가 더 이상 없음 — 폰 업데이트·
+    // 지문 재등록·비밀번호 관리자 정리 후 흔함)을 기록 → 비밀번호 로그인 뒤 자동으로 재등록 제안
+    var nm=(e&&e.name)||'오류';
+    S._bioFail={role:p.role,user:p.user,err:nm};
+    S.bioError=(nm==='NotAllowedError')
+      ? '생체 인증이 취소됐거나 이 기기의 등록 정보가 풀렸어요 — 비밀번호로 로그인하면 바로 다시 등록됩니다'
+      : '생체 인증 오류('+nm+') — 비밀번호로 로그인하면 바로 다시 등록됩니다';
+    try{ console.warn('[bio] verify fail:', nm, e&&e.message); }catch(_){}
   }finally{
     _bioTrying = false;
   }
   render();
+}
+// 비밀번호 모달의 [지문 다시 등록] — 다음 비밀번호 로그인 때 재등록 모달로
+function bioReenrollHint(){
+  var p=S.pendingRole; if(!p) return;
+  S._bioFail={role:p.role,user:p.user,err:'manual'};
+  S.bioError='비밀번호로 로그인하면 생체 로그인을 다시 등록합니다';
+  render();
+  try{ var i=document.querySelector('.pw-modal input[type=password]'); if(i) i.focus(); }catch(e){}
 }
 // 모달에서 사용자가 직접 [Face ID/지문] 버튼 누른 경우
 async function bioLoginNow(){
