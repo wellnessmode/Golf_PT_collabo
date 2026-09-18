@@ -1876,6 +1876,15 @@ function renderOrigPanel(){
         var metric=(d._units&&d._units.dist==='m')||d._src==='trackman_io';
         var carry=d.carry!=null&&d.carry!==''?(Math.round((metric?parseFloat(d.carry):parseFloat(d.carry)*0.9144)*10)/10)+'m':'';
         var who=s.memberName?esc(s.memberName):'<span class="unassigned-tag">미배정</span>';
+        // 앵글별 변환 진단(에이전트 v11+): 길이·fps·적용 배율 — 정면이 느리게 보일 때 원인을 바로 볼 수 있게
+        var vm=d._vidMeta, vmTxt='';
+        if(vm && typeof vm==='object'){
+          vmTxt=['dl','fo','club'].filter(function(k){return vm[k];}).map(function(k){
+            var m=vm[k]; var applied=(m.sp&&m.sp>1)?'·×'+m.sp:('·보정없음'+((m.cfg&&m.cfg>1)?'(요청 ×'+m.cfg+')':''));
+            return ({dl:'측면',fo:'정면',club:'클럽'})[k]+' '+(m.dur!=null?m.dur+'s':'')+(m.fps?'·'+m.fps+'fps':'')+applied;
+          }).join(' | ');
+          if(vmTxt) vmTxt='<span class="orig-m" title="변환 진단: 파일 길이·fps·적용 배율">🎚 '+esc(vmTxt)+'</span>';
+        }
         var st='', act='';
         var o=d.orig;
         if(o && (o.dl||o.fo||o.club||o.scene)){
@@ -1897,6 +1906,7 @@ function renderOrigPanel(){
         }
         return '<div class="orig-row"><div class="orig-hd"><span class="orig-t">'+when+'</span><span class="shot-bay '+getBay(s.bayId).color+'">'+getBay(s.bayId).name+'</span>'
           + '<span>'+esc(d.club||'')+'</span><span class="orig-m">'+carry+'</span><span class="orig-m">'+who+'</span>'+_vidChip(s)+st+'</div>'
+          + (vmTxt?'<div class="orig-hd" style="margin-top:3px">'+vmTxt+'</div>':'')
           + (act?'<div class="orig-act">'+act+'</div>':'')+'</div>';
       }).join('')+'</div>';
   return '<div class="modal-overlay orig-panel" onclick="if(event.target===this)closeOrigPanel()"><div class="modal">'
@@ -1955,7 +1965,7 @@ function renderClassPickModal(){
 // update.ps1 을 안 돌리면 반영되지 않는데, 예전엔 확인할 방법이 없어 "고쳤는데
 // 왜 그대로냐"가 반복됐다. 오늘 들어온 샷의 _agentVer 로 판별한다.
 // (구버전은 _agentVer 자체를 안 실어 보내므로 '없음'도 구버전으로 본다)
-var AGENT_VERSION_EXPECTED = 10;
+var AGENT_VERSION_EXPECTED = 11;
 function _staleAgentWarnHTML(bays, isAdmin){
   try{
     if(!isAdmin) return '';
@@ -1971,7 +1981,7 @@ function _staleAgentWarnHTML(bays, isAdmin){
       .map(function(b){ return getBay(b).name; });
     if(!stale.length) return '';
     return '<div class="agent-stale">⚠️ '+stale.join(' · ')+' PC 에이전트가 구버전입니다<br>'
-         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환 수정과 업로드 속도 개선(원본 통째 업로드 → 압축 변환)이 아직 적용되지 않았습니다</small></div>';
+         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환·업로드 속도·정면 영상 속도 보정 수정이 아직 적용되지 않았습니다</small></div>';
   }catch(e){ return ''; }
 }
 

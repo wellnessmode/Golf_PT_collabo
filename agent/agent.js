@@ -19,7 +19,7 @@
 // 영상 변환 로직을 고쳐도 타석 PC 에서 update.ps1 을 안 돌리면 반영되지 않는데,
 // 예전엔 그걸 확인할 방법이 없어 "고쳤는데 왜 그대로냐" 혼선이 반복됐다.
 // ⚠️ 변환·업로드 로직을 고칠 때마다 이 숫자를 올릴 것.
-const AGENT_VERSION = 10;
+const AGENT_VERSION = 11;
 
 const fs = require('fs');
 const path = require('path');
@@ -221,7 +221,14 @@ async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
   var data = Object.assign({}, fallbackData, cur || {});   // 서버 최신 data 우선(그 사이 앱 변경 보존)
   delete data._videoPending;                               // 업로드 종료(성공/실패) → 진행 표시 해제
   if (mp4Key) data.videoMp4R2Key = mp4Key;
-  if (extra && typeof extra === 'object'){ Object.keys(extra).forEach(function(k){ if (extra[k]!=null) data[k]=extra[k]; }); }
+  if (extra && typeof extra === 'object'){
+    Object.keys(extra).forEach(function(k){
+      if (extra[k]==null) return;
+      // 앵글별 진단은 병합 — 보충 패스(정면이 늦게 도착)가 앞서 기록한 측면 진단을 지우지 않게
+      if (k === '_vidMeta' && data._vidMeta && typeof data._vidMeta === 'object'){ data._vidMeta = Object.assign({}, data._vidMeta, extra[k]); return; }
+      data[k]=extra[k];
+    });
+  }
   var values = { video_r2_key: videoKey, data: data };
   if (CFG.useDbProxy && CFG.R2_WORKER_URL && CFG.R2_API_KEY){
     var purl = CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/db';
@@ -412,6 +419,53 @@ async function convertMkvToMp4(mkvBuf, ffmpegPath){
   }
 }
 
+// ffmpeg -i 출력(stderr)에서 길이·프레임레이트·오디오·코덱을 뽑는다 — 속도 보정 판단·진단 기록용
+function probeVideo(pr){
+  var err = (pr && pr.err) || '';
+  var dm = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(err);
+  var dur = dm ? ((+dm[1])*3600 + (+dm[2])*60 + parseFloat(dm[3])) : 0;
+  var vs = /Stream #\d+:\d+.*Video:\s*([a-zA-Z0-9_]+)[^\n]*/.exec(err);
+  var vline = vs ? vs[0] : '';
+  var fm = /(\d+(?:\.\d+)?)\s*fps/.exec(vline);
+  var tm = /(\d+(?:\.\d+)?)\s*tbr/.exec(vline);
+  return {
+    dur: Math.round(dur*10)/10,
+    fps: fm ? parseFloat(fm[1]) : 0,
+    tbr: tm ? parseFloat(tm[1]) : 0,
+    audio: /Stream #\d+:\d+.*Audio:/.test(err),
+    vcodec: vs ? vs[1].toLowerCase() : '',
+    pix420: /yuvj?420p/.test(vline)
+  };
+}
+// 파일별 최근 변환 진단 (inputPath → {dur,fps,sp,...}) — up() 이 행 data._vidMeta 로 남긴다
+var _convMeta = {};
+// ffmpeg -i 만 실행해 stderr(정보 출력)를 돌려준다 — 변환 없이 길이·fps 확인용 (짝 배율 유도)
+function runProbe(fp){
+  return new Promise(function(resolve){
+    try{
+      var p = require('child_process').spawn(CFG.ffmpegPath, ['-i', fp], { windowsHide:true });
+      var err = ''; var t = setTimeout(function(){ try{ p.kill(); }catch(_){} }, 20000);
+      p.stderr.on('data', function(d){ err += d.toString(); });
+      p.on('error', function(){ clearTimeout(t); resolve({ code:-1, err:err }); });
+      p.on('close', function(code){ clearTimeout(t); resolve({ code:code, err:err }); });
+    }catch(e){ resolve({ code:-1, err:'' }); }
+  });
+}
+// 두 아이폰(측면·정면)이 같은 샷을 찍었으면 실시간 구간이 같다 → 파일 길이 비율이 곧 늘어짐 배율 비율.
+// 측면의 "실제 적용" 배율(게이트에 걸려 보정 안 하면 1)을 기준으로 정면 배율을 유도해
+// 아이폰이 실제로 만들 수 있는 {1,2,4,8} 중 가장 가까운 값으로 맞춘다.
+// 비율이 어느 값에도 ±25% 안에 안 들면(두 폰이 다른 구간을 찍었거나 파일이 잘림) null → 설정값 사용.
+// (2026-09 3번룸: 측면은 정상인데 정면만 느림 — 두 폰의 슬로모션 fps 가 달랐던 사고)
+var PAIR_CANDIDATES = [1,2,4,8];
+var PAIR_TOLERANCE = Math.log(1.25);
+function pairSpeedup(baseSp, baseDur, otherDur){
+  if (!baseSp || !baseDur || !otherDur) return null;
+  var raw = baseSp * otherDur / baseDur;
+  var best = 1, bestD = Infinity;
+  PAIR_CANDIDATES.forEach(function(c){ var d = Math.abs(Math.log(raw/c)); if (d < bestD){ bestD = d; best = c; } });
+  return bestD <= PAIR_TOLERANCE ? best : null;
+}
+
 // 임의 영상 파일(.mkv/.mov 등) → 웹 재생용 mp4(H.264) 버퍼. 리먹스 우선, 실패 시 트랜스코드.
 // (고장 상태에서 TPS가 Videos 폴더에 낱개로 저장하는 아이폰 .mov / 카메라 .mkv 를 붙이기 위함)
 // forceEncode=true 면 리먹스(-c copy)를 건너뛰고 무조건 재인코딩한다.
@@ -442,18 +496,19 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
   try{
     var r = { code: 1, err: '' };
     // ── 슬로모션 속도 보정 — 아이폰이 "슬로 모션" 모드로 찍으면 파일 자체가
-    // 4배(120fps) 늘어져 저장돼 리포트에서 1배속인데도 느리게 보인다.
-    // 업로드 전에 실제 속도로 되돌린다. 단, 15초(slowmoMinSec) 미만의 짧은
-    // 클립은 이미 실속도 촬영으로 보고 건드리지 않는다 — 카메라 모드를 나중에
-    // 정상(비디오)으로 바꿔도 이 보정이 정상 영상을 망치지 않게 하는 안전장치.
+    // 4배(120fps)·8배(240fps) 늘어져 저장돼 리포트에서 1배속인데도 느리게 보인다.
+    // 업로드 전에 실제 속도로 되돌린다. speedup 은 호출측(up)이 앵글·짝 영상 길이로 정한 배율.
+    // 안전장치: (1) 파일이 실시간 타임스탬프의 고프레임(fps≥100)이면 이미 실속도 → 보정 안 함
+    //          (2) slowmoMinSec(기본 10초) 미만의 짧은 클립은 실속도 촬영으로 보고 보정 안 함
     var sp = (speedup && speedup > 1.01) ? speedup : 0;
+    var meta = probeVideo(await run(['-i', inputPath]));   // ffmpeg -i 는 변환 없이 정보만 출력(비정상 종료가 정상)
+    meta.sp = 1;
+    _convMeta[inputPath] = meta;
     if (sp){
-      var pr = await run(['-i', inputPath]);   // ffmpeg -i 는 변환 없이 정보만 출력(비정상 종료가 정상)
-      var dm = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(pr.err || '');
-      var durSec = dm ? ((+dm[1])*3600 + (+dm[2])*60 + parseFloat(dm[3])) : 0;
-      var hasAudio = /Stream #\d+:\d+.*Audio:/.test(pr.err || '');
-      var minSec = (CFG.slowmoMinSec != null ? CFG.slowmoMinSec : 15);
-      if (!durSec || durSec < minSec){ sp = 0; }
+      var durSec = meta.dur, hasAudio = meta.audio;
+      var minSec = (CFG.slowmoMinSec != null ? CFG.slowmoMinSec : 10);
+      if (meta.fps >= 100){ sp = 0; try{ log('  속도 보정 생략(실시간 ' + meta.fps + 'fps) ' + path.basename(inputPath)); }catch(_){} }
+      else if (!durSec || durSec < minSec){ sp = 0; try{ log('  속도 보정 생략(' + (durSec||0).toFixed(1) + 's < ' + minSec + 's) ' + path.basename(inputPath)); }catch(_){} }
       else {
         // 해상도 캡 — 폰 시청용은 긴 변 1280 이면 충분. 인코딩량이 절반 이하로 줄어
         // 변환·업로드가 크게 빨라진다 (작은 영상은 그대로 — 업스케일 없음).
@@ -468,7 +523,8 @@ async function convertFileToMp4(inputPath, ffmpegPath, forceEncode, speedup){
         args = args.concat(['-movflags','+faststart', tmpOut]);
         r = await run(args);
         if (!bad(r)){
-          try{ log('  속도 보정 ×' + sp + ' (' + durSec.toFixed(1) + 's → ' + (durSec/sp).toFixed(1) + 's) ' + path.basename(inputPath)); }catch(_){}
+          meta.sp = sp;
+          try{ log('  속도 보정 ×' + sp + ' (' + durSec.toFixed(1) + 's → ' + (durSec/sp).toFixed(1) + 's, ' + (meta.fps||'?') + 'fps) ' + path.basename(inputPath)); }catch(_){}
           return fs.readFileSync(tmpOut);
         }
         try{ log('  속도 보정 실패 → 원래 속도로 변환: ' + (r.err||'').slice(0,120)); }catch(_){}
@@ -779,8 +835,14 @@ async function processVideoJob(job){
     var clubSrc= have.club ? null : vids.club;       // 클럽 딜리버리(임팩트) = 항상 별도
     var ballSrc= (!dlSrc && !clubSrc && !have.dl && !have.club && !have.ball) ? vids.ball : null;  // 최후 폴백
     var anyHave = have.dl||have.fo||have.club||have.ball;
+    // 정면이 측면보다 먼저 저장된 경우 — 지금 올리면 짝 배율을 못 구하고 설정값으로 굳는다(다시 유도 안 됨).
+    // 샷 후 2.5분까지는 측면이 오길 기다렸다가 함께 처리하고, 그 뒤에도 안 오면 설정값으로 올린다.
+    var foDeferred = false;
+    if (foSrc && !dlSrc && !have.dl && CFG.ffmpegPath && CFG.pairSpeedup !== false && Date.now() - job.evMs < 150000){
+      foSrc = null; foDeferred = true;
+    }
     if (!dlSrc && !foSrc && !clubSrc && !ballSrc){
-      if (anyHave){
+      if (anyHave || foDeferred){
         // 보충 모드 — 새로 나타난 게 없음. 아이폰 영상이 아직 저장 중일 수 있어 3분까지 대기.
         if (Date.now() - job.evMs < 180000){ _videoQueue.push(job); return; }
         if (processed[job.fname]) { delete processed[job.fname].vp; saveState(); }
@@ -805,8 +867,8 @@ async function processVideoJob(job){
       var v = (c[cat] != null ? c[cat] : d[cat]);
       return (typeof v === 'number' && v > 0) ? v : 1;
     }
-    // 한 소스를 mp4 로 변환/업로드하고 R2 키를 돌려주는 헬퍼
-    async function up(src, suffix, cat){
+    // 한 소스를 mp4 로 변환/업로드하고 R2 키를 돌려주는 헬퍼 (spOverride: 짝 영상으로 유도한 배율)
+    async function up(src, suffix, cat, spOverride){
       if (!src) return null;
       var buf = null;
       // 재인코딩 대상: ① 클럽 딜리버리(초고속 카메라) ② 모든 .mkv (트랙맨 내장 카메라 —
@@ -814,10 +876,14 @@ async function processVideoJob(job){
       // 된다. H.264(yuv420p) 재인코딩으로 재생 호환 + 파일 대폭 축소 = 업로드도 빨라짐).
       // 아이폰 영상(.mov/.mp4, 이미 H.264)만 리먹스로 빠르게 통과.
       var forceEnc = (suffix === '_club') || /\.mkv$/i.test(src.name || '');
-      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath, forceEnc, speedupFor(cat)); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
+      var spUse = (spOverride != null) ? spOverride : speedupFor(cat);
+      if (CFG.ffmpegPath){ try{ buf = await convertFileToMp4(src.fp, CFG.ffmpegPath, forceEnc, spUse); }catch(e){ log('  영상 변환 실패(' + src.name + '): ' + e.message); } }
+      var cm = null; try{ cm = _convMeta[src.fp] || null; delete _convMeta[src.fp]; }catch(_){}
+      // 진단은 업로드가 실제로 된 앵글만 기록 (실패한 시도가 다음 보충 패스의 기록을 덮지 않게)
+      function done(key){ if (key && cm) vidMeta[cat] = { dur: cm.dur, fps: cm.fps, sp: cm.sp, cfg: spUse }; return key; }
       if (buf && buf.length){
         var mk = vbase + suffix + '.mp4';
-        if (await uploadVideo(mk, buf, 'video/mp4')){ log('  MP4 업로드 ' + (buf.length/1e6).toFixed(1) + 'MB ← ' + src.name); return mk; }
+        if (await uploadVideo(mk, buf, 'video/mp4')){ log('  MP4 업로드 ' + (buf.length/1e6).toFixed(1) + 'MB ← ' + src.name); return done(mk); }
       }
       // 변환 실패 → 원본 업로드(확장자 유지)
       try{
@@ -825,19 +891,40 @@ async function processVideoJob(job){
         var ext = ((src.name.match(/\.(mkv|mov|mp4)$/i)||[])[1]||'mp4').toLowerCase();
         var ct = ext==='mov' ? 'video/quicktime' : (ext==='mkv' ? 'video/x-matroska' : 'video/mp4');
         var rk = vbase + suffix + '.' + ext;
-        if (await uploadVideo(rk, raw, ct)){ log('  원본 영상 업로드 ' + (raw.length/1e6).toFixed(1) + 'MB ← ' + src.name); return rk; }
+        if (await uploadVideo(rk, raw, ct)){ log('  원본 영상 업로드 ' + (raw.length/1e6).toFixed(1) + 'MB ← ' + src.name); if (cm) cm.sp = 1; return done(rk); }
       }catch(e){ log('  원본 영상 업로드 스킵(' + src.name + '): ' + e.message); }
       return null;
     }
-    var dlKey   = await up(dlSrc, '_scene', 'dl');   // 측면(DL 아이폰)
-    var foKey   = await up(foSrc, '_fo', 'fo');      // 정면(FO 아이폰)
+    // 앵글별 진단(길이·fps·적용 배율) — 행 data._vidMeta 로 남겨 앱(관리자)에서 확인 가능
+    var vidMeta = {};
+    // 측면·정면 짝 보정 — 두 아이폰의 슬로모션 설정이 달라도(120 vs 240fps) 정면이 느리게 남지 않게.
+    // 같은 샷의 두 파일은 실시간 구간이 같으므로 길이 비율로 정면 배율을 유도한다.
+    var spDl = speedupFor('dl'), spFo = speedupFor('fo');
+    // 보충 패스(정면이 늦게 도착, 측면은 이미 업로드)에서도 짝을 맞출 수 있게 측면 파일은 다시 찾아 길이만 잰다
+    var dlProbe = dlSrc || (have.dl ? vids.dl : null);
+    if (dlProbe && foSrc && CFG.ffmpegPath && CFG.pairSpeedup !== false){
+      try{
+        var mDl = probeVideo(await runProbe(dlProbe.fp)), mFo = probeVideo(await runProbe(foSrc.fp));
+        // 기준은 측면에 "실제로 적용될" 배율 — convertFileToMp4 의 게이트(실시간 고프레임·짧은 클립)에
+        // 걸려 측면을 보정하지 않으면 측면 파일은 이미 실속도이므로 기준 배율은 1 이다.
+        var minSec = (CFG.slowmoMinSec != null ? CFG.slowmoMinSec : 10);
+        var baseDl = (mDl.fps >= 100 || !mDl.dur || mDl.dur < minSec) ? 1 : spDl;
+        var derived = pairSpeedup(baseDl, mDl.dur, mFo.dur);
+        if (derived && derived !== spFo){ log('  정면 배율 유도 ×' + derived + ' (측면 ' + mDl.dur + 's ×' + baseDl + ' / 정면 ' + mFo.dur + 's, 설정 ×' + spFo + ')'); spFo = derived; }
+        else if (!derived && mDl.dur && mFo.dur) log('  정면 배율 유도 불가 → 설정 ×' + spFo + ' 사용 (측면 ' + mDl.dur + 's ×' + baseDl + ' / 정면 ' + mFo.dur + 's — 길이 비율이 1·2·4·8 어디에도 안 맞음)');
+      }catch(e){ log('  짝 배율 유도 실패: ' + (e&&e.message||e)); }
+    }
+    var dlKey   = await up(dlSrc, '_scene', 'dl', spDl);   // 측면(DL 아이폰)
+    var foKey   = await up(foSrc, '_fo', 'fo', spFo);      // 정면(FO 아이폰)
     var clubKey = await up(clubSrc, '_club', 'club');// 클럽 딜리버리
     var ballKey = await up(ballSrc, '_scene', 'ball'); // 최후 폴백(측면·클럽 다 없을 때만)
     // 주(대표) 영상 — 칩·리포트 대표 재생용. DL > 클럽 > 볼 순.
     // 보충 패스에서 DL 이 늦게 오면 대표를 DL 로 업그레이드(mp4Key=dlKey).
     var mainKey = dlKey || (anyHave ? null : (clubKey || ballKey));
     try{
-      var okv = await attachShotVideo(job.shotId, null, mainKey, null, { videoFO: foKey, videoDL: dlKey, videoClub: clubKey });
+      var extraKeys = { videoFO: foKey, videoDL: dlKey, videoClub: clubKey, _agentVer: AGENT_VERSION };
+      if (Object.keys(vidMeta).length) extraKeys._vidMeta = vidMeta;   // attachShotVideo 가 기존 진단과 병합
+      var okv = await attachShotVideo(job.shotId, null, mainKey, null, extraKeys);
       var reused = [dlSrc,foSrc,clubSrc,ballSrc].some(function(s){ return s && s._taken; });
       if (okv) log('  영상 연결' + (anyHave?'(보충)':'') + ' → 측면:' + (dlKey||(have.dl?'유지':'없음')) + ' 정면:' + (foKey||(have.fo?'유지':'없음')) + ' 클럽:' + (clubKey||(have.club?'유지':'없음')) + (ballKey?' (대표=볼카메라)':'') + (reused?' ⚠️ 다른 샷과 영상 공유(후보 부족)':''));
       // 업로드 성공한 원본 파일을 이 샷에 배정 기록 — 다른 샷이 같은 영상을 못 가져가게
