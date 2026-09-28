@@ -211,7 +211,7 @@ function renderDashboard(){
       <span class="dash-ver">${todayLabel} · ${APP_VERSION.version}</span>
     </div>
     ${S.currentRole!=='infodesk'?'<button class="dash-live-btn" onclick="openLiveSession()">🏌️ 수업 센터 <small>타석 레슨 시작 · 트랙맨 샷 자동 저장</small></button>':''}
-    ${S.currentRole!=='infodesk'?(function(){ try{ setTimeout(function(){ if(typeof _rvFillPushCta==='function') _rvFillPushCta(); },0); }catch(e){} return '<div id="dash-push-cta" class="rvn-push dash-push-cta"></div>'; })():''}
+    ${S.currentRole!=='infodesk'?(function(){ try{ setTimeout(function(){ if(typeof _rvFillPushCta==='function') _rvFillPushCta(); },0); }catch(e){} return '<div id="dash-push-cta" class="rvn-push dash-push-cta">'+(window.__rvCtaHtml||'')+'</div>'; })():''}
     ${(function(){
       var dm=visibleMembers.filter(function(m){return m.reportDirty&&m.reportId;});
       if(!dm.length) return '';

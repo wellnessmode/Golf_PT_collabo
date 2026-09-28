@@ -14,7 +14,7 @@
 //   POST /push/subscribe        → 폰 구독 저장 { user, role, subscription, ua }   (X-API-Key)
 //   POST /push/unsubscribe      → 구독 삭제 { endpoint }                          (X-API-Key)
 //   POST /push/test             → 그 사용자 폰으로 테스트 알림 { user }             (X-API-Key)
-//   GET  /push/run              → 지금 바로 독촉 1회 실행 (X-API-Key 또는 ?key=)     ← 배포 확인용
+//   GET  /push/run              → 지금 바로 독촉 1회 실행 (X-API-Key 또는 ?key=, 한국 09~21시만·&force=1 로 우회) ← 배포 확인용
 //   GET  /push/genkeys?key=…    → VAPID 키쌍 새로 생성해 보여줌 (한 번만 쓰고 시크릿에 저장)
 //   scheduled (크론)            → 독촉 실행 (한국 시간 09~21시에만)
 //
@@ -25,6 +25,7 @@
 //   VAPID_PUBLIC_KEY      /push/genkeys 로 만든 공개키 (base64url, 87자)
 //   VAPID_PRIVATE_KEY     같이 만든 비밀키 (base64url, 43자)
 //   VAPID_SUBJECT         mailto:연락이메일  (선택, 푸시 서비스에 알려주는 연락처)
+//   PUSH_HOST_ALLOW       (선택) 허용할 푸시 서비스 호스트 추가, 콤마 구분
 //
 //  테이블: supabase_schema.sql 의 push_subscriptions (anon 정책 없음 — 워커만 접근)
 //  배포 절차: worker/푸시-알림-배포.md
@@ -132,6 +133,34 @@ function sb(env) {
   };
 }
 
+// ---------- 구독 검증 ----------
+// endpoint 는 실제 푸시 서비스 주소만 — APP_API_KEY 는 앱 config.js 에 공개된 값이라, 아무 주소나 받으면
+// 크론마다 그 주소로 POST 를 보내는 대리 요청기가 된다. (PUSH_HOST_ALLOW 시크릿에 콤마로 추가 가능)
+const PUSH_HOSTS = ['fcm.googleapis.com', 'android.googleapis.com', 'web.push.apple.com', 'push.services.mozilla.com', 'notify.windows.com', 'push.samsungosp.com', 'push.samsung.com'];
+function endpointAllowed(endpoint, env) {
+  let h; try { h = new URL(endpoint).hostname.toLowerCase(); } catch (e) { return false; }
+  const extra = String(env.PUSH_HOST_ALLOW || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  return PUSH_HOSTS.concat(extra).some(d => h === d || h.endsWith('.' + d));
+}
+// 사용자 이름은 실제 담당자 명단(회원의 assignedTo 에 등장하는 이름) 또는 '관리자'만 — 아무 이름으로 남의 독촉을 받지 못하게.
+// role 은 클라이언트 값을 믿지 않는다: '관리자'만 admin, 그 외는 pro/trainer 중 이름으로 유도.
+async function staffNames(db) {
+  const rows = await db.get('members?select=data');
+  const names = new Set(['관리자']);
+  (rows || []).forEach(m => { const a = m && m.data && m.data.assignedTo; if (Array.isArray(a)) a.forEach(n => { if (n) names.add(String(n)); }); });
+  return names;
+}
+function roleFor(user, claimed) {
+  if (user === '관리자') return 'admin';
+  if (/트레이너|코치/.test(user)) return 'trainer';
+  if (/프로/.test(user)) return 'pro';
+  return claimed === 'trainer' ? 'trainer' : 'pro';
+}
+const MAX_SUBS_PER_USER = 5;
+const FAIL_DELETE_AT = 10;          // 연속 실패 n회면 구독 삭제
+const RESEND_GAP_MS = 3 * 3600000;  // 같은 구독에 3시간 안엔 다시 보내지 않음 (크론·수동 실행 중복 억제)
+const TEST_GAP_MS = 60000;          // 테스트 알림은 사용자당 1분 1회
+
 // ---------- 검토 대기 계산 + 알림 문구 ----------
 function daysSince(iso, now) { const t = Date.parse(iso); if (!t) return 0; return Math.max(0, Math.floor((now - t) / 86400000)); }
 function pendingFromMembers(members, now) {
@@ -166,20 +195,26 @@ async function runReminders(env, opts) {
   const now = Date.now();
   const members = await db.get('members?select=id,name,data');
   const pending = pendingFromMembers(members, now);
-  const subs = await db.get('push_subscriptions?select=endpoint,user_name,role,p256dh,auth,fail_count');
+  const subs = await db.get('push_subscriptions?select=endpoint,user_name,role,p256dh,auth,fail_count,last_ok_at');
   const sent = [];
+  const isTest = !!(opts && opts.test);
   for (const s of subs) {
     if (opts && opts.onlyUser && s.user_name !== opts.onlyUser) continue;
     const mine = s.role === 'admin' ? pending : pending.filter(p => p.to.indexOf(s.user_name) !== -1);
-    if (!mine.length && !(opts && opts.test)) continue;
+    if (!mine.length && !isTest) continue;
+    const lastOk = Date.parse(s.last_ok_at || '') || 0;
+    if (!isTest && now - lastOk < RESEND_GAP_MS) { sent.push({ user: s.user_name, role: s.role, count: mine.length, status: 0, note: '최근 ' + Math.round((now - lastOk) / 60000) + '분 전 발송 → 건너뜀' }); continue; }
+    if (isTest && now - lastOk < TEST_GAP_MS) { sent.push({ user: s.user_name, role: s.role, count: mine.length, status: 0, note: '1분 뒤 다시 시도' }); continue; }
     let res;
     try { res = await sendPush(env, s, buildPayload(s, mine, pending, opts)); }
     catch (e) { res = { status: -1, text: String(e && e.message || e) }; }
     sent.push({ user: s.user_name, role: s.role, count: mine.length, status: res.status, note: res.status >= 400 || res.status < 0 ? res.text : '' });
     const q = 'endpoint=eq.' + encodeURIComponent(s.endpoint);
     try {
-      if (res.status === 404 || res.status === 410) await db.del('push_subscriptions', q);                        // 폰이 구독을 지움 → 정리
-      else if (res.status >= 400 || res.status < 0) await db.patch('push_subscriptions', q, { fail_count: (s.fail_count || 0) + 1 });
+      const gone = res.status === 404 || res.status === 410 || (res.status === 403 && /VapidPkHashMismatch/i.test(res.text || ''));   // 폰이 구독을 지움 / 옛 VAPID 키 구독
+      const fails = (s.fail_count || 0) + 1;
+      if (gone || ((res.status >= 400 || res.status < 0) && fails >= FAIL_DELETE_AT)) await db.del('push_subscriptions', q);
+      else if (res.status >= 400 || res.status < 0) await db.patch('push_subscriptions', q, { fail_count: fails });
       else await db.patch('push_subscriptions', q, { fail_count: 0, last_ok_at: new Date(now).toISOString() });
     } catch (e) {}
   }
@@ -196,7 +231,7 @@ export default {
     const authed = () => !!env.APP_API_KEY && (request.headers.get('X-API-Key') === env.APP_API_KEY || url.searchParams.get('key') === env.APP_API_KEY);
 
     if (p === '/' || p === '/health') {
-      return json({ ok: true, worker: 'golf-pt-push', appKey: !!env.APP_API_KEY, db: !!(env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY), vapid: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), subject: env.VAPID_SUBJECT || '' });
+      return json({ ok: true, worker: 'golf-pt-push', appKey: !!env.APP_API_KEY, db: !!(env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY), vapid: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), subject: !!env.VAPID_SUBJECT });
     }
     if (p === '/push/key') {
       return json({ key: String(env.VAPID_PUBLIC_KEY || '').trim().replace(/=+$/, '') });
@@ -210,6 +245,8 @@ export default {
     }
     if (p === '/push/run') {
       if (!authed()) return json({ error: 'unauthorized' }, 401);
+      const h = kstHour(new Date());
+      if ((h < 9 || h > 21) && url.searchParams.get('force') !== '1') return json({ skipped: true, reason: '한국 시간 ' + h + '시 — 09~21시에만 발송 (확인용은 &force=1)' });
       try { return json(await runReminders(env, {})); } catch (e) { return json({ error: String(e && e.message || e) }, 500); }
     }
     if (p === '/push/subscribe' || p === '/push/unsubscribe' || p === '/push/test') {
@@ -222,9 +259,19 @@ export default {
           const s = b.subscription || {};
           const keys = s.keys || {};
           if (!s.endpoint || !/^https:\/\//.test(s.endpoint) || !keys.p256dh || !keys.auth || !b.user) return json({ error: 'endpoint/keys/user 필요' }, 400);
-          if (b64uDec(keys.p256dh).length !== 65) return json({ error: 'p256dh 형식 오류' }, 400);
-          await db.upsert('push_subscriptions', [{ endpoint: s.endpoint, user_name: String(b.user).slice(0, 60), role: String(b.role || 'pro').slice(0, 20), p256dh: keys.p256dh, auth: keys.auth, ua: String(b.ua || '').slice(0, 160), fail_count: 0, updated_at: new Date().toISOString() }]);
-          return json({ ok: true });
+          if (!endpointAllowed(s.endpoint, env)) return json({ error: '허용되지 않은 푸시 서비스 주소' }, 400);
+          if (b64uDec(keys.p256dh).length !== 65 || b64uDec(keys.auth).length !== 16) return json({ error: 'p256dh/auth 형식 오류' }, 400);
+          const user = String(b.user).slice(0, 60);
+          const names = await staffNames(db);
+          if (!names.has(user)) return json({ error: '등록된 담당자 이름이 아닙니다' }, 400);
+          const role = roleFor(user, String(b.role || ''));
+          await db.upsert('push_subscriptions', [{ endpoint: s.endpoint, user_name: user, role, p256dh: keys.p256dh, auth: keys.auth, ua: String(b.ua || '').slice(0, 160), fail_count: 0, updated_at: new Date().toISOString() }]);
+          // 사용자당 구독 상한 — 오래된 것부터 정리 (같은 폰 재구독·기기 교체로 쌓이는 행)
+          try {
+            const rows = await db.get('push_subscriptions?select=endpoint,updated_at&user_name=eq.' + encodeURIComponent(user) + '&order=updated_at.desc');
+            for (const r of rows.slice(MAX_SUBS_PER_USER)) await db.del('push_subscriptions', 'endpoint=eq.' + encodeURIComponent(r.endpoint));
+          } catch (e) {}
+          return json({ ok: true, role });
         }
         if (p === '/push/unsubscribe') {
           if (!b.endpoint) return json({ error: 'endpoint 필요' }, 400);
@@ -249,4 +296,4 @@ export default {
 };
 
 // 테스트(Node)에서 순수 로직을 검증할 수 있게 내보냄 — 워커 런타임은 default export 만 본다
-export { encryptPayload, vapidHeaders, pendingFromMembers, buildPayload, runReminders, b64uEnc, b64uDec };
+export { encryptPayload, vapidHeaders, pendingFromMembers, buildPayload, runReminders, b64uEnc, b64uDec, endpointAllowed, roleFor };

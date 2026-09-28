@@ -63,8 +63,12 @@ self.addEventListener('notificationclick', function(e) {
   e.notification.close();
   var url = (e.notification.data && e.notification.data.url) || './index.html';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(cs) {
-    for (var i = 0; i < cs.length; i++) {
-      if ('focus' in cs[i]) { try { cs[i].postMessage({ type: 'OPEN_REVIEW' }); } catch (_) {} return cs[i].focus(); }
+    // 앱 창(index.html / 스코프 루트)만 — 같은 출처의 manual.html·report.html 탭이 신호를 삼키지 않게. 보이는 창 우선.
+    var scopePath = new URL(self.registration.scope).pathname;
+    var app = cs.filter(function(c) { try { var p = new URL(c.url).pathname; return p === scopePath || /\/index\.html$/.test(p); } catch (_) { return false; } });
+    app.sort(function(a, b) { return (b.visibilityState === 'visible') - (a.visibilityState === 'visible'); });
+    for (var i = 0; i < app.length; i++) {
+      if ('focus' in app[i]) { try { app[i].postMessage({ type: 'OPEN_REVIEW' }); } catch (_) {} return app[i].focus(); }
     }
     return self.clients.openWindow(url);
   }));
@@ -85,7 +89,8 @@ self.addEventListener('fetch', function(e) {
       return res;
     }).catch(function() {
       // 네트워크 실패 → 캐시 fallback → 그것도 없으면 안내 페이지(흰 화면 방지)
-      return caches.match(e.request).then(function(r){
+      // 쿼리(?review=1 등)가 붙은 앱 주소도 캐시된 index.html 로 (알림 탭이 오프라인일 때 '연결 없음' 대신 앱)
+      return caches.match(e.request, {ignoreSearch:true}).then(function(r){
         if(r) return r;
         if(e.request.mode === 'navigate'){
           return new Response('<!DOCTYPE html><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><div style="font-family:-apple-system,sans-serif;padding:30vh 24px;text-align:center;color:#444"><div style="font-size:46px;margin-bottom:12px">📡</div><div style="font-size:16px;font-weight:700;margin-bottom:6px">네트워크 연결 없음</div><div style="font-size:13px;color:#888;margin-bottom:20px">잠시 후 다시 시도해주세요</div><button onclick="location.reload()" style="padding:11px 22px;background:#00b884;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">다시 시도</button></div>',
