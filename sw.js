@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v9.91';
+const CACHE_NAME = 'golf-pt-v9.92';
 const ASSETS = [
   './',
   './index.html',
@@ -42,6 +42,33 @@ self.addEventListener('activate', function(e) {
 });
 
 self.addEventListener('message', function(e){ if(e.data && e.data.type==='SKIP_WAITING') self.skipWaiting(); });
+
+// ---- 웹 푸시 (리포트 검토 독촉) — worker/golf-pt-push-worker.js 가 보낸 알림을 표시 ----
+// 페이로드: { title, body, tag, url }. 같은 tag 는 새 알림이 이전 것을 덮어쓴다(쌓이지 않게).
+self.addEventListener('push', function(e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { try { d = { body: e.data.text() }; } catch (__) {} }
+  var title = d.title || '내셔널짐 Golf PT';
+  e.waitUntil(self.registration.showNotification(title, {
+    body: d.body || '',
+    icon: './assets/icon-192.png',
+    badge: './assets/icon-192.png',
+    tag: d.tag || 'golfpt',
+    renotify: true,
+    data: { url: d.url || './index.html' }
+  }));
+});
+// 알림 탭 → 열려 있는 앱 창이 있으면 그 창으로(검토 창 열라고 신호), 없으면 새로 연다
+self.addEventListener('notificationclick', function(e) {
+  e.notification.close();
+  var url = (e.notification.data && e.notification.data.url) || './index.html';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(cs) {
+    for (var i = 0; i < cs.length; i++) {
+      if ('focus' in cs[i]) { try { cs[i].postMessage({ type: 'OPEN_REVIEW' }); } catch (_) {} return cs[i].focus(); }
+    }
+    return self.clients.openWindow(url);
+  }));
+});
 
 self.addEventListener('fetch', function(e) {
   var url = e.request.url;

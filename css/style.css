@@ -2049,3 +2049,24 @@ select.form-input{appearance:none;-webkit-appearance:none;background-image:url("
 .orig-bar{margin:0 0 12px}
 .orig-open-btn{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;background:#eef6ff;color:#1a4a7a;border:1px solid rgba(26,74,122,.18)}
 .orig-open-btn small{font-size:11px;font-weight:600;opacity:.85}
+
+/* ===== 리포트 검토 독촉 창 (v9.92) — 담당자에게 검토 대기 목록을 띄우고 폰 푸시 켜기 안내 ===== */
+.rvn-ov{z-index:2700}
+.rvn-card{max-width:460px}
+.rvn-hd-sub{display:block;font-size:11px;font-weight:600;color:#a08040;margin-top:2px}
+.rvn-msg{padding:10px 16px 6px;font-size:12.5px;line-height:1.6;color:#5a4a20;background:#fffdf6;border-bottom:1px solid #f0dfb4}
+.rvn-row{display:flex;align-items:center;width:100%;box-sizing:border-box;padding:12px 16px;background:#fff;border:none;border-bottom:1px solid rgba(13,20,28,.06);font-size:14px;font-weight:700;color:#1a1f26;cursor:pointer;text-align:left;font-family:inherit}
+.rvn-row:active{background:#fff7e8}
+.rvn-row span small{display:block;font-size:11px;font-weight:600;color:#8b93a0;margin-top:2px}
+.rvn-row i{margin-left:auto;font-style:normal;flex-shrink:0}
+.rvn-row em{margin-left:10px;font-style:normal;font-size:12px;font-weight:800;color:#e8930c;flex-shrink:0}
+.rvn-push{padding:0 16px}
+.rvn-push:empty{display:none}
+.rvn-push-btn{width:100%;margin:10px 0 4px;padding:11px;border:1.5px solid #00b884;background:rgba(0,184,132,.08);color:#0d6f4a;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.rvn-push-later{width:100%;margin:0 0 8px;padding:6px;border:none;background:transparent;color:#8b93a0;font-size:12px;cursor:pointer;font-family:inherit}
+.rvn-push-hint{margin:8px 0;font-size:12px;color:#8b93a0;line-height:1.5}
+.rvn-push-hint.on{color:#0d6f4a}
+.rvn-push-hint a{color:#0d6f4a;font-weight:700}
+.dash-push-cta{padding:0;margin:0 0 12px}
+.dash-push-cta .rvn-push-btn{margin:0 0 4px}
+.dash-push-cta .rvn-push-later{margin:0}
