@@ -37,6 +37,10 @@ window.APP_CONFIG = {
   // 먼저 시도하고 실패하면 R2_WORKER_URL 로 자동 폴백하므로, 배포 전에도 안전. (worker/AI-워커-분리-배포.md)
   AI_WORKER_URL: 'https://golf-pt-ai.ceo-fc9.workers.dev',
   AI_WORKER_KEY: '',   // 워커 인증용 키(시크릿 아님, 게이트용). 비우면 R2_API_KEY 사용.
+  // 리포트 검토 독촉 푸시 워커 — 검토 대기 리포트를 담당자 폰에 웹 푸시로 알림(크론).
+  // 배포 전에는 앱이 /push/key 응답을 못 받아 "폰 알림" 버튼이 조용히 숨겨진다 (앱 내 독촉 창은 그대로 동작).
+  // 배포: worker/푸시-알림-배포.md
+  PUSH_WORKER_URL: 'https://golf-pt-push.ceo-fc9.workers.dev',
   ANTHROPIC_API_KEY: '',
   ANTHROPIC_MODEL: 'claude-haiku-4-5',
 

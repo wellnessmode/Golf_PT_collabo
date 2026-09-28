@@ -384,7 +384,7 @@ async function sharePerfSummary(){
   var saved=await _saveReportRow(row);
   if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
   // 공유 = 최신 내용 발행이므로 '검토 대기' 해제
-  if(m.reportDirty){ delete m.reportDirty; try{ save(); }catch(e){} try{ cloud.upsertMember(m); }catch(e){} }
+  if(m.reportDirty){ delete m.reportDirty; try{ window.__rvLocalAt=Date.now(); }catch(e){} try{ syncMemberUp(m,{clearReportDirty:true}); }catch(e){ try{ save(); }catch(_){} } }
   // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
   // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE(전용 도메인)가 응답하면 그 주소로,
   // 응답이 없으면 워커 기본 주소로. 둘 다 없으면 기존 report.html 경로(구버전 폴백).
@@ -424,8 +424,7 @@ function markReportDirty(mid){
     if(!m || !m.reportId) return;                       // 링크를 준 적 없는 회원은 대상 아님
     if(m.reportDirty) return;
     m.reportDirty=new Date().toISOString();
-    try{ save(); }catch(e){}
-    try{ cloud.upsertMember(m); }catch(e){}             // 다른 기기(다른 프로·관리자)에도 대기 표시
+    try{ syncMemberUp(m); }catch(e){ try{ save(); }catch(_){} }   // 다른 기기(다른 프로·관리자)에도 대기 표시 — 실패하면 _dirty 로 남아 재시도
   }catch(e){}
 }
 // [검토 완료] — 지금 화면의 리포트 내용을 회원 고정 링크에 발행
@@ -441,8 +440,8 @@ async function reviewPublishReport(mid){
     var ok=await _saveReportRow({id:m.reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content});
     if(!ok){ alert('반영 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
     delete m.reportDirty;
-    try{ save(); }catch(e){}
-    try{ cloud.upsertMember(m); }catch(e){}
+    try{ window.__rvLocalAt=Date.now(); }catch(e){}   // 독촉 창이 클라우드의 옛 표시를 잠시 되살리지 않게
+    try{ syncMemberUp(m,{clearReportDirty:true}); }catch(e){ try{ save(); }catch(_){} }
     try{ logActivity('리포트 검토 완료', mid, ''); }catch(e){}
     render();
     try{ liveToastSafe('✅ '+m.name+'님 리포트 링크에 반영됐어요'); }catch(e){}
@@ -1427,4 +1426,285 @@ function closeNotices(markRead){
 if(!window.__ntcTimer){
   window.__ntcTimer=setInterval(function(){ try{_fetchNotices(false);}catch(e){} },60000);
   setTimeout(function(){ try{_fetchNotices(true);}catch(e){} },8000);
+}
+
+// ============ 리포트 검토 독촉 (담당 프로·트레이너 / 관리자 요약) ============
+// 회원 링크가 있는 회원의 일지·영상이 바뀌면 reportDirty 가 켜지고, 담당자가 성과 리포트에서
+// [검토 완료]를 눌러야 회원 링크에 반영된다. 안 누르면 회원은 옛 리포트를 보게 되므로
+//  (1) 앱을 열 때·복귀할 때·30분마다 검토 대기 목록을 창으로 띄운다 (스누즈 1시간, 녹음·타석·리포트·작성 중엔 안 띄움)
+//  (2) 폰 푸시(worker/golf-pt-push-worker.js 크론)로 앱을 안 열어도 하루 몇 번 알린다.
+// 인포데스크는 대상 아님. 관리자는 전체 목록(담당자 표시)을 본다.
+var RV_SNOOZE_MS = 60*60000;
+function _rvPending(user, role){
+  var isAdmin=(role==='admin');
+  return (S.members||[]).filter(function(m){
+    if(!m || m.ownerWatch || !m.reportDirty || !m.reportId) return false;
+    if(isAdmin) return true;
+    return Array.isArray(m.assignedTo) && m.assignedTo.indexOf(user)!==-1;
+  }).map(function(m){
+    var days=Math.floor((Date.now()-(Date.parse(m.reportDirty)||Date.now()))/86400000);
+    var last=(S.sessions[m.id]||[]).slice().sort(sessionCompare)[0];
+    return { id:m.id, name:m.name, days:days<0?0:days, lastDate:(last&&last.date)?String(last.date).slice(5).replace('-','.'):'', who:(m.assignedTo||[]).join('·') };
+  }).sort(function(a,b){ return b.days-a.days; });
+}
+// 일지·회원 폼이 열려 있거나 업로드 중 — 이때 회원을 바꾸면 작성 중인 일지가 다른 회원에게 저장되므로 절대 끼어들지 않는다
+function _rvFormOpen(){
+  try{ return !!(S.showAddSession || S.editSessionId || S.showAddMember || S.editMemberId || S.showReport || (S.uploading>0)); }catch(e){ return false; }
+}
+// 녹음·받아쓰기 중, 타석 레슨 화면, 성과 리포트(검토 화면), 폼 작성 중엔 방해하지 않는다
+function _rvBusy(){
+  try{ if(typeof _updBlocked==='function' && _updBlocked()) return true; }catch(e){}
+  try{ if(S.showLiveSession || S.showPerformance) return true; }catch(e){}
+  return _rvFormOpen();
+}
+function _rvSnoozeKey(){ return 'rv_snooze_'+(S.currentUser||''); }
+function _rvSnoozed(){ try{ var sn=+(localStorage.getItem(_rvSnoozeKey())||0); return !!(sn && Date.now()<sn); }catch(e){ return false; } }
+// 다른 기기(트레이너가 일지 저장 등)가 켠 검토 대기도 반영되게, 표시 필드만 클라우드에서 새로 읽는다.
+//  · 이 기기가 방금 검토 완료한 직후(30초)엔 건너뜀 — 업서트가 도착하기 전 옛 표시를 되살리지 않게 (조회 중 눌렀으면 응답도 버림)
+//  · 이 기기의 업로드가 아직 안 끝난 회원(_dirty)은 로컬 우선 — 실패한 업로드가 재시도되기 전 표시가 지워지지 않게
+//  · 다른 기기에서 새로 만든 회원이 로컬에 없으면 추가 — 워커는 알리는데 앱엔 안 보이는 불일치 방지
+async function _rvRefreshFlags(){
+  try{
+    if(typeof cloud==='undefined'||!cloud||!cloud.enabled||!cloud.client) return false;
+    if(window.__rvLocalAt && Date.now()-window.__rvLocalAt<30000) return false;
+    var r=await cloud.client.from('members').select('id,name,color,data');
+    if(r.error||!Array.isArray(r.data)) return false;
+    if(window.__rvLocalAt && Date.now()-window.__rvLocalAt<30000) return false;
+    var map={}; r.data.forEach(function(row){ map[row.id]=row; });
+    var changed=false;
+    (S.members||[]).forEach(function(m){
+      var row=map[m.id]; if(!row || m._dirty) return;
+      var d=row.data||{}; var rd=d.reportDirty||'', rid=d.reportId||'';
+      if((m.reportDirty||'')!==rd){ if(rd) m.reportDirty=rd; else delete m.reportDirty; changed=true; }
+      if(rid && m.reportId!==rid){ m.reportId=rid; changed=true; }
+    });
+    var tomb=S.deletedMemberIds||{}; var have={}; (S.members||[]).forEach(function(m){ have[m.id]=true; });
+    r.data.forEach(function(row){
+      if(!row||!row.id||have[row.id]||tomb[row.id]) return;
+      S.members.push(Object.assign({id:row.id,name:row.name,color:row.color||'av-green'}, row.data||{})); changed=true;
+    });
+    if(changed){ try{ save(); }catch(e){} }
+    return true;
+  }catch(e){ return false; }
+}
+// force: 푸시 알림을 탭해 들어온 경우 — 스누즈·타석/리포트 화면은 무시하되, 녹음 중·폼 작성 중이면 창 대신 안내만
+function showReviewNag(force){
+  try{
+    if(!S.currentRole || S.currentRole==='infodesk') return;
+    if(force) window.__rvForceOnce=false;
+    if(!force && (_rvBusy() || _rvSnoozed() || document.getElementById('rvn-ov'))) return;
+    if(window.__rvInFlight) return;
+    window.__rvInFlight=true;
+    var run=function(){
+      window.__rvInFlight=false;
+      try{
+        var rec=false; try{ rec=(typeof _updBlocked==='function' && _updBlocked()); }catch(e){}
+        if(_rvFormOpen() || rec){ if(force) liveToastSafe('작성 중인 일지·녹음을 먼저 마친 뒤 검토해주세요'); return; }
+        if(!force && (_rvBusy() || _rvSnoozed() || document.getElementById('rvn-ov'))) return;   // 조회하는 동안 상태가 바뀌었으면 중단
+        var list=_rvPending(S.currentUser, S.currentRole);
+        var old=document.getElementById('rvn-ov'); if(old) old.remove();
+        if(!list.length){ if(force) liveToastSafe('✅ 검토 대기 리포트가 없어요'); return; }
+        _rvRender(list);
+      }catch(e){}
+    };
+    _rvRefreshFlags().then(run, run);
+  }catch(e){ window.__rvInFlight=false; }
+}
+function _rvRender(list){
+  var esc=function(x){ return String(x==null?'':x).replace(/[<>&"']/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch];}); };
+  var isAdmin=(S.currentRole==='admin');
+  var oldest=list[0].days;
+  var rows=list.map(function(p){
+    var wait=p.days<=0?'오늘':p.days+'일째 대기';
+    var sub=(p.lastDate?'레슨 '+p.lastDate:'')+(isAdmin&&p.who?(p.lastDate?' · ':'')+'담당 '+esc(p.who):'');
+    return '<button class="rvn-row" data-mid="'+esc(p.id)+'">'
+      +'<span>'+esc(p.name)+(sub?'<small>'+sub+'</small>':'')+'</span>'
+      +'<i class="drr-days'+(p.days>=3?' late':'')+'">'+wait+'</i>'
+      +'<em>검토 →</em></button>';
+  }).join('');
+  var msg = isAdmin
+    ? '담당자가 성과 리포트에서 [검토 완료]를 눌러야 회원 링크에 최신 내용이 반영됩니다.'
+    : '일지·영상이 바뀐 뒤 <b>[검토 완료]</b>를 눌러야 회원이 최신 리포트를 봅니다.'+(oldest>=3?' <b style="color:#d95b43">'+oldest+'일째</b> 회원이 옛 리포트를 보고 있어요.':' 회원이 기다리고 있어요.');
+  var ov=document.createElement('div'); ov.id='rvn-ov'; ov.className='ntc-ov rvn-ov';
+  ov.innerHTML='<div class="ntc-card rvn-card">'
+    +'<div class="ntc-hd"><div>📤 리포트 검토 대기 <b>'+list.length+'</b>명<span class="rvn-hd-sub">회원 링크에 아직 반영되지 않았어요</span></div></div>'
+    +'<div class="rvn-msg">'+msg+'</div>'
+    +'<div class="ntc-list">'+rows+'</div>'
+    +'<div id="rvn-push" class="rvn-push"></div>'
+    +'<div class="ntc-ft"><button class="ntc-x" onclick="closeReviewNag(true)">1시간 뒤 다시</button>'
+    +'<button class="ntc-ok" data-mid="'+esc(list[0].id)+'">지금 검토</button></div>'
+    +'</div>';
+  // 회원 id 를 JS 문자열(onclick)에 넣지 않고 data 속성 + 위임으로 처리
+  ov.addEventListener('click', function(e){ var b=e.target&&e.target.closest?e.target.closest('[data-mid]'):null; if(b) openReviewFromNag(b.getAttribute('data-mid')); });
+  document.body.appendChild(ov);
+  try{ setTimeout(_rvFillPushCta, 0); }catch(e){}
+}
+function closeReviewNag(snooze){
+  var ov=document.getElementById('rvn-ov'); if(ov) ov.remove();
+  if(snooze){ try{ localStorage.setItem(_rvSnoozeKey(), String(Date.now()+RV_SNOOZE_MS)); }catch(e){} }
+}
+function openReviewFromNag(mid){
+  closeReviewNag(false);
+  if(_rvFormOpen()){ liveToastSafe('작성 중인 일지를 먼저 저장하거나 닫아주세요'); return; }   // 폼 위에서 회원을 바꾸면 다른 회원에게 저장됨
+  try{ S.showDashboard=false; S.showLiveSession=false; }catch(e){}
+  try{ selectMember(mid); }catch(e){}
+  try{ if(S.selectedMember===mid) openPerformance(); else liveToastSafe('담당 회원이 아니어서 열 수 없어요'); }catch(e){}
+}
+
+// ---- 폰 푸시 구독 (웹 푸시) — 워커가 크론으로 검토 대기를 폰에 알린다 ----
+var _pushKeyCache=null;
+function _pushBase(){ var u=(window.APP_CONFIG&&window.APP_CONFIG.PUSH_WORKER_URL)||''; return u?String(u).replace(/\/+$/,''):''; }
+function _appKey(){ return (window.APP_CONFIG&&window.APP_CONFIG.R2_API_KEY)||''; }
+function _pushSupported(){ return !!(('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window)); }
+// 아이폰·아이패드 사파리 탭에서는 푸시 불가 — 홈 화면에 추가한 앱(standalone)에서만 가능 (아이패드는 맥 UA 로 위장하므로 터치 여부로 구분)
+function _isIosNotStandalone(){
+  var ua=navigator.userAgent||'';
+  var ios=/iPhone|iPad|iPod/.test(ua) || (navigator.platform==='MacIntel' && (navigator.maxTouchPoints||0)>1);
+  var standalone=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
+  return ios && !standalone;
+}
+// 워커의 VAPID 공개키 — 서버가 실제로 빈 값을 주면 ''(워커 미설정)로 캐시, 네트워크 실패는 캐시하지 않고 5분 뒤 다시 시도
+async function _pushKey(){
+  if(_pushKeyCache!==null) return _pushKeyCache;
+  if(window.__pushKeyFailAt && Date.now()-window.__pushKeyFailAt<5*60000) return '';
+  var b=_pushBase(); if(!b){ _pushKeyCache=''; return ''; }
+  try{
+    var ctl=new AbortController(); var t=setTimeout(function(){ try{ctl.abort();}catch(e){} },5000);
+    var r=await fetch(b+'/push/key',{signal:ctl.signal,cache:'no-store'}); clearTimeout(t);
+    if(r.ok){ var j=await r.json(); _pushKeyCache=(j&&j.key)||''; return _pushKeyCache; }
+  }catch(e){}
+  window.__pushKeyFailAt=Date.now();
+  return '';
+}
+function _b64uToU8(s){ s=String(s).replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; var bin=atob(s); var out=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i); return out; }
+async function _pushCurrentSub(){
+  try{
+    var reg=await Promise.race([navigator.serviceWorker.ready, new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); })]);
+    if(!reg||!reg.pushManager) return null;
+    return await reg.pushManager.getSubscription();
+  }catch(e){ return null; }
+}
+// 기존 구독이 지금 워커의 공개키로 만든 것인지 — 키를 바꾼 뒤 옛 구독을 재등록하면 푸시가 영원히 거부되므로 구분
+function _pushSubKeyMatches(sub, key){
+  try{
+    var cur=sub&&sub.options&&sub.options.applicationServerKey; if(!cur||!key) return true;   // 비교 불가면 그대로 씀
+    var a=new Uint8Array(cur), b=_b64uToU8(key); if(a.length!==b.length) return false;
+    for(var i=0;i<a.length;i++) if(a[i]!==b[i]) return false;
+    return true;
+  }catch(e){ return true; }
+}
+async function _pushRegister(sub){
+  var b=_pushBase(); if(!b||!sub) return false;
+  try{
+    var r=await fetch(b+'/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':_appKey()},
+      body:JSON.stringify({user:S.currentUser,role:S.currentRole,subscription:sub.toJSON(),ua:String(navigator.userAgent||'').slice(0,120)})});
+    return r.ok;
+  }catch(e){ return false; }
+}
+async function _pushUnregister(sub){
+  var b=_pushBase(); if(!b||!sub) return false;
+  try{ var r=await fetch(b+'/push/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':_appKey()},body:JSON.stringify({endpoint:sub.endpoint})}); return r.ok; }catch(e){ return false; }
+}
+function _pushRemember(){ try{ localStorage.setItem('rv_push_user', S.currentUser||''); localStorage.setItem('rv_push_at', String(Date.now())); }catch(e){} }
+function _pushForget(){ try{ localStorage.removeItem('rv_push_user'); localStorage.removeItem('rv_push_at'); }catch(e){} }
+async function enableReviewPush(){
+  try{
+    if(_isIosNotStandalone()){ alert('아이폰은 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.\n사파리 공유 버튼 → "홈 화면에 추가" 후, 그 아이콘으로 열어 다시 눌러주세요.'); return; }
+    if(!_pushSupported()){ alert('이 브라우저는 푸시 알림을 지원하지 않아요.'); return; }
+    // 권한 요청은 탭 직후(사용자 제스처 안)에 — 아이폰 사파리는 네트워크 대기 뒤의 요청을 거부한다.
+    // 공개키는 버튼이 보일 때 이미 받아 캐시돼 있다(_rvFillPushCta).
+    var perm=await Notification.requestPermission();
+    if(perm!=='granted'){ alert('알림 권한이 허용되지 않았어요.\n폰 설정 → 이 앱 → 알림 허용 후 다시 눌러주세요.'); return; }
+    var key=await _pushKey();
+    if(!key){ alert('알림 서버가 아직 준비되지 않았어요.\n(관리자: worker/푸시-알림-배포.md 절차로 golf-pt-push 워커 배포)'); return; }
+    var reg=await navigator.serviceWorker.ready;
+    var sub=await reg.pushManager.getSubscription();
+    if(sub && !_pushSubKeyMatches(sub, key)){ try{ await _pushUnregister(sub); await sub.unsubscribe(); }catch(e){} sub=null; }   // 키가 바뀐 옛 구독은 버리고 새로
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:_b64uToU8(key)});
+    if(await _pushRegister(sub)){
+      _pushRemember();
+      liveToastSafe('🔔 폰 알림이 켜졌어요 — 검토 대기가 있으면 하루 몇 번 알려드려요');
+      _rvFillPushCta();
+    } else alert('알림 등록에 실패했어요 — 네트워크 확인 후 다시 시도해주세요.');
+  }catch(e){ alert('알림 켜기 실패: '+(e&&e.message||e)); }
+}
+// 로그인 때 구독을 지금 사용자로 다시 묶는다 (같은 폰에서 다른 사람이 로그인하면 알림 대상이 바뀌게, 일주일마다 갱신).
+// 인포데스크(공용 기기)로 로그인하면 이 기기에 남아 있던 다른 사람의 구독을 해제한다 — 인포데스크는 독촉 대상이 아님.
+async function _pushSyncOnLogin(){
+  try{
+    if(!S.currentRole) return;
+    if(S.currentRole==='infodesk'){
+      var prevUser=''; try{ prevUser=localStorage.getItem('rv_push_user')||''; }catch(e){}
+      if(!prevUser || !_pushSupported()) return;
+      var old=await _pushCurrentSub();
+      if(old){ try{ await _pushUnregister(old); }catch(e){} try{ await old.unsubscribe(); }catch(e){} }
+      _pushForget();
+      return;
+    }
+    if(!_pushSupported()||Notification.permission!=='granted') return;
+    var sub=await _pushCurrentSub(); if(!sub) return;
+    var key=await _pushKey();
+    if(key && !_pushSubKeyMatches(sub, key)){   // 워커 키가 바뀜 → 새 키로 재구독
+      try{ await _pushUnregister(sub); await sub.unsubscribe(); }catch(e){}
+      try{ var reg=await navigator.serviceWorker.ready; sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:_b64uToU8(key)}); }catch(e){ return; }
+      if(await _pushRegister(sub)) _pushRemember();
+      return;
+    }
+    var prev='', at=0; try{ prev=localStorage.getItem('rv_push_user')||''; at=+(localStorage.getItem('rv_push_at')||0); }catch(e){}
+    if(prev===S.currentUser && Date.now()-at<7*86400000) return;
+    if(await _pushRegister(sub)) _pushRemember();
+  }catch(e){}
+}
+function _rvDismissKey(){ return 'rv_push_dismiss_'+(S.currentUser||''); }
+function _rvPushDismiss(){ try{ localStorage.setItem(_rvDismissKey(), String(Date.now())); }catch(e){} _rvFillPushCta(); }
+async function pushTestNotify(){
+  var b=_pushBase(); if(!b) return;
+  try{
+    liveToastSafe('🔔 테스트 알림 요청 중...');
+    var r=await fetch(b+'/push/test',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':_appKey()},body:JSON.stringify({user:S.currentUser})});
+    var j=await r.json();
+    var okN=(j.sent||[]).filter(function(s){ return s.status>=200&&s.status<300; }).length;
+    liveToastSafe(okN?('✅ 테스트 알림 '+okN+'건 발송 — 잠시 후 폰에 떠요'):('⚠️ 발송 실패: '+((j.sent&&j.sent[0]&&j.sent[0].note)||j.error||'이 사용자 구독 없음')));
+  }catch(e){ liveToastSafe('⚠️ 테스트 실패: '+(e&&e.message||e)); }
+}
+// 대시보드(#dash-push-cta)·독촉 창(#rvn-push)의 푸시 안내를 채운다 — 워커 미배포면 비움
+// 상태: none(서버 없음) | ios(사파리 탭 안내) | on(켜짐+테스트) | denied(차단 안내) | offer(켜기 버튼)
+async function _rvPushState(){
+  if(!S.currentRole || S.currentRole==='infodesk') return 'none';
+  var key=await _pushKey(); if(!key) return 'none';
+  if(!_pushSupported()) return _isIosNotStandalone()?'ios':'none';
+  if(Notification.permission==='denied') return 'denied';
+  var sub=await _pushCurrentSub();
+  var mine=''; try{ mine=localStorage.getItem('rv_push_user')||''; }catch(e){}
+  return (Notification.permission==='granted' && !!sub && _pushSubKeyMatches(sub, key) && mine===S.currentUser) ? 'on' : 'offer';
+}
+async function _rvFillPushCta(){
+  var els=[document.getElementById('dash-push-cta'), document.getElementById('rvn-push')].filter(Boolean);
+  if(!els.length) return;
+  var st='none'; try{ st=await _rvPushState(); }catch(e){ st='none'; }
+  var dis=0; try{ dis=+(localStorage.getItem(_rvDismissKey())||0); }catch(e){}
+  var quiet=!!(dis && (Date.now()-dis<3*86400000));   // 대시보드에선 '나중에' 후 3일간 조용히 (독촉 창에는 계속 표시)
+  var BTN='<button class="rvn-push-btn" onclick="enableReviewPush()">🔔 검토 알림을 폰으로 받기</button>';
+  var html={
+    none:'',
+    ios:'<div class="rvn-push-hint">🔔 아이폰은 홈 화면에 추가한 앱에서만 검토 알림을 받을 수 있어요</div>',
+    on:'<div class="rvn-push-hint on">🔔 폰 알림 켜짐 · <a href="#" onclick="event.preventDefault();pushTestNotify()">테스트 보내기</a></div>',
+    denied:'<div class="rvn-push-hint">🔕 알림이 차단돼 있어요 — 폰 설정에서 이 앱의 알림을 허용해주세요</div>',
+    offer:BTN+'<button class="rvn-push-later" onclick="_rvPushDismiss()">나중에</button>'
+  }[st]||'';
+  var dashHtml=(st==='offer' && quiet)?'':html;
+  window.__rvCtaHtml=dashHtml;   // 다음 render() 가 동기로 같은 내용을 넣어 화면이 튀지 않게
+  els.forEach(function(e){
+    var want=(e.id==='rvn-push')?((st==='offer' && quiet)?BTN:html):dashHtml;
+    if(e.innerHTML!==want) e.innerHTML=want;
+  });
+}
+// 푸시 알림을 탭해 들어온 창(?review=1): 플래그로 한 번만 소비하고 주소에서 지운다 — 남겨두면 이후 모든 새로고침마다 강제로 뜬다
+try{ if(/[?&]review=1/.test(location.search)){ window.__rvForceOnce=true; history.replaceState(null,'',location.pathname+location.hash); } }catch(e){}
+// 주기 확인: 30분마다 + 앱 복귀 4초 후 + 부팅 9초 후(로그인돼 있을 때). 푸시 알림을 탭해 들어오면 바로 띄움.
+if(!window.__rvTimer){
+  window.__rvTimer=setInterval(function(){ try{ showReviewNag(false); }catch(e){} }, 30*60000);
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(function(){ try{ showReviewNag(false); }catch(e){} }, 4000); }); }catch(e){}
+  try{ setTimeout(function(){ try{ showReviewNag(!!window.__rvForceOnce); }catch(e){} }, 9000); }catch(e){}
+  try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function(e){ if(e.data&&e.data.type==='OPEN_REVIEW') setTimeout(function(){ try{ showReviewNag(true); }catch(_){} }, 800); }); }catch(e){}
 }

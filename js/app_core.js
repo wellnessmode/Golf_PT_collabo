@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.91',
-  date:'2026-09-18',
+  version:'v9.92',
+  date:'2026-09-28',
   changes:[
+    '리포트 검토 독촉 — 검토 대기 리포트가 있으면 담당자가 앱을 열 때·복귀할 때·30분마다 대기 목록을 띄움(1시간 뒤 다시 가능). 폰 푸시 알림도 지원: 대시보드의 [🔔 검토 알림을 폰으로 받기]를 켜면 앱을 안 열어도 하루 몇 번 알림, 관리자는 담당자별 요약 (⚠️ 푸시는 golf-pt-push 워커 배포 후 동작 — worker/푸시-알림-배포.md)',
     '정면 영상이 느리게 재생되던 문제 수정 — 측면·정면 아이폰의 슬로모션 설정(120/240fps)이 달라도 같은 샷의 두 영상 길이를 비교해 정면 배율을 자동으로 맞춤. 짧은 클립 보정 기준 15초→10초 (⚠️ 타석 PC 에이전트 업데이트 필요 — update.ps1)',
     '생체 로그인이 갑자기 안 될 때 자동 복구 — 폰 업데이트 등으로 등록이 풀리면 비밀번호 로그인 뒤 바로 다시 등록되게, 실패 사유도 표시. 비밀번호 창에 [지문·Face ID 다시 등록] 링크 추가',
     '타석 카드 개선(정우진 프로 건의) — 회원 전화번호 표시(탭하면 전화), 🎙 수업 녹음 버튼을 회원 이름 바로 아래로 이동',
@@ -554,7 +555,15 @@ const sessions={};(sRes.data||[]).forEach(r=>{if(!sessions[r.member_id]) session
 // (_meta 는 화면에 첨부파일로 안 보이게 media 목록에서 걸러낸다)
 var _mArr=Array.isArray(r.media)?r.media:(r.media?r.media:[]);var _tMeta='';_mArr=_mArr.filter(function(m){if(m&&m.type==='_meta'){if(m.time)_tMeta=m.time;return false;}return true;});
 sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,author:r.author,content:r.content||'',supplement:_admRaw?(r.supplement||''):'',rawTranscript:_admRaw?(r.supplement||''):undefined,media:_mArr});});return {members,assessments,sessions};}catch(e){console.warn('[cloud] loadAll fail:',e);return null;}},
-  async upsertMember(m){if(!this.enabled) return false;var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',ownerWatch:m.ownerWatch||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
+  // opts.clearReportDirty: 검토 완료·리포트 공유처럼 '검토 대기'를 일부러 지우는 호출. 그 외(회원 정보 수정 등)에는
+  // 이 기기의 복사본이 낡았어도 다른 기기가 켜 둔 검토 대기 표시·회원 링크를 지우지 않도록 클라우드 값을 유지한다.
+  async upsertMember(m, opts){if(!this.enabled) return false;
+    if(!(opts&&opts.clearReportDirty) && (!m.reportDirty || !m.reportId)){
+      try{ var cur=await this.client.from('members').select('data').eq('id',m.id).maybeSingle(); var cd=(cur&&cur.data&&cur.data.data)||{};
+        if(!m.reportDirty && cd.reportDirty) m.reportDirty=cd.reportDirty;
+        if(!m.reportId && cd.reportId) m.reportId=cd.reportId; }catch(e){}
+    }
+    var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',ownerWatch:m.ownerWatch||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
   // 한 일지의 녹음 원문만 그 자리에서 읽기 — 'AI 정리 대기' 재시도용. 기기에 저장하지 않는다
   // (프로 기기에 원문을 안 남기는 loadAll 설계 유지). 실패/없음이면 '' → 호출측이 본문으로 폴백.
@@ -866,6 +875,9 @@ function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwM
   try{ setTimeout(ensureOwnerWatchMember, 5000); }catch(e){}
   try{ setTimeout(function(){ if(typeof retryPendingAiSummaries==='function') retryPendingAiSummaries(); }, 8000); }catch(e){}
   try{ setTimeout(function(){ if(typeof resumeInterruptedRec==='function') resumeInterruptedRec(); }, 2500); }catch(e){}   // 로그인 후 끊긴 녹음 자동 재개
+  // 리포트 검토 독촉 — 클라우드 동기화가 끝날 즈음 검토 대기 목록을 띄우고, 폰 푸시 구독을 이 사용자로 다시 묶는다
+  try{ setTimeout(function(){ if(typeof showReviewNag==='function') showReviewNag(!!window.__rvForceOnce); }, 7000); }catch(e){}
+  try{ setTimeout(function(){ if(typeof _pushSyncOnLogin==='function') _pushSyncOnLogin(); }, 4000); }catch(e){}
   // 로그인하는 순간 최신 버전 자동 적용 — 앱을 껐다 켜지 않아도 갱신되도록.
   // (대기 중인 새 SW가 있으면 즉시 활성→리로드. 세션은 해시+세션스토리지로 복원돼 대시보드 유지)
   try{ if(window.__checkAppUpdate) setTimeout(window.__checkAppUpdate, 500); }catch(e){}
@@ -898,11 +910,11 @@ function purgeZombieSessions(){
 // 세션 업로드 — 성공 확인 전까지 _dirty 유지 (오프라인이어도 부팅 머지가 재시도).
 // _dirty 없는 캐시 세션은 재업로드 대상이 아니므로, 타 기기에서 삭제한 기록이 부활하지 않는다.
 // 회원 정보 업로드 — 성공 확인 전까지 _dirty 유지. 네트워크 실패해도 부팅 머지가 재시도.
-function syncMemberUp(m){
+function syncMemberUp(m, opts){
   if(!m) return;
   m._dirty = true;
   try{save();}catch(e){}
-  Promise.resolve(cloud.upsertMember(m)).then(function(ok){ if(ok){ delete m._dirty; try{save();}catch(e){} } });
+  Promise.resolve(cloud.upsertMember(m, opts)).then(function(ok){ if(ok){ delete m._dirty; try{save();}catch(e){} } });
 }
 // 체형평가 업로드 — 실패 시 _dirtyAssess 에 표시 → 머지에서 재시도.
 function syncAssessUp(mid, key, v){

@@ -190,6 +190,28 @@ insert into public.bays (id, name, color, type) values
 on conflict (id) do nothing;
 
 -- =====================================================================
+-- 리포트 검토 독촉 푸시 — 담당자 폰의 웹 푸시 구독 (worker/golf-pt-push-worker.js 전용)
+-- ---------------------------------------------------------------------
+-- 앱이 워커(/push/subscribe)를 통해 저장하고, 워커 크론이 읽어 검토 대기 알림을 보낸다.
+-- anon 정책을 만들지 않는다 — 구독 정보(엔드포인트·키)는 브라우저에서 직접 읽을 이유가 없고,
+-- 워커는 service_role 키로 RLS 를 우회한다.
+-- =====================================================================
+create table if not exists public.push_subscriptions (
+  endpoint    text        primary key,              -- 푸시 서비스가 발급한 구독 주소 (폰·브라우저별 고유)
+  user_name   text        not null,                 -- '정우진 프로' 등 — 이 사람 담당 회원의 검토 대기만 보냄
+  role        text        not null default 'pro',   -- pro | trainer | admin (admin 은 전체 요약)
+  p256dh      text        not null,                 -- 브라우저 공개키 (페이로드 암호화용)
+  auth        text        not null,                 -- 브라우저 인증 비밀
+  ua          text        default '',
+  fail_count  int         not null default 0,       -- 연속 실패 수 (404/410 은 즉시 삭제)
+  last_ok_at  timestamptz,
+  updated_at  timestamptz not null default now(),
+  created_at  timestamptz not null default now()
+);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "push_subscriptions_all_anon" on public.push_subscriptions;   -- anon 접근 없음
+
+-- =====================================================================
 -- 완료! 이제 config.js 에 Project URL / anon key 를 입력하고
 -- index.html 을 새로고침하면 정P 와 최T 가 동일 데이터를 공유합니다.
 -- =====================================================================
