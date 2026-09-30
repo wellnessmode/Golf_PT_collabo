@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.92',
-  date:'2026-09-28',
+  version:'v9.93',
+  date:'2026-09-30',
   changes:[
+    '같이 맡은 회원 알림 — 프로·트레이너가 함께 담당하는 회원의 레슨 일지를 한쪽이 저장하면 다른 담당자에게 알림. 🔔 배지와 회원 이름 옆 빨간 점(미확인)으로 표시되고, 그 회원을 열면 점이 사라짐. 폰 푸시를 켜 두면 즉시 폰으로도 알림',
     '리포트 검토 독촉 — 검토 대기 리포트가 있으면 담당자가 앱을 열 때·복귀할 때·30분마다 대기 목록을 띄움(1시간 뒤 다시 가능). 폰 푸시 알림도 지원: 대시보드의 [🔔 검토 알림을 폰으로 받기]를 켜면 앱을 안 열어도 하루 몇 번 알림, 관리자는 담당자별 요약 (⚠️ 푸시는 golf-pt-push 워커 배포 후 동작 — worker/푸시-알림-배포.md)',
     '정면 영상이 느리게 재생되던 문제 수정 — 측면·정면 아이폰의 슬로모션 설정(120/240fps)이 달라도 같은 샷의 두 영상 길이를 비교해 정면 배율을 자동으로 맞춤. 짧은 클립 보정 기준 15초→10초 (⚠️ 타석 PC 에이전트 업데이트 필요 — update.ps1)',
     '생체 로그인이 갑자기 안 될 때 자동 복구 — 폰 업데이트 등으로 등록이 풀리면 비밀번호 로그인 뒤 바로 다시 등록되게, 실패 사유도 표시. 비밀번호 창에 [지문·Face ID 다시 등록] 링크 추가',
@@ -878,6 +879,8 @@ function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwM
   // 리포트 검토 독촉 — 클라우드 동기화가 끝날 즈음 검토 대기 목록을 띄우고, 폰 푸시 구독을 이 사용자로 다시 묶는다
   try{ setTimeout(function(){ if(typeof showReviewNag==='function') showReviewNag(!!window.__rvForceOnce); }, 7000); }catch(e){}
   try{ setTimeout(function(){ if(typeof _pushSyncOnLogin==='function') _pushSyncOnLogin(); }, 4000); }catch(e){}
+  try{ setTimeout(function(){ if(typeof _fetchCoNotices==='function') _fetchCoNotices(true); }, 2500); }catch(e){}   // 담당자 알림·점 표시
+  try{ setTimeout(function(){ if(typeof _openMemberOnce==='function') _openMemberOnce(); }, 1800); }catch(e){}   // 푸시(?member=)로 들어왔으면 그 회원 열기
   // 로그인하는 순간 최신 버전 자동 적용 — 앱을 껐다 켜지 않아도 갱신되도록.
   // (대기 중인 새 SW가 있으면 즉시 활성→리로드. 세션은 해시+세션스토리지로 복원돼 대시보드 유지)
   try{ if(window.__checkAppUpdate) setTimeout(window.__checkAppUpdate, 500); }catch(e){}

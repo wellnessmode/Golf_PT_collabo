@@ -14,6 +14,7 @@
 //   POST /push/subscribe        → 폰 구독 저장 { user, role, subscription, ua }   (X-API-Key)
 //   POST /push/unsubscribe      → 구독 삭제 { endpoint }                          (X-API-Key)
 //   POST /push/test             → 그 사용자 폰으로 테스트 알림 { user }             (X-API-Key)
+//   POST /push/notify           → 즉시 알림 { to:[이름…], title, body, tag, url } (X-API-Key) — 담당자 간 일지 알림 등
 //   GET  /push/run              → 지금 바로 독촉 1회 실행 (X-API-Key 또는 ?key=, 한국 09~21시만·&force=1 로 우회) ← 배포 확인용
 //   GET  /push/genkeys?key=…    → VAPID 키쌍 새로 생성해 보여줌 (한 번만 쓰고 시크릿에 저장)
 //   scheduled (크론)            → 독촉 실행 (한국 시간 09~21시에만)
@@ -107,13 +108,13 @@ async function encryptPayload(sub, payloadStr, opts) {
 }
 
 // ---------- 푸시 1건 전송 ----------
-async function sendPush(env, s, payloadObj) {
+async function sendPush(env, s, payloadObj, topic) {
   const sub = { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } };
   const body = await encryptPayload(sub, JSON.stringify(payloadObj));
   const vh = await vapidHeaders(s.endpoint, env);
   const r = await fetch(s.endpoint, {
     method: 'POST',
-    headers: { ...vh, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', 'TTL': '43200', 'Urgency': 'normal', 'Topic': 'report-review' },
+    headers: { ...vh, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', 'TTL': '43200', 'Urgency': 'normal', 'Topic': topic || 'report-review' },
     body,
   });
   let text = ''; try { text = (await r.text()).slice(0, 200); } catch (e) {}
@@ -248,6 +249,38 @@ export default {
       const h = kstHour(new Date());
       if ((h < 9 || h > 21) && url.searchParams.get('force') !== '1') return json({ skipped: true, reason: '한국 시간 ' + h + '시 — 09~21시에만 발송 (확인용은 &force=1)' });
       try { return json(await runReminders(env, {})); } catch (e) { return json({ error: String(e && e.message || e) }, 500); }
+    }
+    // 즉시 알림 (앱이 일지 저장 직후 호출) — { to:[담당자 이름…], title, body, tag, url }
+    // 검토 독촉과 달리 크론·재발송 간격과 무관하게 바로 보낸다. 받는 이름은 담당자 명단에 있는 것만.
+    if (p === '/push/notify') {
+      if (request.method !== 'POST') return json({ error: 'use POST' }, 405);
+      if (!authed()) return json({ error: 'unauthorized' }, 401);
+      let b; try { b = JSON.parse(await request.text()); } catch (e) { return json({ error: 'bad json' }, 400); }
+      const to = Array.isArray(b.to) ? b.to.map(x => String(x).slice(0, 60)).slice(0, 10) : [];
+      if (!to.length || !b.title) return json({ error: 'to/title 필요' }, 400);
+      try {
+        const db = sb(env);
+        const names = await staffNames(db);
+        const valid = to.filter(n => names.has(n));
+        if (!valid.length) return json({ error: '등록된 담당자 이름이 아닙니다' }, 400);
+        const tag = (String(b.tag || 'golfpt').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)) || 'golfpt';
+        const url = /^\.\/index\.html(\?[A-Za-z0-9_=&%.-]*)?$/.test(String(b.url || '')) ? String(b.url) : './index.html';
+        const payload = { title: String(b.title).slice(0, 80), body: String(b.body || '').slice(0, 200), tag, url };
+        const subs = (await db.get('push_subscriptions?select=endpoint,user_name,role,p256dh,auth,fail_count')).filter(s => valid.indexOf(s.user_name) !== -1);
+        const sent = [];
+        for (const s of subs) {
+          let res; try { res = await sendPush(env, s, payload, tag); } catch (e) { res = { status: -1, text: String(e && e.message || e) }; }
+          sent.push({ user: s.user_name, status: res.status, note: res.status >= 400 || res.status < 0 ? res.text : '' });
+          const q = 'endpoint=eq.' + encodeURIComponent(s.endpoint);
+          try {
+            const gone = res.status === 404 || res.status === 410 || (res.status === 403 && /VapidPkHashMismatch/i.test(res.text || ''));
+            const fails = (s.fail_count || 0) + 1;
+            if (gone || ((res.status >= 400 || res.status < 0) && fails >= FAIL_DELETE_AT)) await db.del('push_subscriptions', q);
+            else if (res.status >= 400 || res.status < 0) await db.patch('push_subscriptions', q, { fail_count: fails });
+          } catch (e) {}
+        }
+        return json({ ok: true, to: valid, sent });
+      } catch (e) { return json({ error: String(e && e.message || e) }, 500); }
     }
     if (p === '/push/subscribe' || p === '/push/unsubscribe' || p === '/push/test') {
       if (request.method !== 'POST') return json({ error: 'use POST' }, 405);

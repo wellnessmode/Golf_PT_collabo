@@ -2070,3 +2070,10 @@ select.form-input{appearance:none;-webkit-appearance:none;background-image:url("
 .dash-push-cta{padding:0;margin:0 0 12px}
 .dash-push-cta .rvn-push-btn{margin:0 0 4px}
 .dash-push-cta .rvn-push-later{margin:0}
+
+/* ===== 같이 맡은 회원 알림 (v9.93) — 미확인 점 + 알림함 행 ===== */
+.co-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e74c3c;margin-left:6px;vertical-align:middle;box-shadow:0 0 0 2px var(--bg-2);flex-shrink:0}
+.ntc-it.co{cursor:pointer}
+.ntc-it.co:active{background:rgba(0,184,132,.14)}
+.ntc-it .co-sum{color:#454c55;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ntc-it .t .co-dot{box-shadow:none;margin-left:4px}

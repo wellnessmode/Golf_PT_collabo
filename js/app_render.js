@@ -259,7 +259,7 @@ function _render(){
       <img class="sidebar-logo-img" src="assets/logo.png" alt="내셔널짐">
       <div class="sidebar-top-actions">
         <button class="sidebar-bell" onclick="event.stopPropagation();reloadApp()" title="새로고침" aria-label="새로고침"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><polyline points="21 3 21 8 16 8"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><polyline points="3 21 3 16 8 16"/></svg></button>
-        <button class="sidebar-bell" onclick="event.stopPropagation();openActivityLog()" title="알림" aria-label="알림">${getUnreadCount()>0?'<span class="bell-badge">'+getUnreadCount()+'</span>':''}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16v-5a6 6 0 0 0-12 0v5l-1.6 2.3a.5.5 0 0 0 .4.7h14.4a.5.5 0 0 0 .4-.7L18 16z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
+        <button class="sidebar-bell" onclick="event.stopPropagation();${(S.currentRole==='pro'||S.currentRole==='trainer')?'openCoNotices()':'openActivityLog()'}" title="알림" aria-label="알림">${(function(){ var n=(S.currentRole==='pro'||S.currentRole==='trainer')?((typeof _coUnreadTotal==='function')?_coUnreadTotal():0):getUnreadCount(); return n>0?'<span class="bell-badge">'+n+'</span>':''; })()}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16v-5a6 6 0 0 0-12 0v5l-1.6 2.3a.5.5 0 0 0 .4.7h14.4a.5.5 0 0 0 .4-.7L18 16z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
         <button class="sidebar-home-btn" onclick="event.stopPropagation();switchRole()" title="로그아웃" aria-label="로그아웃"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>
       </div>
     </div>
@@ -295,7 +295,7 @@ function _render(){
         return `
         <div class="member-item${m.id===mid?' active':''}" data-name="${m.name.toLowerCase().replace(/"/g,'')}" data-cho="${_cho.replace(/"/g,'')}"${_hide?' style="display:none"':''} onclick="selectMember('${m.id}')">
           <div class="member-avatar ${m.color}">${initials(m.name)}</div>
-          <div class="member-name">${m.name}${expiryBadge(nearestExpiry(m))}${(m.memberType||'pt_lesson')==='lesson'?'<span class="type-tag lesson-tag">골프</span>':''}</div>
+          <div class="member-name">${m.name}${(typeof _coUnreadFor==='function'&&_coUnreadFor(m.id)>0)?'<span class="co-dot" title="다른 담당자가 일지를 남겼어요 — 열어서 확인"></span>':''}${expiryBadge(nearestExpiry(m))}${(m.memberType||'pt_lesson')==='lesson'?'<span class="type-tag lesson-tag">골프</span>':''}</div>
           <div class="session-badge">${(S.sessions[m.id]||[]).length}</div>
           <div class="member-actions">
             ${(isInfo&&!isAdmin)?'<button class="member-edit-btn" onclick="event.stopPropagation();openEditMember(\''+m.id+'\')">'+'수정</button>':''}
@@ -483,6 +483,7 @@ function _render(){
 // ============ 이벤트 핸들러 ============
 function selectMember(id){
   var ml=document.querySelector('.member-list'); var mtop=ml?ml.scrollTop:0;
+  try{ if(typeof _coMarkSeen==='function') _coMarkSeen(id); }catch(e){}   // 회원을 열면 담당자 알림 확인(점 제거)
   S.selectedMember=id; S.filterAuthor='all'; S.sidebarOpen=false; S.showLiveSession=false;
   S._memberSwitch=true; render(); S._memberSwitch=false;
   var ml2=document.querySelector('.member-list'); if(ml2) ml2.scrollTop=mtop; // 목록 스크롤 유지
