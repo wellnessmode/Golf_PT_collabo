@@ -1368,7 +1368,7 @@ async function _fetchNotices(force){
       .eq('member_id','notice').order('created_at',{ascending:false}).limit(50);
     if(r.error||!Array.isArray(r.data)) return;
     var prevTop=(S._notices&&S._notices[0])?S._notices[0].id:null;
-    S._notices=r.data;
+    S._notices=r.data.filter(function(n){ return !(n.content&&n.content.type==='colesson'); });   // 담당자 간 일지 알림은 관리자 함에 중복 표시 안 함
     var unread=_noticeUnread();
     // 새 알림 도착 → 토스트 (첫 로드는 조용히)
     if(prevTop!==null && S._notices[0] && S._notices[0].id!==prevTop && unread>0){
@@ -1700,11 +1700,162 @@ async function _rvFillPushCta(){
   });
 }
 // 푸시 알림을 탭해 들어온 창(?review=1): 플래그로 한 번만 소비하고 주소에서 지운다 — 남겨두면 이후 모든 새로고침마다 강제로 뜬다
-try{ if(/[?&]review=1/.test(location.search)){ window.__rvForceOnce=true; history.replaceState(null,'',location.pathname+location.hash); } }catch(e){}
+try{
+  if(/[?&]review=1/.test(location.search)) window.__rvForceOnce=true;
+  var _mm=/[?&]member=([^&]+)/.exec(location.search); if(_mm){ try{ window.__openMemberOnce=decodeURIComponent(_mm[1]); }catch(e){} }
+  if(/[?&](review=1|member=)/.test(location.search)) history.replaceState(null,'',location.pathname+location.hash);
+}catch(e){}
 // 주기 확인: 30분마다 + 앱 복귀 4초 후 + 부팅 9초 후(로그인돼 있을 때). 푸시 알림을 탭해 들어오면 바로 띄움.
 if(!window.__rvTimer){
   window.__rvTimer=setInterval(function(){ try{ showReviewNag(false); }catch(e){} }, 30*60000);
   try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(function(){ try{ showReviewNag(false); }catch(e){} }, 4000); }); }catch(e){}
   try{ setTimeout(function(){ try{ showReviewNag(!!window.__rvForceOnce); }catch(e){} }, 9000); }catch(e){}
-  try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function(e){ if(e.data&&e.data.type==='OPEN_REVIEW') setTimeout(function(){ try{ showReviewNag(true); }catch(_){} }, 800); }); }catch(e){}
+  try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function(e){
+    var d=e.data||{}; var u=String(d.url||'');
+    if(d.type==='OPEN_REVIEW' || (d.type==='OPEN_URL' && /review=1/.test(u))) setTimeout(function(){ try{ showReviewNag(true); }catch(_){} }, 800);
+    else if(d.type==='OPEN_URL' && /[?&]member=/.test(u)){ var mm=/[?&]member=([^&]+)/.exec(u); if(mm){ try{ var mid=decodeURIComponent(mm[1]); if(S.currentRole) setTimeout(function(){ openMemberFromNotice(mid); },300); else window.__openMemberOnce=mid; }catch(_){} } }
+  }); }catch(e){}
+}
+
+// ============ 겹치는 담당자 알림 (담당 회원의 레슨을 다른 지도자가 진행·기록했을 때) ============
+// 한 회원을 프로·트레이너가 같이 맡는 경우, 한쪽이 일지를 저장하면 다른 담당자에게 알린다.
+//  · 클라우드 알림 행(reports, member_id='notice', content.type='colesson', content.to=[받을 담당자])
+//    → 받는 쪽 기기가 60초마다·복귀 때 가져와 🔔 배지 + 회원 이름 옆 빨간 점(미확인) 표시.
+//    회원을 열면(selectMember) 그 회원의 점이 사라진다 — 확인 상태는 기기(localStorage)에 저장.
+//  · 폰 푸시(워커 /push/notify, 배포돼 있을 때)로 앱을 안 열어도 바로 알림.
+//  · 관찰용 회원은 제외. 본인이 쓴 일지는 본인에게 알리지 않는다.
+function notifyCoInstructors(mid, s){
+  try{
+    var m=(S.members||[]).find(function(x){ return x.id===mid; });
+    if(!m || m.ownerWatch || !s) return;
+    var author=s.author||S.currentUser||'';
+    var others=(m.assignedTo||[]).filter(function(n){ return n && n!==author && n!==S.currentUser; });
+    if(!others.length) return;
+    var summary=String(s.content||'').replace(/\s+/g,' ').trim().slice(0,80);
+    var when=String(s.date||'').slice(5).replace('-','.')+(s.time?' '+s.time:'');
+    var row={ id:'ntc_co_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),
+      member_id:'notice', member_name:String(m.name||'').slice(0,80), created_by:author,
+      content:{ notice:true, type:'colesson', action:'레슨 일지 작성', user:author, role:S.currentRole||'', target:m.name,
+                to:others, memberId:mid, sessionId:s.id||'', date:s.date||'', time:s.time||'', summary:summary, time_iso:new Date().toISOString() } };
+    (async function(){
+      if(typeof cloud!=='undefined' && cloud && cloud.enabled){
+        try{ if((await cloud._w('upsert','reports',{rows:[row]}))!==true){ try{ await cloud.client.from('reports').upsert(row); }catch(e){} } }catch(e){}
+      }
+    })();
+    _pushNotify(others, '📝 '+author+' · '+m.name+' 회원 레슨 일지', (when?when+' · ':'')+summary, 'colesson', './index.html?member='+encodeURIComponent(mid));
+  }catch(e){}
+}
+// 워커 즉시 푸시 — 워커가 없으면 조용히 실패 (앱 내 알림 행은 별도로 남는다)
+async function _pushNotify(to, title, body, tag, url){
+  try{
+    var b=_pushBase(); if(!b||!to||!to.length) return false;
+    var ctl=new AbortController(); var t=setTimeout(function(){ try{ctl.abort();}catch(e){} },8000);
+    var r=await fetch(b+'/push/notify',{method:'POST',signal:ctl.signal,headers:{'Content-Type':'application/json','X-API-Key':_appKey()},
+      body:JSON.stringify({to:to,title:title,body:body,tag:tag,url:url})});
+    clearTimeout(t); return r.ok;
+  }catch(e){ return false; }
+}
+function _coSeenKey(){ return 'co_seen_'+(S.currentUser||''); }
+function _coSeenMap(){ try{ return JSON.parse(localStorage.getItem(_coSeenKey())||'{}')||{}; }catch(e){ return {}; } }
+function _coSaveSeen(map){ try{ localStorage.setItem(_coSeenKey(), JSON.stringify(map)); }catch(e){} }
+// 이 사용자에게 온 알림 중, 회원별로 "마지막 확인 시각" 이후 것 = 미확인
+function _coMine(){ return (S._coNotices||[]).filter(function(n){ var c=n.content||{}; return c.type==='colesson' && Array.isArray(c.to) && c.to.indexOf(S.currentUser)!==-1; }); }
+function _coUnreadFor(mid){
+  if(!S.currentUser || !(S.currentRole==='pro'||S.currentRole==='trainer')) return 0;
+  var seen=_coSeenMap()[mid]||'';
+  return _coMine().filter(function(n){ return (n.content||{}).memberId===mid && String(n.created_at||'')>seen; }).length;
+}
+function _coUnreadTotal(){
+  if(!S.currentUser || !(S.currentRole==='pro'||S.currentRole==='trainer')) return 0;
+  var seen=_coSeenMap(); var mine={}; (S.members||[]).forEach(function(m){ if(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1) mine[m.id]=true; });
+  return _coMine().filter(function(n){ var c=n.content||{}; return mine[c.memberId] && String(n.created_at||'')>(seen[c.memberId]||''); }).length;
+}
+function _coMarkSeen(mid){
+  if(!mid || !(S.currentRole==='pro'||S.currentRole==='trainer')) return;
+  if(_coUnreadFor(mid)<=0) return;
+  var map=_coSeenMap(); map[mid]=new Date().toISOString(); _coSaveSeen(map);
+}
+function _coMarkAllSeen(){ var map=_coSeenMap(); var now=new Date().toISOString(); _coMine().forEach(function(n){ var c=n.content||{}; if(c.memberId) map[c.memberId]=now; }); _coSaveSeen(map); }
+// 60초 폴링 (프로·트레이너만). 새 알림이 오면 토스트 + 배지·점 갱신.
+async function _fetchCoNotices(force){
+  if(!(S.currentRole==='pro'||S.currentRole==='trainer') || !S.currentUser) return;
+  if(typeof cloud==='undefined'||!cloud||!cloud.enabled||!cloud.client) return;
+  var now=Date.now();
+  if(!force && window.__coLast && now-window.__coLast<45000) return;
+  window.__coLast=now;
+  try{
+    var since=new Date(now-30*86400000).toISOString();
+    var r=await cloud.client.from('reports').select('id,member_name,created_by,created_at,content')
+      .eq('member_id','notice').contains('content',{type:'colesson',to:[S.currentUser]})
+      .gte('created_at',since).order('created_at',{ascending:false}).limit(100);
+    if(r.error||!Array.isArray(r.data)) return;
+    var prevIds={}; (S._coNotices||[]).forEach(function(n){ prevIds[n.id]=true; });
+    var hadBefore=Array.isArray(S._coNotices);
+    var prevUnread=_coUnreadTotal();
+    S._coNotices=r.data;
+    var fresh=r.data.filter(function(n){ return !prevIds[n.id]; });
+    if(hadBefore && fresh.length){
+      var c0=fresh[0].content||{};
+      try{ liveToastSafe('🔔 '+(c0.user||'담당자')+' · '+(c0.target||'')+' 회원 레슨 일지 작성'+(fresh.length>1?' 외 '+(fresh.length-1)+'건':'')); }catch(e){}
+    }
+    if(_coUnreadTotal()!==prevUnread || fresh.length){ try{ if(!_rvFormOpen()) render(); }catch(e){} }
+  }catch(e){}
+}
+// 🔔 알림함 (프로·트레이너) — 나에게 온 담당자 일지 알림 목록. 행을 누르면 그 회원이 열리고 점이 사라진다.
+function openCoNotices(){
+  _fetchCoNotices(true);
+  var esc=function(x){ return String(x==null?'':x).replace(/[<>&"']/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch];}); };
+  var seen=_coSeenMap();
+  var rows=_coMine().map(function(n){
+    var c=n.content||{}; var isNew=String(n.created_at||'')>(seen[c.memberId]||'');
+    var when=(c.date?String(c.date).slice(5).replace('-','.'):String(n.created_at||'').replace('T',' ').slice(5,16))+(c.time?' '+c.time:'');
+    return '<div class="ntc-it co'+(isNew?' new':'')+'" data-mid="'+esc(c.memberId||'')+'">'
+      +'<div class="t">'+esc(when)+' · '+esc(c.user||n.created_by||'')+(isNew?' <span class="co-dot"></span>':'')+'</div>'
+      +'<div><b>'+esc(c.target||n.member_name||'')+'</b> 회원 레슨 일지 작성</div>'
+      +(c.summary?'<div class="co-sum">'+esc(c.summary)+'</div>':'')
+      +'</div>';
+  }).join('')||'<div class="ntc-empty">알림이 없습니다.<br>같이 맡은 회원의 일지를 다른 담당자가 저장하면 여기에 쌓입니다.</div>';
+  var old=document.getElementById('ntc-ov'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='ntc-ov'; ov.className='ntc-ov';
+  ov.innerHTML='<div class="ntc-card">'
+    +'<div class="ntc-hd">🔔 담당 회원 알림<span style="font-weight:600;font-size:12px;color:#8b93a0">다른 담당자의 일지 · 30일 보관</span></div>'
+    +'<div class="ntc-list">'+rows+'</div>'
+    +'<div class="ntc-ft"><button class="ntc-x" onclick="closeCoNotices(false)">닫기</button>'
+    +'<button class="ntc-ok" onclick="closeCoNotices(true)">모두 읽음</button></div>'
+    +'</div>';
+  ov.addEventListener('click',function(e){
+    if(e.target===ov){ closeCoNotices(false); return; }
+    var it=e.target&&e.target.closest?e.target.closest('.ntc-it.co'):null;
+    if(it){ var mid=it.getAttribute('data-mid'); closeCoNotices(false); if(mid) openMemberFromNotice(mid); }
+  });
+  document.body.appendChild(ov);
+}
+function closeCoNotices(markAll){
+  var ov=document.getElementById('ntc-ov'); if(ov) ov.remove();
+  if(markAll){ _coMarkAllSeen(); }
+  try{ if(!_rvFormOpen()) render(); }catch(e){}
+}
+// 알림(푸시 탭·알림함)에서 회원 열기 — 담당 회원만, 폼 작성 중엔 안내만
+function openMemberFromNotice(mid){
+  try{
+    var m=(S.members||[]).find(function(x){ return x.id===mid; });
+    if(!m){ liveToastSafe('회원을 찾을 수 없어요'); return; }
+    var isInfo=(S.currentRole==='admin'||S.currentRole==='infodesk');
+    if(!isInfo && !(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1)){ liveToastSafe('담당 회원이 아니에요'); return; }
+    if(_rvFormOpen()){ liveToastSafe('작성 중인 일지를 먼저 저장하거나 닫아주세요'); return; }
+    closeReviewNag(false);
+    S.showDashboard=false; S.showLiveSession=false; S.showPerformance=false;
+    selectMember(mid);
+  }catch(e){}
+}
+// 푸시 알림(?member=…)으로 들어온 경우 — 로그인 뒤 한 번 그 회원을 연다
+function _openMemberOnce(){
+  var mid=window.__openMemberOnce; if(!mid) return;
+  window.__openMemberOnce=null;
+  openMemberFromNotice(mid);
+}
+if(!window.__coTimer){
+  window.__coTimer=setInterval(function(){ try{ _fetchCoNotices(false); }catch(e){} }, 60000);
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(function(){ try{ _fetchCoNotices(true); }catch(e){} }, 1500); }); }catch(e){}
+  try{ setTimeout(function(){ try{ _fetchCoNotices(true); }catch(e){} }, 8000); }catch(e){}
 }

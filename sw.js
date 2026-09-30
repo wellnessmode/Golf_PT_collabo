@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v9.92';
+const CACHE_NAME = 'golf-pt-v9.93';
 const ASSETS = [
   './',
   './index.html',
@@ -68,7 +68,7 @@ self.addEventListener('notificationclick', function(e) {
     var app = cs.filter(function(c) { try { var p = new URL(c.url).pathname; return p === scopePath || /\/index\.html$/.test(p); } catch (_) { return false; } });
     app.sort(function(a, b) { return (b.visibilityState === 'visible') - (a.visibilityState === 'visible'); });
     for (var i = 0; i < app.length; i++) {
-      if ('focus' in app[i]) { try { app[i].postMessage({ type: 'OPEN_REVIEW' }); } catch (_) {} return app[i].focus(); }
+      if ('focus' in app[i]) { try { app[i].postMessage({ type: 'OPEN_URL', url: url }); } catch (_) {} return app[i].focus(); }   // 앱이 ?review=1 / ?member= 를 해석
     }
     return self.clients.openWindow(url);
   }));
