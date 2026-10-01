@@ -455,6 +455,50 @@ async function _saveReportRow(row){
 }
 
 // 고객용 리포트 content 조립 — 공유(sharePerfSummary)·상담 예시(publishDemoReport) 공용
+// ── 리포트용 클럽 5분류 — 유틸리티(하이브리드)를 우드에서 분리. 회원 리포트의 클럽 드롭다운 기준.
+function _clubGroup5(name){
+  var n=String(name||'').toLowerCase();
+  if(n.indexOf('드라이버')!==-1||n.indexOf('driver')!==-1) return 'driver';
+  if(n.indexOf('하이브리드')!==-1||n.indexOf('hybrid')!==-1||n.indexOf('유틸')!==-1||n.indexOf('utility')!==-1||n.indexOf('rescue')!==-1) return 'hybrid';
+  if(n.indexOf('우드')!==-1||n.indexOf('wood')!==-1) return 'wood';
+  if(n.indexOf('웨지')!==-1||n.indexOf('wedge')!==-1||n.indexOf('피칭')!==-1||n.indexOf('pitch')!==-1||n.indexOf('샌드')!==-1||n.indexOf('sand')!==-1||n.indexOf('롭')!==-1||n.indexOf('lob')!==-1||n.indexOf('갭')!==-1||n.indexOf('gap')!==-1) return 'wedge';
+  if(n.indexOf('퍼터')!==-1||n.indexOf('putter')!==-1) return 'putter';
+  return 'iron';
+}
+var _CLUB5=[['driver','드라이버'],['wood','우드'],['hybrid','유틸리티'],['iron','아이언'],['wedge','웨지'],['putter','퍼터']];
+// 클럽별 "저장된 영상 + 트랙맨 수치 전부" — 회원 리포트 첫 화면(골프 성장기)용.
+// 값은 전부 m · m/s 로 정규화해 페이지가 단위 변환 없이 그대로 보여준다.
+// 영상 있는 샷은 최대 120, 수치만 있는 샷은 최대 150(최신순) — 연습 타석 자동 저장이 수천 건이어도 리포트 행이 터지지 않게.
+function _reportByClub(shots){
+  var groups={}; _CLUB5.forEach(function(c){ groups[c[0]]=[]; });
+  (shots||[]).forEach(function(s){ var g=_clubGroup5(s.data&&s.data.club); (groups[g]=groups[g]||[]).push(s); });
+  var num=function(v){ var x=parseFloat(v); return isNaN(x)?null:x; };
+  var dist=function(v,metric){ var x=num(v); return x==null?null:Math.round((metric?x:x*0.9144)*10)/10; };
+  var spd=function(v,metric){ var x=num(v); return x==null?null:Math.round((metric?x:x*0.44704)*10)/10; };
+  var r1=function(v){ var x=num(v); return x==null?null:Math.round(x*10)/10; };
+  var avgOf=function(arr,dec){ var v=arr.filter(function(x){return x!=null;}); if(!v.length) return null; var k=Math.pow(10,dec==null?1:dec); return Math.round(v.reduce(function(a,b){return a+b;},0)/v.length*k)/k; };
+  return _CLUB5.map(function(c){
+    var L=(groups[c[0]]||[]).slice().sort(function(x,y){ return String(y.ts).localeCompare(String(x.ts)); });
+    if(!L.length) return null;
+    var rows=L.map(function(s){
+      var d=s.data||{}, metric=_isMetricShot(d), a=_shotAngles(s);
+      return { ts:s.ts, club:_clubKo(d.club)||String(d.club||''), tag:d._tag||null, dl:a.dl||null, fo:a.fo||null, clubv:a.club||null,
+        carry:dist(d.carry,metric), total:dist(d.total,metric), ball:spd(d.ballSpeed,metric), clubSpd:spd(d.clubSpeed,metric),
+        smash:(num(d.smash)!=null?Math.round(num(d.smash)*100)/100:null), launch:r1(d.launch), spin:(num(d.spin)!=null?Math.round(num(d.spin)):null),
+        path:r1(d.clubPath), face:r1(d.faceAngle), attack:r1(d.attack), side:dist(d.carrySide,metric) };
+    });
+    var withVid=rows.filter(function(r){return r.dl||r.fo||r.clubv;});
+    var dataOnly=rows.filter(function(r){return !(r.dl||r.fo||r.clubv);});
+    var list=withVid.slice(0,120).concat(dataOnly.slice(0,150)).sort(function(x,y){ return String(y.ts).localeCompare(String(x.ts)); });
+    var best=null; rows.forEach(function(r){ if(r.carry!=null && (!best||r.carry>best.carry)) best=r; });
+    var byDate={}; rows.forEach(function(r){ var day=String(r.ts||'').slice(0,10); if(!day||r.carry==null) return; (byDate[day]=byDate[day]||[]).push(r.carry); });
+    var trend=Object.keys(byDate).sort().map(function(day){ return {date:day, carryM:avgOf(byDate[day])}; }).slice(-24);
+    return { key:c[0], name:c[1], n:rows.length, nVideo:withVid.length,
+      avg:{ carry:avgOf(rows.map(function(r){return r.carry;})), total:avgOf(rows.map(function(r){return r.total;})), ball:avgOf(rows.map(function(r){return r.ball;})),
+            clubSpd:avgOf(rows.map(function(r){return r.clubSpd;})), smash:avgOf(rows.map(function(r){return r.smash;}),2), launch:avgOf(rows.map(function(r){return r.launch;})), spin:avgOf(rows.map(function(r){return r.spin;}),0) },
+      best:best?{carry:best.carry, ts:best.ts}:null, trend:trend, shots:list, truncated:list.length<rows.length };
+  }).filter(Boolean);
+}
 function _buildReportContent(mid, m, data){
   var shots=data.shots||[];
   // 트랙맨 요약 (기존 발송 리포트와 같은 스키마 + 앵글·비포/애프터 확장)
@@ -516,15 +560,16 @@ function _buildReportContent(mid, m, data){
         // b/a 는 대표 클럽(첫 항목) 미러 — 구버전 리포트 페이지 호환용
         return {date:day, clubs:clubs, tagged:!!(main&&main.tagged), b:main?main.b:null, a:main?main.a:null};
       }).filter(function(x){return x.clubs.length;});
+      var byClub=[]; try{ byClub=_reportByClub(shots); }catch(e){ console.warn('[share] byClub skip:', e); }
       trackman={shotCount:shots.length, clubs:clubs,
         best:best?{ts:best.ts,club:best.data.club,carry:best.data.carry,ballSpeed:best.data.ballSpeed,smash:best.data.smash,metric:_isMetricShot(best.data)}:null,
         trend:trend, trendClub:trendSrc.length?(_clubKo(trendSrc[trendSrc.length-1].club)||''):'',
-        videos:vids, beforeAfter:beforeAfter, baDates:baDates, measuredBy:APP_BRAND.measuredBy};
+        videos:vids, beforeAfter:beforeAfter, baDates:baDates, byClub:byClub, measuredBy:APP_BRAND.measuredBy};
     }
   }catch(e){ console.warn('[share] trackman build skip:', e); }
-  // 레슨 일지 — 고객에게 보이는 내용만 (녹음 원문 제외), 최근 20개
+  // 레슨 일지 — 고객에게 보이는 내용만 (녹음 원문 제외), 최근 40개 (페이지가 골프/PT 로 나눠 보여줌)
   var allSess=(S.sessions[mid]||[]).slice().sort(sessionCompare);
-  var sessions=allSess.slice(0,20).map(function(s){
+  var sessions=allSess.slice(0,40).map(function(s){
     var vids2=(s.media||[]).filter(function(mm){ var mt=String(mm.mimeType||inferMime(mm.name||'')||''); return mt.indexOf('video')!==-1 && mm.r2Key; })
       .map(function(mm){ return {key:mm.r2Key, view:mm.view||''}; });
     return {date:s.date, time:s.time||'', author:s.author, role:(typeof getRole==='function'?getRole(s.author):'trainer'), content:s.content||'', videos:vids2};
@@ -568,6 +613,11 @@ async function publishDemoReport(){
           _t.videos=(_t.videos||[]).filter(function(v){ return !ex[String(v.ts||'').slice(0,10)]; });
           _t.baDates=(_t.baDates||[]).filter(function(p){ return !ex[p.date]; });
           if(_t.beforeAfter && (ex[String(_t.beforeAfter.b.ts||'').slice(0,10)] || ex[String(_t.beforeAfter.a.ts||'').slice(0,10)])) _t.beforeAfter=null;
+          // 클럽별 기록(byClub)의 영상도 같은 날짜는 제외 — 수치는 남기고 영상 키만 비움
+          (_t.byClub||[]).forEach(function(g){
+            (g.shots||[]).forEach(function(sh){ if(ex[String(sh.ts||'').slice(0,10)]){ sh.dl=null; sh.fo=null; sh.clubv=null; } });
+            g.nVideo=(g.shots||[]).filter(function(sh){ return sh.dl||sh.fo||sh.clubv; }).length;
+          });
         }
       }
     }

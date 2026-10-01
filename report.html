@@ -5,442 +5,515 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0b1f17">
 <meta name="robots" content="noindex, nofollow">
-<title>성과 리포트</title>
+<title>골프 성장기</title>
 <style>
+/* ============================================================
+   회원용 리포트 v2 — "나의 골프 성장기" (폰 우선 · 큰 글씨 · 단순)
+   원칙: 글자는 기본부터 크고 진하게(돋보기 없이도 읽힘), 버튼은 엄지 크기(48px+),
+         화면에 들어가면 바로 보이게(접힘 최소), 장식 최소.
+   ============================================================ */
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--ac:#00b884;--ac2:#00d29a;--pro:#3f7bff;--amber:#f0a13a;
-  --tx:#0d1114;--tx2:#454c55;--tx3:#8b93a0;--bg:#f2f4f6;--card:#fff;--brd:rgba(13,20,28,.07);
+:root{--ac:#00b884;--ac2:#00d29a;--acd:#0d6f4a;--pro:#2f6fe6;--amber:#f0a13a;--red:#e35d4f;
+  --tx:#0d1114;--tx2:#3a414a;--tx3:#6f7781;--bg:#f2f4f6;--card:#fff;--brd:rgba(13,20,28,.08);
   --r:18px;--shadow:0 2px 14px rgba(10,20,30,.06)}
-html{-webkit-text-size-adjust:100%;font-size:16px}
+html{-webkit-text-size-adjust:100%;font-size:17px}
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard','Noto Sans KR',sans-serif;
-  background:var(--bg);color:var(--tx);line-height:1.65;-webkit-font-smoothing:antialiased}
-.report{max-width:560px;margin:0 auto;padding-bottom:70px}
-/* ── 히어로 헤더 (GDR 앱 스타일 다크 그린) ── */
+  background:var(--bg);color:var(--tx);line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;-webkit-tap-highlight-color:transparent}
+.report{max-width:600px;margin:0 auto;padding-bottom:90px}
+/* ── 히어로 ── */
 .hero{background:linear-gradient(158deg,#0b241a 0%,#0b1f17 46%,#081410 100%);color:#fff;
-  padding:calc(env(safe-area-inset-top) + 30px) 22px 74px;position:relative;overflow:hidden}
-.hero::after{content:"";position:absolute;inset:0;
-  background:radial-gradient(70% 55% at 82% 8%,rgba(0,210,154,.2),transparent 65%);pointer-events:none}
-.hero-brand{font-size:0.6563rem;font-weight:800;letter-spacing:.16em;color:var(--ac2);text-transform:uppercase;margin-bottom:16px}
-.hero-row{display:flex;align-items:center;gap:14px}
-.hero-av{width:52px;height:52px;border-radius:17px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:1.05rem;font-weight:900;color:#062018;background:linear-gradient(145deg,#00d29a,#00b884);
-  box-shadow:0 4px 14px rgba(0,210,154,.35)}
-.hero-name{font-size:1.5625rem;font-weight:900;letter-spacing:-.03em;line-height:1.25}
-.hero-name small{display:block;font-size:0.8438rem;font-weight:700;color:rgba(255,255,255,.66);letter-spacing:0;margin-top:2px}
-.hero-meta{font-size:0.7813rem;color:rgba(255,255,255,.55);margin-top:6px}
-.hero-goal{display:inline-block;margin-top:12px;font-size:0.75rem;font-weight:700;color:#ffd9a0;
-  background:rgba(240,161,58,.14);border:1px solid rgba(240,161,58,.3);border-radius:999px;padding:5px 13px;margin-right:8px}
-.demo-ribbon{display:inline-block;margin-top:12px;margin-right:8px;font-size:0.7rem;font-weight:800;color:#0b1f17;
-  background:#ffd769;border-radius:999px;padding:5px 12px}
-/* ── KPI 카드 (히어로에 겹침) ── */
-.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:-44px 16px 18px;position:relative;z-index:2}
-.kpi{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:15px 6px 13px;text-align:center;position:relative;overflow:hidden}
-.kpi::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 4px 4px;background:linear-gradient(90deg,#00d29a,#00b884);opacity:.85}
-.kpi-v{font-size:1.375rem;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.kpi-v small{font-size:0.6875rem;font-weight:700;color:var(--tx3);margin-left:1px}
-.kpi-v.green{color:var(--ac)}
-.kpi-v.blue{color:var(--pro)}
-.kpi-l{font-size:0.6875rem;color:var(--tx3);font-weight:700;margin-top:3px}
-/* ── 공통 섹션 카드 ── */
-.sec{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);margin:0 16px 16px;padding:20px 18px}
-.sec-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
-.sec-t{font-size:1rem;font-weight:800;letter-spacing:-.02em}
+  padding:calc(env(safe-area-inset-top) + 28px) 22px 30px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 55% at 82% 8%,rgba(0,210,154,.2),transparent 65%);pointer-events:none}
+.hero-brand{font-size:.75rem;font-weight:800;letter-spacing:.14em;color:var(--ac2);text-transform:uppercase;margin-bottom:14px}
+.hero-title{font-size:1.9rem;font-weight:900;letter-spacing:-.03em;line-height:1.2}
+.hero-title small{display:block;font-size:1.05rem;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:0;margin-top:6px}
+.hero-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:18px}
+@media (min-width:480px){ .hero-stats{grid-template-columns:repeat(4,1fr)} }
+.hs{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:10px 14px;min-width:0}
+.hs b{display:block;font-size:1.35rem;font-weight:900;letter-spacing:-.02em;line-height:1.1}
+.hs span{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.72)}
+.hero-goal{display:inline-block;margin-top:16px;font-size:.95rem;font-weight:800;color:#ffd9a0;
+  background:rgba(240,161,58,.16);border:1px solid rgba(240,161,58,.35);border-radius:14px;padding:9px 14px;line-height:1.4}
+.demo-ribbon{display:inline-block;margin-top:14px;margin-right:8px;font-size:.85rem;font-weight:800;color:#0b1f17;background:#ffd769;border-radius:999px;padding:7px 14px}
+.hero-upd{margin-top:14px;font-size:.85rem;color:rgba(255,255,255,.6);font-weight:600}
+/* ── 섹션 카드 ── */
+.sec{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);margin:14px 12px 0;padding:20px 16px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px}
+.sec-t{font-size:1.3rem;font-weight:900;letter-spacing:-.02em}
 .sec-t i{font-style:normal;margin-right:6px}
-.sec-x{font-size:0.6875rem;color:var(--tx3);font-weight:600}
-/* ── 드롭다운(아코디언) — 비포·애프터 날짜별 ── */
-.acc{border:1px solid var(--brd);border-radius:14px;margin-bottom:10px;overflow:hidden;background:var(--card)}
-.acc:last-child{margin-bottom:0}
-.acc-h{display:flex;align-items:center;gap:8px;padding:13px 14px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
-.acc-d{font-weight:800;font-size:0.875rem;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
-.acc-sub{font-size:0.6875rem;color:var(--tx3);font-weight:700}
-.acc-arw{margin-left:auto;color:var(--tx3);font-size:0.75rem;transition:transform .25s}
-.acc.open{border-color:rgba(0,184,132,.35)}
-.acc.open .acc-d{color:var(--ac)}
-.acc.open .acc-arw{transform:rotate(180deg)}
-.acc .acc-b{display:none;padding:2px 12px 14px}
-.acc.open .acc-b{display:block}
-/* ── 비포·애프터 ── */
-.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.ba-col{position:relative;border-radius:13px;overflow:hidden;background:#000}
-.ba-col video{display:block;width:100%;aspect-ratio:9/14;object-fit:cover;background:#000}
-.ba-tag{position:absolute;top:8px;left:8px;z-index:2;font-size:0.5938rem;font-weight:800;letter-spacing:.08em;padding:3px 10px;border-radius:999px;color:#fff}
-.ba-tag.b{background:var(--amber)}
-.ba-tag.a{background:var(--ac)}
-.ba-cap{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.72));
-  color:#fff;font-size:0.6563rem;font-weight:700;padding:16px 9px 7px;text-align:center}
-.ba-ctrl{display:flex;gap:7px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}
-.ba-btn{padding:10px 18px;border-radius:999px;border:none;background:var(--tx);color:#fff;font-weight:800;font-size:0.7813rem;cursor:pointer;font-family:inherit}
-.ba-btn.play{background:var(--ac)}
-.ba-sp{padding:7px 12px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:800;font-size:0.7188rem;cursor:pointer;font-family:inherit}
-.ba-sp.on{background:var(--ac);border-color:transparent;color:#fff}
-.ba-delta{margin-top:12px;text-align:center;font-size:0.8125rem;font-weight:700;color:#0d6f4a;
-  background:linear-gradient(135deg,#eefaf4,#e4f6ee);border:1px solid rgba(0,184,132,.22);border-radius:12px;padding:10px 12px}
-.ba-delta b{color:var(--ac);font-size:0.9375rem}
-.ba-delta small{color:var(--tx3);font-weight:600}
-.ba-seekrow{display:flex;align-items:center;gap:9px;margin-top:12px;padding:0 2px}
-.ba-time{font-size:0.6563rem;color:var(--tx3);font-weight:700;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
-.ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:999px;background:rgba(13,20,28,.14);outline:none}
-.ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
-.ba-seek::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--ac);border:2.5px solid #fff;cursor:pointer}
-/* 클럽 칩 — 날짜 안에서 클럽별 비포·애프터 전환 */
-.ba-clubs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.ba-cc{padding:7px 13px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);
-  font-weight:800;font-size:0.75rem;cursor:pointer;font-family:inherit}
+.sec-x{font-size:.85rem;color:var(--tx3);font-weight:700;text-align:right}
+.empty{padding:26px 10px;text-align:center;color:var(--tx3);font-size:1rem;font-weight:700;line-height:1.6;background:var(--bg);border-radius:14px}
+/* ── 클럽 드롭다운 ── */
+.club-sel{position:relative}
+.club-sel select{width:100%;height:58px;font-size:1.2rem;font-weight:900;color:var(--tx);background:var(--bg);
+  border:2px solid rgba(0,184,132,.5);border-radius:16px;padding:0 54px 0 18px;appearance:none;-webkit-appearance:none;font-family:inherit;letter-spacing:-.01em}
+.club-sel::after{content:"▾";position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:1.4rem;color:var(--acd);pointer-events:none;font-weight:900}
+.club-hint{margin-top:8px;font-size:.85rem;color:var(--tx3);font-weight:700}
+/* 클럽 요약 숫자 */
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.tile{background:var(--bg);border-radius:16px;padding:14px 14px 12px}
+.tile-l{font-size:.85rem;color:var(--tx3);font-weight:800}
+.tile-v{font-size:1.9rem;font-weight:900;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile-v small{font-size:.9rem;color:var(--tx3);font-weight:800;margin-left:2px}
+.tile-v.green{color:var(--acd)}
+.tile-s{font-size:.8rem;color:var(--tx3);font-weight:700;margin-top:2px}
+/* 성장 그래프 */
+.chart{margin-top:16px;background:var(--bg);border-radius:16px;padding:12px 10px 6px}
+.chart-t{font-size:.95rem;font-weight:900;color:var(--tx2);padding:0 6px 4px}
+.chart svg{width:100%;height:auto;display:block}
+/* 샷 목록 */
+.day-h{margin:20px 0 8px;font-size:1.05rem;font-weight:900;color:var(--tx);display:flex;align-items:center;gap:8px}
+.day-h small{font-size:.85rem;color:var(--tx3);font-weight:700}
+.shot{border:1.5px solid var(--brd);border-radius:16px;padding:12px 14px;margin-bottom:10px;background:var(--card)}
+.shot-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.shot-time{font-size:.95rem;font-weight:800;color:var(--tx2);font-variant-numeric:tabular-nums}
+.shot-club{font-size:.95rem;font-weight:800;color:var(--tx3)}
+.tag{font-size:.75rem;font-weight:900;letter-spacing:.06em;padding:4px 10px;border-radius:999px;color:#fff}
+.tag.b{background:var(--amber)} .tag.a{background:var(--ac)}
+.shot-nums{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;align-items:baseline}
+.sn{font-size:.85rem;color:var(--tx3);font-weight:800}
+.sn b{display:block;font-size:1.45rem;color:var(--tx);font-weight:900;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
+.sn b small{font-size:.8rem;color:var(--tx3);font-weight:800}
+.sn.main b{color:var(--acd);font-size:1.7rem}
+.shot-more{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:.85rem;color:var(--tx3);font-weight:700}
+.angles{display:flex;gap:8px;margin-top:12px}
+.ang{flex:1;height:52px;border-radius:14px;border:none;background:var(--tx);color:#fff;font-size:1rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.ang.fo{background:var(--pro)} .ang.cl{background:#5a4a20}
+.ang:active{transform:scale(.97)}
+.more-btn{width:100%;height:54px;margin-top:6px;border-radius:14px;border:2px solid var(--brd);background:var(--card);color:var(--tx2);font-size:1.05rem;font-weight:900;cursor:pointer}
+/* ── 비포 · 애프터 ── */
+.ba-day{border:1.5px solid var(--brd);border-radius:18px;margin-bottom:14px;overflow:hidden;background:var(--card)}
+.ba-day:last-child{margin-bottom:0}
+.ba-dh{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;min-height:60px}
+.ba-dd{font-size:1.15rem;font-weight:900;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.ba-ds{font-size:.85rem;color:var(--tx3);font-weight:800}
+.ba-pro{font-size:.8rem;font-weight:900;color:#fff;background:var(--pro);border-radius:999px;padding:4px 10px}
+.ba-arw{margin-left:auto;color:var(--tx3);font-size:1.3rem;transition:transform .25s;font-weight:900}
+.ba-day.open .ba-arw{transform:rotate(180deg)}
+.ba-day.open .ba-dd{color:var(--acd)}
+.ba-day .ba-b{display:none;padding:0 14px 16px}
+.ba-day.open .ba-b{display:block}
+.ba-clubs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.ba-cc{height:46px;padding:0 18px;border-radius:999px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:1rem;cursor:pointer}
 .ba-cc.on{background:var(--ac);border-color:transparent;color:#fff}
 .ba-pane{display:none}
 .ba-pane.on{display:block}
-/* 한쪽만 있는 날 — 단일 영상 */
-.ba-one .ba-tag{position:static;display:inline-block;margin-bottom:8px}
-.ba-onev{border-radius:13px;overflow:hidden;background:#000}
-.ba-onev video{display:block;width:100%;max-height:420px;object-fit:contain;background:#000}
-.ba-onec{margin-top:8px;font-size:0.75rem;color:var(--tx2);font-weight:700;text-align:center}
-/* ── 추이 차트 ── */
-.chart svg{width:100%;height:auto;display:block}
-/* ── 클럽별 평균 (카드 행) ── */
-.club-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--brd)}
-.club-row:last-child{border-bottom:none}
-.club-ic{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#e9f8f2,#d7f1e6);color:var(--ac);
-  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.75rem;flex-shrink:0}
-.club-nm{font-size:0.875rem;font-weight:800}
-.club-sub{font-size:0.6875rem;color:var(--tx3);font-weight:600}
-.club-val{margin-left:auto;text-align:right}
-.club-carry{font-size:1.1875rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.club-carry small{font-size:0.6875rem;color:var(--tx3);font-weight:700}
-/* ── 스윙 영상 가로 스크롤 ── */
-.vids-wrap{position:relative}
-.vnav{display:none;position:absolute;top:44%;transform:translateY(-50%);z-index:3;width:40px;height:40px;border-radius:50%;
-  border:none;background:rgba(13,17,20,.72);color:#fff;font-size:20px;font-weight:800;cursor:pointer;
-  align-items:center;justify-content:center;font-family:inherit}
-.vnav.prev{left:-4px}
-.vnav.next{right:-4px}
-@media (hover:hover) and (pointer:fine){ .vnav{display:flex} }
-.vids{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
-.vids::-webkit-scrollbar{display:none}
-.vid-card{flex:0 0 62%;scroll-snap-align:start;border-radius:13px;overflow:hidden;background:#000;position:relative}
-.vid-card video{display:block;width:100%;aspect-ratio:9/14;object-fit:cover;background:#000}
-.vid-meta{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.75));
-  color:#fff;padding:18px 10px 8px;font-size:0.6875rem;font-weight:700}
-.vid-meta small{display:block;font-weight:600;color:rgba(255,255,255,.72);font-size:0.625rem}
-.vid-badge{position:absolute;top:8px;left:8px;font-size:0.5625rem;font-weight:800;letter-spacing:.07em;padding:3px 9px;border-radius:999px;color:#fff}
-.vid-badge.b{background:var(--amber)}
-.vid-badge.a{background:var(--ac)}
-/* ── 레슨 일지 타임라인 (드롭다운) ── */
-.tl{position:relative;padding-left:18px}
-.tl::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--brd);border-radius:2px}
-.tl-item{position:relative;padding:0 0 16px}
-.tl-item:last-child{padding-bottom:0}
-.tl-dot{position:absolute;left:-18px;top:5px;width:12px;height:12px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px var(--brd)}
-.tl-dot.pro{background:var(--pro)}
-.tl-dot.pt{background:var(--ac)}
-.tl-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
-.tl-role{font-size:0.5625rem;font-weight:800;letter-spacing:.06em;padding:3px 9px;border-radius:6px}
-.tl-role.pro{background:rgba(63,123,255,.1);color:var(--pro)}
-.tl-role.pt{background:rgba(0,184,132,.1);color:var(--ac)}
-.tl-author{font-size:0.7813rem;font-weight:700}
-.tl-date{font-size:0.6875rem;color:var(--tx3);margin-left:auto;font-variant-numeric:tabular-nums}
-.tl-arw{color:var(--tx3);font-size:0.6875rem;transition:transform .25s}
-.tl-item.open .tl-arw{transform:rotate(180deg)}
-.tl-prev{font-size:0.75rem;color:var(--tx3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  background:var(--bg);border-radius:10px;padding:8px 12px}
-.tl-item.open .tl-prev{display:none}
-.tl-fold{display:none}
-.tl-item.open .tl-fold{display:block}
-.tl-body{font-size:0.8438rem;color:var(--tx2);line-height:1.75;word-break:keep-all;
-  background:var(--bg);border-radius:12px;padding:13px 15px}
-.tl-body .md-h{font-size:0.8125rem;font-weight:800;color:var(--tx);margin:10px 0 5px;letter-spacing:-.01em}
-.tl-body .md-h:first-child{margin-top:0}
-.tl-body .md-ul{margin:2px 0 6px;padding-left:17px}
-.tl-body .md-ul li{margin-bottom:4px}
-.tl-body .md-ul li::marker{color:var(--ac)}
-.tl-body .md-p{margin-bottom:5px}
-.tl-body .md-p:last-child,.tl-body .md-ul:last-child{margin-bottom:0}
-.tl-body b{color:var(--tx);font-weight:800}
-.tl-video{margin-top:8px;border-radius:12px;overflow:hidden;background:#000}
-.tl-video video{display:block;width:100%;max-height:340px;object-fit:contain}
-.tl-note{margin-top:14px;font-size:0.6563rem;color:var(--tx3);line-height:1.65;word-break:keep-all;
-  background:var(--bg);border-radius:10px;padding:9px 12px}
-/* ── 푸터 ── */
-.foot{text-align:center;padding:28px 20px 12px;color:var(--tx3);font-size:0.6875rem;line-height:1.8}
-.foot b{color:var(--tx2);font-size:0.7813rem}
-.foot::before{content:"⛳";display:block;font-size:1.1rem;margin-bottom:6px;opacity:.6}
-/* ── 돋보기 (글씨 확대) — 버튼 자체는 px 고정이라 배율과 무관하게 같은 크기 ── */
-.rp-zoom{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);width:58px;height:58px;
-  border-radius:50%;border:none;background:#0d1114;color:#fff;font-size:19px;cursor:pointer;z-index:50;
-  box-shadow:0 4px 16px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:inherit}
-.rp-zoom small{font-size:10px;font-weight:800;color:#00d29a;line-height:1.2}
-/* ── 영상 다운로드 버튼 ── */
-.dl-btn{padding:9px 14px;border-radius:999px;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);
-  font-weight:800;font-size:0.75rem;cursor:pointer;font-family:inherit}
-.dl-btn:disabled{opacity:.6}
+.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ba-col{border-radius:16px;overflow:hidden;background:#000;position:relative}
+.ba-lab{display:flex;align-items:center;justify-content:center;height:40px;font-size:1.05rem;font-weight:900;letter-spacing:.1em;color:#fff}
+.ba-lab.b{background:var(--amber)} .ba-lab.a{background:var(--ac)}
+.ba-col video{display:block;width:100%;aspect-ratio:9/14;object-fit:cover;background:#000}
+.ba-cap{background:#15191e;color:#fff;font-size:.95rem;font-weight:800;padding:9px 8px;text-align:center;line-height:1.3}
+.ba-cap small{display:block;font-size:.8rem;color:rgba(255,255,255,.65);font-weight:700}
+.ba-ctrl{display:grid;grid-template-columns:1.6fr 1fr;gap:8px;margin-top:12px}
+.ba-btn{height:56px;border-radius:16px;border:none;background:var(--tx);color:#fff;font-weight:900;font-size:1.1rem;cursor:pointer}
+.ba-btn.play{background:var(--ac)}
+.ba-speeds{display:flex;gap:8px;margin-top:10px}
+.ba-sp{flex:1;height:46px;border-radius:12px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:1rem;cursor:pointer}
+.ba-sp.on{background:var(--acd);border-color:transparent;color:#fff}
+.ba-seekrow{display:flex;align-items:center;gap:10px;margin-top:12px;padding:0 2px}
+.ba-time{font-size:.85rem;color:var(--tx3);font-weight:800;font-variant-numeric:tabular-nums;min-width:40px;text-align:center}
+.ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:8px;border-radius:999px;background:rgba(13,20,28,.14);outline:none}
+.ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--ac);border:3px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.ba-seek::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--ac);border:3px solid #fff;cursor:pointer}
+.ba-delta{margin-top:12px;text-align:center;font-size:1.05rem;font-weight:800;color:var(--acd);
+  background:linear-gradient(135deg,#eefaf4,#e4f6ee);border:1.5px solid rgba(0,184,132,.25);border-radius:14px;padding:12px}
+.ba-delta b{font-size:1.3rem;font-weight:900}
 .ba-dlrow{display:flex;gap:8px;margin-top:10px}
-.ba-dlrow .dl-btn{flex:1}
-.dl-btn.one{display:block;width:100%;margin-top:10px}
-.vid-dl{position:absolute;top:8px;right:8px;z-index:2;width:34px;height:34px;border-radius:50%;border:none;
-  background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-.tl-dlrow{margin-top:6px}
-.tl-dlrow .dl-btn{width:100%}
-.loading{text-align:center;padding:90px 20px;color:var(--tx3)}
-.spinner{width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+.dl-btn{flex:1;height:50px;border-radius:14px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:.95rem;cursor:pointer}
+.dl-btn:disabled{opacity:.6}
+.ba-one .ba-onev{border-radius:16px;overflow:hidden;background:#000}
+.ba-one video{display:block;width:100%;max-height:460px;object-fit:contain;background:#000}
+/* ── 레슨 일지 ── */
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{flex:1;height:56px;border-radius:16px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:1.05rem;cursor:pointer}
+.tab.pro.on{background:var(--pro);border-color:transparent;color:#fff}
+.tab.pt.on{background:var(--ac);border-color:transparent;color:#fff}
+.tab-pane{display:none}
+.tab-pane.on{display:block}
+.log{border:1.5px solid var(--brd);border-radius:16px;padding:14px;margin-bottom:12px;background:var(--card)}
+.log-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.log-date{font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums}
+.log-who{font-size:.9rem;font-weight:800;color:var(--tx3)}
+.log-body{font-size:1.02rem;color:var(--tx2);line-height:1.75;word-break:keep-all;background:var(--bg);border-radius:14px;padding:13px 15px}
+.log-body .md-h{font-size:1rem;font-weight:900;color:var(--tx);margin:10px 0 5px}
+.log-body .md-h:first-child{margin-top:0}
+.log-body .md-ul{margin:2px 0 6px;padding-left:18px}
+.log-body .md-ul li{margin-bottom:4px}
+.log-body .md-ul li::marker{color:var(--ac)}
+.log-body .md-p{margin-bottom:6px}
+.log-body .md-p:last-child,.log-body .md-ul:last-child{margin-bottom:0}
+.log-body b{color:var(--tx);font-weight:900}
+.log-video{margin-top:10px;border-radius:14px;overflow:hidden;background:#000}
+.log-video video{display:block;width:100%;max-height:380px;object-fit:contain}
+.log-dl{margin-top:8px}
+.log-dl .dl-btn{width:100%}
+.note{margin-top:14px;font-size:.85rem;color:var(--tx3);line-height:1.6;word-break:keep-all;background:var(--bg);border-radius:12px;padding:10px 12px;font-weight:600}
+/* ── 푸터 · 글자 버튼 ── */
+.foot{text-align:center;padding:30px 20px 10px;color:var(--tx3);font-size:.85rem;line-height:1.8;font-weight:600}
+.foot b{color:var(--tx2);font-size:1rem}
+.rp-zoom{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);height:52px;padding:0 18px;
+  border-radius:999px;border:none;background:#0d1114;color:#fff;font-size:1rem;font-weight:900;cursor:pointer;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.28)}
+.rp-zoom small{color:#00d29a;margin-left:4px;font-size:.85rem;font-weight:900}
+/* ── 영상 뷰어 (전체 화면 오버레이) ── */
+.vw{position:fixed;inset:0;background:#000;z-index:100;display:none;flex-direction:column;color:#fff}
+.vw.on{display:flex}
+.vw-top{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 10px) 12px 8px}
+.vw-title{flex:1;font-size:1.05rem;font-weight:900;line-height:1.25}
+.vw-title small{display:block;font-size:.85rem;color:rgba(255,255,255,.7);font-weight:700}
+.vw-x{width:50px;height:50px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:1.5rem;font-weight:900;cursor:pointer}
+.vw-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0}
+.vw-stage video{width:100%;height:100%;object-fit:contain;background:#000}
+.vw-nav{position:absolute;top:50%;transform:translateY(-50%);width:54px;height:72px;border:none;border-radius:14px;background:rgba(0,0,0,.45);color:#fff;font-size:2rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.vw-nav.prev{left:6px} .vw-nav.next{right:6px}
+.vw-nav:disabled{opacity:.25}
+.vw-bot{padding:10px 12px calc(env(safe-area-inset-bottom) + 12px)}
+.vw-angles{display:flex;gap:8px}
+.vw-ang{flex:1;height:54px;border-radius:14px;border:2px solid rgba(255,255,255,.25);background:transparent;color:#fff;font-size:1.05rem;font-weight:900;cursor:pointer}
+.vw-ang.on{background:var(--ac);border-color:transparent}
+.vw-ang:disabled{opacity:.3}
+.vw-acts{display:flex;gap:8px;margin-top:10px}
+.vw-act{flex:1;height:52px;border-radius:14px;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:1rem;font-weight:900;cursor:pointer}
+.vw-cnt{text-align:center;font-size:.9rem;color:rgba(255,255,255,.7);font-weight:800;margin-top:10px}
+.loading{text-align:center;padding:90px 20px;color:var(--tx3);font-size:1rem;font-weight:700}
+.spinner{width:34px;height:34px;border:3px solid var(--brd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.error{text-align:center;padding:90px 20px;color:#c0392b;font-weight:600}
+.error{text-align:center;padding:90px 20px;color:#c0392b;font-weight:800;font-size:1.05rem}
+@media (min-width:480px){ .tiles{grid-template-columns:repeat(4,1fr)} }
 </style>
 </head>
 <body>
 <div class="report" id="report">
   <div class="loading" id="loading"><div class="spinner"></div><div>리포트를 불러오는 중...</div></div>
 </div>
+<div class="vw" id="vw" role="dialog" aria-label="스윙 영상">
+  <div class="vw-top"><div class="vw-title" id="vw-title"></div><button class="vw-x" onclick="vwClose()" aria-label="닫기">✕</button></div>
+  <div class="vw-stage"><button class="vw-nav prev" id="vw-prev" onclick="vwStep(-1)" aria-label="이전 샷">‹</button><video id="vw-video" controls playsinline preload="metadata"></video><button class="vw-nav next" id="vw-next" onclick="vwStep(1)" aria-label="다음 샷">›</button></div>
+  <div class="vw-bot">
+    <div class="vw-angles"><button class="vw-ang" data-a="dl" onclick="vwAngle('dl')">측면</button><button class="vw-ang" data-a="fo" onclick="vwAngle('fo')">정면</button><button class="vw-ang" data-a="clubv" onclick="vwAngle('clubv')">클럽</button></div>
+    <div class="vw-acts"><button class="vw-act" onclick="vwFull()">⤢ 전체 화면</button><button class="vw-act" id="vw-dl" onclick="rptDownload(this)">⬇ 저장</button></div>
+    <div class="vw-cnt" id="vw-cnt"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
 // ===== 렌더 (데이터 → 화면). 테스트를 위해 전역 함수로 분리 =====
+var __RPT={ byClub:[], club:null, shown:{}, vw:{ list:[], i:0, angle:'dl' } };
 function renderReport(c, meta){
   var cfg=window.APP_CONFIG||{};
-  // 자체 주소(워커)에서 열린 경우: 데이터가 서버에서 주입되고(window.__REPORT__),
-  // 영상은 같은 주소에서 바로 스트리밍 → 페이지에 키·설정이 하나도 필요 없다.
+  // 자체 주소(워커)에서 열린 경우: 데이터가 서버에서 주입되고(window.__REPORT__), 영상은 같은 주소에서 스트리밍.
   // 예전 방식(report.html?id=)으로 열린 경우: config 의 워커 주소를 사용(하위 호환).
   var boot=!!window.__REPORT__;
   var r2base=boot ? '' : (cfg.R2_WORKER_URL||null);
   var canVid=(r2base!==null);
-  window.__R2BASE=r2base;   // 다운로드 버튼(rptDownload)이 영상 주소를 만들 때 사용
+  window.__R2BASE=r2base;
   var BR=Object.assign({name:'GOLF STUDIO', nameKo:'골프 스튜디오', measuredBy:'TRACKMAN'}, cfg.BRAND||{}, (c&&c.brand)||{});
   var storeKo=BR.store||BR.nameKo, storeEn=BR.storeEn||BR.name;
-  function esc(x){ return String(x==null?'':x).replace(/[<>&"]/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[ch];}); }
-  function vurl(k){ return (r2base||'')+'/'+encodeURIComponent(k); }
-  function distM(v,metric){ if(v==null||isNaN(v)) return null; return metric?+v:+v*0.9144; }
-  function fmt(v,dec){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec!=null?dec:0); }
-  function fmtDay(day){ try{ var d=new Date(String(day)+'T00:00:00'); var w=['일','월','화','수','목','금','토'][d.getDay()];
-    return String(day).replace(/-/g,'.')+(w?' ('+w+')':''); }catch(e){ return String(day); } }
-  // 경량 마크다운 → HTML — 일지가 "## 제목 / - 불릿 / **볼드**" 형식(AI 정리)이라
-  // 기호가 그대로 노출되던 문제 수정. 일반 텍스트 일지는 줄 단위 문단으로 그대로.
-  function mdHtml(txt){
-    var out=[], inUl=false;
-    String(txt||'').split('\n').forEach(function(ln){
-      var t=ln.trim();
-      var body=esc(t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
-      if(/^##\s+/.test(t)){ if(inUl){out.push('</ul>');inUl=false;} out.push('<div class="md-h">'+body.replace(/^##\s+/,'')+'</div>'); }
-      else if(/^[-•·]\s+/.test(t)){ if(!inUl){out.push('<ul class="md-ul">');inUl=true;} out.push('<li>'+body.replace(/^[-•·]\s+/,'')+'</li>'); }
-      else if(t===''){ if(inUl){out.push('</ul>');inUl=false;} }
-      else { if(inUl){out.push('</ul>');inUl=false;} out.push('<div class="md-p">'+body+'</div>'); }
-    });
-    if(inUl) out.push('</ul>');
-    return out.join('');
-  }
-  function miniLine(vals,labels){
-    var W=520,H=150,pad={t:14,r:12,b:24,l:34},n=vals.length;
-    if(n<2) return '';
-    var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
-    if(min===max){min-=1;max+=1;}
-    var iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
-    var X=function(i){return pad.l+iw*i/(n-1);},Y=function(v){return pad.t+ih*(1-(v-min)/(max-min));};
-    var pts=vals.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1);}).join(' ');
-    var area='M '+pts.split(' ').join(' L ')+' L '+X(n-1).toFixed(1)+','+(pad.t+ih)+' L '+X(0).toFixed(1)+','+(pad.t+ih)+' Z';
-    var dots=vals.map(function(v,i){var last=i===n-1;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(last?4.4:2.6)+'" fill="'+(last?'#00b884':'#fff')+'" stroke="#00b884" stroke-width="'+(last?0:1.8)+'"/>';}).join('');
-    var idxs=n<=5?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
-    var xl=idxs.map(function(i){var anc=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+anc+'" font-size="9.5" fill="#8b93a0">'+esc(labels[i])+'</text>';}).join('');
-    return '<svg viewBox="0 0 '+W+' '+H+'">'
-      +'<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(0,184,132,.18)"/><stop offset="100%" stop-color="rgba(0,184,132,0)"/></linearGradient></defs>'
-      +'<path d="'+area+'" fill="url(#ga)"/>'
-      +'<polyline fill="none" stroke="#00b884" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="'+pts+'"/>'
-      +dots+xl+'</svg>';
-  }
+  var esc=__esc, fmt=__fmt, vurl=__vurl, fmtDay=__fmtDay;
+  var m=c.member||{}, t=c.trackman||null;
+  var name=String(meta.memberName||m.name||'');
 
-  var m=c.member||{}, t=c.trackman;
-  var bestCarry=t&&t.best?fmt(distM(t.best.carry,t.best.metric)):null;
-  // 평균 캐리 — 클럽별 평균의 샷수 가중 평균 (GDR 연습장 모드처럼 데이터 중심 KPI)
-  var avgCarry=null;
-  if(t&&t.clubs&&t.clubs.length){
-    var wsum=0,wn=0;
-    t.clubs.forEach(function(a){ var cm=distM(a.carry,a.metric); if(cm!=null&&a.n){ wsum+=cm*a.n; wn+=a.n; } });
-    if(wn>0) avgCarry=fmt(wsum/wn);
-  }
-
-  // ── 비포·애프터 패널 (날짜별 아코디언·구버전 단일 공용) ──
-  var baCap=function(x){ return esc((x.club||'샷'))+(x.carry!=null?' · '+fmt(distM(x.carry,x.metric))+'m':''); };
-  // loaded=false 인 팬의 영상은 data-src 로 두고, 보여질 때 src 를 넣는다(트래픽 절약).
-  function paneHTML(p, open){
-    var vAttr=function(key){ var u=vurl(key); return open?('src="'+u+'"'):('data-src="'+u+'"'); };
-    var inner='';
-    if(p.b&&p.a){
-      inner+='<div class="ba-grid">'
-        +'<div class="ba-col"><span class="ba-tag b">BEFORE</span><video '+vAttr(p.b.key)+' playsinline muted loop preload="metadata"></video><div class="ba-cap">'+baCap(p.b)+'</div></div>'
-        +'<div class="ba-col"><span class="ba-tag a">AFTER</span><video '+vAttr(p.a.key)+' playsinline muted loop preload="metadata"></video><div class="ba-cap">'+baCap(p.a)+'</div></div>'
-        +'</div>'
-        +'<div class="ba-seekrow"><span class="ba-time" data-role="cur">0.0s</span>'
-        +'<input type="range" class="ba-seek" min="0" max="1000" value="0" step="1">'
-        +'<span class="ba-time" data-role="dur">—</span></div>'
-        +'<div class="ba-ctrl">'
-        +'<button class="ba-btn play ba-play">▶ 동시 재생</button>'
-        +'<button class="ba-btn ba-restart">⏮ 처음부터</button>'
-        +[0.25,0.5,1,2].map(function(sp){return '<button class="ba-sp'+(sp===1?' on':'')+'" data-sp="'+sp+'">'+(sp>=1?sp+'×':String(sp).replace('0.','.')+'×')+'</button>';}).join('')
-        +'</div>';
-      // 증가 문구는 같은 클럽 비교일 때만 — 아이언→드라이버 비교에 "149m 증가" 같은
-      // 왜곡 문구가 나가지 않게 (구버전 발행분 방어)
-      var bC=distM(p.b.carry,p.b.metric), aC=distM(p.a.carry,p.a.metric);
-      var sameClub=String(p.b.club||'')===String(p.a.club||'');
-      if(sameClub&&bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 증가했어요!</b> <small>(캐리 기준)</small></div>';
-      inner+='<div class="ba-dlrow">'
-        +'<button class="dl-btn" data-k="'+esc(p.b.key)+'" data-n="비포_'+esc(p.date||String(p.b.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 비포 저장</button>'
-        +'<button class="dl-btn" data-k="'+esc(p.a.key)+'" data-n="애프터_'+esc(p.date||String(p.a.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 애프터 저장</button>'
-        +'</div>';
-    } else {
-      var one=p.b||p.a, isB=!!p.b;
-      if(one) inner+='<div class="ba-one"><span class="ba-tag '+(isB?'b':'a')+'">'+(isB?'BEFORE':'AFTER')+'</span>'
-        +'<div class="ba-onev"><video '+vAttr(one.key)+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'
-        +'<div class="ba-onec">'+baCap(one)+'</div>'
-        +'<button class="dl-btn one" data-k="'+esc(one.key)+'" data-n="스윙_'+esc(p.date||String(one.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div>';
-    }
-    return inner;
-  }
-  // 날짜 패널 = 클럽 칩 + 클럽별 팬 — 클럽을 눌러 그 클럽의 비포·애프터로 전환.
-  // 구버전 데이터(clubs 없음)는 단일 팬으로 그대로 렌더.
-  function baInner(p, open){
-    var clubs=(p.clubs&&p.clubs.length)?p.clubs:[{name:'', tagged:p.tagged, b:p.b, a:p.a, date:p.date}];
-    var h='';
-    if(clubs.length>1){
-      h+='<div class="ba-clubs">'+clubs.map(function(c,i){
-        return '<button class="ba-cc'+(i===0?' on':'')+'" onclick="__baClub(this,'+i+')">'+esc(c.name||'기타')+(c.tagged?' ★':'')+'</button>';
-      }).join('')+'</div>';
-    }
-    h+=clubs.map(function(c,i){
-      c.date=c.date||p.date;
-      return '<div class="ba-pane'+(i===0?' on':'')+'">'+paneHTML(c, open&&i===0)+'</div>';
-    }).join('');
-    return h;
-  }
-
+  // ── 클럽별 기록 (v2 데이터: byClub). 구버전 발행분은 videos/clubs 에서 최소 구성.
+  var byClub=(t&&Array.isArray(t.byClub)&&t.byClub.length)?t.byClub:__legacyByClub(t);
+  __RPT.byClub=byClub; __RPT.shown={};
   var html='';
 
-  // 히어로 — 정식 상호로 표기. 고정 링크는 계속 갱신되므로 "업데이트 날짜"를 보여준다.
+  // ── 히어로: "OO님의 골프 성장기"
   var updDay=String(c.publishedAt||meta.createdAt||'').slice(0,10);
-  var initials=esc(String(meta.memberName||'').slice(0,2));
+  var days=null; try{ if(m.registeredDate){ days=Math.max(0,Math.floor((Date.now()-new Date(String(m.registeredDate)+'T00:00:00').getTime())/86400000)); } }catch(e){}
+  var golfN=c.proSessions||0, ptN=c.trainerSessions||0;
+  var shotN=(t&&t.shotCount)||0;
   html+='<div class="hero"><div class="hero-brand">'+esc(storeEn)+'</div>'
-    +'<div class="hero-row"><div class="hero-av">'+initials+'</div><div>'
-    +'<div class="hero-name">'+esc(meta.memberName)+' <small>회원님 성과 리포트</small></div>'
-    +'<div class="hero-meta">'+esc(storeKo)+(updDay?' · 업데이트 '+esc(updDay.replace(/-/g,'.')):'')+(m.handicap?' · 핸디캡 '+esc(m.handicap):'')+'</div>'
-    +'</div></div>'
+    +'<div class="hero-title">'+esc(name)+'님의 골프 성장기<small>'+esc(storeKo)+' · 레슨 기록 · 스윙 영상 · 측정 데이터</small></div>'
+    +'<div class="hero-stats">'
+    +(days!=null?'<div class="hs"><b>'+days+'일</b><span>함께한 날</span></div>':'')
+    +'<div class="hs"><b>'+golfN+'회</b><span>골프 레슨</span></div>'
+    +(ptN?'<div class="hs"><b>'+ptN+'회</b><span>PT 레슨</span></div>':'')
+    +(shotN?'<div class="hs"><b>'+shotN+'구</b><span>측정 샷</span></div>':'')
+    +'</div>'
     +(c.demo?'<div class="demo-ribbon">📋 상담용 예시 리포트 — 등록하시면 회원님 본인 데이터로 제공됩니다</div>':'')
     +(m.goal?'<div class="hero-goal">🎯 목표 · '+esc(m.goal)+'</div>':'')
+    +(updDay?'<div class="hero-upd">레슨 때마다 자동으로 최신 내용이 반영됩니다 · 업데이트 '+esc(updDay.replace(/-/g,'.'))+'</div>':'')
     +'</div>';
 
-  // KPI — 연습장 모드처럼 측정 데이터 중심 (베스트 캐리 · 평균 캐리 · 측정 샷)
-  html+='<div class="kpis">'
-    +'<div class="kpi"><div class="kpi-v green">'+(bestCarry!=null?bestCarry:'—')+'<small>m</small></div><div class="kpi-l">베스트 캐리</div></div>'
-    +'<div class="kpi"><div class="kpi-v">'+(avgCarry!=null?avgCarry:'—')+'<small>m</small></div><div class="kpi-l">평균 캐리</div></div>'
-    +'<div class="kpi"><div class="kpi-v blue">'+(t?t.shotCount:0)+'<small>구</small></div><div class="kpi-l">측정 샷</div></div>'
-    +'</div>';
+  // ── 1. 클럽별 기록 — 드롭다운으로 클럽을 고르면 그 클럽의 영상·측정 데이터가 전부
+  html+='<div class="sec" id="sec-clubs"><div class="sec-h"><div class="sec-t"><i>🏌️</i>클럽별 기록</div><div class="sec-x">'+esc(t&&t.measuredBy||BR.measuredBy)+' 측정</div></div>';
+  if(byClub.length){
+    var def=__defaultClub(byClub);
+    html+='<div class="club-sel"><select id="club-select" onchange="rptClub(this.value)" aria-label="클럽 선택">'
+      +byClub.map(function(g){ return '<option value="'+esc(g.key)+'"'+(g.key===def?' selected':'')+'>'+esc(g.name)+' · '+g.n+'구'+(g.nVideo?' · 영상 '+g.nVideo:'')+'</option>'; }).join('')
+      +'</select></div>'
+      +'<div class="club-hint">▲ 클럽을 바꾸면 그 클럽의 영상과 측정 기록이 아래에 나옵니다</div>'
+      +'<div id="club-body"></div>';
+  } else {
+    html+='<div class="empty">아직 측정된 샷이 없어요.<br>트랙맨 타석에서 레슨하면 여기에 클럽별 기록이 쌓입니다.</div>';
+  }
+  html+='</div>';
 
-  // 비포 · 애프터 — 레슨 날짜별 드롭다운 (최신 날짜만 펼침)
+  // ── 2. 비포 · 애프터 — 레슨 날짜별 (최근 2일 펼침), 라벨·버튼 큼직하게
   var baList=(t&&t.baDates&&t.baDates.length)?t.baDates:null;
   if(baList && canVid){
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🎬</i>비포 · 애프터</div><div class="sec-x">레슨 날짜별 · 눌러서 펼치기</div></div>'
+    html+='<div class="sec" id="sec-ba"><div class="sec-h"><div class="sec-t"><i>🎬</i>비포 · 애프터</div><div class="sec-x">레슨 날짜별</div></div>'
       +baList.map(function(p,i){
-        var open=i===0;
+        var open=i<2;
         var nClubs=(p.clubs&&p.clubs.length)||1;
-        return '<div class="acc ba-wrap'+(open?' open':'')+'">'
-          +'<div class="acc-h" onclick="__acc(this)"><span class="acc-d">'+esc(fmtDay(p.date))+'</span>'
-          +'<span class="acc-sub">'+(p.tagged?'프로 지정 비포·애프터':(p.b&&p.a?'레슨 시작 vs 마무리':'레슨 영상'))+(nClubs>1?' · 클럽 '+nClubs+'종':'')+'</span>'
-          +'<span class="acc-arw">▾</span></div>'
-          +'<div class="acc-b">'+baInner(p,open)+'</div></div>';
+        return '<div class="ba-day ba-wrap'+(open?' open':'')+'">'
+          +'<div class="ba-dh" onclick="__acc(this)"><span class="ba-dd">'+esc(fmtDay(p.date))+'</span>'
+          +(p.tagged?'<span class="ba-pro">프로 지정</span>':'<span class="ba-ds">'+(p.b&&p.a?'시작 vs 마무리':'레슨 영상')+'</span>')
+          +(nClubs>1?'<span class="ba-ds">클럽 '+nClubs+'종</span>':'')
+          +'<span class="ba-arw">▾</span></div>'
+          +'<div class="ba-b">'+__baInner(p,open,vurl,esc,fmt)+'</div></div>';
       }).join('')
       +'</div>';
   } else if(t && t.beforeAfter && canVid){
-    // 구버전 리포트(날짜별 데이터 없음) — 단일 비포·애프터
     var ba=t.beforeAfter;
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🎬</i>비포 · 애프터</div><div class="sec-x">'+(ba.tagged?'프로 지정 비교':'처음 vs 현재')+'</div></div>'
-      +'<div class="ba-wrap">'+baInner({b:ba.b,a:ba.a,tagged:ba.tagged},true)+'</div>'
+    html+='<div class="sec" id="sec-ba"><div class="sec-h"><div class="sec-t"><i>🎬</i>비포 · 애프터</div><div class="sec-x">'+(ba.tagged?'프로 지정':'처음 vs 현재')+'</div></div>'
+      +'<div class="ba-wrap">'+__baInner({b:ba.b,a:ba.a,tagged:ba.tagged},true,vurl,esc,fmt)+'</div></div>';
+  }
+
+  // ── 3. 레슨 일지 — 골프 레슨 / PT 레슨 탭, 들어가면 내용이 바로 보임
+  var sess=(c.sessions||[]);
+  var golfLogs=sess.filter(function(s){ return String(s.role||'').indexOf('pro')!==-1; });
+  var ptLogs=sess.filter(function(s){ return String(s.role||'').indexOf('pro')===-1; });
+  if(sess.length){
+    var firstTab=golfLogs.length?'pro':'pt';
+    html+='<div class="sec" id="sec-logs"><div class="sec-h"><div class="sec-t"><i>📝</i>레슨 일지</div><div class="sec-x">최근 '+sess.length+'회</div></div>'
+      +'<div class="tabs">'
+      +'<button class="tab pro'+(firstTab==='pro'?' on':'')+'" onclick="rptTab(\'pro\')">⛳ 골프 레슨 '+golfLogs.length+'</button>'
+      +'<button class="tab pt'+(firstTab==='pt'?' on':'')+'" onclick="rptTab(\'pt\')">💪 PT 레슨 '+ptLogs.length+'</button>'
+      +'</div>'
+      +'<div class="tab-pane'+(firstTab==='pro'?' on':'')+'" data-tab="pro">'+__logList(golfLogs,'pro',canVid,vurl,esc)+'</div>'
+      +'<div class="tab-pane'+(firstTab==='pt'?' on':'')+'" data-tab="pt">'+__logList(ptLogs,'pt',canVid,vurl,esc)+'</div>'
+      +'<div class="note">ⓘ 레슨 일지는 수업 중 음성 기록을 AI가 정리해 작성됩니다. 실제 지도 내용과 표현이 일부 다를 수 있으니 궁금한 부분은 담당 지도자에게 편하게 물어보세요.</div>'
       +'</div>';
   }
 
-  // 캐리 추이
-  if(t && t.trend && t.trend.length>=2){
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>📈</i>캐리 성장 추이</div><div class="sec-x">'+esc(t.trendClub||'')+' · m</div></div>'
-      +'<div class="chart">'+miniLine(t.trend.map(function(x){return x.carryM;}), t.trend.map(function(x){return String(x.date||'').slice(5);}))+'</div></div>';
-  }
-
-  // 클럽별 평균
-  if(t && t.clubs && t.clubs.length){
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🏌️</i>클럽별 평균</div><div class="sec-x">'+esc(t.measuredBy||BR.measuredBy)+' 실측</div></div>';
-    t.clubs.forEach(function(a){
-      var sp=a.ballSpeed==null?null:(a.metric?a.ballSpeed:a.ballSpeed*0.44704);
-      // 값이 없는 항목은 줄에서 아예 뺀다 — "볼 —㎧ · 스매시 —" 같은 표기 방지
-      var subs=[a.n+'구'];
-      if(sp!=null&&!isNaN(sp)) subs.push('볼 '+fmt(sp,1)+'㎧');
-      if(a.smash!=null&&!isNaN(a.smash)) subs.push('스매시 '+Number(a.smash).toFixed(2));
-      var tot=distM(a.total,a.metric);
-      html+='<div class="club-row"><div class="club-ic">'+esc(String(a.name||'').slice(0,3))+'</div>'
-        +'<div><div class="club-nm">'+esc(a.name)+'</div><div class="club-sub">'+subs.join(' · ')+'</div></div>'
-        +'<div class="club-val"><div class="club-carry">'+fmt(distM(a.carry,a.metric))+'<small> m</small></div>'+(tot!=null&&!isNaN(tot)?'<div class="club-sub">토탈 '+fmt(tot)+'m</div>':'')+'</div>'
-      +'</div>';
-    });
-    html+='</div>';
-  }
-
-  // 스윙 영상 — 모바일: 옆으로 스와이프 · PC: 좌우 화살표 버튼
-  if(t && t.videos && t.videos.length && canVid){
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>🎥</i>내 스윙 영상</div><div class="sec-x">옆으로 넘겨보세요</div></div>'
-      +'<div class="vids-wrap"><button class="vnav prev" onclick="__vnav(this,-1)" title="이전 영상">‹</button><button class="vnav next" onclick="__vnav(this,1)" title="다음 영상">›</button><div class="vids">';
-    t.videos.forEach(function(v){
-      var badge=v.tag==='before'?'<span class="vid-badge b">BEFORE</span>':(v.tag==='after'?'<span class="vid-badge a">AFTER</span>':'');
-      html+='<div class="vid-card">'+badge
-        +'<button class="vid-dl" data-k="'+esc(v.key)+'" data-n="스윙_'+esc(String(v.ts||'').slice(0,10))+'" onclick="rptDownload(this)" title="영상 저장">⬇</button>'
-        +'<video src="'+vurl(v.key)+'" controls playsinline preload="metadata"></video>'
-        +'<div class="vid-meta">'+esc(v.club||'샷')+(v.carry!=null?' · '+fmt(distM(v.carry,v.metric))+'m':'')+'<small>'+esc(String(v.ts||'').slice(0,10))+'</small></div>'
-      +'</div>';
-    });
-    html+='</div></div></div>';
-  }
-
-  // 레슨 일지 타임라인 — 드롭다운 (최근 1건만 펼침, 나머지는 한 줄 미리보기)
-  if(c.sessions && c.sessions.length){
-    html+='<div class="sec"><div class="sec-h"><div class="sec-t"><i>📝</i>레슨 일지</div><div class="sec-x">최근 '+c.sessions.length+'회 · 눌러서 펼치기</div></div><div class="tl">';
-    c.sessions.forEach(function(s,i){
-      var isPro=(s.role||'').indexOf('pro')!==-1;
-      var open=i===0;
-      var prevTxt=String(s.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\[핵심\]\s*/g,'').replace(/\s+/g,' ').trim();
-      var prev=prevTxt.slice(0,46)+(prevTxt.length>46?'…':'');
-      html+='<div class="tl-item'+(open?' open':'')+'"><span class="tl-dot '+(isPro?'pro':'pt')+'"></span>'
-        +'<div class="tl-head" onclick="__acc(this)"><span class="tl-role '+(isPro?'pro':'pt')+'">'+(isPro?'골프 레슨':'골프 PT')+'</span>'
-        +'<span class="tl-author">'+esc(s.author||'')+'</span><span class="tl-date">'+esc(s.date||'')+(s.time?' '+esc(s.time):'')+'</span><span class="tl-arw">▾</span></div>'
-        +(prev?'<div class="tl-prev">'+esc(prev)+'</div>':'')
-        +'<div class="tl-fold"><div class="tl-body">'+mdHtml(s.content||'')+'</div>';
-      (s.videos||[]).forEach(function(v){
-        if(v.key && canVid){
-          var u=vurl(v.key);
-          html+='<div class="tl-video"><video '+(open?('src="'+u+'"'):('data-src="'+u+'"'))+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'
-            +'<div class="tl-dlrow"><button class="dl-btn" data-k="'+esc(v.key)+'" data-n="레슨영상_'+esc(s.date||'')+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div>';
-        }
-      });
-      html+='</div></div>';
-    });
-    html+='</div>'
-      +'<div class="tl-note">ⓘ 레슨 일지는 수업 중 음성 기록을 AI가 정리해 작성됩니다. 실제 지도 내용과 표현·용어가 일부 다를 수 있으니, 궁금한 부분은 담당 지도자에게 편하게 확인해 주세요.</div>'
-      +'</div>';
-  }
-
-  html+='<div class="foot"><b>'+esc(storeKo)+'</b> · 데이터로 증명하는 코칭<br>본 리포트의 탄도 데이터는 '+esc(t&&t.measuredBy||BR.measuredBy)+' 로 측정되었습니다</div>';
-  html+='<button class="rp-zoom" onclick="rptZoom()" title="글씨 크기 확대">🔍<small>가</small></button>';
+  html+='<div class="foot"><b>'+esc(storeKo)+'</b> · 데이터로 증명하는 코칭<br>탄도 데이터는 '+esc(t&&t.measuredBy||BR.measuredBy)+' 로 측정되었습니다</div>';
+  html+='<button class="rp-zoom" onclick="rptZoom()" title="글자 크기">글자<small id="rp-zoom-l">크게</small></button>';
   document.getElementById('report').innerHTML=html;
 
-  // 초기 펼침 상태 패널 배선 (아코디언 최신 날짜 · 구버전 단일 패널) — 활성 팬만
-  [].slice.call(document.querySelectorAll('.ba-wrap.open .ba-pane.on, .ba-wrap:not(.acc) .ba-pane.on')).forEach(wireBA);
-  _rptApplyZoom();   // 저장해둔 글씨 배율 복원
-}
-
-// ── 돋보기 — 누를 때마다 가 → 가+ → 가++ → 가+++ → 가 순환. 선택은 기기에 기억 ──
-var _RPT_SCALES=[1,1.18,1.4,1.65];
-function _rptZoomIdx(){ var i=0; try{ i=parseInt(localStorage.getItem('rpt_ts')||'0',10)||0; }catch(e){} return ((i%_RPT_SCALES.length)+_RPT_SCALES.length)%_RPT_SCALES.length; }
-function _rptApplyZoom(){
-  var i=_rptZoomIdx();
-  document.documentElement.style.fontSize=(16*_RPT_SCALES[i])+'px';
-  var b=document.querySelector('.rp-zoom small');
-  if(b) b.textContent=['가','가+','가++','가+++'][i];
-}
-function rptZoom(){
-  var i=(_rptZoomIdx()+1)%_RPT_SCALES.length;
-  try{ localStorage.setItem('rpt_ts',String(i)); }catch(e){}
+  if(byClub.length) rptClub(__defaultClub(byClub));
+  [].slice.call(document.querySelectorAll('.ba-wrap.open .ba-pane.on, .ba-wrap:not(.ba-day) .ba-pane.on')).forEach(wireBA);
   _rptApplyZoom();
 }
+
+// ───────── 도우미 ─────────
+function __esc(x){ return String(x==null?'':x).replace(/[<>&"']/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch];}); }
+function __fmt(v,dec){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec!=null?dec:0); }
+function __vurl(k){ return (window.__R2BASE||'')+'/'+encodeURIComponent(k); }
+function __fmtDay(day){ try{ var d=new Date(String(day)+'T00:00:00'); var w=['일','월','화','수','목','금','토'][d.getDay()]; return String(day).replace(/-/g,'.')+(w?' ('+w+')':''); }catch(e){ return String(day); } }
+function __hm(ts){ try{ var d=new Date(ts); if(isNaN(d.getTime())) return ''; var h=d.getHours(), mi=d.getMinutes(); return (h<10?'0':'')+h+':'+(mi<10?'0':'')+mi; }catch(e){ return ''; } }
+function __dayOf(ts){ try{ var d=new Date(ts); if(isNaN(d.getTime())) return String(ts||'').slice(0,10); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }catch(e){ return String(ts||'').slice(0,10); } }
+function __distM(v,metric){ if(v==null||isNaN(v)) return null; return metric?+v:+v*0.9144; }
+// 경량 마크다운 → HTML — AI 정리 일지의 "## 제목 / - 불릿 / **볼드**"
+function __md(txt){
+  var out=[], inUl=false, esc=__esc;
+  String(txt||'').split('\n').forEach(function(ln){
+    var t=ln.trim(); var body=esc(t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+    if(/^##\s+/.test(t)){ if(inUl){out.push('</ul>');inUl=false;} out.push('<div class="md-h">'+body.replace(/^##\s+/,'')+'</div>'); }
+    else if(/^[-•·]\s+/.test(t)){ if(!inUl){out.push('<ul class="md-ul">');inUl=true;} out.push('<li>'+body.replace(/^[-•·]\s+/,'')+'</li>'); }
+    else if(t===''){ if(inUl){out.push('</ul>');inUl=false;} }
+    else { if(inUl){out.push('</ul>');inUl=false;} out.push('<div class="md-p">'+body+'</div>'); }
+  });
+  if(inUl) out.push('</ul>');
+  return out.join('');
+}
+// 캐리 성장 그래프 — 글자 크게
+function __line(vals,labels){
+  var W=520,H=170,pad={t:16,r:14,b:30,l:40},n=vals.length;
+  if(n<2) return '';
+  var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals); if(min===max){min-=1;max+=1;}
+  var iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  var X=function(i){return pad.l+iw*i/(n-1);},Y=function(v){return pad.t+ih*(1-(v-min)/(max-min));};
+  var pts=vals.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1);}).join(' ');
+  var area='M '+pts.split(' ').join(' L ')+' L '+X(n-1).toFixed(1)+','+(pad.t+ih)+' L '+X(0).toFixed(1)+','+(pad.t+ih)+' Z';
+  var dots=vals.map(function(v,i){var last=i===n-1;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(last?5.5:3.2)+'" fill="'+(last?'#00b884':'#fff')+'" stroke="#00b884" stroke-width="'+(last?0:2.2)+'"/>'
+    +(last||i===0?'<text x="'+X(i).toFixed(1)+'" y="'+(Y(v)-10).toFixed(1)+'" text-anchor="'+(last?'end':'start')+'" font-size="14" font-weight="800" fill="#0d6f4a">'+Math.round(v)+'m</text>':'');}).join('');
+  var idxs=n<=5?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
+  var xl=idxs.map(function(i){var anc=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+anc+'" font-size="13" font-weight="700" fill="#6f7781">'+__esc(labels[i])+'</text>';}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="캐리 추이">'
+    +'<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(0,184,132,.2)"/><stop offset="100%" stop-color="rgba(0,184,132,0)"/></linearGradient></defs>'
+    +'<path d="'+area+'" fill="url(#ga)"/><polyline fill="none" stroke="#00b884" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" points="'+pts+'"/>'+dots+xl+'</svg>';
+}
+// 기본 선택 클럽 — 가장 최근에 친 클럽 (없으면 드라이버)
+function __defaultClub(byClub){
+  var best=null, bt='';
+  byClub.forEach(function(g){ var ts=(g.shots&&g.shots[0]&&g.shots[0].ts)||''; if(String(ts)>bt){ bt=String(ts); best=g.key; } });
+  return best||(byClub[0]&&byClub[0].key)||'driver';
+}
+// 구버전 발행분(byClub 없음) — videos·clubs 로 최소 구성 (단위는 각 항목의 metric 플래그로 정규화)
+function __legacyByClub(t){
+  if(!t) return [];
+  var groups={}; var order=['driver','wood','hybrid','iron','wedge','putter'];
+  var names={driver:'드라이버',wood:'우드',hybrid:'유틸리티',iron:'아이언',wedge:'웨지',putter:'퍼터'};
+  var gof=function(nm){ var n=String(nm||'').toLowerCase();
+    if(/드라이버|driver/.test(n)) return 'driver'; if(/하이브리드|hybrid|유틸|utility/.test(n)) return 'hybrid'; if(/우드|wood/.test(n)) return 'wood';
+    if(/웨지|wedge|피칭|pitch|샌드|sand/.test(n)) return 'wedge'; if(/퍼터|putter/.test(n)) return 'putter'; return 'iron'; };
+  (t.videos||[]).forEach(function(v){ var g=gof(v.club); (groups[g]=groups[g]||[]).push({ts:v.ts, club:v.club||'', tag:v.tag||null, dl:v.dl||null, fo:v.fo||null, clubv:v.clubv||null, carry:__distM(v.carry,v.metric)}); });
+  (t.clubs||[]).forEach(function(a){ var g=gof(a.name); groups[g]=groups[g]||[]; groups[g]._avg={carry:__distM(a.carry,a.metric), total:__distM(a.total,a.metric), ball:(a.ballSpeed==null?null:(a.metric?a.ballSpeed:a.ballSpeed*0.44704)), smash:a.smash, spin:a.spin, launch:a.launch}; groups[g]._n=a.n; });
+  return order.filter(function(k){ return groups[k]; }).map(function(k){ var L=(groups[k]||[]).slice().sort(function(x,y){return String(y.ts).localeCompare(String(x.ts));});
+    return { key:k, name:names[k], n:groups[k]._n||L.length, nVideo:L.length, avg:groups[k]._avg||{}, best:null, trend:[], shots:L, legacy:true }; });
+}
+// 클럽 본문 — 요약 숫자 + 성장 그래프 + 날짜별 샷(영상 버튼)
+function rptClub(key){
+  var g=null; __RPT.byClub.forEach(function(x){ if(x.key===key) g=x; });
+  __RPT.club=key;
+  var sel=document.getElementById('club-select'); if(sel && sel.value!==key) sel.value=key;
+  var box=document.getElementById('club-body'); if(!box||!g) return;
+  var esc=__esc, fmt=__fmt, a=g.avg||{};
+  var h='<div class="tiles">'
+    +'<div class="tile"><div class="tile-l">'+esc(g.name)+' 평균 캐리</div><div class="tile-v green">'+fmt(a.carry)+'<small>m</small></div>'+(a.total!=null?'<div class="tile-s">토탈 평균 '+fmt(a.total)+'m</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">베스트 캐리</div><div class="tile-v">'+fmt(g.best?g.best.carry:null)+'<small>m</small></div>'+(g.best&&g.best.ts?'<div class="tile-s">'+esc(__dayOf(g.best.ts).replace(/-/g,'.'))+'</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">볼 스피드</div><div class="tile-v">'+fmt(a.ball,1)+'<small>m/s</small></div>'+(a.clubSpd!=null?'<div class="tile-s">클럽 '+fmt(a.clubSpd,1)+'m/s</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">스매시 팩터</div><div class="tile-v">'+fmt(a.smash,2)+'</div>'+(a.spin!=null?'<div class="tile-s">스핀 '+fmt(a.spin)+'rpm'+(a.launch!=null?' · 발사각 '+fmt(a.launch,1)+'°':'')+'</div>':'')+'</div>'
+    +'</div>';
+  if(g.trend&&g.trend.length>=2) h+='<div class="chart"><div class="chart-t">📈 '+esc(g.name)+' 캐리 성장 (날짜별 평균)</div>'+__line(g.trend.map(function(x){return x.carryM;}), g.trend.map(function(x){return String(x.date||'').slice(5).replace('-','.');}))+'</div>';
+  var shots=g.shots||[];
+  if(!shots.length){ h+='<div class="empty" style="margin-top:14px">저장된 샷이 없어요</div>'; box.innerHTML=h; return; }
+  var limit=__RPT.shown[key]||10;
+  var vis=shots.slice(0,limit); var lastDay='';
+  vis.forEach(function(s,i){
+    var day=__dayOf(s.ts);
+    if(day!==lastDay){ var cnt=shots.filter(function(x){return __dayOf(x.ts)===day;}).length; h+='<div class="day-h">'+esc(__fmtDay(day))+'<small>'+cnt+'구</small></div>'; lastDay=day; }
+    var hasV=!!(s.dl||s.fo||s.clubv);
+    h+='<div class="shot"><div class="shot-top"><span class="shot-time">'+esc(__hm(s.ts))+'</span><span class="shot-club">'+esc(s.club||g.name)+'</span>'
+      +(s.tag==='before'?'<span class="tag b">BEFORE</span>':(s.tag==='after'?'<span class="tag a">AFTER</span>':''))+'</div>'
+      +'<div class="shot-nums"><span class="sn main">캐리<b>'+fmt(s.carry)+'<small>m</small></b></span>'
+      +(s.total!=null?'<span class="sn">토탈<b>'+fmt(s.total)+'<small>m</small></b></span>':'')
+      +(s.ball!=null?'<span class="sn">볼<b>'+fmt(s.ball,1)+'<small>m/s</small></b></span>':'')
+      +(s.smash!=null?'<span class="sn">스매시<b>'+fmt(s.smash,2)+'</b></span>':'')
+      +'</div>';
+    var more=[];
+    if(s.clubSpd!=null) more.push('클럽 '+fmt(s.clubSpd,1)+'m/s'); if(s.launch!=null) more.push('발사각 '+fmt(s.launch,1)+'°'); if(s.spin!=null) more.push('스핀 '+fmt(s.spin)+'rpm');
+    if(s.path!=null) more.push('패스 '+fmt(s.path,1)+'°'); if(s.face!=null) more.push('페이스 '+fmt(s.face,1)+'°'); if(s.attack!=null) more.push('어택 '+fmt(s.attack,1)+'°'); if(s.side!=null) more.push('좌우 '+fmt(s.side)+'m');
+    if(more.length) h+='<div class="shot-more">'+more.map(esc).join('<span>·</span>')+'</div>';
+    if(hasV && window.__R2BASE!==null){
+      var idx=shots.indexOf(s);
+      h+='<div class="angles">'
+        +(s.dl?'<button class="ang" onclick="vwOpen(\''+esc(key)+'\','+idx+',\'dl\')">▶ 측면</button>':'')
+        +(s.fo?'<button class="ang fo" onclick="vwOpen(\''+esc(key)+'\','+idx+',\'fo\')">▶ 정면</button>':'')
+        +(s.clubv?'<button class="ang cl" onclick="vwOpen(\''+esc(key)+'\','+idx+',\'clubv\')">▶ 클럽</button>':'')
+        +'</div>';
+    }
+    h+='</div>';
+  });
+  if(shots.length>limit) h+='<button class="more-btn" onclick="rptMore(\''+esc(key)+'\')">이전 기록 더 보기 ('+(shots.length-limit)+'구 남음)</button>';
+  else if(g.truncated) h+='<div class="note">오래된 기록은 리포트에서 생략됐어요. 전체 기록은 담당 지도자에게 요청하세요.</div>';
+  box.innerHTML=h;
+}
+function rptMore(key){ __RPT.shown[key]=(__RPT.shown[key]||10)+20; rptClub(key); var sel=document.getElementById('club-body'); }
+function rptTab(which){
+  [].slice.call(document.querySelectorAll('.tab')).forEach(function(b){ b.classList.toggle('on', b.classList.contains(which)); });
+  [].slice.call(document.querySelectorAll('.tab-pane')).forEach(function(p){ var on=p.getAttribute('data-tab')===which; p.classList.toggle('on',on); if(!on) [].slice.call(p.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} }); });
+}
+function __logList(list, kind, canVid, vurl, esc){
+  if(!list.length) return '<div class="empty">'+(kind==='pro'?'아직 골프 레슨 일지가 없어요':'아직 PT 레슨 일지가 없어요')+'</div>';
+  var h='';
+  list.forEach(function(s,i){
+    var hidden=i>=5;
+    h+='<div class="log'+(hidden?' log-hidden':'')+'"'+(hidden?' style="display:none"':'')+'>'
+      +'<div class="log-h"><span class="log-date">'+esc(String(s.date||'').replace(/-/g,'.'))+(s.time?' '+esc(s.time):'')+'</span><span class="log-who">'+esc(s.author||'')+'</span></div>'
+      +'<div class="log-body">'+__md(s.content||'')+'</div>';
+    (s.videos||[]).forEach(function(v){
+      if(v.key && canVid){
+        h+='<div class="log-video"><video '+(hidden?('data-src="'+vurl(v.key)+'"'):('src="'+vurl(v.key)+'"'))+' controls playsinline preload="none"></video></div>'
+          +'<div class="log-dl"><button class="dl-btn" data-k="'+esc(v.key)+'" data-n="레슨영상_'+esc(s.date||'')+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div>';
+      }
+    });
+    h+='</div>';
+  });
+  if(list.length>5) h+='<button class="more-btn" onclick="rptLogMore(this)">이전 일지 더 보기 ('+(list.length-5)+'건)</button>';
+  return h;
+}
+function rptLogMore(btn){
+  var pane=btn.parentNode;
+  [].slice.call(pane.querySelectorAll('.log-hidden')).forEach(function(el){ el.style.display=''; el.classList.remove('log-hidden');
+    [].slice.call(el.querySelectorAll('video[data-src]')).forEach(function(v){ v.src=v.getAttribute('data-src'); v.removeAttribute('data-src'); }); });
+  btn.remove();
+}
+
+// ── 비포·애프터 패널 (날짜별 · 구버전 단일 공용) ──
+function __baInner(p, open, vurl, esc, fmt){
+  var clubs=(p.clubs&&p.clubs.length)?p.clubs:[{name:'', tagged:p.tagged, b:p.b, a:p.a, date:p.date}];
+  var h='';
+  if(clubs.length>1){
+    h+='<div class="ba-clubs">'+clubs.map(function(c,i){ return '<button class="ba-cc'+(i===0?' on':'')+'" onclick="__baClub(this,'+i+')">'+esc(c.name||'기타')+(c.tagged?' ★':'')+'</button>'; }).join('')+'</div>';
+  }
+  h+=clubs.map(function(c,i){ c.date=c.date||p.date; return '<div class="ba-pane'+(i===0?' on':'')+'">'+__paneHTML(c, open&&i===0, vurl, esc, fmt)+'</div>'; }).join('');
+  return h;
+}
+function __paneHTML(p, open, vurl, esc, fmt){
+  var vAttr=function(key){ var u=vurl(key); return open?('src="'+u+'"'):('data-src="'+u+'"'); };
+  var cap=function(x){ var cm=__distM(x.carry,x.metric); return '<div class="ba-cap">'+esc(x.club||'샷')+(cm!=null?'<small>캐리 '+fmt(cm)+'m</small>':'')+'</div>'; };
+  var inner='';
+  if(p.b&&p.a){
+    inner+='<div class="ba-grid">'
+      +'<div class="ba-col"><div class="ba-lab b">BEFORE</div><video '+vAttr(p.b.key)+' playsinline muted loop preload="metadata"></video>'+cap(p.b)+'</div>'
+      +'<div class="ba-col"><div class="ba-lab a">AFTER</div><video '+vAttr(p.a.key)+' playsinline muted loop preload="metadata"></video>'+cap(p.a)+'</div>'
+      +'</div>'
+      +'<div class="ba-ctrl"><button class="ba-btn play ba-play">▶ 함께 재생</button><button class="ba-btn ba-restart">⏮ 처음부터</button></div>'
+      +'<div class="ba-speeds">'+[0.25,0.5,1].map(function(sp){return '<button class="ba-sp'+(sp===1?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'보통 속도':(sp===0.5?'½ 느리게':'¼ 느리게'))+'</button>';}).join('')+'</div>'
+      +'<div class="ba-seekrow"><span class="ba-time" data-role="cur">0.0s</span><input type="range" class="ba-seek" min="0" max="1000" value="0" step="1" aria-label="재생 위치"><span class="ba-time" data-role="dur">—</span></div>';
+    var bC=__distM(p.b.carry,p.b.metric), aC=__distM(p.a.carry,p.a.metric);
+    var sameClub=String(p.b.club||'')===String(p.a.club||'');
+    if(sameClub&&bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 늘었어요!</b> (캐리 기준)</div>';
+    inner+='<div class="ba-dlrow">'
+      +'<button class="dl-btn" data-k="'+esc(p.b.key)+'" data-n="비포_'+esc(p.date||String(p.b.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 비포 저장</button>'
+      +'<button class="dl-btn" data-k="'+esc(p.a.key)+'" data-n="애프터_'+esc(p.date||String(p.a.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 애프터 저장</button>'
+      +'</div>';
+  } else {
+    var one=p.b||p.a, isB=!!p.b;
+    if(one) inner+='<div class="ba-one"><div class="ba-lab '+(isB?'b':'a')+'" style="border-radius:14px 14px 0 0">'+(isB?'BEFORE':'AFTER')+'</div>'
+      +'<div class="ba-onev"><video '+vAttr(one.key)+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'+cap(one)
+      +'<div class="ba-dlrow"><button class="dl-btn" data-k="'+esc(one.key)+'" data-n="스윙_'+esc(p.date||String(one.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div></div>';
+  }
+  return inner;
+}
+
+// ── 영상 뷰어 — 전체 화면 오버레이: 측면/정면/클럽 전환 · 이전/다음 샷 · 전체 화면 · 저장 ──
+function vwOpen(key, idx, angle){
+  var g=null; __RPT.byClub.forEach(function(x){ if(x.key===key) g=x; });
+  if(!g) return;
+  var list=(g.shots||[]).filter(function(s){ return s.dl||s.fo||s.clubv; });
+  var target=(g.shots||[])[idx]; var i=list.indexOf(target); if(i<0) i=0;
+  __RPT.vw={ list:list, i:i, angle:angle||'dl', name:g.name };
+  document.getElementById('vw').classList.add('on');
+  try{ document.body.style.overflow='hidden'; }catch(e){}
+  vwShow();
+}
+function vwShow(){
+  var st=__RPT.vw, s=st.list[st.i]; if(!s) return;
+  var ang=st.angle; if(!s[ang]) ang=s.dl?'dl':(s.fo?'fo':'clubv'); st.angle=ang;
+  var v=document.getElementById('vw-video');
+  var u=__vurl(s[ang]);
+  if(v.getAttribute('data-k')!==s[ang]){ v.setAttribute('data-k', s[ang]); v.src=u; try{ v.load(); }catch(e){} v.play().catch(function(){}); }
+  var names={dl:'측면', fo:'정면', clubv:'클럽 딜리버리'};
+  document.getElementById('vw-title').innerHTML=__esc(__fmtDay(__dayOf(s.ts)))+' '+__esc(__hm(s.ts))+' · '+__esc(s.club||st.name)+'<small>'+names[ang]+(s.carry!=null?' · 캐리 '+__fmt(s.carry)+'m':'')+(s.ball!=null?' · 볼 '+__fmt(s.ball,1)+'m/s':'')+'</small>';
+  [].slice.call(document.querySelectorAll('.vw-ang')).forEach(function(b){ var a=b.getAttribute('data-a'); b.disabled=!s[a]; b.classList.toggle('on', a===ang); });
+  document.getElementById('vw-prev').disabled=(st.i<=0);
+  document.getElementById('vw-next').disabled=(st.i>=st.list.length-1);
+  document.getElementById('vw-cnt').textContent=(st.i+1)+' / '+st.list.length+' · ‹ › 로 다른 샷';
+  var dl=document.getElementById('vw-dl'); dl.setAttribute('data-k', s[ang]); dl.setAttribute('data-n', '스윙_'+__dayOf(s.ts)+'_'+names[ang]);
+}
+function vwAngle(a){ var s=__RPT.vw.list[__RPT.vw.i]; if(!s||!s[a]) return; __RPT.vw.angle=a; vwShow(); }
+function vwStep(d){ var st=__RPT.vw; var n=st.i+d; if(n<0||n>=st.list.length) return; st.i=n; vwShow(); }
+function vwClose(){ var v=document.getElementById('vw-video'); try{ v.pause(); }catch(e){} document.getElementById('vw').classList.remove('on'); try{ document.body.style.overflow=''; }catch(e){} }
+function vwFull(){
+  var v=document.getElementById('vw-video');
+  try{ if(v.webkitEnterFullscreen){ v.webkitEnterFullscreen(); return; } }catch(e){}      // 아이폰 사파리
+  try{ if(v.requestFullscreen){ v.requestFullscreen(); return; } }catch(e){}
+  try{ var st=document.getElementById('vw'); if(st.requestFullscreen) st.requestFullscreen(); }catch(e){}
+}
+try{ document.addEventListener('keydown', function(e){ if(!document.getElementById('vw').classList.contains('on')) return; if(e.key==='Escape') vwClose(); if(e.key==='ArrowLeft') vwStep(-1); if(e.key==='ArrowRight') vwStep(1); }); }catch(e){}
+
+// ── 글자 크기 — 기본이 이미 크고, 누르면 한 단계 더 (기기에 기억) ──
+var _RPT_SCALES=[1,1.2,1.4];
+function _rptZoomIdx(){ var i=0; try{ i=parseInt(localStorage.getItem('rpt_ts2')||'0',10)||0; }catch(e){} return ((i%_RPT_SCALES.length)+_RPT_SCALES.length)%_RPT_SCALES.length; }
+function _rptApplyZoom(){ var i=_rptZoomIdx(); document.documentElement.style.fontSize=(17*_RPT_SCALES[i])+'px'; var b=document.getElementById('rp-zoom-l'); if(b) b.textContent=['크게','더 크게','보통'][i]; }
+function rptZoom(){ var i=(_rptZoomIdx()+1)%_RPT_SCALES.length; try{ localStorage.setItem('rpt_ts2',String(i)); }catch(e){} _rptApplyZoom(); }
 
 // ── 영상 다운로드 — 아이폰: 공유시트(사진 앱에 저장) · 갤럭시/PC: 파일 다운로드 ──
 async function rptDownload(btn){
@@ -452,8 +525,7 @@ async function rptDownload(btn){
   var extM=String(key).match(/\.(mp4|mov|webm|m4v)$/i);
   var fname=(name.replace(/[\\/:*?"<>|]/g,'_'))+'.'+(extM?extM[1].toLowerCase():'mp4');
   var orig=btn.innerHTML; btn._busy=1; btn.disabled=true;
-  function restore(txt){ btn.innerHTML=txt||orig; btn._busy=0; btn.disabled=false;
-    if(txt) setTimeout(function(){ btn.innerHTML=orig; },1800); }
+  function restore(txt){ btn.innerHTML=txt||orig; btn._busy=0; btn.disabled=false; if(txt) setTimeout(function(){ btn.innerHTML=orig; },1800); }
   try{
     btn.innerHTML='0%';
     var res=await fetch(url);
@@ -461,137 +533,77 @@ async function rptDownload(btn){
     var total=parseInt(res.headers.get('content-length')||'0',10), got=0, chunks=[], blob;
     var reader=(res.body&&res.body.getReader)?res.body.getReader():null;
     if(reader){
-      while(true){ var c=await reader.read(); if(c.done) break;
-        chunks.push(c.value); got+=c.value.length;
-        if(total) btn.innerHTML=Math.min(99,Math.round(got/total*100))+'%'; }
+      while(true){ var c=await reader.read(); if(c.done) break; chunks.push(c.value); got+=c.value.length; if(total) btn.innerHTML=Math.min(99,Math.round(got/total*100))+'%'; }
       blob=new Blob(chunks,{type:'video/mp4'});
     } else blob=await res.blob();
-    // 아이폰 — 공유시트를 띄워 "비디오 저장"으로 사진 앱에 저장
-    var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent||'');
+    var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&(navigator.maxTouchPoints||0)>1);
     if(isIOS && navigator.canShare && typeof File!=='undefined'){
-      try{
-        var f=new File([blob],fname,{type:'video/mp4'});
-        if(navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); restore('✅ 완료'); return; }
-      }catch(e){ if(e&&e.name==='AbortError'){ restore(); return; } }
+      try{ var f=new File([blob],fname,{type:'video/mp4'}); if(navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); restore('✅ 완료'); return; } }
+      catch(e){ if(e&&e.name==='AbortError'){ restore(); return; } }
     }
-    // 갤럭시/PC — 다운로드 폴더로 저장
     var bu=URL.createObjectURL(blob);
     var a=document.createElement('a'); a.href=bu; a.download=fname;
     document.body.appendChild(a); a.click();
     setTimeout(function(){ try{URL.revokeObjectURL(bu); a.remove();}catch(e){} },1500);
     restore('✅ 완료');
-  }catch(e){
-    alert('영상 다운로드에 실패했습니다 — '+(e&&e.message||e));
-    restore();
-  }
+  }catch(e){ alert('영상 다운로드에 실패했습니다 — '+(e&&e.message||e)); restore(); }
 }
 
-// ── 드롭다운 토글 (비포·애프터 날짜 / 레슨 일지 공용) ──
-// 펼칠 때: 미뤄둔 영상(data-src) 로드 + 비포·애프터 컨트롤 배선. 접을 때: 재생 정지.
+// ── 날짜 펼침 (비포·애프터) — 펼칠 때 미뤄둔 영상 로드 + 배선, 접을 때 정지 ──
 function __acc(h){
   var box=h.parentNode;
   var open=box.classList.toggle('open');
   if(open){
-    // 클럽 팬이 있으면 "보이는 팬"의 영상만 로드 — 닫힌 클럽 팬은 칩을 눌렀을 때 로드
     [].slice.call(box.querySelectorAll('video[data-src]')).forEach(function(v){
-      var pn=v.closest ? v.closest('.ba-pane') : null;
-      if(pn && !pn.classList.contains('on')) return;
-      v.src=v.getAttribute('data-src'); v.removeAttribute('data-src');
-      try{ v.preload='metadata'; }catch(e){}
+      var pn=v.closest ? v.closest('.ba-pane') : null; if(pn && !pn.classList.contains('on')) return;
+      v.src=v.getAttribute('data-src'); v.removeAttribute('data-src'); try{ v.preload='metadata'; }catch(e){}
     });
     wireBA(box.querySelector('.ba-pane.on')||box);
   }else{
     [].slice.call(box.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} });
   }
 }
-
-// ── 클럽 칩 전환 — 그 클럽의 비포·애프터 팬으로 교체 (첫 표시에 영상 로드+배선) ──
+// ── 클럽 칩 전환 — 그 클럽의 비포·애프터 팬으로 ──
 function __baClub(btn, i){
-  var wrap=btn.closest ? btn.closest('.ba-wrap') : null;
-  if(!wrap) return;
+  var wrap=btn.closest ? btn.closest('.ba-wrap') : null; if(!wrap) return;
   [].slice.call(wrap.querySelectorAll('.ba-cc')).forEach(function(x,xi){ x.classList.toggle('on', xi===i); });
   [].slice.call(wrap.querySelectorAll('.ba-pane')).forEach(function(pn,pi){
-    var on=(pi===i);
-    pn.classList.toggle('on', on);
-    if(on){
-      [].slice.call(pn.querySelectorAll('video[data-src]')).forEach(function(v){
-        v.src=v.getAttribute('data-src'); v.removeAttribute('data-src');
-        try{ v.preload='metadata'; }catch(e){}
-      });
-      wireBA(pn);
-    }else{
-      [].slice.call(pn.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} });
-    }
+    var on=(pi===i); pn.classList.toggle('on', on);
+    if(on){ [].slice.call(pn.querySelectorAll('video[data-src]')).forEach(function(v){ v.src=v.getAttribute('data-src'); v.removeAttribute('data-src'); try{ v.preload='metadata'; }catch(e){} }); wireBA(pn); }
+    else { [].slice.call(pn.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} }); }
   });
 }
-
-// ── 스윙 영상 캐러셀 좌우 넘김 (PC — 마우스 환경에서 화살표 표시) ──
-function __vnav(btn, dir){
-  var sc=btn.parentNode.querySelector('.vids');
-  if(sc) sc.scrollBy({left:dir*Math.round(sc.clientWidth*0.66), behavior:'smooth'});
-}
-
-// ── 비포·애프터 컨트롤 배선 (패널 단위) — 동시 재생 · 공용 시크바 · 배속 ──
+// ── 비포·애프터 컨트롤 배선 — 함께 재생 · 공용 시크바 · 느리게 ──
 function wireBA(root){
   if(!root || root.getAttribute('data-ba-wired')) return;
   root.setAttribute('data-ba-wired','1');
   var baVids=[].slice.call(root.querySelectorAll('.ba-grid video'));
   if(baVids.length!==2) return;
-  // 기본 1배속 — 스윙 템포를 그대로 보는 게 기본, 느리게는 .25×/.5× 선택
   var rate=1, master=baVids[0], dragging=false;
-  var seek=root.querySelector('.ba-seek');
-  var curEl=root.querySelector('.ba-time[data-role="cur"]'), durEl=root.querySelector('.ba-time[data-role="dur"]');
+  var seek=root.querySelector('.ba-seek'), curEl=root.querySelector('.ba-time[data-role="cur"]'), durEl=root.querySelector('.ba-time[data-role="dur"]');
   var play=root.querySelector('.ba-play'), restart=root.querySelector('.ba-restart');
   if(!seek||!curEl||!durEl||!play||!restart) return;
   function ft(x){ return (Math.round(x*10)/10).toFixed(1)+'s'; }
   baVids.forEach(function(v){ try{v.playbackRate=rate;}catch(e){} v.addEventListener('loadedmetadata',function(){try{v.playbackRate=rate;}catch(e){}}); });
   master.addEventListener('loadedmetadata', function(){ if(isFinite(master.duration)) durEl.textContent=ft(master.duration); });
-  master.addEventListener('timeupdate', function(){
-    if(dragging||!isFinite(master.duration)||!master.duration) return;
-    seek.value=Math.round(master.currentTime/master.duration*1000);
-    curEl.textContent=ft(master.currentTime);
-  });
-  function seekBoth(){
-    var pct=(parseInt(seek.value,10)||0)/1000;
-    baVids.forEach(function(v){ if(isFinite(v.duration)&&v.duration){ try{v.currentTime=v.duration*pct;}catch(e){} } });
-    if(isFinite(master.duration)&&master.duration) curEl.textContent=ft(master.duration*pct);
-  }
+  master.addEventListener('timeupdate', function(){ if(dragging||!isFinite(master.duration)||!master.duration) return; seek.value=Math.round(master.currentTime/master.duration*1000); curEl.textContent=ft(master.currentTime); });
+  function seekBoth(){ var pct=(parseInt(seek.value,10)||0)/1000; baVids.forEach(function(v){ if(isFinite(v.duration)&&v.duration){ try{v.currentTime=v.duration*pct;}catch(e){} } }); if(isFinite(master.duration)&&master.duration) curEl.textContent=ft(master.duration*pct); }
   var wasPlaying=false;
-  seek.addEventListener('input', function(){
-    if(!dragging){ dragging=true; wasPlaying=baVids.some(function(v){return !v.paused;}); baVids.forEach(function(v){v.pause();}); }
-    seekBoth();
-  });
-  seek.addEventListener('change', function(){
-    seekBoth(); dragging=false;
-    if(wasPlaying){ baVids.forEach(function(v){v.play().catch(function(){});}); play.textContent='⏸ 일시정지'; }
-    wasPlaying=false;
-  });
-  play.onclick=function(){
-    var on=baVids.some(function(v){return !v.paused;});
-    if(on){ baVids.forEach(function(v){v.pause();}); play.textContent='▶ 동시 재생'; }
-    else{ baVids.forEach(function(v){v.play().catch(function(){});}); play.textContent='⏸ 일시정지'; }
-  };
-  restart.onclick=function(){
-    baVids.forEach(function(v){ try{v.currentTime=0;}catch(e){} v.play().catch(function(){}); });
-    seek.value=0; play.textContent='⏸ 일시정지';
-  };
-  [].slice.call(root.querySelectorAll('.ba-sp')).forEach(function(b){
-    b.onclick=function(){ rate=parseFloat(b.getAttribute('data-sp'))||1;
-      baVids.forEach(function(v){try{v.playbackRate=rate;}catch(e){}});
-      [].slice.call(root.querySelectorAll('.ba-sp')).forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); };
-  });
+  seek.addEventListener('input', function(){ if(!dragging){ dragging=true; wasPlaying=baVids.some(function(v){return !v.paused;}); baVids.forEach(function(v){v.pause();}); } seekBoth(); });
+  seek.addEventListener('change', function(){ seekBoth(); dragging=false; if(wasPlaying){ baVids.forEach(function(v){v.play().catch(function(){});}); play.textContent='⏸ 멈춤'; } wasPlaying=false; });
+  play.onclick=function(){ var on=baVids.some(function(v){return !v.paused;}); if(on){ baVids.forEach(function(v){v.pause();}); play.textContent='▶ 함께 재생'; } else{ baVids.forEach(function(v){v.play().catch(function(){});}); play.textContent='⏸ 멈춤'; } };
+  restart.onclick=function(){ baVids.forEach(function(v){ try{v.currentTime=0;}catch(e){} v.play().catch(function(){}); }); seek.value=0; play.textContent='⏸ 멈춤'; };
+  [].slice.call(root.querySelectorAll('.ba-sp')).forEach(function(b){ b.onclick=function(){ rate=parseFloat(b.getAttribute('data-sp'))||1; baVids.forEach(function(v){try{v.playbackRate=rate;}catch(e){}}); [].slice.call(root.querySelectorAll('.ba-sp')).forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); }; });
 }
 
 // ===== 데이터 로드 =====
 (async function(){
-  // ① 자체 주소(워커)에서 열린 경우 — 데이터가 서버에서 주입됨. 키·외부요청 0.
   var boot=window.__REPORT__;
   if(boot && boot.content){
-    try{ document.title=(boot.member_name||'')+' 성과 리포트'; }catch(e){}
+    try{ document.title=(boot.member_name||'')+'님의 골프 성장기'; }catch(e){}
     renderReport(boot.content||{}, {memberName:boot.member_name||'', createdBy:boot.created_by||'', createdAt:boot.created_at||''});
     return;
   }
-  // ② (하위 호환) report.html?id= 로 열린 예전 링크 — 기존 조회 방식
   var cfg=window.APP_CONFIG||{};
   var id=new URLSearchParams(location.search).get('id');
   if(!id){ document.getElementById('loading').innerHTML='<div class="error">리포트 주소가 올바르지 않습니다.</div>'; return; }
@@ -600,11 +612,9 @@ function wireBA(root){
     var client=supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
     var r=await client.from('reports').select('*').eq('id',id).single();
     if(r.error||!r.data) throw new Error('리포트를 찾을 수 없습니다. 담당 지도자에게 새 링크를 요청해주세요.');
-    try{ document.title=r.data.member_name+' 성과 리포트'; }catch(e){}
+    try{ document.title=r.data.member_name+'님의 골프 성장기'; }catch(e){}
     renderReport(r.data.content||{}, {memberName:r.data.member_name, createdBy:r.data.created_by, createdAt:r.data.created_at||''});
-  }catch(e){
-    document.getElementById('loading').innerHTML='<div class="error">'+String(e&&e.message||e)+'</div>';
-  }
+  }catch(e){ document.getElementById('loading').innerHTML='<div class="error">'+String(e&&e.message||e)+'</div>'; }
 })();
 </script>
 </body>
