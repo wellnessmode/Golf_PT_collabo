@@ -11,66 +11,68 @@
    회원용 리포트 v2 — "나의 골프 성장기" (폰 우선 · 큰 글씨 · 단순)
    원칙: 글자는 기본부터 크고 진하게(돋보기 없이도 읽힘), 버튼은 엄지 크기(48px+),
          화면에 들어가면 바로 보이게(접힘 최소), 장식 최소.
+   버튼 글자는 px 고정(글자 크게를 눌러도 버튼이 깨지지 않게), 본문·숫자만 rem 으로 커진다.
    ============================================================ */
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--ac:#00b884;--ac2:#00d29a;--acd:#0d6f4a;--pro:#2f6fe6;--amber:#f0a13a;--red:#e35d4f;
-  --tx:#0d1114;--tx2:#3a414a;--tx3:#6f7781;--bg:#f2f4f6;--card:#fff;--brd:rgba(13,20,28,.08);
+:root{--ac:#00b884;--ac2:#00d29a;--acd:#0d6f4a;--pro:#2f6fe6;--amber:#b8650a;--red:#e35d4f;
+  --tx:#0d1114;--tx2:#3a414a;--tx3:#5f6771;--bg:#f2f4f6;--card:#fff;--brd:rgba(13,20,28,.09);
   --r:18px;--shadow:0 2px 14px rgba(10,20,30,.06)}
 html{-webkit-text-size-adjust:100%;font-size:17px}
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Pretendard','Noto Sans KR',sans-serif;
-  background:var(--bg);color:var(--tx);line-height:1.6;-webkit-font-smoothing:antialiased}
-button{font-family:inherit;-webkit-tap-highlight-color:transparent}
-.report{max-width:600px;margin:0 auto;padding-bottom:90px}
+  background:var(--bg);color:var(--tx);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-wrap:anywhere}
+button{font-family:inherit;-webkit-tap-highlight-color:transparent;line-height:1.2;word-break:keep-all}
+.report{max-width:600px;margin:0 auto;padding-bottom:40px}
 /* ── 히어로 ── */
 .hero{background:linear-gradient(158deg,#0b241a 0%,#0b1f17 46%,#081410 100%);color:#fff;
-  padding:calc(env(safe-area-inset-top) + 28px) 22px 30px;position:relative;overflow:hidden}
+  padding:calc(env(safe-area-inset-top) + 22px) 22px 30px;position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 55% at 82% 8%,rgba(0,210,154,.2),transparent 65%);pointer-events:none}
-.hero-brand{font-size:.75rem;font-weight:800;letter-spacing:.14em;color:var(--ac2);text-transform:uppercase;margin-bottom:14px}
-.hero-title{font-size:1.9rem;font-weight:900;letter-spacing:-.03em;line-height:1.2}
-.hero-title small{display:block;font-size:1.05rem;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:0;margin-top:6px}
-.hero-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:18px}
+.hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;position:relative;z-index:1}
+.hero-brand{font-size:.75rem;font-weight:800;letter-spacing:.14em;color:var(--ac2);text-transform:uppercase}
+.hero-zoom{min-height:40px;padding:6px 14px;border-radius:999px;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-size:15px;font-weight:900;cursor:pointer;white-space:nowrap}
+.hero-zoom small{color:var(--ac2);font-size:14px;font-weight:900;margin-left:4px}
+.hero-title{font-size:1.9rem;font-weight:900;letter-spacing:-.03em;line-height:1.2;position:relative;z-index:1}
+.hero-title small{display:block;font-size:1.05rem;font-weight:700;color:rgba(255,255,255,.72);letter-spacing:0;margin-top:6px}
+.hero-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:18px;position:relative;z-index:1}
 @media (min-width:480px){ .hero-stats{grid-template-columns:repeat(4,1fr)} }
 .hs{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:10px 14px;min-width:0}
 .hs b{display:block;font-size:1.35rem;font-weight:900;letter-spacing:-.02em;line-height:1.1}
-.hs span{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.72)}
-.hero-goal{display:inline-block;margin-top:16px;font-size:.95rem;font-weight:800;color:#ffd9a0;
-  background:rgba(240,161,58,.16);border:1px solid rgba(240,161,58,.35);border-radius:14px;padding:9px 14px;line-height:1.4}
-.demo-ribbon{display:inline-block;margin-top:14px;margin-right:8px;font-size:.85rem;font-weight:800;color:#0b1f17;background:#ffd769;border-radius:999px;padding:7px 14px}
-.hero-upd{margin-top:14px;font-size:.85rem;color:rgba(255,255,255,.6);font-weight:600}
+.hs span{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.75)}
+.hero-goal{display:inline-block;margin-top:16px;font-size:.95rem;font-weight:800;color:#ffd9a0;max-width:100%;
+  background:rgba(240,161,58,.16);border:1px solid rgba(240,161,58,.35);border-radius:14px;padding:9px 14px;line-height:1.4;position:relative;z-index:1}
+.demo-ribbon{display:inline-block;margin-top:14px;margin-right:8px;font-size:.85rem;font-weight:800;color:#0b1f17;background:#ffd769;border-radius:999px;padding:7px 14px;position:relative;z-index:1}
+.hero-upd{margin-top:14px;font-size:.85rem;color:rgba(255,255,255,.62);font-weight:600;position:relative;z-index:1}
 /* ── 섹션 카드 ── */
 .sec{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);margin:14px 12px 0;padding:20px 16px}
-.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .sec-t{font-size:1.3rem;font-weight:900;letter-spacing:-.02em}
 .sec-t i{font-style:normal;margin-right:6px}
 .sec-x{font-size:.85rem;color:var(--tx3);font-weight:700;text-align:right}
 .empty{padding:26px 10px;text-align:center;color:var(--tx3);font-size:1rem;font-weight:700;line-height:1.6;background:var(--bg);border-radius:14px}
 /* ── 클럽 드롭다운 ── */
 .club-sel{position:relative}
-.club-sel select{width:100%;height:58px;font-size:1.2rem;font-weight:900;color:var(--tx);background:var(--bg);
-  border:2px solid rgba(0,184,132,.5);border-radius:16px;padding:0 54px 0 18px;appearance:none;-webkit-appearance:none;font-family:inherit;letter-spacing:-.01em}
-.club-sel::after{content:"▾";position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:1.4rem;color:var(--acd);pointer-events:none;font-weight:900}
+.club-sel select{width:100%;min-height:58px;font-size:20px;font-weight:900;color:var(--tx);background:var(--bg);
+  border:2px solid rgba(0,184,132,.55);border-radius:16px;padding:10px 54px 10px 18px;appearance:none;-webkit-appearance:none;font-family:inherit;letter-spacing:-.01em}
+.club-sel::after{content:"▼";position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--acd);pointer-events:none;font-weight:900}
 .club-hint{margin-top:8px;font-size:.85rem;color:var(--tx3);font-weight:700}
-/* 클럽 요약 숫자 */
 .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
-.tile{background:var(--bg);border-radius:16px;padding:14px 14px 12px}
+@media (min-width:480px){ .tiles{grid-template-columns:repeat(4,1fr)} }
+.tile{background:var(--bg);border-radius:16px;padding:14px 14px 12px;min-width:0}
 .tile-l{font-size:.85rem;color:var(--tx3);font-weight:800}
 .tile-v{font-size:1.9rem;font-weight:900;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums;margin-top:2px}
 .tile-v small{font-size:.9rem;color:var(--tx3);font-weight:800;margin-left:2px}
 .tile-v.green{color:var(--acd)}
 .tile-s{font-size:.8rem;color:var(--tx3);font-weight:700;margin-top:2px}
-/* 성장 그래프 */
 .chart{margin-top:16px;background:var(--bg);border-radius:16px;padding:12px 10px 6px}
 .chart-t{font-size:.95rem;font-weight:900;color:var(--tx2);padding:0 6px 4px}
 .chart svg{width:100%;height:auto;display:block}
-/* 샷 목록 */
-.day-h{margin:20px 0 8px;font-size:1.05rem;font-weight:900;color:var(--tx);display:flex;align-items:center;gap:8px}
+.day-h{margin:20px 0 8px;font-size:1.05rem;font-weight:900;color:var(--tx);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .day-h small{font-size:.85rem;color:var(--tx3);font-weight:700}
 .shot{border:1.5px solid var(--brd);border-radius:16px;padding:12px 14px;margin-bottom:10px;background:var(--card)}
 .shot-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .shot-time{font-size:.95rem;font-weight:800;color:var(--tx2);font-variant-numeric:tabular-nums}
 .shot-club{font-size:.95rem;font-weight:800;color:var(--tx3)}
-.tag{font-size:.75rem;font-weight:900;letter-spacing:.06em;padding:4px 10px;border-radius:999px;color:#fff}
-.tag.b{background:var(--amber)} .tag.a{background:var(--ac)}
+.tag{font-size:13px;font-weight:900;letter-spacing:.06em;padding:4px 10px;border-radius:999px;color:#fff}
+.tag.b{background:var(--amber)} .tag.a{background:var(--acd)}
 .shot-nums{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;align-items:baseline}
 .sn{font-size:.85rem;color:var(--tx3);font-weight:800}
 .sn b{display:block;font-size:1.45rem;color:var(--tx);font-weight:900;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
@@ -78,109 +80,112 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .sn.main b{color:var(--acd);font-size:1.7rem}
 .shot-more{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:.85rem;color:var(--tx3);font-weight:700}
 .angles{display:flex;gap:8px;margin-top:12px}
-.ang{flex:1;height:52px;border-radius:14px;border:none;background:var(--tx);color:#fff;font-size:1rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.ang{flex:1;min-height:52px;padding:8px 6px;border-radius:14px;border:none;background:var(--tx);color:#fff;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .ang.fo{background:var(--pro)} .ang.cl{background:#5a4a20}
 .ang:active{transform:scale(.97)}
-.more-btn{width:100%;height:54px;margin-top:6px;border-radius:14px;border:2px solid var(--brd);background:var(--card);color:var(--tx2);font-size:1.05rem;font-weight:900;cursor:pointer}
+.more-btn{width:100%;min-height:54px;padding:10px 12px;margin-top:6px;border-radius:14px;border:2px solid var(--brd);background:var(--card);color:var(--tx2);font-size:18px;font-weight:900;cursor:pointer}
 /* ── 비포 · 애프터 ── */
 .ba-day{border:1.5px solid var(--brd);border-radius:18px;margin-bottom:14px;overflow:hidden;background:var(--card)}
 .ba-day:last-child{margin-bottom:0}
-.ba-dh{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;min-height:60px}
+.ba-dh{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;min-height:60px;flex-wrap:wrap}
 .ba-dd{font-size:1.15rem;font-weight:900;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .ba-ds{font-size:.85rem;color:var(--tx3);font-weight:800}
-.ba-pro{font-size:.8rem;font-weight:900;color:#fff;background:var(--pro);border-radius:999px;padding:4px 10px}
-.ba-arw{margin-left:auto;color:var(--tx3);font-size:1.3rem;transition:transform .25s;font-weight:900}
-.ba-day.open .ba-arw{transform:rotate(180deg)}
+.ba-pro{font-size:13px;font-weight:900;color:#fff;background:var(--pro);border-radius:999px;padding:4px 10px}
+.ba-arw{margin-left:auto;flex-shrink:0;min-height:40px;padding:6px 14px;border-radius:999px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-size:16px;font-weight:900;display:flex;align-items:center;white-space:nowrap}
+.ba-day.open .ba-arw{background:var(--acd);border-color:transparent;color:#fff}
 .ba-day.open .ba-dd{color:var(--acd)}
 .ba-day .ba-b{display:none;padding:0 14px 16px}
 .ba-day.open .ba-b{display:block}
 .ba-clubs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.ba-cc{height:46px;padding:0 18px;border-radius:999px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:1rem;cursor:pointer}
-.ba-cc.on{background:var(--ac);border-color:transparent;color:#fff}
+.ba-cc{min-height:46px;padding:8px 18px;border-radius:999px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:17px;cursor:pointer}
+.ba-cc.on{background:var(--acd);border-color:transparent;color:#fff}
 .ba-pane{display:none}
 .ba-pane.on{display:block}
 .ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ba-col{border-radius:16px;overflow:hidden;background:#000;position:relative}
-.ba-lab{display:flex;align-items:center;justify-content:center;height:40px;font-size:1.05rem;font-weight:900;letter-spacing:.1em;color:#fff}
-.ba-lab.b{background:var(--amber)} .ba-lab.a{background:var(--ac)}
+.ba-lab{display:flex;align-items:center;justify-content:center;min-height:40px;font-size:18px;font-weight:900;letter-spacing:.1em;color:#fff}
+.ba-lab.b{background:var(--amber)} .ba-lab.a{background:var(--acd)}
 .ba-col video{display:block;width:100%;aspect-ratio:9/14;object-fit:cover;background:#000}
 .ba-cap{background:#15191e;color:#fff;font-size:.95rem;font-weight:800;padding:9px 8px;text-align:center;line-height:1.3}
-.ba-cap small{display:block;font-size:.8rem;color:rgba(255,255,255,.65);font-weight:700}
+.ba-cap small{display:block;font-size:.8rem;color:rgba(255,255,255,.7);font-weight:700}
+.ba-big{display:block;width:100%;min-height:46px;padding:8px;border:none;background:#2a3038;color:#fff;font-size:16px;font-weight:900;cursor:pointer}
 .ba-ctrl{display:grid;grid-template-columns:1.6fr 1fr;gap:8px;margin-top:12px}
-.ba-btn{height:56px;border-radius:16px;border:none;background:var(--tx);color:#fff;font-weight:900;font-size:1.1rem;cursor:pointer}
-.ba-btn.play{background:var(--ac)}
+.ba-btn{min-height:56px;padding:10px 12px;border-radius:16px;border:none;background:var(--tx);color:#fff;font-weight:900;font-size:19px;cursor:pointer}
+.ba-btn.play{background:var(--acd)}
 .ba-speeds{display:flex;gap:8px;margin-top:10px}
-.ba-sp{flex:1;height:46px;border-radius:12px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:1rem;cursor:pointer}
+.ba-sp{flex:1;min-height:46px;padding:8px 4px;border-radius:12px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:16px;cursor:pointer}
 .ba-sp.on{background:var(--acd);border-color:transparent;color:#fff}
-.ba-seekrow{display:flex;align-items:center;gap:10px;margin-top:12px;padding:0 2px}
+.ba-seekrow{display:flex;align-items:center;gap:10px;margin-top:8px;padding:0 2px}
 .ba-time{font-size:.85rem;color:var(--tx3);font-weight:800;font-variant-numeric:tabular-nums;min-width:40px;text-align:center}
-.ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:8px;border-radius:999px;background:rgba(13,20,28,.14);outline:none}
-.ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--ac);border:3px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
-.ba-seek::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--ac);border:3px solid #fff;cursor:pointer}
+.ba-seek{flex:1;-webkit-appearance:none;appearance:none;height:44px;background:linear-gradient(rgba(13,20,28,.16),rgba(13,20,28,.16)) center/100% 8px no-repeat;border-radius:999px;outline:none;margin:0}
+.ba-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:34px;height:34px;border-radius:50%;background:var(--acd);border:3px solid #fff;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.ba-seek::-moz-range-thumb{width:34px;height:34px;border-radius:50%;background:var(--acd);border:3px solid #fff;cursor:pointer}
 .ba-delta{margin-top:12px;text-align:center;font-size:1.05rem;font-weight:800;color:var(--acd);
   background:linear-gradient(135deg,#eefaf4,#e4f6ee);border:1.5px solid rgba(0,184,132,.25);border-radius:14px;padding:12px}
 .ba-delta b{font-size:1.3rem;font-weight:900}
 .ba-dlrow{display:flex;gap:8px;margin-top:10px}
-.dl-btn{flex:1;height:50px;border-radius:14px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:.95rem;cursor:pointer}
+.dl-btn{flex:1;min-height:50px;padding:8px 10px;border-radius:14px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:16px;cursor:pointer}
 .dl-btn:disabled{opacity:.6}
 .ba-one .ba-onev{border-radius:16px;overflow:hidden;background:#000}
 .ba-one video{display:block;width:100%;max-height:460px;object-fit:contain;background:#000}
 /* ── 레슨 일지 ── */
 .tabs{display:flex;gap:8px;margin-bottom:14px}
-.tab{flex:1;height:56px;border-radius:16px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:1.05rem;cursor:pointer}
+.tab{flex:1;min-height:56px;padding:10px 8px;border-radius:16px;border:2px solid var(--brd);background:var(--bg);color:var(--tx2);font-weight:900;font-size:18px;cursor:pointer}
 .tab.pro.on{background:var(--pro);border-color:transparent;color:#fff}
-.tab.pt.on{background:var(--ac);border-color:transparent;color:#fff}
+.tab.pt.on{background:var(--acd);border-color:transparent;color:#fff}
 .tab-pane{display:none}
 .tab-pane.on{display:block}
 .log{border:1.5px solid var(--brd);border-radius:16px;padding:14px;margin-bottom:12px;background:var(--card)}
 .log-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .log-date{font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums}
 .log-who{font-size:.9rem;font-weight:800;color:var(--tx3)}
-.log-body{font-size:1.02rem;color:var(--tx2);line-height:1.75;word-break:keep-all;background:var(--bg);border-radius:14px;padding:13px 15px}
+.log-body{font-size:1.02rem;color:var(--tx2);line-height:1.75;word-break:keep-all;overflow-wrap:anywhere;background:var(--bg);border-radius:14px;padding:13px 15px}
 .log-body .md-h{font-size:1rem;font-weight:900;color:var(--tx);margin:10px 0 5px}
 .log-body .md-h:first-child{margin-top:0}
 .log-body .md-ul{margin:2px 0 6px;padding-left:18px}
 .log-body .md-ul li{margin-bottom:4px}
-.log-body .md-ul li::marker{color:var(--ac)}
+.log-body .md-ul li::marker{color:var(--acd)}
 .log-body .md-p{margin-bottom:6px}
 .log-body .md-p:last-child,.log-body .md-ul:last-child{margin-bottom:0}
 .log-body b{color:var(--tx);font-weight:900}
 .log-video{margin-top:10px;border-radius:14px;overflow:hidden;background:#000}
-.log-video video{display:block;width:100%;max-height:380px;object-fit:contain}
+.log-video video{display:block;width:100%;aspect-ratio:9/16;max-height:380px;object-fit:contain}
 .log-dl{margin-top:8px}
 .log-dl .dl-btn{width:100%}
-.note{margin-top:14px;font-size:.85rem;color:var(--tx3);line-height:1.6;word-break:keep-all;background:var(--bg);border-radius:12px;padding:10px 12px;font-weight:600}
-/* ── 푸터 · 글자 버튼 ── */
+.note{margin-top:14px;font-size:.85rem;color:var(--tx3);line-height:1.6;word-break:keep-all;overflow-wrap:anywhere;background:var(--bg);border-radius:12px;padding:10px 12px;font-weight:600}
 .foot{text-align:center;padding:30px 20px 10px;color:var(--tx3);font-size:.85rem;line-height:1.8;font-weight:600}
 .foot b{color:var(--tx2);font-size:1rem}
-.rp-zoom{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);height:52px;padding:0 18px;
-  border-radius:999px;border:none;background:#0d1114;color:#fff;font-size:1rem;font-weight:900;cursor:pointer;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.28)}
-.rp-zoom small{color:#00d29a;margin-left:4px;font-size:.85rem;font-weight:900}
 /* ── 영상 뷰어 (전체 화면 오버레이) ── */
-.vw{position:fixed;inset:0;background:#000;z-index:100;display:none;flex-direction:column;color:#fff}
+.vw{position:fixed;inset:0;background:#000;z-index:100;display:none;flex-direction:column;color:#fff;touch-action:none;overscroll-behavior:contain}
 .vw.on{display:flex}
 .vw-top{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 10px) 12px 8px}
-.vw-title{flex:1;font-size:1.05rem;font-weight:900;line-height:1.25}
-.vw-title small{display:block;font-size:.85rem;color:rgba(255,255,255,.7);font-weight:700}
-.vw-x{width:50px;height:50px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:1.5rem;font-weight:900;cursor:pointer}
-.vw-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0}
+.vw-title{flex:1;font-size:1.05rem;font-weight:900;line-height:1.25;min-width:0}
+.vw-title small{display:block;font-size:.85rem;color:rgba(255,255,255,.75);font-weight:700}
+.vw-x{width:50px;height:50px;flex-shrink:0;border-radius:50%;border:none;background:rgba(255,255,255,.16);color:#fff;font-size:24px;font-weight:900;cursor:pointer}
+.vw-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;touch-action:auto}
 .vw-stage video{width:100%;height:100%;object-fit:contain;background:#000}
-.vw-nav{position:absolute;top:50%;transform:translateY(-50%);width:54px;height:72px;border:none;border-radius:14px;background:rgba(0,0,0,.45);color:#fff;font-size:2rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.vw-nav{position:absolute;top:40%;transform:translateY(-50%);min-width:56px;min-height:76px;padding:6px;border:none;border-radius:14px;background:rgba(0,0,0,.5);color:#fff;font-size:15px;font-weight:900;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.vw-nav b{font-size:30px;line-height:1}
 .vw-nav.prev{left:6px} .vw-nav.next{right:6px}
 .vw-nav:disabled{opacity:.25}
-.vw-bot{padding:10px 12px calc(env(safe-area-inset-bottom) + 12px)}
+.vw-bot{padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);touch-action:auto}
 .vw-angles{display:flex;gap:8px}
-.vw-ang{flex:1;height:54px;border-radius:14px;border:2px solid rgba(255,255,255,.25);background:transparent;color:#fff;font-size:1.05rem;font-weight:900;cursor:pointer}
-.vw-ang.on{background:var(--ac);border-color:transparent}
+.vw-ang{flex:1;min-height:54px;padding:8px;border-radius:14px;border:2px solid rgba(255,255,255,.3);background:transparent;color:#fff;font-size:18px;font-weight:900;cursor:pointer}
+.vw-ang.on{background:var(--acd);border-color:transparent}
 .vw-ang:disabled{opacity:.3}
 .vw-acts{display:flex;gap:8px;margin-top:10px}
-.vw-act{flex:1;height:52px;border-radius:14px;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:1rem;font-weight:900;cursor:pointer}
-.vw-cnt{text-align:center;font-size:.9rem;color:rgba(255,255,255,.7);font-weight:800;margin-top:10px}
+.vw-act{flex:1;min-height:52px;padding:8px;border-radius:14px;border:none;background:rgba(255,255,255,.16);color:#fff;font-size:17px;font-weight:900;cursor:pointer}
+.vw-cnt{text-align:center;font-size:.9rem;color:rgba(255,255,255,.75);font-weight:800;margin-top:10px}
+@media (orientation:landscape) and (max-height:500px){
+  .vw{flex-direction:row;flex-wrap:wrap}
+  .vw-top{width:100%}
+  .vw-stage{flex:1 1 55%;min-height:0}
+  .vw-bot{flex:1 1 40%;max-width:45%;display:flex;flex-direction:column;justify-content:center}
+}
 .loading{text-align:center;padding:90px 20px;color:var(--tx3);font-size:1rem;font-weight:700}
 .spinner{width:34px;height:34px;border:3px solid var(--brd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .error{text-align:center;padding:90px 20px;color:#c0392b;font-weight:800;font-size:1.05rem}
-@media (min-width:480px){ .tiles{grid-template-columns:repeat(4,1fr)} }
 </style>
 </head>
 <body>
@@ -189,10 +194,10 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 </div>
 <div class="vw" id="vw" role="dialog" aria-label="스윙 영상">
   <div class="vw-top"><div class="vw-title" id="vw-title"></div><button class="vw-x" onclick="vwClose()" aria-label="닫기">✕</button></div>
-  <div class="vw-stage"><button class="vw-nav prev" id="vw-prev" onclick="vwStep(-1)" aria-label="이전 샷">‹</button><video id="vw-video" controls playsinline preload="metadata"></video><button class="vw-nav next" id="vw-next" onclick="vwStep(1)" aria-label="다음 샷">›</button></div>
+  <div class="vw-stage"><button class="vw-nav prev" id="vw-prev" onclick="vwStep(-1)" aria-label="이전 샷"><b>‹</b>이전</button><video id="vw-video" controls playsinline preload="metadata"></video><button class="vw-nav next" id="vw-next" onclick="vwStep(1)" aria-label="다음 샷"><b>›</b>다음</button></div>
   <div class="vw-bot">
     <div class="vw-angles"><button class="vw-ang" data-a="dl" onclick="vwAngle('dl')">측면</button><button class="vw-ang" data-a="fo" onclick="vwAngle('fo')">정면</button><button class="vw-ang" data-a="clubv" onclick="vwAngle('clubv')">클럽</button></div>
-    <div class="vw-acts"><button class="vw-act" onclick="vwFull()">⤢ 전체 화면</button><button class="vw-act" id="vw-dl" onclick="rptDownload(this)">⬇ 저장</button></div>
+    <div class="vw-acts"><button class="vw-act" id="vw-full" onclick="vwFull()">⤢ 전체 화면</button><button class="vw-act" id="vw-dl" onclick="rptDownload(this)">⬇ 저장</button></div>
     <div class="vw-cnt" id="vw-cnt"></div>
   </div>
 </div>
@@ -201,7 +206,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 <script src="config.js"></script>
 <script>
 // ===== 렌더 (데이터 → 화면). 테스트를 위해 전역 함수로 분리 =====
-var __RPT={ byClub:[], club:null, shown:{}, vw:{ list:[], i:0, angle:'dl' } };
+var __RPT={ byClub:[], club:null, shown:{}, baPanes:[], vw:{ list:[], i:0, angle:'dl' }, lock:null };
+var CLUB_KEYS=/^(driver|wood|hybrid|iron|wedge|putter|other)$/;
 function renderReport(c, meta){
   var cfg=window.APP_CONFIG||{};
   // 자체 주소(워커)에서 열린 경우: 데이터가 서버에서 주입되고(window.__REPORT__), 영상은 같은 주소에서 스트리밍.
@@ -212,21 +218,21 @@ function renderReport(c, meta){
   window.__R2BASE=r2base;
   var BR=Object.assign({name:'GOLF STUDIO', nameKo:'골프 스튜디오', measuredBy:'TRACKMAN'}, cfg.BRAND||{}, (c&&c.brand)||{});
   var storeKo=BR.store||BR.nameKo, storeEn=BR.storeEn||BR.name;
-  var esc=__esc, fmt=__fmt, vurl=__vurl, fmtDay=__fmtDay;
+  var esc=__esc, fmt=__fmt, vurl=__vurl, fmtDay=__fmtDay, num=__num;
   var m=c.member||{}, t=c.trackman||null;
   var name=String(meta.memberName||m.name||'');
 
-  // ── 클럽별 기록 (v2 데이터: byClub). 구버전 발행분은 videos/clubs 에서 최소 구성.
+  // ── 클럽별 기록 (v2 데이터: byClub). 키는 허용 목록만(화면·핸들러에 그대로 쓰므로). 구버전 발행분은 videos/clubs 에서 최소 구성.
   var byClub=(t&&Array.isArray(t.byClub)&&t.byClub.length)?t.byClub:__legacyByClub(t);
-  __RPT.byClub=byClub; __RPT.shown={};
+  byClub=byClub.filter(function(g){ return g && CLUB_KEYS.test(String(g.key)); });
+  __RPT.byClub=byClub; __RPT.shown={}; __RPT.baPanes=[];
   var html='';
 
   // ── 히어로: "OO님의 골프 성장기"
   var updDay=String(c.publishedAt||meta.createdAt||'').slice(0,10);
-  var days=null; try{ if(m.registeredDate){ days=Math.max(0,Math.floor((Date.now()-new Date(String(m.registeredDate)+'T00:00:00').getTime())/86400000)); } }catch(e){}
-  var golfN=c.proSessions||0, ptN=c.trainerSessions||0;
-  var shotN=(t&&t.shotCount)||0;
-  html+='<div class="hero"><div class="hero-brand">'+esc(storeEn)+'</div>'
+  var days=null; try{ if(m.registeredDate){ days=Math.max(0,Math.floor((Date.now()-new Date(String(m.registeredDate)+'T00:00:00').getTime())/86400000)); if(!isFinite(days)) days=null; } }catch(e){}
+  var golfN=num(c.proSessions), ptN=num(c.trainerSessions), shotN=num(t&&t.shotCount);
+  html+='<div class="hero"><div class="hero-top"><div class="hero-brand">'+esc(storeEn)+'</div><button class="hero-zoom" onclick="rptZoom()" title="글자 크기">글자<small id="rp-zoom-l">크게</small></button></div>'
     +'<div class="hero-title">'+esc(name)+'님의 골프 성장기<small>'+esc(storeKo)+' · 레슨 기록 · 스윙 영상 · 측정 데이터</small></div>'
     +'<div class="hero-stats">'
     +(days!=null?'<div class="hs"><b>'+days+'일</b><span>함께한 날</span></div>':'')
@@ -244,7 +250,7 @@ function renderReport(c, meta){
   if(byClub.length){
     var def=__defaultClub(byClub);
     html+='<div class="club-sel"><select id="club-select" onchange="rptClub(this.value)" aria-label="클럽 선택">'
-      +byClub.map(function(g){ return '<option value="'+esc(g.key)+'"'+(g.key===def?' selected':'')+'>'+esc(g.name)+' · '+g.n+'구'+(g.nVideo?' · 영상 '+g.nVideo:'')+'</option>'; }).join('')
+      +byClub.map(function(g){ var n=num(g.n), nv=num(g.nVideo); return '<option value="'+esc(g.key)+'"'+(g.key===def?' selected':'')+'>'+esc(g.name)+' · '+n+'구'+(nv?' · 영상 '+nv:'')+'</option>'; }).join('')
       +'</select></div>'
       +'<div class="club-hint">▲ 클럽을 바꾸면 그 클럽의 영상과 측정 기록이 아래에 나옵니다</div>'
       +'<div id="club-body"></div>';
@@ -264,7 +270,7 @@ function renderReport(c, meta){
           +'<div class="ba-dh" onclick="__acc(this)"><span class="ba-dd">'+esc(fmtDay(p.date))+'</span>'
           +(p.tagged?'<span class="ba-pro">프로 지정</span>':'<span class="ba-ds">'+(p.b&&p.a?'시작 vs 마무리':'레슨 영상')+'</span>')
           +(nClubs>1?'<span class="ba-ds">클럽 '+nClubs+'종</span>':'')
-          +'<span class="ba-arw">▾</span></div>'
+          +'<span class="ba-arw">'+(open?'접기 ▲':'펼치기 ▼')+'</span></div>'
           +'<div class="ba-b">'+__baInner(p,open,vurl,esc,fmt)+'</div></div>';
       }).join('')
       +'</div>';
@@ -274,40 +280,40 @@ function renderReport(c, meta){
       +'<div class="ba-wrap">'+__baInner({b:ba.b,a:ba.a,tagged:ba.tagged},true,vurl,esc,fmt)+'</div></div>';
   }
 
-  // ── 3. 레슨 일지 — 골프 레슨 / PT 레슨 탭, 들어가면 내용이 바로 보임
+  // ── 3. 레슨 일지 — 골프 레슨 / PT 레슨 탭, 들어가면 내용이 바로 보임 (0건이어도 자리는 보여줌)
   var sess=(c.sessions||[]);
-  var golfLogs=sess.filter(function(s){ return String(s.role||'').indexOf('pro')!==-1; });
-  var ptLogs=sess.filter(function(s){ return String(s.role||'').indexOf('pro')===-1; });
-  if(sess.length){
-    var firstTab=golfLogs.length?'pro':'pt';
-    html+='<div class="sec" id="sec-logs"><div class="sec-h"><div class="sec-t"><i>📝</i>레슨 일지</div><div class="sec-x">최근 '+sess.length+'회</div></div>'
-      +'<div class="tabs">'
-      +'<button class="tab pro'+(firstTab==='pro'?' on':'')+'" onclick="rptTab(\'pro\')">⛳ 골프 레슨 '+golfLogs.length+'</button>'
-      +'<button class="tab pt'+(firstTab==='pt'?' on':'')+'" onclick="rptTab(\'pt\')">💪 PT 레슨 '+ptLogs.length+'</button>'
-      +'</div>'
-      +'<div class="tab-pane'+(firstTab==='pro'?' on':'')+'" data-tab="pro">'+__logList(golfLogs,'pro',canVid,vurl,esc)+'</div>'
-      +'<div class="tab-pane'+(firstTab==='pt'?' on':'')+'" data-tab="pt">'+__logList(ptLogs,'pt',canVid,vurl,esc)+'</div>'
-      +'<div class="note">ⓘ 레슨 일지는 수업 중 음성 기록을 AI가 정리해 작성됩니다. 실제 지도 내용과 표현이 일부 다를 수 있으니 궁금한 부분은 담당 지도자에게 편하게 물어보세요.</div>'
-      +'</div>';
-  }
+  var golfLogs=sess.filter(function(s){ return String(s.role||'')!=='trainer'; });
+  var ptLogs=sess.filter(function(s){ return String(s.role||'')==='trainer'; });
+  var firstTab=(golfLogs.length||!ptLogs.length)?'pro':'pt';
+  html+='<div class="sec" id="sec-logs"><div class="sec-h"><div class="sec-t"><i>📝</i>레슨 일지</div><div class="sec-x">'+(sess.length?'최근 '+sess.length+'회':'')+'</div></div>'
+    +'<div class="tabs">'
+    +'<button class="tab pro'+(firstTab==='pro'?' on':'')+'" onclick="rptTab(\'pro\')">⛳ 골프 레슨 '+golfLogs.length+'</button>'
+    +'<button class="tab pt'+(firstTab==='pt'?' on':'')+'" onclick="rptTab(\'pt\')">💪 PT 레슨 '+ptLogs.length+'</button>'
+    +'</div>'
+    +'<div class="tab-pane'+(firstTab==='pro'?' on':'')+'" data-tab="pro">'+__logList(golfLogs,'pro',canVid,vurl,esc)+'</div>'
+    +'<div class="tab-pane'+(firstTab==='pt'?' on':'')+'" data-tab="pt">'+__logList(ptLogs,'pt',canVid,vurl,esc)+'</div>'
+    +(sess.length?'<div class="note">ⓘ 레슨 일지는 수업 중 음성 기록을 AI가 정리해 작성됩니다. 실제 지도 내용과 표현이 일부 다를 수 있으니 궁금한 부분은 담당 지도자에게 편하게 물어보세요.</div>':'')
+    +'</div>';
 
   html+='<div class="foot"><b>'+esc(storeKo)+'</b> · 데이터로 증명하는 코칭<br>탄도 데이터는 '+esc(t&&t.measuredBy||BR.measuredBy)+' 로 측정되었습니다</div>';
-  html+='<button class="rp-zoom" onclick="rptZoom()" title="글자 크기">글자<small id="rp-zoom-l">크게</small></button>';
   document.getElementById('report').innerHTML=html;
 
-  if(byClub.length) rptClub(__defaultClub(byClub));
+  if(byClub.length){ rptClub(__defaultClub(byClub)); __wireClubBody(); }
   [].slice.call(document.querySelectorAll('.ba-wrap.open .ba-pane.on, .ba-wrap:not(.ba-day) .ba-pane.on')).forEach(wireBA);
   _rptApplyZoom();
 }
 
 // ───────── 도우미 ─────────
 function __esc(x){ return String(x==null?'':x).replace(/[<>&"']/g,function(ch){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch];}); }
+function __num(v){ var n=Number(v); return isFinite(n)?n:0; }
 function __fmt(v,dec){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec!=null?dec:0); }
+function __fmtU(v,unit,dec){ if(v==null||isNaN(v)) return '<span style="color:var(--tx3)">기록 없음</span>'; return __fmt(v,dec)+'<small>'+unit+'</small>'; }
 function __vurl(k){ return (window.__R2BASE||'')+'/'+encodeURIComponent(k); }
 function __fmtDay(day){ try{ var d=new Date(String(day)+'T00:00:00'); var w=['일','월','화','수','목','금','토'][d.getDay()]; return String(day).replace(/-/g,'.')+(w?' ('+w+')':''); }catch(e){ return String(day); } }
 function __hm(ts){ try{ var d=new Date(ts); if(isNaN(d.getTime())) return ''; var h=d.getHours(), mi=d.getMinutes(); return (h<10?'0':'')+h+':'+(mi<10?'0':'')+mi; }catch(e){ return ''; } }
 function __dayOf(ts){ try{ var d=new Date(ts); if(isNaN(d.getTime())) return String(ts||'').slice(0,10); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }catch(e){ return String(ts||'').slice(0,10); } }
 function __distM(v,metric){ if(v==null||isNaN(v)) return null; return metric?+v:+v*0.9144; }
+function __playable(k){ return !!k && !/\.mkv$/i.test(String(k)); }   // 트랙맨 원본(.mkv)은 폰에서 재생 불가
 // 경량 마크다운 → HTML — AI 정리 일지의 "## 제목 / - 불릿 / **볼드**"
 function __md(txt){
   var out=[], inUl=false, esc=__esc;
@@ -321,24 +327,24 @@ function __md(txt){
   if(inUl) out.push('</ul>');
   return out.join('');
 }
-// 캐리 성장 그래프 — 글자 크게
+// 캐리 성장 그래프 — 폰 폭 기준 viewBox(360) 라 글자가 실제로 크게 보인다
 function __line(vals,labels){
-  var W=520,H=170,pad={t:16,r:14,b:30,l:40},n=vals.length;
+  var W=360,H=170,pad={t:30,r:16,b:30,l:38},n=vals.length;
   if(n<2) return '';
   var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals); if(min===max){min-=1;max+=1;}
   var iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
   var X=function(i){return pad.l+iw*i/(n-1);},Y=function(v){return pad.t+ih*(1-(v-min)/(max-min));};
   var pts=vals.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1);}).join(' ');
   var area='M '+pts.split(' ').join(' L ')+' L '+X(n-1).toFixed(1)+','+(pad.t+ih)+' L '+X(0).toFixed(1)+','+(pad.t+ih)+' Z';
-  var dots=vals.map(function(v,i){var last=i===n-1;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(last?5.5:3.2)+'" fill="'+(last?'#00b884':'#fff')+'" stroke="#00b884" stroke-width="'+(last?0:2.2)+'"/>'
-    +(last||i===0?'<text x="'+X(i).toFixed(1)+'" y="'+(Y(v)-10).toFixed(1)+'" text-anchor="'+(last?'end':'start')+'" font-size="14" font-weight="800" fill="#0d6f4a">'+Math.round(v)+'m</text>':'');}).join('');
-  var idxs=n<=5?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
-  var xl=idxs.map(function(i){var anc=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+anc+'" font-size="13" font-weight="700" fill="#6f7781">'+__esc(labels[i])+'</text>';}).join('');
+  var dots=vals.map(function(v,i){var last=i===n-1;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(last?6:3.5)+'" fill="'+(last?'#0d6f4a':'#fff')+'" stroke="#0d6f4a" stroke-width="'+(last?0:2.4)+'"/>'
+    +(last||i===0?'<text x="'+X(i).toFixed(1)+'" y="'+(Y(v)-11).toFixed(1)+'" text-anchor="'+(last?'end':'start')+'" font-size="15" font-weight="800" fill="#0d6f4a">'+Math.round(v)+'m</text>':'');}).join('');
+  var idxs=n<=4?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
+  var xl=idxs.map(function(i){var anc=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+anc+'" font-size="14" font-weight="700" fill="#5f6771">'+__esc(labels[i])+'</text>';}).join('');
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="캐리 추이">'
     +'<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(0,184,132,.2)"/><stop offset="100%" stop-color="rgba(0,184,132,0)"/></linearGradient></defs>'
-    +'<path d="'+area+'" fill="url(#ga)"/><polyline fill="none" stroke="#00b884" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" points="'+pts+'"/>'+dots+xl+'</svg>';
+    +'<path d="'+area+'" fill="url(#ga)"/><polyline fill="none" stroke="#0d6f4a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" points="'+pts+'"/>'+dots+xl+'</svg>';
 }
-// 기본 선택 클럽 — 가장 최근에 친 클럽 (없으면 드라이버)
+// 기본 선택 클럽 — 가장 최근에 친 클럽 (없으면 첫 그룹)
 function __defaultClub(byClub){
   var best=null, bt='';
   byClub.forEach(function(g){ var ts=(g.shots&&g.shots[0]&&g.shots[0].ts)||''; if(String(ts)>bt){ bt=String(ts); best=g.key; } });
@@ -352,36 +358,41 @@ function __legacyByClub(t){
   var gof=function(nm){ var n=String(nm||'').toLowerCase();
     if(/드라이버|driver/.test(n)) return 'driver'; if(/하이브리드|hybrid|유틸|utility/.test(n)) return 'hybrid'; if(/우드|wood/.test(n)) return 'wood';
     if(/웨지|wedge|피칭|pitch|샌드|sand/.test(n)) return 'wedge'; if(/퍼터|putter/.test(n)) return 'putter'; return 'iron'; };
-  (t.videos||[]).forEach(function(v){ var g=gof(v.club); (groups[g]=groups[g]||[]).push({ts:v.ts, club:v.club||'', tag:v.tag||null, dl:v.dl||null, fo:v.fo||null, clubv:v.clubv||null, carry:__distM(v.carry,v.metric)}); });
+  var pk=function(k){ return __playable(k)?k:null; };
+  (t.videos||[]).forEach(function(v){ var g=gof(v.club); (groups[g]=groups[g]||[]).push({ts:v.ts, club:v.club||'', tag:v.tag||null, dl:pk(v.dl), fo:pk(v.fo), clubv:pk(v.clubv), carry:__distM(v.carry,v.metric)}); });
   (t.clubs||[]).forEach(function(a){ var g=gof(a.name); groups[g]=groups[g]||[]; groups[g]._avg={carry:__distM(a.carry,a.metric), total:__distM(a.total,a.metric), ball:(a.ballSpeed==null?null:(a.metric?a.ballSpeed:a.ballSpeed*0.44704)), smash:a.smash, spin:a.spin, launch:a.launch}; groups[g]._n=a.n; });
   return order.filter(function(k){ return groups[k]; }).map(function(k){ var L=(groups[k]||[]).slice().sort(function(x,y){return String(y.ts).localeCompare(String(x.ts));});
-    return { key:k, name:names[k], n:groups[k]._n||L.length, nVideo:L.length, avg:groups[k]._avg||{}, best:null, trend:[], shots:L, legacy:true }; });
+    return { key:k, name:names[k], n:groups[k]._n||L.length, nVideo:L.filter(function(s){return s.dl||s.fo||s.clubv;}).length, avg:groups[k]._avg||{}, best:null, trend:[], shots:L, legacy:true }; });
 }
-// 클럽 본문 — 요약 숫자 + 성장 그래프 + 날짜별 샷(영상 버튼)
+function __groupIndex(key){ for(var i=0;i<__RPT.byClub.length;i++) if(__RPT.byClub[i].key===key) return i; return -1; }
+// 클럽 본문 — 요약 숫자 + 성장 그래프 + 날짜별 샷(영상 버튼). 버튼은 data 속성 + 위임(값을 핸들러 문자열에 넣지 않음)
 function rptClub(key){
-  var g=null; __RPT.byClub.forEach(function(x){ if(x.key===key) g=x; });
+  var gi=__groupIndex(key); var g=gi>=0?__RPT.byClub[gi]:null;
   __RPT.club=key;
   var sel=document.getElementById('club-select'); if(sel && sel.value!==key) sel.value=key;
   var box=document.getElementById('club-body'); if(!box||!g) return;
   var esc=__esc, fmt=__fmt, a=g.avg||{};
   var h='<div class="tiles">'
-    +'<div class="tile"><div class="tile-l">'+esc(g.name)+' 평균 캐리</div><div class="tile-v green">'+fmt(a.carry)+'<small>m</small></div>'+(a.total!=null?'<div class="tile-s">토탈 평균 '+fmt(a.total)+'m</div>':'')+'</div>'
-    +'<div class="tile"><div class="tile-l">베스트 캐리</div><div class="tile-v">'+fmt(g.best?g.best.carry:null)+'<small>m</small></div>'+(g.best&&g.best.ts?'<div class="tile-s">'+esc(__dayOf(g.best.ts).replace(/-/g,'.'))+'</div>':'')+'</div>'
-    +'<div class="tile"><div class="tile-l">볼 스피드</div><div class="tile-v">'+fmt(a.ball,1)+'<small>m/s</small></div>'+(a.clubSpd!=null?'<div class="tile-s">클럽 '+fmt(a.clubSpd,1)+'m/s</div>':'')+'</div>'
-    +'<div class="tile"><div class="tile-l">스매시 팩터</div><div class="tile-v">'+fmt(a.smash,2)+'</div>'+(a.spin!=null?'<div class="tile-s">스핀 '+fmt(a.spin)+'rpm'+(a.launch!=null?' · 발사각 '+fmt(a.launch,1)+'°':'')+'</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">'+esc(g.name)+' 평균 캐리</div><div class="tile-v green">'+__fmtU(a.carry,'m')+'</div>'+(a.total!=null?'<div class="tile-s">토탈 평균 '+fmt(a.total)+'m</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">베스트 캐리</div><div class="tile-v">'+__fmtU(g.best?g.best.carry:null,'m')+'</div>'+(g.best&&g.best.ts?'<div class="tile-s">'+esc(__dayOf(g.best.ts).replace(/-/g,'.'))+'</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">볼 스피드</div><div class="tile-v">'+__fmtU(a.ball,'m/s',1)+'</div>'+(a.clubSpd!=null?'<div class="tile-s">클럽 '+fmt(a.clubSpd,1)+'m/s</div>':'')+'</div>'
+    +'<div class="tile"><div class="tile-l">스매시 팩터</div><div class="tile-v">'+__fmtU(a.smash,'',2)+'</div>'+(a.spin!=null?'<div class="tile-s">스핀 '+fmt(a.spin)+'rpm'+(a.launch!=null?' · 발사각 '+fmt(a.launch,1)+'°':'')+'</div>':'')+'</div>'
     +'</div>';
-  if(g.trend&&g.trend.length>=2) h+='<div class="chart"><div class="chart-t">📈 '+esc(g.name)+' 캐리 성장 (날짜별 평균)</div>'+__line(g.trend.map(function(x){return x.carryM;}), g.trend.map(function(x){return String(x.date||'').slice(5).replace('-','.');}))+'</div>';
+  if(g.trend&&g.trend.length>=2) h+='<div class="chart"><div class="chart-t">📈 '+esc(g.name)+' 캐리 성장 (날짜별 평균)</div>'+__line(g.trend.map(function(x){return __num(x.carryM);}), g.trend.map(function(x){return String(x.date||'').slice(5).replace('-','.');}))+'</div>';
   var shots=g.shots||[];
   if(!shots.length){ h+='<div class="empty" style="margin-top:14px">저장된 샷이 없어요</div>'; box.innerHTML=h; return; }
+  var days=shots.map(function(s){ return __dayOf(s.ts); });
+  var cnt={}; days.forEach(function(d){ cnt[d]=(cnt[d]||0)+1; });
+  var dc=(g.dayCounts&&typeof g.dayCounts==='object')?g.dayCounts:null;   // 앱이 넘긴 날짜별 전체 구수(잘린 목록보다 정확)
   var limit=__RPT.shown[key]||10;
   var vis=shots.slice(0,limit); var lastDay='';
   vis.forEach(function(s,i){
-    var day=__dayOf(s.ts);
-    if(day!==lastDay){ var cnt=shots.filter(function(x){return __dayOf(x.ts)===day;}).length; h+='<div class="day-h">'+esc(__fmtDay(day))+'<small>'+cnt+'구</small></div>'; lastDay=day; }
-    var hasV=!!(s.dl||s.fo||s.clubv);
+    var day=days[i];
+    if(day!==lastDay){ var n=(dc&&dc[day]!=null)?__num(dc[day]):cnt[day]; h+='<div class="day-h">'+esc(__fmtDay(day))+'<small>'+n+'구</small></div>'; lastDay=day; }
+    var hasV=__playable(s.dl)||__playable(s.fo)||__playable(s.clubv);
     h+='<div class="shot"><div class="shot-top"><span class="shot-time">'+esc(__hm(s.ts))+'</span><span class="shot-club">'+esc(s.club||g.name)+'</span>'
       +(s.tag==='before'?'<span class="tag b">BEFORE</span>':(s.tag==='after'?'<span class="tag a">AFTER</span>':''))+'</div>'
-      +'<div class="shot-nums"><span class="sn main">캐리<b>'+fmt(s.carry)+'<small>m</small></b></span>'
+      +'<div class="shot-nums"><span class="sn main">캐리<b>'+__fmtU(s.carry,'m')+'</b></span>'
       +(s.total!=null?'<span class="sn">토탈<b>'+fmt(s.total)+'<small>m</small></b></span>':'')
       +(s.ball!=null?'<span class="sn">볼<b>'+fmt(s.ball,1)+'<small>m/s</small></b></span>':'')
       +(s.smash!=null?'<span class="sn">스매시<b>'+fmt(s.smash,2)+'</b></span>':'')
@@ -391,26 +402,33 @@ function rptClub(key){
     if(s.path!=null) more.push('패스 '+fmt(s.path,1)+'°'); if(s.face!=null) more.push('페이스 '+fmt(s.face,1)+'°'); if(s.attack!=null) more.push('어택 '+fmt(s.attack,1)+'°'); if(s.side!=null) more.push('좌우 '+fmt(s.side)+'m');
     if(more.length) h+='<div class="shot-more">'+more.map(esc).join('<span>·</span>')+'</div>';
     if(hasV && window.__R2BASE!==null){
-      var idx=shots.indexOf(s);
       h+='<div class="angles">'
-        +(s.dl?'<button class="ang" onclick="vwOpen(\''+esc(key)+'\','+idx+',\'dl\')">▶ 측면</button>':'')
-        +(s.fo?'<button class="ang fo" onclick="vwOpen(\''+esc(key)+'\','+idx+',\'fo\')">▶ 정면</button>':'')
-        +(s.clubv?'<button class="ang cl" onclick="vwOpen(\''+esc(key)+'\','+idx+',\'clubv\')">▶ 클럽</button>':'')
+        +(__playable(s.dl)?'<button class="ang" data-g="'+gi+'" data-i="'+i+'" data-a="dl">▶ 측면</button>':'')
+        +(__playable(s.fo)?'<button class="ang fo" data-g="'+gi+'" data-i="'+i+'" data-a="fo">▶ 정면</button>':'')
+        +(__playable(s.clubv)?'<button class="ang cl" data-g="'+gi+'" data-i="'+i+'" data-a="clubv">▶ 클럽</button>':'')
         +'</div>';
     }
     h+='</div>';
   });
-  if(shots.length>limit) h+='<button class="more-btn" onclick="rptMore(\''+esc(key)+'\')">이전 기록 더 보기 ('+(shots.length-limit)+'구 남음)</button>';
+  if(shots.length>limit) h+='<button class="more-btn" data-more="'+gi+'">이전 기록 더 보기 ('+(shots.length-limit)+'구 남음)</button>';
   else if(g.truncated) h+='<div class="note">오래된 기록은 리포트에서 생략됐어요. 전체 기록은 담당 지도자에게 요청하세요.</div>';
   box.innerHTML=h;
 }
-function rptMore(key){ __RPT.shown[key]=(__RPT.shown[key]||10)+20; rptClub(key); var sel=document.getElementById('club-body'); }
+function __wireClubBody(){
+  var box=document.getElementById('club-body'); if(!box||box.getAttribute('data-wired')) return;
+  box.setAttribute('data-wired','1');
+  box.addEventListener('click', function(e){
+    var b=e.target&&e.target.closest?e.target.closest('button'):null; if(!b) return;
+    if(b.hasAttribute('data-more')){ var gi=parseInt(b.getAttribute('data-more'),10); var g=__RPT.byClub[gi]; if(!g) return; __RPT.shown[g.key]=(__RPT.shown[g.key]||10)+20; var y=b.getBoundingClientRect().top; rptClub(g.key); return; }
+    if(b.classList.contains('ang')) vwOpen(parseInt(b.getAttribute('data-g'),10), parseInt(b.getAttribute('data-i'),10), b.getAttribute('data-a'));
+  });
+}
 function rptTab(which){
   [].slice.call(document.querySelectorAll('.tab')).forEach(function(b){ b.classList.toggle('on', b.classList.contains(which)); });
   [].slice.call(document.querySelectorAll('.tab-pane')).forEach(function(p){ var on=p.getAttribute('data-tab')===which; p.classList.toggle('on',on); if(!on) [].slice.call(p.querySelectorAll('video')).forEach(function(v){ try{v.pause();}catch(e){} }); });
 }
 function __logList(list, kind, canVid, vurl, esc){
-  if(!list.length) return '<div class="empty">'+(kind==='pro'?'아직 골프 레슨 일지가 없어요':'아직 PT 레슨 일지가 없어요')+'</div>';
+  if(!list.length) return '<div class="empty">'+(kind==='pro'?'아직 골프 레슨 일지가 없어요.<br>레슨 후 담당 프로가 작성하면 여기에 보여요.':'아직 PT 레슨 일지가 없어요.')+'</div>';
   var h='';
   list.forEach(function(s,i){
     var hidden=i>=5;
@@ -418,8 +436,9 @@ function __logList(list, kind, canVid, vurl, esc){
       +'<div class="log-h"><span class="log-date">'+esc(String(s.date||'').replace(/-/g,'.'))+(s.time?' '+esc(s.time):'')+'</span><span class="log-who">'+esc(s.author||'')+'</span></div>'
       +'<div class="log-body">'+__md(s.content||'')+'</div>';
     (s.videos||[]).forEach(function(v){
-      if(v.key && canVid){
-        h+='<div class="log-video"><video '+(hidden?('data-src="'+vurl(v.key)+'"'):('src="'+vurl(v.key)+'"'))+' controls playsinline preload="none"></video></div>'
+      if(v.key && canVid && __playable(v.key)){
+        var u=vurl(v.key)+'#t=0.001';
+        h+='<div class="log-video"><video '+(hidden?('data-src="'+u+'"'):('src="'+u+'"'))+' controls playsinline preload="metadata"></video></div>'
           +'<div class="log-dl"><button class="dl-btn" data-k="'+esc(v.key)+'" data-n="레슨영상_'+esc(s.date||'')+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div>';
       }
     });
@@ -448,11 +467,12 @@ function __baInner(p, open, vurl, esc, fmt){
 function __paneHTML(p, open, vurl, esc, fmt){
   var vAttr=function(key){ var u=vurl(key); return open?('src="'+u+'"'):('data-src="'+u+'"'); };
   var cap=function(x){ var cm=__distM(x.carry,x.metric); return '<div class="ba-cap">'+esc(x.club||'샷')+(cm!=null?'<small>캐리 '+fmt(cm)+'m</small>':'')+'</div>'; };
+  var pi=__RPT.baPanes.length; __RPT.baPanes.push(p);   // 뷰어에서 크게 볼 때 참조 (숫자 인덱스만 핸들러에 넣음)
   var inner='';
   if(p.b&&p.a){
     inner+='<div class="ba-grid">'
-      +'<div class="ba-col"><div class="ba-lab b">BEFORE</div><video '+vAttr(p.b.key)+' playsinline muted loop preload="metadata"></video>'+cap(p.b)+'</div>'
-      +'<div class="ba-col"><div class="ba-lab a">AFTER</div><video '+vAttr(p.a.key)+' playsinline muted loop preload="metadata"></video>'+cap(p.a)+'</div>'
+      +'<div class="ba-col"><div class="ba-lab b">BEFORE</div><video '+vAttr(p.b.key)+' playsinline muted loop preload="metadata"></video>'+cap(p.b)+'<button class="ba-big" onclick="vwOpenBA('+pi+',\'b\')">⤢ 크게 보기</button></div>'
+      +'<div class="ba-col"><div class="ba-lab a">AFTER</div><video '+vAttr(p.a.key)+' playsinline muted loop preload="metadata"></video>'+cap(p.a)+'<button class="ba-big" onclick="vwOpenBA('+pi+',\'a\')">⤢ 크게 보기</button></div>'
       +'</div>'
       +'<div class="ba-ctrl"><button class="ba-btn play ba-play">▶ 함께 재생</button><button class="ba-btn ba-restart">⏮ 처음부터</button></div>'
       +'<div class="ba-speeds">'+[0.25,0.5,1].map(function(sp){return '<button class="ba-sp'+(sp===1?' on':'')+'" data-sp="'+sp+'">'+(sp===1?'보통 속도':(sp===0.5?'½ 느리게':'¼ 느리게'))+'</button>';}).join('')+'</div>'
@@ -468,59 +488,104 @@ function __paneHTML(p, open, vurl, esc, fmt){
     var one=p.b||p.a, isB=!!p.b;
     if(one) inner+='<div class="ba-one"><div class="ba-lab '+(isB?'b':'a')+'" style="border-radius:14px 14px 0 0">'+(isB?'BEFORE':'AFTER')+'</div>'
       +'<div class="ba-onev"><video '+vAttr(one.key)+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'+cap(one)
+      +'<button class="ba-big" style="border-radius:0 0 14px 14px" onclick="vwOpenBA('+pi+',\''+(isB?'b':'a')+'\')">⤢ 크게 보기</button>'
       +'<div class="ba-dlrow"><button class="dl-btn" data-k="'+esc(one.key)+'" data-n="스윙_'+esc(p.date||String(one.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div></div>';
   }
   return inner;
 }
 
 // ── 영상 뷰어 — 전체 화면 오버레이: 측면/정면/클럽 전환 · 이전/다음 샷 · 전체 화면 · 저장 ──
-function vwOpen(key, idx, angle){
-  var g=null; __RPT.byClub.forEach(function(x){ if(x.key===key) g=x; });
-  if(!g) return;
-  var list=(g.shots||[]).filter(function(s){ return s.dl||s.fo||s.clubv; });
+// 폰의 '뒤로'가 페이지를 떠나지 않고 뷰어를 닫도록 history 에 상태를 쌓는다.
+function vwOpen(gi, idx, angle){
+  var g=__RPT.byClub[gi]; if(!g) return;
+  var list=(g.shots||[]).filter(function(s){ return __playable(s.dl)||__playable(s.fo)||__playable(s.clubv); });
   var target=(g.shots||[])[idx]; var i=list.indexOf(target); if(i<0) i=0;
-  __RPT.vw={ list:list, i:i, angle:angle||'dl', name:g.name };
+  __vwStart(list, i, angle||'dl', g.name);
+}
+// 비포·애프터 한쪽을 크게 — 비포·애프터 두 영상을 목록으로 (이전/다음으로 서로 오감)
+function vwOpenBA(pi, which){
+  var p=__RPT.baPanes[pi]; if(!p) return;
+  var toShot=function(x,lab){ if(!x) return null; var cm=__distM(x.carry,x.metric); return { ts:x.ts||'', club:(lab+' · '+(x.club||'')), carry:cm, dl:__playable(x.dl||x.key)?(x.dl||x.key):null, fo:__playable(x.fo)?x.fo:null, clubv:__playable(x.clubv)?x.clubv:null }; };
+  var list=[toShot(p.b,'BEFORE'), toShot(p.a,'AFTER')].filter(Boolean);
+  var i=(which==='a'&&p.b&&p.a)?1:0;
+  if(!list.length) return;
+  __vwStart(list, i, 'dl', '비포·애프터');
+}
+function __vwStart(list, i, angle, name){
+  __RPT.vw={ list:list, i:i, angle:angle, name:name };
   document.getElementById('vw').classList.add('on');
-  try{ document.body.style.overflow='hidden'; }catch(e){}
+  __lockScroll(true);
+  try{ history.pushState({vw:1},''); __RPT.vwHist=true; }catch(e){ __RPT.vwHist=false; }
+  var fb=document.getElementById('vw-full'); if(fb){ var v=document.getElementById('vw-video'); fb.style.display=(v.webkitEnterFullscreen||document.fullscreenEnabled!==false)?'':'none'; }
   vwShow();
 }
 function vwShow(){
   var st=__RPT.vw, s=st.list[st.i]; if(!s) return;
-  var ang=st.angle; if(!s[ang]) ang=s.dl?'dl':(s.fo?'fo':'clubv'); st.angle=ang;
+  var ang=st.angle; if(!__playable(s[ang])) ang=__playable(s.dl)?'dl':(__playable(s.fo)?'fo':'clubv'); st.angle=ang;
   var v=document.getElementById('vw-video');
-  var u=__vurl(s[ang]);
-  if(v.getAttribute('data-k')!==s[ang]){ v.setAttribute('data-k', s[ang]); v.src=u; try{ v.load(); }catch(e){} v.play().catch(function(){}); }
+  var key=s[ang], u=__vurl(key);
+  if(v.getAttribute('data-k')!==key){ v.setAttribute('data-k', key); v.src=u; try{ v.load(); }catch(e){} }
+  else { try{ v.currentTime=0; }catch(e){} }
+  v.play().catch(function(){});
   var names={dl:'측면', fo:'정면', clubv:'클럽 딜리버리'};
-  document.getElementById('vw-title').innerHTML=__esc(__fmtDay(__dayOf(s.ts)))+' '+__esc(__hm(s.ts))+' · '+__esc(s.club||st.name)+'<small>'+names[ang]+(s.carry!=null?' · 캐리 '+__fmt(s.carry)+'m':'')+(s.ball!=null?' · 볼 '+__fmt(s.ball,1)+'m/s':'')+'</small>';
-  [].slice.call(document.querySelectorAll('.vw-ang')).forEach(function(b){ var a=b.getAttribute('data-a'); b.disabled=!s[a]; b.classList.toggle('on', a===ang); });
+  document.getElementById('vw-title').innerHTML=__esc(s.ts?__fmtDay(__dayOf(s.ts))+' '+__hm(s.ts)+' · ':'')+__esc(s.club||st.name)+'<small>'+names[ang]+(s.carry!=null?' · 캐리 '+__fmt(s.carry)+'m':'')+(s.ball!=null?' · 볼 '+__fmt(s.ball,1)+'m/s':'')+'</small>';
+  [].slice.call(document.querySelectorAll('.vw-ang')).forEach(function(b){ var a=b.getAttribute('data-a'); b.disabled=!__playable(s[a]); b.classList.toggle('on', a===ang); });
   document.getElementById('vw-prev').disabled=(st.i<=0);
   document.getElementById('vw-next').disabled=(st.i>=st.list.length-1);
-  document.getElementById('vw-cnt').textContent=(st.i+1)+' / '+st.list.length+' · ‹ › 로 다른 샷';
-  var dl=document.getElementById('vw-dl'); dl.setAttribute('data-k', s[ang]); dl.setAttribute('data-n', '스윙_'+__dayOf(s.ts)+'_'+names[ang]);
+  document.getElementById('vw-cnt').textContent=st.list.length>1?((st.i+1)+' / '+st.list.length+' · 양옆 버튼으로 다른 샷'):'';
+  var dl=document.getElementById('vw-dl'); dl.setAttribute('data-k', key); dl.setAttribute('data-n', '스윙_'+(s.ts?__dayOf(s.ts):'')+'_'+names[ang]); dl.innerHTML='⬇ 저장'; dl._file=null;
 }
-function vwAngle(a){ var s=__RPT.vw.list[__RPT.vw.i]; if(!s||!s[a]) return; __RPT.vw.angle=a; vwShow(); }
+function vwAngle(a){ var s=__RPT.vw.list[__RPT.vw.i]; if(!s||!__playable(s[a])) return; __RPT.vw.angle=a; vwShow(); }
 function vwStep(d){ var st=__RPT.vw; var n=st.i+d; if(n<0||n>=st.list.length) return; st.i=n; vwShow(); }
-function vwClose(){ var v=document.getElementById('vw-video'); try{ v.pause(); }catch(e){} document.getElementById('vw').classList.remove('on'); try{ document.body.style.overflow=''; }catch(e){} }
+function vwClose(fromHistory){
+  var ov=document.getElementById('vw'); if(!ov.classList.contains('on')) return;
+  var v=document.getElementById('vw-video'); try{ v.pause(); v.removeAttribute('src'); v.removeAttribute('data-k'); v.load(); }catch(e){}
+  ov.classList.remove('on');
+  __lockScroll(false);
+  if(!fromHistory && __RPT.vwHist){ __RPT.vwHist=false; try{ history.back(); }catch(e){} }
+  __RPT.vwHist=false;
+}
+try{ window.addEventListener('popstate', function(){ if(document.getElementById('vw').classList.contains('on')) vwClose(true); }); }catch(e){}
+// iOS 사파리·카톡 브라우저는 body overflow:hidden 으로 뒤 화면 스크롤이 안 막힌다 → position:fixed 로 고정
+function __lockScroll(on){
+  try{
+    if(on){ __RPT.lock=window.pageYOffset||document.documentElement.scrollTop||0; document.body.style.position='fixed'; document.body.style.top=(-__RPT.lock)+'px'; document.body.style.left='0'; document.body.style.right='0'; document.body.style.width='100%'; }
+    else { document.body.style.position=''; document.body.style.top=''; document.body.style.left=''; document.body.style.right=''; document.body.style.width=''; window.scrollTo(0, __RPT.lock||0); }
+  }catch(e){}
+}
 function vwFull(){
   var v=document.getElementById('vw-video');
-  try{ if(v.webkitEnterFullscreen){ v.webkitEnterFullscreen(); return; } }catch(e){}      // 아이폰 사파리
-  try{ if(v.requestFullscreen){ v.requestFullscreen(); return; } }catch(e){}
-  try{ var st=document.getElementById('vw'); if(st.requestFullscreen) st.requestFullscreen(); }catch(e){}
+  if(v.webkitEnterFullscreen){   // 아이폰 사파리 — 메타데이터 로드 전엔 거부되므로 기다렸다가
+    var go=function(){ try{ v.webkitEnterFullscreen(); }catch(e){} };
+    if(v.readyState>=1) go(); else v.addEventListener('loadedmetadata', go, {once:true});
+    return;
+  }
+  var p=null;
+  try{ if(v.requestFullscreen) p=v.requestFullscreen(); }catch(e){}
+  var fallback=function(){ try{ var st=document.getElementById('vw'); if(st.requestFullscreen) st.requestFullscreen().catch(function(){}); }catch(e){} };
+  if(p&&p.catch) p.catch(fallback); else if(!p) fallback();
 }
 try{ document.addEventListener('keydown', function(e){ if(!document.getElementById('vw').classList.contains('on')) return; if(e.key==='Escape') vwClose(); if(e.key==='ArrowLeft') vwStep(-1); if(e.key==='ArrowRight') vwStep(1); }); }catch(e){}
 
-// ── 글자 크기 — 기본이 이미 크고, 누르면 한 단계 더 (기기에 기억) ──
+// ── 글자 크기 — 기본이 이미 크고, 누르면 한 단계 더 (기기에 기억). 버튼 글자는 px 고정이라 깨지지 않는다 ──
 var _RPT_SCALES=[1,1.2,1.4];
 function _rptZoomIdx(){ var i=0; try{ i=parseInt(localStorage.getItem('rpt_ts2')||'0',10)||0; }catch(e){} return ((i%_RPT_SCALES.length)+_RPT_SCALES.length)%_RPT_SCALES.length; }
 function _rptApplyZoom(){ var i=_rptZoomIdx(); document.documentElement.style.fontSize=(17*_RPT_SCALES[i])+'px'; var b=document.getElementById('rp-zoom-l'); if(b) b.textContent=['크게','더 크게','보통'][i]; }
 function rptZoom(){ var i=(_rptZoomIdx()+1)%_RPT_SCALES.length; try{ localStorage.setItem('rpt_ts2',String(i)); }catch(e){} _rptApplyZoom(); }
 
 // ── 영상 다운로드 — 아이폰: 공유시트(사진 앱에 저장) · 갤럭시/PC: 파일 다운로드 ──
+// 아이폰의 공유시트는 탭 직후에만 열 수 있어, 1탭: 내려받기 → 2탭: '📲 사진에 저장' 으로 공유시트.
+function __isIOS(){ return /iP(hone|ad|od)/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&(navigator.maxTouchPoints||0)>1); }
 async function rptDownload(btn){
   var key=btn.getAttribute('data-k'), name=btn.getAttribute('data-n')||'video';
   if(!key||btn._busy) return;
   var base=window.__R2BASE;
   if(base==null){ alert('영상 다운로드를 사용할 수 없습니다.'); return; }
+  var isIOS=__isIOS() && !!navigator.canShare && typeof File!=='undefined';
+  if(isIOS && btn._file && btn._fileKey===key){
+    try{ if(navigator.canShare({files:[btn._file]})){ await navigator.share({files:[btn._file]}); btn.innerHTML='✅ 완료'; setTimeout(function(){ btn.innerHTML='⬇ 저장'; btn._file=null; },1800); return; } }
+    catch(e){ if(e&&e.name==='AbortError') return; btn.innerHTML='📲 사진에 저장 (다시 탭)'; return; }
+  }
   var url=(base||'')+'/'+encodeURIComponent(key);
   var extM=String(key).match(/\.(mp4|mov|webm|m4v)$/i);
   var fname=(name.replace(/[\\/:*?"<>|]/g,'_'))+'.'+(extM?extM[1].toLowerCase():'mp4');
@@ -536,10 +601,10 @@ async function rptDownload(btn){
       while(true){ var c=await reader.read(); if(c.done) break; chunks.push(c.value); got+=c.value.length; if(total) btn.innerHTML=Math.min(99,Math.round(got/total*100))+'%'; }
       blob=new Blob(chunks,{type:'video/mp4'});
     } else blob=await res.blob();
-    var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&(navigator.maxTouchPoints||0)>1);
-    if(isIOS && navigator.canShare && typeof File!=='undefined'){
-      try{ var f=new File([blob],fname,{type:'video/mp4'}); if(navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); restore('✅ 완료'); return; } }
-      catch(e){ if(e&&e.name==='AbortError'){ restore(); return; } }
+    if(isIOS){
+      var f=new File([blob],fname,{type:'video/mp4'});
+      btn._file=f; btn._fileKey=key; btn._busy=0; btn.disabled=false; btn.innerHTML='📲 사진에 저장 (한 번 더 탭)';
+      return;
     }
     var bu=URL.createObjectURL(blob);
     var a=document.createElement('a'); a.href=bu; a.download=fname;
@@ -553,6 +618,7 @@ async function rptDownload(btn){
 function __acc(h){
   var box=h.parentNode;
   var open=box.classList.toggle('open');
+  var lab=box.querySelector('.ba-arw'); if(lab) lab.textContent=open?'접기 ▲':'펼치기 ▼';
   if(open){
     [].slice.call(box.querySelectorAll('video[data-src]')).forEach(function(v){
       var pn=v.closest ? v.closest('.ba-pane') : null; if(pn && !pn.classList.contains('on')) return;
