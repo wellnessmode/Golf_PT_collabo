@@ -73,12 +73,24 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent;line-height:1
 .shot-club{font-size:.95rem;font-weight:800;color:var(--tx3)}
 .tag{font-size:13px;font-weight:900;letter-spacing:.06em;padding:4px 10px;border-radius:999px;color:#fff}
 .tag.b{background:var(--amber)} .tag.a{background:var(--acd)}
-.shot-nums{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;align-items:baseline}
-.sn{font-size:.85rem;color:var(--tx3);font-weight:800}
-.sn b{display:block;font-size:1.45rem;color:var(--tx);font-weight:900;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
-.sn b small{font-size:.8rem;color:var(--tx3);font-weight:800}
-.sn.main b{color:var(--acd);font-size:1.7rem}
-.shot-more{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:.85rem;color:var(--tx3);font-weight:700}
+/* 수치는 표처럼: 주요 4개는 4칸 격자, 세부 수치는 2열 항목·값 표 */
+.shot-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.sn{min-width:0;background:var(--bg);border-radius:12px;padding:8px 8px 6px;text-align:center}
+.sn span{display:block;font-size:.78rem;color:var(--tx3);font-weight:800;white-space:nowrap}
+.sn b{display:block;font-size:1.3rem;color:var(--tx);font-weight:900;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sn b small{font-size:.75rem;color:var(--tx3);font-weight:800}
+.sn.main{background:#e8f6ef}
+.sn.main b{color:var(--acd);font-size:1.45rem}
+.shot-tbl{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--brd)}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0;font-size:.92rem;padding:3px 0;border-bottom:1px solid rgba(13,20,28,.05)}
+.kv span{color:var(--tx3);font-weight:700;white-space:nowrap}
+.kv b{font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--tx)}
+/* 카톡 등 앱 안 브라우저에서 열렸을 때 안내 바 */
+.inapp{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff7d6;border-bottom:2px solid #f0c36a;color:#5a4a20;font-size:.9rem;font-weight:800;line-height:1.35}
+.inapp span{flex:1;min-width:0}
+.inapp button{min-height:44px;padding:8px 14px;border-radius:12px;border:none;background:#0d1114;color:#fff;font-size:15px;font-weight:900;cursor:pointer;white-space:nowrap}
+.inapp .x{background:transparent;color:#8a7430;min-height:44px;padding:0 8px;font-size:20px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);background:rgba(13,17,20,.92);color:#fff;font-size:15px;font-weight:800;padding:12px 18px;border-radius:999px;z-index:120;max-width:90vw;text-align:center;line-height:1.4}
 .angles{display:flex;gap:8px;margin-top:12px}
 .ang{flex:1;min-height:52px;padding:8px 6px;border-radius:14px;border:none;background:var(--tx);color:#fff;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .ang.fo{background:var(--pro)} .ang.cl{background:#5a4a20}
@@ -228,6 +240,15 @@ function renderReport(c, meta){
   __RPT.byClub=byClub; __RPT.shown={}; __RPT.baPanes=[];
   var html='';
 
+  // ── 카톡 등 앱 안 브라우저: 뒤로가기 한 번에 닫히므로 기본 브라우저로 여는 길을 맨 위에
+  var inApp=__inApp();
+  if(inApp){
+    html+='<div class="inapp" id="inapp">'+(inApp==='kakao'
+      ? '<span>카카오톡 안에서 열렸어요. 뒤로가기를 누르면 닫힐 수 있어요.</span><button onclick="rptOpenExternal()">기본 브라우저로 열기</button>'
+      : '<span>앱 안에서 열렸어요. 우측 상단 메뉴의 "다른 브라우저로 열기"를 쓰면 뒤로가기로 닫히지 않아요.</span>')
+      +'<button class="x" onclick="document.getElementById(\'inapp\').remove()" aria-label="닫기">✕</button></div>';
+  }
+
   // ── 히어로: "OO님의 골프 성장기"
   var updDay=String(c.publishedAt||meta.createdAt||'').slice(0,10);
   var days=null; try{ if(m.registeredDate){ days=Math.max(0,Math.floor((Date.now()-new Date(String(m.registeredDate)+'T00:00:00').getTime())/86400000)); if(!isFinite(days)) days=null; } }catch(e){}
@@ -301,6 +322,27 @@ function renderReport(c, meta){
   if(byClub.length){ rptClub(__defaultClub(byClub)); __wireClubBody(); }
   [].slice.call(document.querySelectorAll('.ba-wrap.open .ba-pane.on, .ba-wrap:not(.ba-day) .ba-pane.on')).forEach(wireBA);
   _rptApplyZoom();
+  __backGuard();
+}
+// 앱 안 브라우저 감지 — 카카오톡은 외부 브라우저로 여는 전용 주소가 있다
+function __inApp(){ var ua=navigator.userAgent||''; if(/KAKAOTALK/i.test(ua)) return 'kakao'; if(/NAVER\(inapp|Line\/|FBAN|FBAV|Instagram/i.test(ua)) return 'other'; return ''; }
+function rptOpenExternal(){
+  try{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href); }catch(e){}
+  setTimeout(function(){ __toast('열리지 않으면 우측 상단 ⋮ 메뉴 → 다른 브라우저로 열기'); }, 1500);
+}
+function __toast(msg){ try{ var t=document.getElementById('rpt-toast'); if(!t){ t=document.createElement('div'); t.id='rpt-toast'; t.className='toast'; document.body.appendChild(t); } t.textContent=msg; t.style.display=''; clearTimeout(t._tm); t._tm=setTimeout(function(){ t.style.display='none'; }, 3200); }catch(e){} }
+// 앱 안 브라우저에서 실수로 뒤로가기 → 첫 번째는 페이지를 지키고 안내, 한 번 더 누르면 나간다
+function __backGuard(){
+  if(!__inApp() || window.__rptGuard) return;
+  window.__rptGuard=true;
+  try{ history.pushState({guard:1},''); }catch(e){ return; }
+  window.addEventListener('popstate', function(e){
+    var st=e&&e.state;
+    if(st&&(st.guard||st.vw)) return;   // 뷰어 닫기 등 페이지 안에서의 이동(상태가 남아 있음)은 무시 — 진짜 나가기 직전만
+    if(window.__rptGuardUsed) return;
+    window.__rptGuardUsed=true;
+    __toast('뒤로가기를 한 번 더 누르면 카카오톡으로 돌아갑니다');
+  });
 }
 
 // ───────── 도우미 ─────────
@@ -392,15 +434,15 @@ function rptClub(key){
     var hasV=__playable(s.dl)||__playable(s.fo)||__playable(s.clubv);
     h+='<div class="shot"><div class="shot-top"><span class="shot-time">'+esc(__hm(s.ts))+'</span><span class="shot-club">'+esc(s.club||g.name)+'</span>'
       +(s.tag==='before'?'<span class="tag b">BEFORE</span>':(s.tag==='after'?'<span class="tag a">AFTER</span>':''))+'</div>'
-      +'<div class="shot-nums"><span class="sn main">캐리<b>'+__fmtU(s.carry,'m')+'</b></span>'
-      +(s.total!=null?'<span class="sn">토탈<b>'+fmt(s.total)+'<small>m</small></b></span>':'')
-      +(s.ball!=null?'<span class="sn">볼<b>'+fmt(s.ball,1)+'<small>m/s</small></b></span>':'')
-      +(s.smash!=null?'<span class="sn">스매시<b>'+fmt(s.smash,2)+'</b></span>':'')
+      +'<div class="shot-nums"><div class="sn main"><span>캐리</span><b>'+__fmtU(s.carry,'m')+'</b></div>'
+      +'<div class="sn"><span>토탈</span><b>'+__fmtU(s.total,'m')+'</b></div>'
+      +'<div class="sn"><span>볼 스피드</span><b>'+__fmtU(s.ball,'m/s',1)+'</b></div>'
+      +'<div class="sn"><span>스매시</span><b>'+__fmtU(s.smash,'',2)+'</b></div>'
       +'</div>';
-    var more=[];
-    if(s.clubSpd!=null) more.push('클럽 '+fmt(s.clubSpd,1)+'m/s'); if(s.launch!=null) more.push('발사각 '+fmt(s.launch,1)+'°'); if(s.spin!=null) more.push('스핀 '+fmt(s.spin)+'rpm');
-    if(s.path!=null) more.push('패스 '+fmt(s.path,1)+'°'); if(s.face!=null) more.push('페이스 '+fmt(s.face,1)+'°'); if(s.attack!=null) more.push('어택 '+fmt(s.attack,1)+'°'); if(s.side!=null) more.push('좌우 '+fmt(s.side)+'m');
-    if(more.length) h+='<div class="shot-more">'+more.map(esc).join('<span>·</span>')+'</div>';
+    var kv=[];
+    if(s.clubSpd!=null) kv.push(['클럽 스피드',fmt(s.clubSpd,1)+' m/s']); if(s.launch!=null) kv.push(['발사각',fmt(s.launch,1)+'°']); if(s.spin!=null) kv.push(['스핀',fmt(s.spin)+' rpm']);
+    if(s.path!=null) kv.push(['클럽 패스',fmt(s.path,1)+'°']); if(s.face!=null) kv.push(['페이스 각',fmt(s.face,1)+'°']); if(s.attack!=null) kv.push(['어택 앵글',fmt(s.attack,1)+'°']); if(s.side!=null) kv.push(['좌우 편차',fmt(s.side)+' m']);
+    if(kv.length) h+='<div class="shot-tbl">'+kv.map(function(x){ return '<div class="kv"><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>'; }).join('')+'</div>';
     if(hasV && window.__R2BASE!==null){
       h+='<div class="angles">'
         +(__playable(s.dl)?'<button class="ang" data-g="'+gi+'" data-i="'+i+'" data-a="dl">▶ 측면</button>':'')
