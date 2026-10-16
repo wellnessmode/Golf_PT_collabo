@@ -355,7 +355,9 @@ async function sharePerfSummary(){
   var mid=S.perfMember||S.selectedMember;
   var m=S.members.find(function(x){return x.id===mid;});
   var data=buildPerfData(mid);
-  if(!m||!data){ alert('공유할 데이터가 없습니다.'); return; }
+  if(!m){ alert('회원을 찾을 수 없습니다.'); return; }
+  if(m.reportDirty && !_canReview(m)){ alert('검토 대기 중인 리포트입니다. 검토는 마지막으로 일지를 남긴 '+_reviewOwner(m)+' 담당이에요.\n검토가 끝난 뒤 공유해 주세요.'); return; }
+  if(!data){ alert('공유할 데이터가 없습니다.'); return; }
   if(typeof cloud==='undefined'||!cloud.enabled){ alert('클라우드 미연결 — 공유 링크를 만들 수 없습니다.'); return; }
   try{ liveToastSafe('📤 고객용 리포트 링크 생성 중...'); }catch(e){}
   await _withMemberShots(data, mid);   // 이 회원의 샷 전체(서버) — 라이브 캐시 1000건 한계 회피
@@ -385,7 +387,7 @@ async function sharePerfSummary(){
   var saved=await _saveReportRow(row);
   if(!saved){ alert('리포트 링크 생성 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
   // 공유 = 최신 내용 발행이므로 '검토 대기' 해제
-  if(m.reportDirty){ delete m.reportDirty; try{ window.__rvLocalAt=Date.now(); }catch(e){} try{ syncMemberUp(m,{clearReportDirty:true}); }catch(e){ try{ save(); }catch(_){} } }
+  if(m.reportDirty){ delete m.reportDirty; delete m.reportDirtyBy; try{ window.__rvLocalAt=Date.now(); }catch(e){} try{ syncMemberUp(m,{clearReportDirty:true}); }catch(e){ try{ save(); }catch(_){} } }
   // 공유 링크는 자체 서버(워커) 주소로 — 깃허브 주소가 고객에게 노출되지 않고,
   // 워커 페이지에는 키/설정이 전혀 없다. REPORT_BASE(전용 도메인)가 응답하면 그 주소로,
   // 응답이 없으면 워커 기본 주소로. 둘 다 없으면 기존 report.html 경로(구버전 폴백).
@@ -396,7 +398,7 @@ async function sharePerfSummary(){
   // 링크는 문구 끝에 한 칸 띄고 바로 붙인다 — 줄바꿈으로 분리하면 카톡이 링크를
   // 미리보기 카드로 빼가면서 문구 끝에 빈 줄이 남는다. (url 필드를 따로 주면
   // iOS 가 줄바꿈으로 이어붙이므로 text 안에 포함해서 보냄)
-  var text=APP_BRAND.store+' — '+m.name+' 회원님 성과 리포트입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.\n이 링크는 레슨 때마다 자동으로 최신 내용으로 갱신됩니다 — 즐겨찾기 해두세요! '+link;
+  var text=APP_BRAND.store+' — '+m.name+' 회원님 골프 성장기입니다.\n측정 데이터·비포/애프터 영상·레슨 일지를 한눈에 보실 수 있어요.\n이 링크는 레슨 때마다 자동으로 최신 내용으로 갱신됩니다 — 즐겨찾기 해두세요!\n(카톡 안에서 열면 화면 위 [기본 브라우저로 열기]를 누르시면 더 편해요) '+link;
   try{ if(navigator.share){ await navigator.share({title:m.name+' 성과 리포트', text:text}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
   try{ await navigator.clipboard.writeText(text); alert('리포트 링크가 복사되었습니다 — 카카오톡에 붙여넣기 하세요.\n\n'+link); return; }catch(e){}
   prompt('아래 링크를 복사해 회원님께 보내주세요:', link);
@@ -418,21 +420,42 @@ function _memberFixedReportId(m){
 // 리포트 변경 대기 표시 — 일지/샷이 바뀌면 바로 발행하지 않고 "검토 대기"로만 표시.
 // 프로가 성과 리포트에서 내용을 검토하고 [검토 완료] 버튼을 눌러야 회원 링크에 반영된다.
 // (AI 정리 오류·잘못 저장된 영상이 검토 없이 회원에게 나가는 것 방지)
-function autoPublishReport(mid){ markReportDirty(mid); }   // 기존 호출부 호환
-function markReportDirty(mid){
+function autoPublishReport(mid, by){ markReportDirty(mid, by); }   // 기존 호출부 호환
+// by = 이번 변경을 만든 담당자. "마지막으로 최신화한 사람"이 검토 담당이 된다 (reportDirtyBy).
+function markReportDirty(mid, by){
   try{
     var m=S.members.find(function(x){return x.id===mid;});
     if(!m || !m.reportId) return;                       // 링크를 준 적 없는 회원은 대상 아님
-    if(m.reportDirty) return;
-    m.reportDirty=new Date().toISOString();
+    var who=by||S.currentUser||'';
+    if(m.reportDirty && (!who || m.reportDirtyBy===who)) return;
+    if(!m.reportDirty) m.reportDirty=new Date().toISOString();
+    if(who) m.reportDirtyBy=who;
     try{ syncMemberUp(m); }catch(e){ try{ save(); }catch(_){} }   // 다른 기기(다른 프로·관리자)에도 대기 표시 — 실패하면 _dirty 로 남아 재시도
   }catch(e){}
+}
+// 검토 담당 = 마지막으로 일지·영상을 최신화한 담당자. 기록이 없으면 마지막 일지 작성자, 그것도 없으면 담당자 누구나.
+function _reviewOwner(m){
+  if(!m) return '';
+  var o='';
+  if(m.reportDirtyBy) o=String(m.reportDirtyBy);
+  else { try{ var last=(S.sessions[m.id]||[]).slice().sort(sessionCompare)[0]; if(last&&last.author) o=String(last.author); }catch(e){} }
+  // 담당 명단에 없는 사람(관리자 등)이 최신화했으면 담당자 누구나 검토 — 푸시 워커(pendingFromMembers)와 같은 규칙
+  var a=Array.isArray(m.assignedTo)?m.assignedTo:[];
+  if(o && a.length && a.indexOf(o)===-1) return '';
+  return o;
+}
+function _canReview(m){
+  if(!m) return false;
+  if(S.currentRole==='admin') return true;
+  var o=_reviewOwner(m);
+  return !o || o===S.currentUser;
 }
 // [검토 완료] — 지금 화면의 리포트 내용을 회원 고정 링크에 발행
 async function reviewPublishReport(mid){
   var m=S.members.find(function(x){return x.id===mid;});
   if(!m){ alert('회원을 찾을 수 없습니다'); return; }
   if(!m.reportId){ alert('아직 리포트 링크를 공유한 적이 없는 회원입니다.\n[리포트 공유]로 먼저 링크를 만들어 보내주세요.'); return; }
+  if(!_canReview(m)){ alert('이 회원의 검토는 마지막으로 일지를 남긴 '+_reviewOwner(m)+' 담당입니다.\n(가장 최근에 레슨·일지를 올린 담당자만 검토 완료를 누를 수 있어요)'); return; }
   if(typeof cloud==='undefined' || !cloud.enabled){ alert('클라우드 미연결 — 반영할 수 없습니다.'); return; }
   try{ liveToastSafe('📤 회원 리포트에 반영 중...'); }catch(e){}
   try{
@@ -441,7 +464,7 @@ async function reviewPublishReport(mid){
     var content=_buildReportContent(mid, m, data);
     var ok=await _saveReportRow({id:m.reportId, member_id:mid, member_name:m.name, created_by:S.currentUser||'', content:content});
     if(!ok){ alert('반영 실패 — 네트워크 확인 후 다시 시도해주세요.'); return; }
-    delete m.reportDirty;
+    delete m.reportDirty; delete m.reportDirtyBy;
     try{ window.__rvLocalAt=Date.now(); }catch(e){}   // 독촉 창이 클라우드의 옛 표시를 잠시 되살리지 않게
     try{ syncMemberUp(m,{clearReportDirty:true}); }catch(e){ try{ save(); }catch(_){} }
     try{ logActivity('리포트 검토 완료', mid, ''); }catch(e){}
@@ -1018,8 +1041,12 @@ function renderPerformance(){
     +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin') && m.reportId)
       ? '<div class="pv-review'+(m.reportDirty?' dirty':'')+'">'
         +(m.reportDirty
-          ? '<span>📝 저장된 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 아래 내용을 검토하세요</span><button onclick="reviewPublishReport(\''+m.id+'\')">✅ 검토 완료 — 회원 링크에 반영</button>'
-          : '<span>✅ 회원 링크가 최신 상태입니다</span><button class="ghost" onclick="reviewPublishReport(\''+m.id+'\')">다시 반영</button>')
+          ? (_canReview(m)
+              ? '<span>📝 저장된 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 아래 내용을 검토하세요</span><button onclick="reviewPublishReport(\''+m.id+'\')">✅ 검토 완료 — 회원 링크에 반영</button>'
+              : '<span>📝 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 검토는 마지막으로 일지를 남긴 <b>'+esc(_reviewOwner(m))+'</b> 담당입니다</span>')
+          : (_canReview(m)
+              ? '<span>✅ 회원 링크가 최신 상태입니다</span><button class="ghost" onclick="reviewPublishReport(\''+m.id+'\')">다시 반영</button>'
+              : '<span>✅ 회원 링크가 최신 상태입니다</span>'))
         +'</div>'
       : '')
     +(S.perfDemo?'<div class="pv-meta" style="color:#d97706;font-weight:700">※ 상담용 데모 데이터입니다 — 실제 회원 측정값이 아닙니다</div>':'')
@@ -1518,11 +1545,12 @@ function _rvPending(user, role){
   return (S.members||[]).filter(function(m){
     if(!m || m.ownerWatch || !m.reportDirty || !m.reportId) return false;
     if(isAdmin) return true;
-    return Array.isArray(m.assignedTo) && m.assignedTo.indexOf(user)!==-1;
+    if(!(Array.isArray(m.assignedTo) && m.assignedTo.indexOf(user)!==-1)) return false;
+    var o=_reviewOwner(m); return !o || o===user;   // 마지막으로 최신화한 담당자만 검토
   }).map(function(m){
     var days=Math.floor((Date.now()-(Date.parse(m.reportDirty)||Date.now()))/86400000);
     var last=(S.sessions[m.id]||[]).slice().sort(sessionCompare)[0];
-    return { id:m.id, name:m.name, days:days<0?0:days, lastDate:(last&&last.date)?String(last.date).slice(5).replace('-','.'):'', who:(m.assignedTo||[]).join('·') };
+    return { id:m.id, name:m.name, days:days<0?0:days, lastDate:(last&&last.date)?String(last.date).slice(5).replace('-','.'):'', who:(_reviewOwner(m)||(m.assignedTo||[]).join('·')) };
   }).sort(function(a,b){ return b.days-a.days; });
 }
 // 일지·회원 폼이 열려 있거나 업로드 중 — 이때 회원을 바꾸면 작성 중인 일지가 다른 회원에게 저장되므로 절대 끼어들지 않는다
@@ -1552,8 +1580,9 @@ async function _rvRefreshFlags(){
     var changed=false;
     (S.members||[]).forEach(function(m){
       var row=map[m.id]; if(!row || m._dirty) return;
-      var d=row.data||{}; var rd=d.reportDirty||'', rid=d.reportId||'';
+      var d=row.data||{}; var rd=d.reportDirty||'', rid=d.reportId||'', rby=d.reportDirtyBy||'';
       if((m.reportDirty||'')!==rd){ if(rd) m.reportDirty=rd; else delete m.reportDirty; changed=true; }
+      if((m.reportDirtyBy||'')!==rby){ if(rby) m.reportDirtyBy=rby; else delete m.reportDirtyBy; changed=true; }
       if(rid && m.reportId!==rid){ m.reportId=rid; changed=true; }
     });
     var tomb=S.deletedMemberIds||{}; var have={}; (S.members||[]).forEach(function(m){ have[m.id]=true; });
@@ -1594,7 +1623,7 @@ function _rvRender(list){
   var oldest=list[0].days;
   var rows=list.map(function(p){
     var wait=p.days<=0?'오늘':p.days+'일째 대기';
-    var sub=(p.lastDate?'레슨 '+p.lastDate:'')+(isAdmin&&p.who?(p.lastDate?' · ':'')+'담당 '+esc(p.who):'');
+    var sub=(p.lastDate?'레슨 '+p.lastDate:'')+(isAdmin&&p.who?(p.lastDate?' · ':'')+'검토 '+esc(p.who):'');
     return '<button class="rvn-row" data-mid="'+esc(p.id)+'">'
       +'<span>'+esc(p.name)+(sub?'<small>'+sub+'</small>':'')+'</span>'
       +'<i class="drr-days'+(p.days>=3?' late':'')+'">'+wait+'</i>'

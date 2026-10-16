@@ -123,7 +123,7 @@ function saveEditSession(){
   S.showAddSession = false;
   save(); render();
   syncSessionUp(mid, sess);
-  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid, sess.author); }catch(e){}   // 고정 리포트 링크 자동 갱신 — 검토 담당 = 일지 작성자
 }
 
 // ============ 대시보드 ============
@@ -213,7 +213,7 @@ function renderDashboard(){
     ${S.currentRole!=='infodesk'?'<button class="dash-live-btn" onclick="openLiveSession()">🏌️ 수업 센터 <small>타석 레슨 시작 · 트랙맨 샷 자동 저장</small></button>':''}
     ${S.currentRole!=='infodesk'?(function(){ try{ setTimeout(function(){ if(typeof _rvFillPushCta==='function') _rvFillPushCta(); },0); }catch(e){} return '<div id="dash-push-cta" class="rvn-push dash-push-cta">'+(window.__rvCtaHtml||'')+'</div>'; })():''}
     ${(function(){
-      var dm=visibleMembers.filter(function(m){return m.reportDirty&&m.reportId;});
+      var dm=visibleMembers.filter(function(m){return m.reportDirty&&m.reportId&&(isInfo||(typeof _canReview==='function'&&_canReview(m)));});
       if(!dm.length) return '';
       // 오래 밀린 순으로 — 며칠씩 방치된 검토부터 위에
       dm.sort(function(a,b){ return String(a.reportDirty).localeCompare(String(b.reportDirty)); });
@@ -223,8 +223,9 @@ function renderDashboard(){
           var lastD=last&&last.date ? String(last.date).slice(5).replace('-','.') : '';
           var days=Math.floor((Date.now()-(Date.parse(m.reportDirty)||Date.now()))/86400000);
           var wait=days<=0?'오늘':days+'일째 대기';
+          var who=(isInfo&&typeof _reviewOwner==='function')?_reviewOwner(m):'';
           return '<button class="dash-review-row" onclick="selectMember(\''+m.id+'\');openPerformance()">'
-            +'<span>'+m.name+(lastD?'<small>레슨 '+lastD+'</small>':'')+'</span>'
+            +'<span>'+m.name+((lastD||who)?'<small>'+(lastD?'레슨 '+lastD:'')+(who?(lastD?' · ':'')+'검토 '+who:'')+'</small>':'')+'</span>'
             +'<i class="drr-days'+(days>=3?' late':'')+'">'+wait+'</i>'
             +'<em>검토 →</em></button>';
         }).join('')

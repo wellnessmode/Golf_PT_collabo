@@ -80,9 +80,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.94',
-  date:'2026-10-01',
+  version:'v9.95',
+  date:'2026-10-16',
   changes:[
+    '리포트 검토는 마지막으로 일지·영상을 올린 담당자만 — 프로가 마지막 레슨을 했으면 프로에게만, 트레이너면 트레이너에게만 검토 대기·독촉·푸시가 가고 [검토 완료] 버튼도 그 담당자에게만 보임 (회원 이름 옆 알림 점은 두 담당자 모두 유지). 회원 리포트: 폰에서 샷 수치를 표처럼 정렬, 카톡 안에서 열렸을 때 [기본 브라우저로 열기] 버튼과 뒤로가기 보호',
     '회원 리포트 전면 개편 — 첫 화면이 "OO님의 골프 성장기": 클럽 드롭다운(드라이버·우드·유틸리티·아이언·웨지)으로 그 클럽의 저장 영상과 트랙맨 수치를 전부 보고, 측면·정면·클럽 영상을 전체 화면 뷰어에서 넘겨 봄. 비포·애프터 라벨·버튼 큼직하게, 레슨 일지는 골프/PT 탭으로 나눠 바로 보이게, 글자 기본 크게 (회원 링크는 그대로 — 다음 [검토 완료]부터 새 화면)',
     '같이 맡은 회원 알림 — 프로·트레이너가 함께 담당하는 회원의 레슨 일지를 한쪽이 저장하면 다른 담당자에게 알림. 🔔 배지와 회원 이름 옆 빨간 점(미확인)으로 표시되고, 그 회원을 열면 점이 사라짐. 폰 푸시를 켜 두면 즉시 폰으로도 알림',
     '리포트 검토 독촉 — 검토 대기 리포트가 있으면 담당자가 앱을 열 때·복귀할 때·30분마다 대기 목록을 띄움(1시간 뒤 다시 가능). 폰 푸시 알림도 지원: 대시보드의 [🔔 검토 알림을 폰으로 받기]를 켜면 앱을 안 열어도 하루 몇 번 알림, 관리자는 담당자별 요약 (⚠️ 푸시는 golf-pt-push 워커 배포 후 동작 — worker/푸시-알림-배포.md)',
@@ -562,10 +563,10 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
   async upsertMember(m, opts){if(!this.enabled) return false;
     if(!(opts&&opts.clearReportDirty) && (!m.reportDirty || !m.reportId)){
       try{ var cur=await this.client.from('members').select('data').eq('id',m.id).maybeSingle(); var cd=(cur&&cur.data&&cur.data.data)||{};
-        if(!m.reportDirty && cd.reportDirty) m.reportDirty=cd.reportDirty;
+        if(!m.reportDirty && cd.reportDirty){ m.reportDirty=cd.reportDirty; if(cd.reportDirtyBy) m.reportDirtyBy=cd.reportDirtyBy; }
         if(!m.reportId && cd.reportId) m.reportId=cd.reportId; }catch(e){}
     }
-    var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',ownerWatch:m.ownerWatch||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
+    var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',reportDirtyBy:(m.reportDirty?(m.reportDirtyBy||''):''),ownerWatch:m.ownerWatch||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
   // 한 일지의 녹음 원문만 그 자리에서 읽기 — 'AI 정리 대기' 재시도용. 기기에 저장하지 않는다
   // (프로 기기에 원문을 안 남기는 loadAll 설계 유지). 실패/없음이면 '' → 호출측이 본문으로 폴백.

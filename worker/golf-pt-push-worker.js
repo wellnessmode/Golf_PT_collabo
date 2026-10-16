@@ -166,7 +166,13 @@ const TEST_GAP_MS = 60000;          // 테스트 알림은 사용자당 1분 1�
 function daysSince(iso, now) { const t = Date.parse(iso); if (!t) return 0; return Math.max(0, Math.floor((now - t) / 86400000)); }
 function pendingFromMembers(members, now) {
   return (members || []).filter(m => m && m.data && m.data.reportDirty && m.data.reportId && !m.data.ownerWatch)
-    .map(m => ({ id: m.id, name: m.name, days: daysSince(m.data.reportDirty, now), to: Array.isArray(m.data.assignedTo) ? m.data.assignedTo : [] }))
+    .map(m => {
+      const assigned = Array.isArray(m.data.assignedTo) ? m.data.assignedTo : [];
+      const by = m.data.reportDirtyBy ? String(m.data.reportDirtyBy) : '';
+      // 검토 담당 = 마지막으로 최신화한 담당자(reportDirtyBy). 담당 명단에 없으면(관리자 등) 담당자 전원에게.
+      const to = (by && assigned.indexOf(by) !== -1) ? [by] : assigned;
+      return { id: m.id, name: m.name, days: daysSince(m.data.reportDirty, now), to, by };
+    })
     .sort((a, b) => b.days - a.days);
 }
 function dayLabel(d) { return d <= 0 ? '오늘' : d + '일째'; }

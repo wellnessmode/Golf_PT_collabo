@@ -1068,7 +1068,7 @@ function addSession(){
   render();
   syncSessionUp(mid, s);
   generateLocalSummary(mid, s);
-  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid, s.author); }catch(e){}   // 고정 리포트 링크 자동 갱신 — 검토 담당 = 일지 작성자
   try{ if(typeof notifyCoInstructors==='function') notifyCoInstructors(mid, s); }catch(e){}   // 같이 맡은 담당자에게 알림
   render();
   // 녹음 일지를 AI 정리 전(원문 조각 상태)으로 저장한 경우:
@@ -1143,7 +1143,7 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
   }catch(e){}
   try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
   if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
-  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid); }catch(e){}   // 고정 리포트 링크 자동 갱신
+  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid, s.author); }catch(e){}   // 고정 리포트 링크 자동 갱신 — 검토 담당 = 일지 작성자
   try{ render(); }catch(e){}
   try{ var nm=(S.members.find(function(m){return m.id===mid;})||{}).name||''; liveToastSafe('🤖 '+nm+' 일지 AI 정리 완료'); }catch(e){}
   return true;
