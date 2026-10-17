@@ -20,6 +20,8 @@ param(
 $ErrorActionPreference = 'Continue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 function Say($s, $c) { if ($c) { Write-Host $s -ForegroundColor $c } else { Write-Host $s } }
+# GitHub 는 TLS 1.2 만 받는다. 구형 윈도우10(.NET 4.6대)·LTSC 는 기본값이 TLS 1.0 이라 다운로드가 실패하므로 켜 준다.
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 
 # ---------- 관리자 권한 확인 (서비스 설치에 필요) ----------
 $admin = $false
@@ -90,9 +92,11 @@ if (-not $exe) {
 # ---------- 서비스(무인 접속)·영구 비밀번호 설정 ----------
 try { & $exe --install-service 2>&1 | Out-Null } catch {}   # 부팅 시 자동 시작·화면 잠겨도 접속 (버전에 따라 설치 때 이미 됨)
 Start-Sleep -Seconds 5
+# 영구 비밀번호 설정. 네이티브 종료코드는 예외를 안 던지므로 $LASTEXITCODE 로 확인하고, 두 플래그 다 시도한다
+# (버전마다 이름이 --password / --set-password 로 다름). GUI 실행 파일이라 0 을 돌려줄 수도 있어, 확실치 않으면 아래에서 수동 확인을 안내한다.
 $pwOk = $false
-foreach ($flag in @('--password', '--set-password')) {   # 버전마다 플래그 이름이 다름 - 되는 쪽으로
-  try { & $exe $flag $plain 2>&1 | Out-Null; $pwOk = $true; break } catch {}
+foreach ($flag in @('--password', '--set-password')) {
+  try { $global:LASTEXITCODE = 0; & $exe $flag $plain 2>&1 | Out-Null; if ($LASTEXITCODE -eq 0) { $pwOk = $true } } catch {}
 }
 $plain = $null   # 메모리에서 비밀번호 비움
 
@@ -118,8 +122,10 @@ try { $note | Out-File (Join-Path $diagDir 'remote-id.txt') -Encoding UTF8 } cat
 Say ''
 Say '================= 완료 =================' Green
 Say ('이 PC(' + $env:COMPUTERNAME + ') RustDesk ID : ' + $(if ($id) { $id } else { '(RustDesk 창 메인 화면 숫자 9~10자리)' })) Cyan
-if (-not $pwOk) { Say '※ 비밀번호 자동 설정이 안 됐을 수 있습니다. RustDesk 창 → ☰ → 설정 → 보안 → "영구 비밀번호"에서 직접 정해 주세요.' Yellow }
-Say '폰/노트북에 RustDesk 앱(rustdesk.com)을 설치하고, 위 ID + 방금 정한 비밀번호로 접속하면 됩니다.' Cyan
+# 자동 설정이 0을 돌려줘도 실제 반영은 버전마다 다를 수 있어, 성공 여부와 무관하게 한 번 확인하도록 안내한다
+if (-not $pwOk) { Say '※ 비밀번호 자동 설정이 안 됐을 수 있습니다.' Yellow }
+Say '※ 접속 전에 꼭 확인: RustDesk 창 → ☰ → 설정 → 보안 → "영구 비밀번호"가 방금 정한 값으로 돼 있는지 보세요. 비어 있거나 다르면 거기서 직접 정하면 됩니다.' Yellow
+Say '폰/노트북에 RustDesk 앱(rustdesk.com)을 설치하고, 위 ID + 그 영구 비밀번호로 접속하면 됩니다.' Cyan
 Say ('ID 는 ' + (Join-Path $diagDir 'remote-id.txt') + ' 에도 적어 뒀습니다 (비밀번호는 저장 안 함).') Cyan
 Say ''
 Say '원격접속한 뒤 "지금 누가 치는지" 조용히 진단하려면 (소리·창 없음):' Cyan
