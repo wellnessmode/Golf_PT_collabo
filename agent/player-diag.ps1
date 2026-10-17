@@ -6,29 +6,34 @@
 #   [4] 윈도우 내장 글자 인식(OCR)으로 "20:00 ~ 20:24 김*아" 같은 예약 표시를 읽을 수 있는지 (모니터·빔 전부)
 #   [5] 그 프로그램이 남기는 기록 파일·레지스트리에 예약/로그인 정보가 있는지
 #
-#  [대기 모드 - 추천] 바탕화면을 쓸 수 있을 때 한 번만 실행해 두면 나머지는 자동:
-#    iwr https://raw.githubusercontent.com/wellnessmode/Golf_PT_collabo/main/agent/player-diag.ps1 -OutFile "$env:TEMP\player-diag.ps1"
-#    powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\player-diag.ps1" -Watch 90
-#   ① 이 창은 알아서 내려가고, 최대 90분 동안 화면에 "시간 ~ 이름" 예약 표시가 새로 뜨기를 기다린다
-#   ② 뜨면 자동으로 진단 1 → 삐 2번 (이때 휴대폰 뒷자리로 로그인)
-#   ③ 트랙맨 플레이어 로그인 3구 + 게스트 3구 → 샷이 끝나고 3분 조용하면 자동으로 진단 2 → 삐 3번
-#  [바로 모드] 지금 화면 그대로 한 번만: 위 두 번째 줄에서 -Watch 90 을 빼고 실행
+#  [조용한 대기 모드 - 추천] 소리·창·바탕화면 아이콘 없이 조용히. 원격접속해서 실행해 두면 됩니다:
+#    powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\golfpt-sync\player-diag.ps1" -Watch 240 -Quiet
+#   ① 소리도 안 나고 창도 안 뜬다 (회원 화면에 아무것도 안 보임). 최대 240분 동안 조용히 기다린다
+#   ② 화면에 "시간 ~ 이름" 예약 표시가 새로 뜨면 그 순간을 조용히 진단(진단 1)
+#   ③ 그 뒤 트랙맨 샷이 들어오고 3분 조용해지면 한 번 더 진단(진단 2)
+#  [바로 모드] 지금 상태 그대로 한 번만: -Watch 를 빼고 -Quiet 만. (-Quiet 도 빼면 창을 띄워 진행 - 세팅 때 확인용)
 #
-#  결과: 바탕화면 player-diag-날짜-시각(-1-예약화면 / -2-로그인후).txt. 맨 아래 [요약]을 공유해 주세요.
+#  결과: C:\golfpt-sync\diag\player-diag-날짜-시각(-1-예약화면 / -2-샷이후).txt — 원격접속해서 열어 보세요. 맨 아래 [요약].
 #  읽기만 합니다 - 파일을 바꾸거나 지우지 않고, 키보드·마우스 입력은 기록하지 않습니다.
 #  화면은 글자만 읽고 찍은 그림은 바로 지웁니다. 카카오톡·브라우저·메신저 등 개인용 프로그램 글자는 읽지 않습니다.
-#  그만두려면 이 창에서 Ctrl+C.
+#  -Quiet 모드에서는 소리·창·사용자 창 조작이 전혀 없습니다 (회원이 눈치채지 못하게). 그만두려면 작업 관리자에서 powershell 종료.
 # ============================================================
-param([int]$Watch = 0)
+param([int]$Watch = 0, [switch]$Quiet)
 $ErrorActionPreference = 'Continue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$desk = [Environment]::GetFolderPath('Desktop'); if (!$desk) { $desk = $env:TEMP }; if (!$desk) { $desk = (Get-Location).Path }
+# 결과는 바탕화면이 아니라 조용한 폴더에 저장한다 (회원 화면에 아이콘이 안 뜨게). 원격접속으로 열어 본다.
+$outDir = $null
+foreach ($cand in @('C:\golfpt-sync\diag', (Join-Path $env:LOCALAPPDATA 'golfpt-diag'), $env:TEMP)) {
+  if (!$cand) { continue }
+  try { if (-not (Test-Path $cand)) { New-Item -ItemType Directory -Path $cand -Force | Out-Null }; if (Test-Path $cand) { $outDir = $cand; break } } catch {}
+}
+if (!$outDir) { $outDir = (Get-Location).Path }
 $lines = New-Object System.Collections.Generic.List[string]
 $summary = New-Object System.Collections.Generic.List[string]
 $savedFiles = New-Object System.Collections.Generic.List[string]
 $watchNote = ''
-function W($s, $c) { if ($c) { Write-Host $s -ForegroundColor $c } else { Write-Host $s }; [void]$lines.Add([string]$s) }
+function W($s, $c) { if (-not $Quiet) { if ($c) { Write-Host $s -ForegroundColor $c } else { Write-Host $s } }; [void]$lines.Add([string]$s) }   # -Quiet 면 화면에 아무것도 출력하지 않고 파일에만 기록
 function S($s) { [void]$summary.Add([string]$s) }
 function Cut($s, $n) { if ($null -eq $s) { return '' }; $s = ([string]$s -replace '\s+', ' ').Trim(); if ($s.Length -gt $n) { return $s.Substring(0, $n) + '...' }; return $s }
 # 공유 전에 가린다: 전화번호 전체, 9자리 이상 숫자, 이메일, 비밀번호·토큰 값
@@ -111,7 +116,7 @@ function Test-FgFullscreen {
     return ((($r.Right - $r.Left) * ($r.Bottom - $r.Top)) -ge (0.85 * $scr.Width * $scr.Height))
   } catch { return $false }
 }
-function Beep($n) { for ($i = 0; $i -lt $n; $i++) { try { [Console]::Beep(988, 260) } catch {}; Start-Sleep -Milliseconds 180 } }
+function Beep($n) { }   # 소리 없음 (회원이 쓰는 공간이라 삐 소리를 내지 않는다)
 
 # ==================== 글자 인식(OCR) 도우미 - 윈도우 10/11 내장 ====================
 $ocrEngine = $null; $ocrErr = ''; $ocrLangTags = ''; $ocrNoKo = $false; $ocrMaxDim = 0; $asTaskGeneric = $null
@@ -263,7 +268,7 @@ $uiaBlock = {
 function Invoke-Diag($label, $hideConsole) {
   $lines.Clear(); $summary.Clear()
   $tag = ''; $disp = ''; if ($label) { $tag = '-' + $label; $disp = ' ' + $label }
-  $outPath = Join-Path $desk ('player-diag-' + (Get-Date).ToString('MMdd-HHmmss') + $tag + '.txt')
+  $outPath = Join-Path $outDir ('player-diag-' + (Get-Date).ToString('MMdd-HHmmss') + $tag + '.txt')
   W ('진단' + $disp + ' 시각: ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + '  /  PC: ' + $env:COMPUTERNAME + '  /  ' + $osName + '  /  관리자 권한: ' + $isAdmin)
   S ('진단' + $disp + ' ' + (Get-Date).ToString('MM-dd HH:mm:ss') + ' / PC ' + $env:COMPUTERNAME + ' / ' + $osName + ' / 관리자 ' + $isAdmin)
   if ($watchNote) { S ('[대기] ' + $watchNote) }
@@ -553,15 +558,16 @@ if ($Watch -gt 0) {
   }
   function KeyOf($x) { return (([string]$x -replace '^[^:]*:\s*', '') -replace '\s', '') }
 
-  Write-Host ''
-  Write-Host ('[대기 모드] 화면에 "시간 ~ 이름" 예약 표시가 새로 뜰 때까지 최대 ' + $Watch + '분 기다립니다.') -ForegroundColor Yellow
-  Write-Host '  이 창은 지금 내려 둡니다. 예약 화면이 뜨면 자동으로 진단하고 삐 소리가 2번 납니다 - 그때 휴대폰 뒷자리로 로그인하세요.' -ForegroundColor Yellow
-  Write-Host '  로그인 후 트랙맨 플레이어 로그인 3구 + 게스트 3구를 치면, 샷이 끝나고 3분 뒤 자동으로 한 번 더 진단하고 삐 소리가 3번 납니다.' -ForegroundColor Yellow
-  if (-not $ocrEngine) { Write-Host ('  (OCR 을 쓸 수 없어 맨 앞 창이 바뀌는 것으로만 판단합니다: ' + $ocrErr + ')') -ForegroundColor Yellow }
-  Write-Host '  로그인 후에는 샷 사이에 3분 넘게 쉬지 마세요 (3분 조용하면 다 친 것으로 봅니다).' -ForegroundColor Yellow
-  Start-Sleep -Seconds 4
-  Set-MyWins 6
-  Start-Sleep -Milliseconds 1500
+  if (-not $Quiet) {
+    Write-Host ''
+    Write-Host ('[대기 모드] 화면에 "시간 ~ 이름" 예약 표시가 새로 뜰 때까지 최대 ' + $Watch + '분 조용히 기다립니다 (소리·알림 없음).') -ForegroundColor Yellow
+    Write-Host '  예약 표시가 뜨면 그 순간을 조용히 진단하고, 그 뒤 샷이 들어와 3분 조용해지면 한 번 더 진단합니다.' -ForegroundColor Yellow
+    Write-Host ('  결과는 ' + $outDir + ' 에 조용히 저장됩니다 (회원 화면엔 아무것도 안 보임). 원격접속으로 열어 보세요.') -ForegroundColor Yellow
+    if (-not $ocrEngine) { Write-Host ('  (OCR 을 쓸 수 없어 맨 앞 창이 바뀌는 것으로만 판단합니다: ' + $ocrErr + ')') -ForegroundColor Yellow }
+  }
+  Start-Sleep -Seconds 2
+  if (-not $Quiet) { Set-MyWins 6 }   # 조용 모드에서는 창을 건드리지 않는다 (-Quiet 면 창 자체가 숨겨져 있음)
+  Start-Sleep -Milliseconds 1200
   $baseKeys = @{}
   try { foreach ($x in (Get-ReservationTexts)) { $baseKeys[(KeyOf $x)] = 1 } } catch {}
   $fgLast = Get-FgProcName
@@ -579,12 +585,10 @@ if ($Watch -gt 0) {
   if ($hit) { $watchNote = '예약 화면 감지 ' + (Get-Date).ToString('HH:mm:ss') + ' / ' + (Cut (Redact $hit) 80); Start-Sleep -Seconds 3 }
   else { $watchNote = $Watch.ToString() + '분 안에 예약 화면을 못 찾아 그 상태 그대로 진단' }
   Invoke-Diag '1-예약화면' $false
-  Beep 2
 
-  # 로그인 후: 새 샷 파일이 생기고 3분 동안 더 안 생기면(다 쳤으면) 진단 2. 최대 25분
+  # 그 뒤 트랙맨 샷이 들어오고 3분 동안 더 안 들어오면(다 쳤으면) 진단 2. 최대 25분
   $t0 = Get-Date
-  Write-Host ''
-  Write-Host '[대기 모드] 이제 휴대폰 뒷자리로 로그인하고, 트랙맨 플레이어 로그인 3구 + 게스트 3구를 쳐 주세요.' -ForegroundColor Yellow
+  if (-not $Quiet) { Write-Host ''; Write-Host '[대기 모드] 이제 트랙맨 샷이 들어오기를 기다립니다 (조용히).' -ForegroundColor Yellow }
   $deadline = $t0.AddMinutes(25); $seenN = 0; $lastNew = $null
   while ((Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 30
@@ -592,14 +596,15 @@ if ($Watch -gt 0) {
     if ($n -gt $seenN) { $seenN = $n; $lastNew = Get-Date }
     if ($lastNew -and ((Get-Date) - $lastNew).TotalSeconds -ge 180) { break }
   }
-  if ($seenN) { $watchNote = '로그인 후 새 샷 파일 ' + $seenN + '개, 마지막 샷 ' + $lastNew.ToString('HH:mm:ss') + ' 이후 3분 조용해서 진단' }
+  if ($seenN) { $watchNote = '예약 화면 뒤 새 샷 파일 ' + $seenN + '개, 마지막 샷 ' + $lastNew.ToString('HH:mm:ss') + ' 이후 3분 조용해서 진단' }
   else { $watchNote = '25분 동안 새 샷 파일이 없어 그 상태 그대로 진단' }
-  Invoke-Diag '2-로그인후' $false
-  Beep 3
-  Set-MyWins 9
+  Invoke-Diag '2-샷이후' $false
+  if (-not $Quiet) { Set-MyWins 9 }
 } else {
-  Invoke-Diag '' $true
+  Invoke-Diag '' (-not $Quiet)
 }
-Write-Host ''
-Write-Host ('완료 - 바탕화면에 저장한 결과 파일: ' + ($savedFiles -join ' , ')) -ForegroundColor Cyan
-pause
+if (-not $Quiet) {
+  Write-Host ''
+  Write-Host ('완료 - 저장한 결과 파일: ' + ($savedFiles -join ' , ')) -ForegroundColor Cyan
+  if ($Host.Name -eq 'ConsoleHost' -and [Environment]::UserInteractive) { pause }
+}
