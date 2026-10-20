@@ -17,6 +17,7 @@
 # ============================================================
 param(
   [string]$Password,                  # 비워 두면 실행 중에 직접 입력받습니다 (권장)
+  [string]$Branch,                    # 지점/타석 이름표 (예: "3호점 1번타석", "서초점 업무") — 접속정보 메모에 기록
   [string]$DiagWatchMinutes = '240'   # 원격접속해서 조용히 진단을 돌릴 때 쓸 기본 대기 시간
 )
 $ErrorActionPreference = 'Continue'
@@ -142,8 +143,10 @@ if ($isBay) {
 # ---------- 결과 안내 (ID만 저장, 비밀번호는 저장 안 함) ----------
 try { if (-not (Test-Path $noteDir)) { New-Item -ItemType Directory -Path $noteDir -Force | Out-Null } } catch {}
 $noteFile = Join-Path $noteDir 'RustDesk-접속정보.txt'
+if (-not $Branch) { try { $Branch = Read-Host '이 PC의 지점/타석 이름 (예: 3호점 1번타석 / 서초점 업무). 엔터로 건너뜀' } catch {} }
 $note = @()
 $note += '이 PC 원격접속 정보 (' + $env:COMPUTERNAME + ', ' + (Get-Date).ToString('yyyy-MM-dd HH:mm') + ')'
+if ($Branch) { $note += '지점/타석   : ' + $Branch }
 $note += 'RustDesk ID : ' + ($(if ($id) { $id } else { 'RustDesk 창 메인 화면에서 확인' }))
 $note += '비밀번호   : 대표님이 방금 정한 비밀번호 (여기에 저장하지 않음)'
 $note += '접속 방법  : 폰/노트북에 RustDesk 앱 설치 → 위 ID 입력 → 비밀번호 입력'
@@ -151,7 +154,9 @@ try { $note | Out-File $noteFile -Encoding UTF8 } catch {}
 
 Say ''
 Say '================= 완료 =================' Green
+if ($Branch) { Say ('지점/타석 : ' + $Branch) Cyan }
 Say ('이 PC(' + $env:COMPUTERNAME + ') RustDesk ID : ' + $(if ($id) { $id } else { '(RustDesk 창 메인 화면 숫자 9~10자리)' })) Cyan
+Say '  → 폰 RustDesk 앱 주소록에 이 ID 를 위 이름으로 저장해 두면 지점별로 구분됩니다.' Cyan
 # 자동 설정이 0을 돌려줘도 실제 반영은 버전마다 다를 수 있어, 성공 여부와 무관하게 한 번 확인하도록 안내한다
 if (-not $pwOk) { Say '※ 비밀번호 자동 설정이 안 됐을 수 있습니다.' Yellow }
 Say '※ 접속 전에 꼭 확인: RustDesk 창 → ☰ → 설정 → 보안 → "영구 비밀번호"가 방금 정한 값으로 돼 있는지 보세요. 비어 있거나 다르면 거기서 직접 정하면 됩니다.' Yellow
