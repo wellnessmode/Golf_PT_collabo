@@ -23,6 +23,8 @@ param(
 )
 $ErrorActionPreference = 'Continue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+# 구형 윈도우10(.NET 4.6대)은 기본이 TLS1.0 이라 GitHub·워커 다운로드가 실패한다 → TLS1.2 켠다
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 $dir = 'C:\golfpt-sync'
 $base = 'https://raw.githubusercontent.com/wellnessmode/Golf_PT_collabo/main/agent'
 function Out-Line($s) { Write-Output ([string]$s) }
@@ -62,6 +64,8 @@ function Stop-Agent {
   try { taskkill /F /IM node.exe 2>$null | Out-Null } catch {}
   Start-Sleep -Seconds 2
   Remove-Item (Join-Path $dir 'agent.stop') -ErrorAction SilentlyContinue
+  # 실제로 멈췄는지 확인 — SSH 토큰 권한 문제로 taskkill 이 거부되면 node 가 남아 있을 수 있다
+  return ((Get-Process node -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0)
 }
 function Start-Agent {
   $vbs = Join-Path $dir 'start-hidden.vbs'
@@ -134,8 +138,8 @@ switch ($Command.ToLower()) {
     if (-not $st.running) { exit 1 } else { exit 0 }
   }
   'start'   { $up = Start-Agent; Out-Line ($(if ($up) { '[성공] 실행 중' } else { '[실패] 안 떴습니다' })); exit ($(if ($up) { 0 } else { 1 })) }
-  'stop'    { Stop-Agent; Out-Line '[완료] 중지했습니다. (자동시작은 그대로 — 재부팅 시 다시 켜짐)'; exit 0 }
-  'restart' { Stop-Agent; $up = Start-Agent; Out-Line ($(if ($up) { '[성공] 재시작됨' } else { '[실패] 재시작 후 안 떴습니다 - logs 확인' })); exit ($(if ($up) { 0 } else { 1 })) }
+  'stop'    { $gone = Stop-Agent; Out-Line ($(if ($gone) { '[완료] 중지했습니다. (자동시작은 그대로 — 재부팅 시 다시 켜짐)' } else { '[주의] node 가 아직 남아 있습니다 — SSH 계정 권한(관리자 토큰) 확인 필요' })); exit ($(if ($gone) { 0 } else { 1 })) }
+  'restart' { $gone = Stop-Agent; if (-not $gone) { Out-Line '[주의] 기존 node 를 완전히 못 내렸습니다 — 그대로 진행' } ; $up = Start-Agent; Out-Line ($(if ($up) { '[성공] 재시작됨' } else { '[실패] 재시작 후 안 떴습니다 - logs 확인' })); exit ($(if ($up) { 0 } else { 1 })) }
   'logs' {
     foreach ($f in @('agent.log', 'node-crash.log')) {
       $p = Join-Path $dir $f
@@ -146,14 +150,22 @@ switch ($Command.ToLower()) {
     exit 0
   }
   'diag' {
-    $p = Join-Path $dir 'player-diag.ps1'
-    if (-not (Test-Path $p)) {
-      try { Invoke-WebRequest -Uri "$base/player-diag.ps1" -OutFile $p -UseBasicParsing -TimeoutSec 60 } catch { Out-Line ('[오류] 진단 스크립트 다운로드 실패: ' + $_.Exception.Message); exit 1 }
-    }
-    # 조용한 진단을 백그라운드로 — 창·소리 없음. 결과는 C:\golfpt-sync\diag
-    Start-Process powershell.exe -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $p, '-Watch', "$Watch", '-Quiet') -WindowStyle Hidden
-    Out-Line ('[시작] 조용한 진단을 백그라운드로 켰습니다 (최대 ' + $Watch + '분). 결과: C:\golfpt-sync\diag\player-diag-*.txt')
-    Out-Line '      나중에 logs 대신 그 폴더의 파일을 scp 로 내려받으면 됩니다.'
+    # 데이터 수집 확인 (headless — 파일만 읽음, 화면 캡처 없음).
+    # SSH 세션은 회원 데스크톱 화면에 접근할 수 없으므로, 화면/예약 OCR 진단은 여기서 하지 않는다.
+    # (그 진단은 화면이 필요해 PC 앞에서 player-diag.ps1 로 직접 실행해야 한다.)
+    $roots = @('C:\ProgramData\TrackMan\TrackMan Performance Studio\Data')
+    try { $cfg = Get-Content (Join-Path $dir 'config.json') -Raw -ErrorAction Stop | ConvertFrom-Json; if ($cfg.watchDirs) { $roots = @($cfg.watchDirs) } } catch {}
+    $cut = (Get-Date).AddHours(-24); $shots = @()
+    foreach ($r in $roots) { if (Test-Path $r) { $shots += @(Get-ChildItem $r -Recurse -Include *.ftmf, *.stmf -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt $cut }) } }
+    $newest = ($shots | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+    $uploads = 0; $lp = Join-Path $dir 'agent.log'
+    if (Test-Path $lp) { try { $uploads = @(Get-Content $lp -Tail 400 -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_ -match '샷 전송' }).Count } catch {} }
+    Out-Line ('트랙맨 샷 파일(최근 24시간): ' + $shots.Count + '개' + $(if ($newest) { ' / 최신 ' + $newest.LastWriteTime.ToString('MM-dd HH:mm') } else { '' }))
+    Out-Line ('에이전트 업로드 로그(최근 400줄): ' + $uploads + '건')
+    if ($shots.Count -eq 0) { Out-Line '→ 트랙맨 샷 파일이 없습니다. 연습이 없었거나 트랙맨이 파일을 안 남기는 상태.' }
+    elseif ($uploads -eq 0) { Out-Line '→ 샷 파일은 있는데 업로드 기록이 없습니다. 에이전트 문제 가능 — logs 확인 후 restart.' }
+    else { Out-Line '→ 수집·업로드가 정상으로 보입니다.' }
+    Out-Line '(예약 화면 읽기 진단은 화면이 필요해 SSH 로는 못 합니다. PC 앞에서 player-diag.ps1 로 실행하세요.)'
     exit 0
   }
   'update'  { $up = Update-Agent; exit ($(if ($up) { 0 } else { 1 })) }
