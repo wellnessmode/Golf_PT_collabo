@@ -2,13 +2,35 @@
 #  Golf PT - 원격 접속 중 "비차단형 표시" (화면을 가리지 않는 작은 구석 표시)
 #  VNC 뷰어가 이 PC에 접속해 있는 동안에만, 화면 구석에 작은 빨간 알약(● 원격 접속 중)을 띄운다.
 #  - 트랙맨 화면 중앙을 가리지 않는다(작은 구석 표시). 접속이 없으면 아무것도 안 보인다.
-#  - 클릭하면 "연결 끊기" 확인 후 VNC 서버를 재시작해 뷰어를 끊는다(연결 종료 기능).
+#  - 뜰 때 포커스를 뺏지 않는다(NoActivate). → 트랙맨 전체화면·입력이 안 끊긴다.
+#  - 클릭하면 "연결 끊기" 확인 후 VNC 서버를 재시작해 뷰어를 끊는다(설치 때 사용자에게 서비스 제어 권한을 부여).
 #  로그인 시 숨겨진 상태로 자동 실행(설치 스크립트가 등록). 창·소리 없음.
-#  ※ 전체화면 독점(Exclusive Fullscreen) 게임/앱 위에는 최상위 창이 안 보일 수 있음 → 실제 타석에서 확인 필요.
+#  ※ 전체화면 독점(Exclusive Fullscreen) 앱 위에는 최상위 창이 안 보일 수 있음 → 실제 타석에서 확인 필요.
+#  ※ 뷰어가 깨끗이 안 끊고 사라지면(와이파이 끊김 등) 소켓이 한동안 Established 로 남아 표시가 조금 더 오래
+#     보일 수 있음 — "접속 중"을 과하게 보여주는 쪽(안전한 방향)이라 그대로 둠.
 # ============================================================
 param([int]$Port = 5900, [int]$PollSec = 2)
 $ErrorActionPreference = 'SilentlyContinue'
 try { Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing } catch { return }
+
+# 포커스를 뺏지 않고 뜨는 Form (ShowWithoutActivation + WS_EX_NOACTIVATE + TOOLWINDOW)
+try {
+  Add-Type -ReferencedAssemblies System.Windows.Forms, System.Drawing -TypeDefinition @'
+using System;
+using System.Windows.Forms;
+public class GolfPtNoActivateForm : Form {
+  protected override bool ShowWithoutActivation { get { return true; } }
+  protected override CreateParams CreateParams {
+    get {
+      CreateParams cp = base.CreateParams;
+      cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
+      cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW (alt-tab/활성화에서 제외)
+      return cp;
+    }
+  }
+}
+'@
+} catch {}
 
 # 이 PC의 VNC 포트(5900)에 "확립된" 들어온 연결이 있으면 = 누군가 원격으로 보고 있는 중
 function Test-VncConnected {
@@ -16,7 +38,7 @@ function Test-VncConnected {
   catch { return $false }
 }
 
-$form = New-Object System.Windows.Forms.Form
+try { $form = New-Object GolfPtNoActivateForm } catch { $form = New-Object System.Windows.Forms.Form }
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
 $form.TopMost = $true
 $form.ShowInTaskbar = $false
@@ -36,7 +58,8 @@ try {
   $form.Location = New-Object System.Drawing.Point(($wa.Right - $form.Width - 8), ($wa.Top + 8))
 } catch {}
 
-# 클릭 → 연결 끊기. 권한이 있으면 VNC 서비스 재시작으로 끊고, 없으면 확실한 방법을 안내한다.
+# 클릭 → 연결 끊기. 설치 때 Users 에 서비스 제어 권한을 부여했으면 재시작으로 끊기고,
+# 안 됐으면 확실한 수동 방법(트레이·Tailscale)을 안내한다.
 $disconnect = {
   if ([System.Windows.Forms.MessageBox]::Show('원격 접속을 끊을까요?', '연결 종료', [System.Windows.Forms.MessageBoxButtons]::YesNo) -eq [System.Windows.Forms.DialogResult]::Yes) {
     $done = $false

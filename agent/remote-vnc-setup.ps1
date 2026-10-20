@@ -38,6 +38,7 @@ if (-not $admin) {
       if ($Branch) { $a += @('-Branch', ('"' + ($Branch -replace '"', '') + '"')) }
       if ($Password) { $a += @('-Password', ('"' + ($Password -replace '"', '') + '"')) }
       if ($TailscaleAuthKey) { $a += @('-TailscaleAuthKey', ('"' + ($TailscaleAuthKey -replace '"', '') + '"')) }
+      if ($VncMsiUrl) { $a += @('-VncMsiUrl', ('"' + ($VncMsiUrl -replace '"', '') + '"')) }
       Start-Process powershell -Verb RunAs -ArgumentList ($a -join ' '); return
     }
   } catch {}
@@ -89,14 +90,29 @@ if (-not $tvn) {
   } catch { Say ('  TightVNC 설치 실패: ' + $_.Exception.Message) Red }
 }
 $plain = $null   # 메모리에서 암호 비움
+$pwSet = $false
 if ($tvn) {
   # 서비스가 MSI 에서 조용히 등록 안 되는 경우가 있어 보강(이미 돼 있으면 무해)
   try { & $tvn -install -silent 2>$null | Out-Null } catch {}
   try { Set-Service -Name tvnserver -StartupType Automatic -ErrorAction SilentlyContinue; Start-Service tvnserver -ErrorAction SilentlyContinue } catch {}
   try { & $tvn -start -silent 2>$null | Out-Null } catch {}
+  # 암호가 실제로 설정됐는지 레지스트리로 확인(MSI 가 암호 속성을 무시하는 경우가 있음)
+  foreach ($rk in @('HKLM:\SOFTWARE\TightVNC\Server', 'HKLM:\SOFTWARE\WOW6432Node\TightVNC\Server')) {
+    try { $pw = (Get-ItemProperty $rk -Name Password -ErrorAction SilentlyContinue).Password; if ($pw -and $pw.Length -gt 0) { $pwSet = $true } } catch {}
+  }
+  # 접속 끊기(연결 종료)를 일반 사용자 표시 프로그램이 할 수 있게, Users 에 서비스 start/stop 권한 부여(append-only)
+  try {
+    $sd = ((& sc.exe sdshow tvnserver 2>$null) -join '') -replace '\s', ''
+    if ($sd -match '^D:' -and $sd -notmatch '\(A;;[A-Z]*;;;BU\)') {
+      $ace = '(A;;LCRPWP;;;BU)'   # Users: 상태조회(LC)·시작(RP)·정지(WP)
+      $new = if ($sd -match 'S:') { $sd -replace '(S:)', ($ace + '$1') } else { $sd + $ace }
+      & sc.exe sdset tvnserver $new 2>$null | Out-Null
+    }
+  } catch {}
 } else {
   Say '  TightVNC 설치를 확인하지 못했습니다. https://www.tightvnc.com/download.php 에서 설치 후 다시 실행하세요.' Red
 }
+if ($tvn -and -not $pwSet) { Say '  ⚠ VNC 암호가 설정되지 않았을 수 있습니다. TightVNC 아이콘 → Configuration → Server → "Primary password"에서 직접 정해 주세요.' Yellow }
 
 # ---------- ② 방화벽: VNC(5900) 는 Tailscale 망에서만 ----------
 Say '[2/5] 방화벽 — VNC 를 Tailscale 망으로만 제한...' Cyan
@@ -163,9 +179,11 @@ $note += '암호          : 대표님이 정한 VNC 암호(앞 8자) — 여기 
 try { $note | Out-File (Join-Path $dir 'VNC-접속정보.txt') -Encoding UTF8 } catch {}
 
 Say ''
-Say '================= 완료 =================' Green
+if ($tvn -and $pwSet) { Say '================= 완료 =================' Green }
+else { Say '============ 완료(일부 수동 확인 필요) ============' Yellow }
 if ($Branch) { Say ('지점/타석 : ' + $Branch) Cyan }
 Say ('이 PC Tailscale IP : ' + $(if ($tsIp) { $tsIp } else { '(tailscale ip -4)' }) + '  / VNC 포트 5900') Cyan
+Say ('VNC 서버 : ' + $(if ($tvn) { '설치됨' } else { '설치 확인 안 됨 — 수동 설치 필요' }) + ' / 암호 : ' + $(if ($pwSet) { '설정됨' } else { '미확인 — 위 안내대로 직접 설정' })) Cyan
 Say ''
 Say '폰·노트북에서 (Tailscale 로그인 되어 있어야 함):' Cyan
 Say '  - 폰: "RealVNC Viewer"(아이폰/안드로이드) 또는 "bVNC"(안드로이드) 앱 설치' Cyan
