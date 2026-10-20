@@ -54,9 +54,26 @@ if (-not $plain -or $plain.Length -lt 6) { Say '비밀번호가 너무 짧습니
 
 # ---------- RustDesk 설치 ----------
 function Find-RustDesk {
-  $cands = @("$env:ProgramFiles\RustDesk\rustdesk.exe", "${env:ProgramFiles(x86)}\RustDesk\rustdesk.exe", "$env:LOCALAPPDATA\RustDesk\rustdesk.exe")
+  $cands = @("$env:ProgramFiles\RustDesk\rustdesk.exe", "${env:ProgramFiles(x86)}\RustDesk\rustdesk.exe", "$env:LOCALAPPDATA\RustDesk\rustdesk.exe", "$env:LOCALAPPDATA\Programs\RustDesk\rustdesk.exe")
   foreach ($c in $cands) { if ($c -and (Test-Path $c)) { return $c } }
+  try { $g = Get-Command rustdesk.exe -ErrorAction SilentlyContinue; if ($g) { return $g.Source } } catch {}
   return $null
+}
+# 설치가 끝나 rustdesk.exe 가 생길 때까지 최대 n초 기다린다 (설치 파일은 끝나면 RustDesk 를 바로 띄우므로 프로세스 종료를 기다리면 영원히 안 끝남)
+function Wait-RustDesk($sec) {
+  for ($i = 0; $i -lt $sec; $i += 3) { $e = Find-RustDesk; if ($e) { return $e }; Start-Sleep -Seconds 3 }
+  return (Find-RustDesk)
+}
+# rustdesk.exe 명령을 시간 제한을 두고 실행 (멈춰도 n초 뒤 넘어감). 출력도 받아 온다.
+function Run-RD($argLine, $sec) {
+  $out = Join-Path $env:TEMP ('golfpt-rd-' + [guid]::NewGuid().ToString('N') + '.txt')
+  try {
+    $p = Start-Process -FilePath $exe -ArgumentList $argLine -PassThru -RedirectStandardOutput $out
+    if (-not $p.WaitForExit($sec * 1000)) { try { $p.Kill() } catch {}; return [pscustomobject]@{ Ok = $false; Out = '' } }
+    $o = ''; try { $o = [string](Get-Content $out -Raw -ErrorAction SilentlyContinue) } catch {}
+    return [pscustomobject]@{ Ok = ($p.ExitCode -eq 0); Out = $o }
+  } catch { return [pscustomobject]@{ Ok = $false; Out = '' } }
+  finally { Remove-Item $out -Force -ErrorAction SilentlyContinue }
 }
 $exe = Find-RustDesk
 if ($exe) { Say ('RustDesk 가 이미 설치돼 있습니다: ' + $exe) Green }
@@ -66,8 +83,7 @@ else {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
       Say 'winget 으로 RustDesk 설치 중... (1~2분)' Cyan
       winget install --id RustDesk.RustDesk -e --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-      Start-Sleep -Seconds 3
-      $exe = Find-RustDesk
+      $exe = Wait-RustDesk 60
     }
   } catch { Say ('winget 설치 실패: ' + $_.Exception.Message) Yellow }
   # 2) 공식 GitHub 최신 릴리스 직접 내려받아 조용히 설치
@@ -79,9 +95,9 @@ else {
       if (-not $asset) { throw '설치 파일을 찾지 못함' }
       $dl = Join-Path $env:TEMP $asset.name
       Invoke-WebRequest $asset.browser_download_url -OutFile $dl -UseBasicParsing
-      Start-Process -FilePath $dl -ArgumentList '--silent-install' -Wait
-      Start-Sleep -Seconds 3
-      $exe = Find-RustDesk
+      Start-Process -FilePath $dl -ArgumentList '--silent-install' | Out-Null   # 끝날 때까지 기다리지 않는다 (설치 후 RustDesk 가 계속 떠 있음)
+      Say '  설치 완료를 확인하는 중... (최대 2분)' Cyan
+      $exe = Wait-RustDesk 120
     } catch { Say ('직접 설치 실패: ' + $_.Exception.Message) Red }
   }
 }
@@ -92,19 +108,24 @@ if (-not $exe) {
 }
 
 # ---------- 서비스(무인 접속)·영구 비밀번호 설정 ----------
-try { & $exe --install-service 2>&1 | Out-Null } catch {}   # 부팅 시 자동 시작·화면 잠겨도 접속 (버전에 따라 설치 때 이미 됨)
+Say '무인 접속 서비스와 비밀번호를 설정하는 중...' Cyan
+[void](Run-RD '--install-service' 60)   # 부팅 시 자동 시작·화면 잠겨도 접속 (버전에 따라 설치 때 이미 됨). 멈춰도 60초 뒤 넘어감
 Start-Sleep -Seconds 5
 # 영구 비밀번호 설정. 네이티브 종료코드는 예외를 안 던지므로 $LASTEXITCODE 로 확인하고, 두 플래그 다 시도한다
 # (버전마다 이름이 --password / --set-password 로 다름). GUI 실행 파일이라 0 을 돌려줄 수도 있어, 확실치 않으면 아래에서 수동 확인을 안내한다.
 $pwOk = $false
+$pwArg = '"' + ($plain -replace '"', '\"') + '"'
 foreach ($flag in @('--password', '--set-password')) {
-  try { $global:LASTEXITCODE = 0; & $exe $flag $plain 2>&1 | Out-Null; if ($LASTEXITCODE -eq 0) { $pwOk = $true } } catch {}
+  $r = Run-RD ($flag + ' ' + $pwArg) 30
+  if ($r.Ok) { $pwOk = $true }
 }
+$pwArg = $null
 $plain = $null   # 메모리에서 비밀번호 비움
 
 # ---------- 접속 ID 읽기 ----------
 $id = ''
-try { $id = (& $exe --get-id 2>$null | Select-Object -First 1); $id = ([string]$id).Trim() } catch {}
+$r = Run-RD '--get-id' 30
+if ($r.Out) { $m = [regex]::Match($r.Out, '\d{6,12}'); if ($m.Success) { $id = $m.Value } }
 
 # ---------- 이 PC가 타석 PC(트랙맨)인지, 일반 업무용 PC인지 ----------
 # 타석 PC면 조용한 진단 스크립트도 받아 두고, 업무용 PC(트랙맨 없음, 예: 서초점)면 원격접속만 세팅한다.
