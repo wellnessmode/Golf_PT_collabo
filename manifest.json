@@ -1,7 +1,7 @@
 {
-  "name": "내셔널짐 Golf PT",
-  "short_name": "Golf PT",
-  "description": "내셔널짐 골프 PT 협업 시스템",
+  "name": "내셔널짐 피티앤골프",
+  "short_name": "내셔널짐 피티앤골프",
+  "description": "내셔널짐 피티앤골프 — 회원 관리 · 레슨 기록 · 트랙맨 측정 리포트",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#11151a",

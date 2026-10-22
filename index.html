@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Golf PT — 내셔널짐</title>
+<title>내셔널짐 피티앤골프</title>
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#11151a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Golf PT">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png?v=2">
+<meta name="apple-mobile-web-app-title" content="내셔널짐 피티앤골프">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png?v=3">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png?v=3">
 
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -24,7 +24,7 @@
 <div id="app-splash">
   <div class="sp-mark">
     <div class="sp-word" id="sp-word">NATIONAL<em>GYM</em></div>
-    <div class="sp-sub" id="sp-sub">GOLF · PT · PERFORMANCE</div>
+    <div class="sp-sub" id="sp-sub">PT & GOLF STUDIO</div>
   </div>
   <div class="sp-load"><span></span></div>
 </div>
@@ -58,7 +58,8 @@
     var b=(window.APP_CONFIG&&window.APP_CONFIG.BRAND)||{};
     if(b.name){var w=document.getElementById('sp-word');var parts=String(b.name).trim().split(/\s+/);
       w.innerHTML = parts.length>1 ? (parts.slice(0,-1).join(' ')+'<em>'+parts.slice(-1)[0]+'</em>') : b.name;}
-    if(b.reportSub){document.getElementById('sp-sub').textContent=String(b.reportSub).replace(/·/g,'·');}
+    // 스플래시 서브: splashSub(업장 성격 — "PT & GOLF STUDIO") 우선, 없으면 reportSub
+    var ss=b.splashSub||b.reportSub; if(ss){document.getElementById('sp-sub').textContent=String(ss).replace(/·/g,'·');}
   }catch(e){}
   // 최소 1.1초 노출 후, 앱이 그려졌으면 페이드아웃 (실패해도 2.4초 뒤 강제 제거)
   var start=Date.now(), done=false;

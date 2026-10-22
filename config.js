@@ -51,9 +51,11 @@ window.APP_CONFIG = {
   BRAND: {
     name: 'NATIONAL GYM',                       // 영문 브랜드 (헤더·리포트 상단)
     nameKo: '내셔널짐',                          // 한글 브랜드 (문구·푸터)
-    sub: 'GOLF & PT',                           // 브랜드 서브 타이틀
+    appName: '내셔널짐 피티앤골프',               // 앱 이름 (홈 화면·탭 제목·푸시) — 상호와 동일
+    sub: 'PT & GOLF',                           // 브랜드 서브 타이틀
     tagline: 'COLLABORATIVE COACHING PLATFORM', // 로그인 화면 태그라인
-    reportSub: 'GOLF PT · PERFORMANCE',         // 성과 리포트 헤더 서브
+    splashSub: 'PT & GOLF STUDIO',              // 인트로(스플래시) 서브 — 업장 성격
+    reportSub: 'PERFORMANCE REPORT',            // 성과 리포트 헤더 서브
     measuredBy: 'TRACKMAN iO',                  // 측정 장비 표기 (리포트 신뢰도 라인)
     // 랜딩(역할 선택) 히어로 배경 사진 — 골프+피트니스.
     // 앱 실행 시 인트로 몬타주로 0.5초마다 한 장씩 페이드로 넘어가고, 마지막 장에서
