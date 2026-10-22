@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background Vignette Gradient -->
+    <radialGradient id="bg-grad" cx="48%" cy="46%" r="68%">
+      <stop offset="0%" stop-color="#1c232a"/>
+      <stop offset="55%" stop-color="#12171d"/>
+      <stop offset="100%" stop-color="#0a0d10"/>
+    </radialGradient>
+
+    <!-- Seamless Sheen Band parallel to N diagonal -->
+    <linearGradient id="sheen-grad" gradientUnits="userSpaceOnUse" x1="312" y1="740" x2="712" y2="284">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.015"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="65%" stop-color="#ffffff" stop-opacity="0.015"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Ball Background Shadow Filter -->
+    <filter id="ball-shadow-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+
+    <!-- Unified Bars Linear Gradient -->
+    <linearGradient id="bar-grad" gradientUnits="userSpaceOnUse" x1="0" y1="239" x2="0" y2="757">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e4e8ec"/>
+    </linearGradient>
+
+    <!-- Mask punching 134px circle at ball centre for 10px clean gap -->
+    <mask id="ball-cutout">
+      <rect x="0" y="0" width="1024" height="1024" fill="#ffffff"/>
+      <circle cx="667" cy="648" r="134" fill="#000000"/>
+    </mask>
+
+    <!-- Mint Rim Glow Filter -->
+    <filter id="mint-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+
+    <!-- Brightened Ball Base Radial Gradient -->
+    <radialGradient id="ball-base" cx="35%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#f8fafc"/>
+      <stop offset="75%" stop-color="#e2e8ee"/>
+      <stop offset="100%" stop-color="#c3ced8"/>
+    </radialGradient>
+
+    <!-- Dimple Shaded Cup Gradient (lighter depth stops) -->
+    <radialGradient id="dimple-cup" cx="64%" cy="64%" r="62%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="35%" stop-color="#e6ecf2" stop-opacity="0.3"/>
+      <stop offset="70%" stop-color="#8a9aaa" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#4a5a6a" stop-opacity="0.32"/>
+    </radialGradient>
+
+    <!-- Reusable Hex-Grid Dimple Cell -->
+    <g id="dimple">
+      <circle cx="0.5" cy="0.5" r="6.3" fill="#ffffff" opacity="0.42"/>
+      <circle cx="0" cy="0" r="6.1" fill="url(#dimple-cup)"/>
+    </g>
+
+    <!-- Hex-packed Dimple Pattern (spacing = 17px) -->
+    <pattern id="dimples" width="34" height="29.4449" patternUnits="userSpaceOnUse">
+      <use href="#dimple" x="0" y="0"/>
+      <use href="#dimple" x="34" y="0"/>
+      <use href="#dimple" x="0" y="29.4449"/>
+      <use href="#dimple" x="34" y="29.4449"/>
+      <use href="#dimple" x="17" y="0"/>
+      <use href="#dimple" x="17" y="29.4449"/>
+      <use href="#dimple" x="8.5" y="14.7224"/>
+      <use href="#dimple" x="25.5" y="14.7224"/>
+    </pattern>
+
+    <!-- Dimple Limb Fade Radial Mask -->
+    <radialGradient id="dimple-fade-grad" cx="667" cy="648" r="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="85%" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.55"/>
+    </radialGradient>
+
+    <mask id="dimple-mask">
+      <circle cx="667" cy="648" r="112" fill="url(#dimple-fade-grad)"/>
+    </mask>
+
+    <!-- Gentle Sphere Shading Overlay -->
+    <radialGradient id="ball-shading" cx="35%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="42%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="68%" stop-color="#1a2632" stop-opacity="0.10"/>
+      <stop offset="88%" stop-color="#1a2632" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#1a2632" stop-opacity="0.36"/>
+    </radialGradient>
+
+    <!-- Enlarged Specular Highlight Gradient -->
+    <radialGradient id="specular-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Ball Clip Path -->
+    <clipPath id="ball-clip">
+      <circle cx="667" cy="648" r="112"/>
+    </clipPath>
+  </defs>
+
+  <!-- Solid Charcoal Vignette Background -->
+  <rect width="1024" height="1024" fill="url(#bg-grad)"/>
+
+  <!-- Soft Diagonal Sheen Band (parallel to N diagonal) -->
+  <rect width="1024" height="1024" fill="url(#sheen-grad)"/>
+
+  <!-- Soft Ball Drop Shadow onto Background (under bars & ball) -->
+  <circle cx="677" cy="658" r="124" fill="#000000" opacity="0.35" filter="url(#ball-shadow-blur)"/>
+
+  <!-- Bars & Stencil N Structure (Masked concentric to ball) -->
+  <g mask="url(#ball-cutout)" fill="url(#bar-grad)">
+    <!-- Bar 1 -->
+    <rect x="218" y="239" width="40" height="518"/>
+
+    <!-- Bar 2 + Diagonal -->
+    <polygon points="294,239 700,596 700,650 334,328 334,757 294,757"/>
+
+    <!-- Bar 3 -->
+    <polygon points="368,357.5 408,392.7 408,757 368,757"/>
+
+    <!-- Right Bars Group -->
+    <rect x="568" y="239" width="40" height="361"/>
+    <rect x="646" y="239" width="40" height="361"/>
+    <rect x="720" y="239" width="40" height="361"/>
+  </g>
+
+  <!-- Enhanced Luminous Mint Outer Glow -->
+  <circle cx="667" cy="648" r="118" fill="none" stroke="#00d29a" stroke-width="12" filter="url(#mint-glow)" opacity="0.7"/>
+
+  <!-- Crisp Mint Ring -->
+  <circle cx="667" cy="648" r="118" fill="none" stroke="#00d29a" stroke-width="12"/>
+
+  <!-- Upper-Left Inner Edge Rim Highlight -->
+  <path d="M 560.8 609.4 A 113 113 0 0 1 705.7 541.8" fill="none" stroke="#7ff5d4" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+
+  <!-- Bright Dimpled Golf Ball -->
+  <g clip-path="url(#ball-clip)">
+    <!-- Ball Base -->
+    <circle cx="667" cy="648" r="112" fill="url(#ball-base)"/>
+    
+    <!-- Dimples with Radial Edge Mask -->
+    <rect x="550" y="530" width="234" height="236" fill="url(#dimples)" mask="url(#dimple-mask)"/>
+    
+    <!-- Soft Sphere 3D Shading Overlay -->
+    <circle cx="667" cy="648" r="112" fill="url(#ball-shading)"/>
+    
+    <!-- Larger Soft Specular Highlight -->
+    <ellipse cx="625" cy="605" rx="52" ry="34" transform="rotate(-35 625 605)" fill="url(#specular-grad)"/>
+  </g>
+</svg>

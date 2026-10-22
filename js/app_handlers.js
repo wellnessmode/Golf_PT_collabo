@@ -308,7 +308,7 @@ function _drawImageCard(m){
   ctx.fillStyle='#fff'; ctx.font='bold 12px -apple-system,sans-serif';
   ctx.fillText(Math.round(pct*100)+'%',40+640*pct/2-10,y+15); y+=45;
   ctx.fillStyle='#999'; ctx.font='13px -apple-system,sans-serif';
-  ctx.fillText(APP_BRAND.nameKo+' Golf PT Collaboration · '+today(),40,920);
+  ctx.fillText(APP_BRAND.appName+' · '+today(),40,920);
   return canvas;
 }
 function _imageCardFilename(m){ return m.name+'_레슨카드_'+today()+'.png'; }

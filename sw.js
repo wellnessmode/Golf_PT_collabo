@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v9.95';
+const CACHE_NAME = 'golf-pt-v9.96';
 const ASSETS = [
   './',
   './index.html',
@@ -48,7 +48,7 @@ self.addEventListener('message', function(e){ if(e.data && e.data.type==='SKIP_W
 self.addEventListener('push', function(e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { try { d = { body: e.data.text() }; } catch (__) {} }
-  var title = d.title || '내셔널짐 Golf PT';
+  var title = d.title || '내셔널짐 피티앤골프';
   e.waitUntil(self.registration.showNotification(title, {
     body: d.body || '',
     icon: './assets/icon-192.png',

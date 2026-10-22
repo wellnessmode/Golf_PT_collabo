@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Deep Fairway Green Background Gradient -->
+    <linearGradient id="fairwayBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06291D"/>
+      <stop offset="45%" stop-color="#0A3B2A"/>
+      <stop offset="80%" stop-color="#0E4A35"/>
+      <stop offset="100%" stop-color="#041F16"/>
+    </linearGradient>
+
+    <!-- Mown Grass Diagonal Pattern (-35deg) -->
+    <pattern id="mownGrass" width="140" height="140" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+      <rect x="0" y="0" width="70" height="140" fill="#FFFFFF" opacity="0.035"/>
+      <rect x="70" y="0" width="70" height="140" fill="#000000" opacity="0.04"/>
+    </pattern>
+
+    <!-- Studio Center Glow -->
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00D29A" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#00D29A" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#00D29A" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Vignette Gradient -->
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#010A07" stop-opacity="0.55"/>
+    </radialGradient>
+
+    <!-- Premium Warm Ivory Linear Gradient -->
+    <linearGradient id="ivoryGrad" x1="232" y1="252" x2="760" y2="754" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFDF6"/>
+      <stop offset="50%" stop-color="#F4EFE1"/>
+      <stop offset="100%" stop-color="#E4DCC6"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow Filter for Ivory Mark -->
+    <filter id="symbolShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#01140D" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.30"/>
+    </filter>
+
+    <!-- Ball Ground Shadow Filter -->
+    <filter id="ballShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14"/>
+      <feOffset dx="6" dy="16"/>
+    </filter>
+
+    <!-- Ball Specular Blur Filter (Blur ≈ 10) -->
+    <filter id="specularBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+
+    <!-- Mint Outer Glow Filter (Blur ≈ 6) -->
+    <filter id="mintGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+
+    <!-- 3D Golf Ball Base Radial Gradient -->
+    <radialGradient id="ballGrad" cx="35%" cy="30%" r="68%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="45%" stop-color="#F6F9F8"/>
+      <stop offset="78%" stop-color="#DDE7E3"/>
+      <stop offset="100%" stop-color="#B9CBC4"/>
+    </radialGradient>
+
+    <!-- Dimple Fade Radial Mask (Crisp Center, Smooth Outer Band) -->
+    <mask id="dimpleMask">
+      <radialGradient id="dimpleFade" cx="668" cy="652" r="120" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+        <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.7"/>
+        <stop offset="75%" stop-color="#FFFFFF" stop-opacity="0.2"/>
+        <stop offset="90%" stop-color="#FFFFFF" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+      </radialGradient>
+      <circle cx="668" cy="652" r="120" fill="url(#dimpleFade)"/>
+    </mask>
+
+    <!-- Hex-Packed Dimple Pattern Rotated 14deg -->
+    <pattern id="dimplePattern" width="20" height="34.641" patternUnits="userSpaceOnUse" patternTransform="rotate(14)">
+      <circle cx="0" cy="0" r="5.5" fill="#6B827A" opacity="0.16"/>
+      <circle cx="20" cy="0" r="5.5" fill="#6B827A" opacity="0.16"/>
+      <circle cx="0" cy="34.641" r="5.5" fill="#6B827A" opacity="0.16"/>
+      <circle cx="20" cy="34.641" r="5.5" fill="#6B827A" opacity="0.16"/>
+      <circle cx="10" cy="17.3205" r="5.5" fill="#6B827A" opacity="0.16"/>
+      <circle cx="0.8" cy="0.8" r="4.2" fill="#FFFFFF" opacity="0.20"/>
+      <circle cx="20.8" cy="0.8" r="4.2" fill="#FFFFFF" opacity="0.20"/>
+      <circle cx="0.8" cy="35.441" r="4.2" fill="#FFFFFF" opacity="0.20"/>
+      <circle cx="20.8" cy="35.441" r="4.2" fill="#FFFFFF" opacity="0.20"/>
+      <circle cx="10.8" cy="18.1205" r="4.2" fill="#FFFFFF" opacity="0.20"/>
+    </pattern>
+
+    <!-- Ball Terminator Shading Gradient -->
+    <radialGradient id="terminatorGrad" cx="628" cy="606" r="185" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4F6C62" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#4F6C62" stop-opacity="0"/>
+      <stop offset="72%" stop-color="#4F6C62" stop-opacity="0.18"/>
+      <stop offset="88%" stop-color="#4F6C62" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#4F6C62" stop-opacity="0.45"/>
+    </radialGradient>
+
+    <!-- Mint Rim-Light Linear Gradient -->
+    <linearGradient id="mintRimGrad" x1="590" y1="574" x2="754" y2="738" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D29A" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#00D29A" stop-opacity="0"/>
+      <stop offset="75%" stop-color="#00D29A" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#3DF5C0" stop-opacity="1"/>
+    </linearGradient>
+
+    <!-- Golf Ball Clip Path -->
+    <clipPath id="ballClip">
+      <circle cx="668" cy="652" r="120"/>
+    </clipPath>
+
+    <!-- Refined 6px Mint Crescent Mask -->
+    <mask id="mintCrescentMask">
+      <circle cx="668" cy="652" r="120" fill="#FFFFFF"/>
+      <circle cx="662" cy="646" r="120" fill="#000000"/>
+    </mask>
+  </defs>
+
+  <!-- Full Square Edge-to-Edge Background -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#fairwayBg)"/>
+
+  <!-- Fairway Mown Grass Stripes -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#mownGrass)"/>
+
+  <!-- Ambient Studio Illumination -->
+  <circle cx="512" cy="512" r="410" fill="url(#centerGlow)"/>
+
+  <!-- Vignette Overlay -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#vignette)"/>
+
+  <!-- UNIFIED IVORY BRAND MARK GROUP -->
+  <g fill="url(#ivoryGrad)" filter="url(#symbolShadow)">
+    <!-- B1 Vertical Bar -->
+    <rect x="232" y="252" width="40" height="502"/>
+
+    <!-- B2 Vertical Bar (Sharp Apex Integrating into Diagonal) -->
+    <polygon points="306,252 346,286.4 346,754 306,754"/>
+
+    <!-- N Diagonal Band -->
+    <polygon points="306,252 680,573.6 680,631.6 306,310"/>
+
+    <!-- B3 Vertical Bar (Seamlessly Fused Inside Diagonal) -->
+    <rect x="380" y="355" width="40" height="399"/>
+
+    <!-- R1 Vertical Bar (Fuses Into Diagonal Underside) -->
+    <rect x="572" y="252" width="40" height="278"/>
+
+    <!-- R2 Vertical Bar (Extends to Ball Radius) -->
+    <rect x="646" y="252" width="40" height="310"/>
+
+    <!-- R3 Vertical Bar (Extends to Ball Radius) -->
+    <rect x="720" y="252" width="40" height="338"/>
+  </g>
+
+  <!-- GOLF BALL HERO ELEMENT -->
+  <!-- 1. Soft Ambient Drop Shadow onto Bars & Fairway -->
+  <circle cx="668" cy="652" r="120" fill="#01140D" opacity="0.55" filter="url(#ballShadow)"/>
+
+  <!-- 2. 3D Golf Ball Base Sphere -->
+  <circle cx="668" cy="652" r="120" fill="url(#ballGrad)"/>
+
+  <!-- 3. Dimple Texture (Hex-Packed 14deg, Radial Fade Masked) -->
+  <rect x="548" y="532" width="240" height="240" clip-path="url(#ballClip)" mask="url(#dimpleMask)" fill="url(#dimplePattern)"/>
+
+  <!-- 4. Spherical Terminator Shadow Overlay -->
+  <circle cx="668" cy="652" r="120" fill="url(#terminatorGrad)" clip-path="url(#ballClip)"/>
+
+  <!-- 5. Visible Specular Light Highlight (Washes over Dimples) -->
+  <ellipse cx="622" cy="594" rx="42" ry="26" transform="rotate(-30 622 594)" fill="#FFFFFF" opacity="0.9" filter="url(#specularBlur)" clip-path="url(#ballClip)"/>
+
+  <!-- 6. Mint Outer Accent Glow on Lower-Right Crescent -->
+  <circle cx="668" cy="652" r="120" fill="url(#mintRimGrad)" mask="url(#mintCrescentMask)" filter="url(#mintGlow)" opacity="0.3"/>
+
+  <!-- 7. Crisp Mint Rim Crescent Highlight -->
+  <circle cx="668" cy="652" r="120" fill="url(#mintRimGrad)" mask="url(#mintCrescentMask)"/>
+</svg>

@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Matte Dark Radial Background Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="45%" r="68%">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="60%" stop-color="#101012"/>
+      <stop offset="100%" stop-color="#0b0b0c"/>
+    </radialGradient>
+
+    <!-- Unified Brushed Metallic Gold Gradient -->
+    <linearGradient id="goldGrad" gradientUnits="userSpaceOnUse" x1="232" y1="252" x2="757" y2="754">
+      <stop offset="0%" stop-color="#8F6B22"/>
+      <stop offset="18%" stop-color="#C9A24A"/>
+      <stop offset="38%" stop-color="#E8C979"/>
+      <stop offset="52%" stop-color="#F6E6B0"/>
+      <stop offset="68%" stop-color="#E8C979"/>
+      <stop offset="84%" stop-color="#C9A24A"/>
+      <stop offset="100%" stop-color="#8F6B22"/>
+    </linearGradient>
+
+    <!-- Ivory Golf Ball Base Gradient with Soft Directional Form -->
+    <radialGradient id="ivoryBallGrad" cx="36%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="30%" stop-color="#FAF7F2"/>
+      <stop offset="60%" stop-color="#EFE8DC"/>
+      <stop offset="84%" stop-color="#DCD2BE"/>
+      <stop offset="100%" stop-color="#C2B59D"/>
+    </radialGradient>
+
+    <!-- Warm-Grey Terminator Core Shadow for Convincing 3D Spherical Depth -->
+    <radialGradient id="ballTerminatorShadow" cx="618" cy="602" r="185" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8C7B5E" stop-opacity="0"/>
+      <stop offset="52%" stop-color="#8C7B5E" stop-opacity="0"/>
+      <stop offset="72%" stop-color="#8C7B5E" stop-opacity="0.14"/>
+      <stop offset="86%" stop-color="#8C7B5E" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#736248" stop-opacity="0.42"/>
+    </radialGradient>
+
+    <!-- Radial Mask to Smoothly Fade Dimples Out Toward the Rim (r ≈ 112) -->
+    <radialGradient id="dimpleFadeMask" cx="668" cy="652" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="48%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="72%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="93%" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <mask id="dimpleMask">
+      <circle cx="668" cy="652" r="120" fill="url(#dimpleFadeMask)"/>
+    </mask>
+
+    <!-- Hex-Packed Realistic Dimple Pattern -->
+    <pattern id="golfDimples" width="22" height="38.1" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
+      <!-- Row 1 -->
+      <circle cx="0" cy="0" r="5.5" fill="#5C4D35" opacity="0.15"/>
+      <circle cx="1" cy="1" r="4.3" fill="#FFFFFF" opacity="0.24"/>
+      <circle cx="22" cy="0" r="5.5" fill="#5C4D35" opacity="0.15"/>
+      <circle cx="23" cy="1" r="4.3" fill="#FFFFFF" opacity="0.24"/>
+      <!-- Row 2 (Hex Offset) -->
+      <circle cx="11" cy="19.05" r="5.5" fill="#5C4D35" opacity="0.15"/>
+      <circle cx="12" cy="20.05" r="4.3" fill="#FFFFFF" opacity="0.24"/>
+      <!-- Row 3 -->
+      <circle cx="0" cy="38.1" r="5.5" fill="#5C4D35" opacity="0.15"/>
+      <circle cx="1" cy="39.1" r="4.3" fill="#FFFFFF" opacity="0.24"/>
+      <circle cx="22" cy="38.1" r="5.5" fill="#5C4D35" opacity="0.15"/>
+      <circle cx="23" cy="39.1" r="4.3" fill="#FFFFFF" opacity="0.24"/>
+    </pattern>
+
+    <!-- Clip Path for Ball Surface Elements -->
+    <clipPath id="ballClip">
+      <circle cx="668" cy="652" r="118.5"/>
+    </clipPath>
+
+    <!-- Soft Specular Blur Filter -->
+    <filter id="specularBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+
+    <!-- Ambient Lighting Glow Blur -->
+    <filter id="ambientGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="50"/>
+    </filter>
+
+    <!-- Drop Shadow for Main Golden Structure -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+
+    <!-- Drop Shadow for Golf Ball -->
+    <filter id="ballShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="-2" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Full edge-to-edge square background -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGrad)"/>
+
+  <!-- Subtle warm ambient background glow -->
+  <circle cx="512" cy="500" r="340" fill="#C9A24A" opacity="0.06" filter="url(#ambientGlow)"/>
+
+  <!-- Golden Symbol Structure Group -->
+  <g filter="url(#dropShadow)" fill="url(#goldGrad)">
+    <!-- Bar 1 (B1): Leftmost vertical bar -->
+    <path d="M 232,252 H 272 V 754 H 232 Z"/>
+
+    <!-- Bar 2 (B2): Middle-left vertical bar with diagonal apex top -->
+    <path d="M 306,252 L 346,286.4 V 754 H 306 Z"/>
+
+    <!-- Diagonal Band: Connects B2 apex down-right toward golf ball -->
+    <path d="M 306,252 L 660,556.4 L 635,599.4 L 306,310 Z"/>
+
+    <!-- Bar 3 (B3): Fused under diagonal lower edge -->
+    <polygon points="378,372 418,406 418,754 378,754"/>
+
+    <!-- Bar 4 (R1): Right group left bar, top y=252 down to diagonal lower edge -->
+    <path d="M 572,252 H 612 V 573 L 572,539 Z"/>
+
+    <!-- Bar 5 (R2): Middle-right bar, extending under ball contour -->
+    <path d="M 646,252 H 686 V 560 H 646 Z"/>
+
+    <!-- Bar 6 (R3): Rightmost bar, extending under ball contour -->
+    <path d="M 717,252 H 757 V 580 H 717 Z"/>
+
+    <!-- Subtle 1px Lighter Left Bevel Edges (Cleanly Terminated with No Seams) -->
+    <g stroke="#FFF1B8" stroke-width="1" opacity="0.35" stroke-linecap="square">
+      <line x1="232.5" y1="252" x2="232.5" y2="754"/>
+      <line x1="306.5" y1="252" x2="306.5" y2="754"/>
+      <line x1="378.5" y1="372" x2="378.5" y2="754"/>
+      <!-- Ended cleanly at y=481 where R1 meets the diagonal band top edge -->
+      <line x1="572.5" y1="252" x2="572.5" y2="481"/>
+      <!-- Ended before ball perimeter -->
+      <line x1="646.5" y1="252" x2="646.5" y2="533"/>
+      <line x1="717.5" y1="252" x2="717.5" y2="542"/>
+    </g>
+  </g>
+
+  <!-- Premium Golf Ball Structure -->
+  <g filter="url(#ballShadow)">
+    <!-- Base Ivory Sphere -->
+    <circle cx="668" cy="652" r="120" fill="url(#ivoryBallGrad)"/>
+
+    <!-- Authentic Dimples with Smooth Edge Fade Mask -->
+    <circle cx="668" cy="652" r="120" fill="url(#golfDimples)" mask="url(#dimpleMask)" opacity="0.8"/>
+
+    <!-- Soft Warm-Grey Terminator Core Shadow on Lower-Right ~30% -->
+    <circle cx="668" cy="652" r="120" fill="url(#ballTerminatorShadow)"/>
+
+    <!-- Directional Specular Highlight -->
+    <g clip-path="url(#ballClip)">
+      <ellipse cx="630" cy="605" rx="30" ry="20" transform="rotate(-30 630 605)" fill="#FFFFFF" opacity="0.55" filter="url(#specularBlur)"/>
+    </g>
+
+    <!-- Hairline Gold Outer Rim (3px) -->
+    <circle cx="668" cy="652" r="118.5" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+
+    <!-- Fine Specular Inner Rim Highlight -->
+    <circle cx="668" cy="652" r="117" fill="none" stroke="#FFF1B8" stroke-width="1" opacity="0.35"/>
+  </g>
+</svg>

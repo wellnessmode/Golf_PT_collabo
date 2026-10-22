@@ -254,7 +254,8 @@ function renderReport(c, meta){
   var days=null; try{ if(m.registeredDate){ days=Math.max(0,Math.floor((Date.now()-new Date(String(m.registeredDate)+'T00:00:00').getTime())/86400000)); if(!isFinite(days)) days=null; } }catch(e){}
   var golfN=num(c.proSessions), ptN=num(c.trainerSessions), shotN=num(t&&t.shotCount);
   html+='<div class="hero"><div class="hero-top"><div class="hero-brand">'+esc(storeEn)+'</div><button class="hero-zoom" onclick="rptZoom()" title="글자 크기">글자<small id="rp-zoom-l">크게</small></button></div>'
-    +'<div class="hero-title">'+esc(name)+'님의 골프 성장기<small>'+esc(storeKo)+' · 레슨 기록 · 스윙 영상 · 측정 데이터</small></div>'
+    // 서브: 측정 데이터 먼저(시설 이용만 하는 회원도 받는 리포트) · 레슨 기록은 레슨 회차가 있을 때만
+    +'<div class="hero-title">'+esc(name)+'님의 골프 성장기<small>'+esc(storeKo)+' · 측정 데이터 · 스윙 영상'+((golfN||ptN)?' · 레슨 기록':'')+'</small></div>'
     +'<div class="hero-stats">'
     +(days!=null?'<div class="hs"><b>'+days+'일</b><span>함께한 날</span></div>':'')
     +'<div class="hs"><b>'+golfN+'회</b><span>골프 레슨</span></div>'

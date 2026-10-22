@@ -29,11 +29,14 @@ const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
 // ============ B2B 화이트라벨 (config.js 오버라이드) ============
 // 브랜드/지도자/베이/초기비번은 config.js 값이 있으면 그걸 쓰고, 없으면 기본값.
 const APP_BRAND = Object.assign({
-  name:'NATIONAL GYM', nameKo:'내셔널짐', sub:'GOLF & PT',
+  name:'NATIONAL GYM', nameKo:'내셔널짐', sub:'PT & GOLF',
+  // 앱 이름 — 홈 화면·탭 제목·푸시·생체인증 RP 등 "앱"을 가리키는 모든 곳. 상호와 동일하게(레슨 회원뿐 아니라 시설 이용 회원까지 포괄).
+  appName:'내셔널짐 피티앤골프',
   // 정식 상호 — 고객용 리포트 등 대외 노출 문구에 사용
   store:'내셔널짐 피티앤골프 스튜디오', storeEn:'NATIONAL GYM PT & GOLF STUDIO',
   tagline:'COLLABORATIVE COACHING PLATFORM',
-  reportSub:'GOLF PT · PERFORMANCE', measuredBy:'TRACKMAN iO',
+  splashSub:'PT & GOLF STUDIO',             // 인트로(스플래시) 서브 — 업장 성격
+  reportSub:'PERFORMANCE REPORT', measuredBy:'TRACKMAN iO',
   heroImages:[], heroCopy:'골프와 피트니스가 만나는 곳 · 데이터로 증명하는 코칭'
 }, (window.APP_CONFIG && window.APP_CONFIG.BRAND) || {});
 
@@ -80,9 +83,10 @@ function setPassword(key, newPw){
 }
 
 const APP_VERSION = {
-  version:'v9.95',
-  date:'2026-10-16',
+  version:'v9.96',
+  date:'2026-10-22',
   changes:[
+    '앱 이름 변경 — "Golf PT" → "내셔널짐 피티앤골프"(상호와 동일). 레슨 회원뿐 아니라 트랙맨 시설 이용만 하는 회원까지 아우르는 이름. 홈 화면 아이콘 이름·탭 제목·푸시 알림·생체인증 등록명 모두 새 이름, 앱 아이콘도 기존 로고(N·골프공 마크) 기반 새 디자인. 인트로 서브 "PT & GOLF STUDIO", 리포트 헤더 서브 "PERFORMANCE REPORT". 회원 리포트 부제는 "측정 데이터 · 스윙 영상" 먼저, "레슨 기록"은 레슨 회차가 있을 때만 (※ 이미 홈 화면에 설치한 앱은 이름·아이콘이 바로 안 바뀔 수 있음 — 지우고 다시 추가)',
     '리포트 검토는 마지막으로 일지·영상을 올린 담당자만 — 프로가 마지막 레슨을 했으면 프로에게만, 트레이너면 트레이너에게만 검토 대기·독촉·푸시가 가고 [검토 완료] 버튼도 그 담당자에게만 보임 (회원 이름 옆 알림 점은 두 담당자 모두 유지). 회원 리포트: 폰에서 샷 수치를 표처럼 정렬, 카톡 안에서 열렸을 때 [기본 브라우저로 열기] 버튼과 뒤로가기 보호',
     '회원 리포트 전면 개편 — 첫 화면이 "OO님의 골프 성장기": 클럽 드롭다운(드라이버·우드·유틸리티·아이언·웨지)으로 그 클럽의 저장 영상과 트랙맨 수치를 전부 보고, 측면·정면·클럽 영상을 전체 화면 뷰어에서 넘겨 봄. 비포·애프터 라벨·버튼 큼직하게, 레슨 일지는 골프/PT 탭으로 나눠 바로 보이게, 글자 기본 크게 (회원 링크는 그대로 — 다음 [검토 완료]부터 새 화면)',
     '같이 맡은 회원 알림 — 프로·트레이너가 함께 담당하는 회원의 레슨 일지를 한쪽이 저장하면 다른 담당자에게 알림. 🔔 배지와 회원 이름 옆 빨간 점(미확인)으로 표시되고, 그 회원을 열면 점이 사라짐. 폰 푸시를 켜 두면 즉시 폰으로도 알림',
@@ -1011,7 +1015,7 @@ const bio = {
     var uid=new TextEncoder().encode(role+':'+user);
     var cred=await navigator.credentials.create({publicKey:{
       challenge:challenge.buffer,
-      rp:{name:APP_BRAND.nameKo+' Golf PT',id:location.hostname},
+      rp:{name:APP_BRAND.appName,id:location.hostname},
       user:{id:uid,name:role+':'+user,displayName:user+' ('+role+')'},
       pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
       authenticatorSelection:{userVerification:'required',authenticatorAttachment:'platform',residentKey:'preferred'},
