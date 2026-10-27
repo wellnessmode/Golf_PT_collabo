@@ -95,10 +95,12 @@ const pwServer = {
   // 이 기기가 서버 비밀번호를 한 번이라도 확인했는지 — 그 뒤로는 오프라인이어도 초기값·옛 기기값으로 못 들어온다
   known(){ try{ return localStorage.getItem('golf_pt_pw_server')==='1'; }catch(e){ return false; } },
   // → {data} | {missing:true}(SQL 미실행·되돌림) | {offline:true}(네트워크·서버 오류)
-  async call(fn, args){
+  async call(fn, args, timeoutMs){
     if(!cloud.enabled || !cloud.client || typeof cloud.client.rpc!=='function') return {offline:true};
     try{
-      var r=await cloud.client.rpc(fn, args);
+      // 응답이 영영 안 오면(전파는 잡히는데 패킷이 막히는 지하·음영지역) 로그인 창이 안 풀리므로 시간 제한 → 오프라인 처리
+      var r=await Promise.race([cloud.client.rpc(fn, args), new Promise(function(res){ setTimeout(function(){ res({__timeout:true}); }, timeoutMs||8000); })]);
+      if(r && r.__timeout) return {offline:true};
       if(r && r.error){
         var c=String(r.error.code||''), m=String(r.error.message||'');
         if(c==='PGRST202' || c==='42883' || /could not find the function/i.test(m)) return {missing:true};
@@ -125,21 +127,34 @@ const pwCache = {
   async check(key, pw){ try{ var a=this._all()[key]; if(!a || !(window.crypto && crypto.subtle)) return null; return (await this._derive(pw, a.s)).h===a.h; }catch(e){ return null; } }
 };
 function _pwLockedMsg(d){ return '여러 번 틀려서 잠겼어요 — '+Math.max(1, Math.ceil(((d && d.retry_after) || 600)/60))+'분 뒤에 다시 해 주세요'; }
-// 로그인 비밀번호 확인 → {ok, via:'server'|'local'|'offline', mustChange, msg}
+var _pwExpiredMsg='초기(임시) 비밀번호는 14일만 쓸 수 있어요 — 관리자에게 비밀번호 초기화를 요청해 주세요';
+// 로그인 비밀번호 확인 → {ok, via:'server'|'local'|'offline', mustChange, srv(서버가 답함), msg}
 async function verifyPassword(key, pw){
   var r=await pwServer.call('pw_login', {p_key:key, p_pw:pw});
   if(r.data){
     var d=r.data;
-    if(d.ok){ _forgetLegacyPw(key); await pwCache.put(key, pw); return {ok:true, via:'server', mustChange:!!d.must_change}; }
-    if(d.locked) return {ok:false, msg:_pwLockedMsg(d)};
-    if(d.unknown) return pw===getPassword(key) ? {ok:true, via:'local'} : {ok:false};   // 서버에 아직 없는 계정(새 지도자 등)
+    if(d.ok){ _forgetLegacyPw(key); await pwCache.put(key, pw); return {ok:true, srv:true, via:'server', mustChange:!!d.must_change}; }
+    // 잠김: 누가 일부러 틀려서 잠가 둬도, 이 기기에서 이미 맞았던 비밀번호(해시로 기억)면 들여보낸다 — 무차별 대입은 여전히 막힘
+    if(d.locked){ if(await pwCache.check(key, pw)===true) return {ok:true, srv:true, via:'offline'}; return {ok:false, srv:true, msg:_pwLockedMsg(d)}; }
+    if(d.busy) return {ok:false, srv:true, msg:'잠시 후 다시 시도해 주세요'};
+    if(d.expired) return {ok:false, srv:true, msg:_pwExpiredMsg};
+    if(d.unknown) return pw===getPassword(key) ? {ok:true, srv:true, via:'local'} : {ok:false, srv:true};   // 서버에 아직 없는 계정(새 지도자 등)
     // 이 기기에서 바꿔 쓰던 비밀번호 → 서버가 아직 초기값이면 서버로 그대로 옮긴다(계정당 1회)
     var legacy=_legacyStoredPw(key), def=DEFAULT_PASSWORDS[key];
     if(legacy && pw===legacy && def && legacy!==def){
-      var m=await pwServer.call('pw_change', {p_key:key, p_old:def, p_new:pw});
-      if(m.data && m.data.ok){ _forgetLegacyPw(key); await pwCache.put(key, pw); logAudit('auth','비밀번호 서버로 이전',key,{}); return {ok:true, via:'server'}; }
+      var m=await pwServer.call('pw_change', {p_key:key, p_old:def, p_new:pw}, 15000);
+      if(m.data){
+        if(m.data.ok){ _forgetLegacyPw(key); await pwCache.put(key, pw); logAudit('auth','비밀번호 서버로 이전',key,{}); return {ok:true, srv:true, via:'server'}; }
+        if(m.data.locked) return {ok:false, srv:true, msg:_pwLockedMsg(m.data)};
+        if(m.data.busy) return {ok:false, srv:true, msg:'잠시 후 다시 시도해 주세요'};
+        if(m.data.expired) return {ok:false, srv:true, msg:_pwExpiredMsg};
+        if(m.data.weak) return {ok:false, srv:true, msg:'이 기기에서 쓰던 비밀번호가 짧아서 서버로 옮길 수 없어요 — 관리자에게 비밀번호 초기화를 요청해 주세요'};
+        // 서버 비밀번호가 이미 다른 값(다른 기기에서 바꿈) → 이 기기의 옛 값은 지운다(매번 2회씩 실패로 세어 잠기는 것 방지)
+        _forgetLegacyPw(key);
+        return {ok:false, srv:true, msg:'이 기기에서 쓰던 비밀번호는 더 이상 안 돼요 — 다른 기기에서 바꾼 비밀번호로 들어와 주세요'};
+      }
     }
-    return {ok:false};
+    return {ok:false, srv:true};
   }
   if(r.missing) return pw===getPassword(key) ? {ok:true, via:'local'} : {ok:false};
   // 오프라인·서버 오류: 서버에서 맞았던 비밀번호(해시)로 확인
@@ -148,12 +163,28 @@ async function verifyPassword(key, pw){
   if(!pwServer.known()) return pw===getPassword(key) ? {ok:true, via:'local'} : {ok:false};
   return {ok:false, msg:(c===false ? '' : '인터넷 연결을 확인해 주세요 — 이 기기에서 처음 들어가는 계정은 서버 확인이 필요해요')};
 }
+// 생체·자동 로그인으로 들어온 경우: 비밀번호를 안 쳤으니 서버로 못 옮겼다 → 이 기기가 기억하는 값으로 한 번만 서버에 '내 계정' 표시(이전·변경 요구).
+// 공개된 초기값이 서버에 오래 남아 있지 않게(누가 먼저 바꿔치기할 틈을 줄임). 계정마다 한 번만 시도(실패 횟수 낭비 방지).
+async function pwClaimAfterLogin(role,user){
+  try{
+    var key=pwKeyOf(role,user); if(!key) return;
+    if(pwCache._all()[key]) return;                                   // 이 기기에서 이미 서버 비밀번호 확인됨
+    var done={}; try{ done=JSON.parse(localStorage.getItem('golf_pt_pw_claimed')||'{}'); }catch(e){}
+    if(done[key]) return;
+    var guess=getPassword(key); if(!guess) return;
+    var r=await verifyPassword(key, guess);
+    if(r.srv){ done[key]=1; try{ localStorage.setItem('golf_pt_pw_claimed', JSON.stringify(done)); }catch(e){} }
+    if(r.ok && r.mustChange && S.currentRole===role && S.currentUser===user && !S.showPwChange){
+      S._pwForce={key:key, current:guess}; S.pwChange={current:'',newPw:'',confirm:''}; S.pwChangeError=''; S.showPwChange=true; render();
+    }
+  }catch(e){}
+}
 
 const APP_VERSION = {
   version:'v9.97',
   date:'2026-10-27',
   changes:[
-    '비밀번호를 서버에 저장 — 앱을 지웠다 다시 깔거나 폰을 바꿔도 비밀번호가 그대로. 초기(임시) 비밀번호로 들어오면 바로 새 비밀번호를 정하는 창이 뜨고, 이 기기에서 바꿔 쓰던 비밀번호는 첫 로그인 때 자동으로 서버로 옮겨짐. 같은 계정 10번 틀리면 10분 잠금. 관리자는 마이페이지 [🔑 직원 비밀번호 초기화]로 잊어버린 직원에게 임시 비밀번호를 정해 줄 수 있음 (⚠️ 대표가 Supabase에서 worker/supabase_passwords.sql 한 번 실행 후 적용 — 실행 전에는 예전처럼 동작)',
+    '비밀번호를 서버에 저장 — 앱을 지웠다 다시 깔거나 폰을 바꿔도 비밀번호가 그대로. 초기(임시) 비밀번호로 들어오면 바로 새 비밀번호(6자 이상)를 정하는 창이 뜨고, 이 기기에서 바꿔 쓰던 비밀번호는 첫 로그인 때(Face ID 로그인이어도) 자동으로 서버로 옮겨짐. 초기·임시 비밀번호는 14일만 유효, 같은 계정 10번 틀리면 10분 잠금(이 기기에서 맞았던 비밀번호는 잠겨도 통과). 관리자는 마이페이지 [🔑 직원 비밀번호 초기화]로 잊어버린 직원에게 임시 비밀번호를 정해 줄 수 있음 (⚠️ 대표가 Supabase에서 worker/supabase_passwords.sql 한 번 실행 후 적용 — 실행 전에는 예전처럼 동작)',
     '앱 이름 변경 — "Golf PT" → "내셔널짐 피티앤골프"(상호와 동일). 레슨 회원뿐 아니라 트랙맨 시설 이용만 하는 회원까지 아우르는 이름. 홈 화면 아이콘 이름·탭 제목·푸시 알림·생체인증 등록명 모두 새 이름, 앱 아이콘도 기존 로고(N·골프공 마크) 기반 새 디자인. 인트로 서브 "PT & GOLF STUDIO", 리포트 헤더 서브 "PERFORMANCE REPORT". 회원 리포트 부제는 "측정 데이터 · 스윙 영상" 먼저, "레슨 기록"은 레슨 회차가 있을 때만 (※ 이미 홈 화면에 설치한 앱은 이름·아이콘이 바로 안 바뀔 수 있음 — 지우고 다시 추가)',
     '리포트 검토는 마지막으로 일지·영상을 올린 담당자만 — 프로가 마지막 레슨을 했으면 프로에게만, 트레이너면 트레이너에게만 검토 대기·독촉·푸시가 가고 [검토 완료] 버튼도 그 담당자에게만 보임 (회원 이름 옆 알림 점은 두 담당자 모두 유지). 회원 리포트: 폰에서 샷 수치를 표처럼 정렬, 카톡 안에서 열렸을 때 [기본 브라우저로 열기] 버튼과 뒤로가기 보호',
     '회원 리포트 전면 개편 — 첫 화면이 "OO님의 골프 성장기": 클럽 드롭다운(드라이버·우드·유틸리티·아이언·웨지)으로 그 클럽의 저장 영상과 트랙맨 수치를 전부 보고, 측면·정면·클럽 영상을 전체 화면 뷰어에서 넘겨 봄. 비포·애프터 라벨·버튼 큼직하게, 레슨 일지는 골프/PT 탭으로 나눠 바로 보이게, 글자 기본 크게 (회원 링크는 그대로 — 다음 [검토 완료]부터 새 화면)',
@@ -948,8 +979,11 @@ function activateRole(role,user){S.currentRole=role;S.currentUser=user;S.showPwM
   // 로그인 착지 = 대시보드 홈. 예전엔 담당 첫 회원(로버트)이 자동 선택돼 "첫 화면이 맨날 로버트" 문제.
   S.selectedMember=null;S.showDashboard=true;S.showLiveSession=false;
   if(S._pwForce && S._pwForce.key===pwKeyOf(role,user)){ S.pwChange={current:'',newPw:'',confirm:''}; S.pwChangeError=''; S.showPwChange=true; } else S._pwForce=null;
+  var _viaPw=!!S._pwViaPassword; S._pwViaPassword=false;
   render();
   try{ setTimeout(ensureOwnerWatchMember, 5000); }catch(e){}
+  // 생체·자동 로그인(비밀번호 안 침)이면 잠시 뒤 서버에 내 계정 표시(초기값 이전·변경 요구) — 비밀번호로 들어왔으면 이미 끝난 일
+  if(!_viaPw){ try{ setTimeout(function(){ pwClaimAfterLogin(role,user); }, 1500); }catch(e){} }
   try{ setTimeout(function(){ if(typeof retryPendingAiSummaries==='function') retryPendingAiSummaries(); }, 8000); }catch(e){}
   try{ setTimeout(function(){ if(typeof resumeInterruptedRec==='function') resumeInterruptedRec(); }, 2500); }catch(e){}   // 로그인 후 끊긴 녹음 자동 재개
   // 리포트 검토 독촉 — 클라우드 동기화가 끝날 즈음 검토 대기 목록을 띄우고, 폰 푸시 구독을 이 사용자로 다시 묶는다
@@ -1034,13 +1068,13 @@ function toggleShotPause(){
 // '이 기기 자동 로그인' (생체 미지원 기기용) — 켜져 있으면 다음 부팅 시 비번 없이 입장
 function deviceTrusted(){try{return localStorage.getItem('golf_pt_trust_device')==='1';}catch(e){return false;}}
 function setDeviceTrust(on){try{if(on)localStorage.setItem('golf_pt_trust_device','1');else localStorage.removeItem('golf_pt_trust_device');}catch(e){}}
-async function submitPassword(){var p=S.pendingRole;if(!p||S.pwBusy)return;var key=pwKeyOf(p.role,p.user);var typed=S.pwInput||'';
-  // 서버 확인(보통 1초 안) — 다시 그리면 입력칸이 비므로 버튼 글자만 바꾼다
-  S.pwBusy=true;S.pwError=false;S.pwMsg='';try{var _b=document.querySelector('.pw-modal .btn.primary');if(_b){_b.disabled=true;_b.textContent='확인 중...';}}catch(e){}
-  var res;try{res=await verifyPassword(key,typed);}catch(e){res={ok:false};}finally{S.pwBusy=false;}
+async function submitPassword(){var p=S.pendingRole;if(!p||S.pwBusy===p)return;var key=pwKeyOf(p.role,p.user);var typed=S.pwInput||'';
+  // 서버 확인(보통 1초 안, 최대 8초) — 다시 그리면 입력칸이 비므로 버튼 글자만 바꾼다. 진행 표시는 이 요청(p)에 묶어, 취소 뒤 새 시도를 막지 않게
+  S.pwBusy=p;S.pwError=false;S.pwMsg='';try{var _b=document.querySelector('.pw-modal .btn.primary');if(_b){_b.disabled=true;_b.textContent='확인 중...';}}catch(e){}
+  var res;try{res=await verifyPassword(key,typed);}catch(e){res={ok:false};}finally{if(S.pwBusy===p)S.pwBusy=null;}
   if(S.pendingRole!==p) return;   // 그 사이 취소됨
   if(!res.ok){S.pwError=true;S.pwMsg=res.msg||'';S.pwInput='';render();return;}
-  S.pwMsg='';S.pwInput='';
+  S.pwMsg='';S.pwInput='';S._pwViaPassword=true;
   // 초기 비밀번호·관리자 초기화로 들어옴 → 들어간 직후 새 비밀번호 정하기 창
   S._pwForce=res.mustChange?{key:key,current:typed}:null;
   {logAudit('auth','로그인',p.user||key,{role:p.role,method:(res.via==='server'?'password':'password-'+res.via)});
