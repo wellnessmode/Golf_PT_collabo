@@ -637,15 +637,89 @@ function rejectDelete(id){
 function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen; render();}
 function closeModal(){S.showAddSession=false; S.showAddMember=false; S.showActivityLog=false; S.editMemberId=null; S.editSessionId=null; render();}
 function openActivityLog(){markSeen(); S.showActivityLog=true; render();}
-function openPasswordChange(){S.pwChange={current:'',newPw:'',confirm:''}; S.pwChangeError=''; S.showPwChange=true; render();}
-function submitPasswordChange(){
-  var key = S.currentRole==='infodesk' ? 'infodesk' : (S.currentRole==='admin' ? '관리자' : S.currentUser);
-  if(S.pwChange.current !== getPassword(key)){S.pwChangeError='현재 비밀번호가 일치하지 않습니다'; render(); return;}
-  if(!S.pwChange.newPw || S.pwChange.newPw.length<4){S.pwChangeError='새 비밀번호는 4자 이상이어야 합니다'; render(); return;}
-  if(S.pwChange.newPw !== S.pwChange.confirm){S.pwChangeError='새 비밀번호가 일치하지 않습니다'; render(); return;}
-  setPassword(key, S.pwChange.newPw);
-  S.showPwChange=false; S.pwChangeError='';
-  alert('비밀번호가 변경되었습니다');
+function openPasswordChange(){S._pwForce=null; S.pwChange={current:'',newPw:'',confirm:''}; S.pwChangeError=''; S.showPwChange=true; render();}
+function closePasswordChange(){S.showPwChange=false; S._pwForce=null; S.pwChangeError=''; render();}
+// 비밀번호 변경 — 서버가 있으면 서버에(앱을 다시 깔아도 유지), SQL 실행 전이면 예전처럼 이 기기에.
+// 초기 비밀번호로 막 로그인한 경우(S._pwForce)는 방금 친 비밀번호를 현재 비밀번호로 쓴다(다시 묻지 않음).
+async function submitPasswordChange(){
+  if(S.pwChangeBusy) return;
+  var f=S._pwForce;
+  var key = f ? f.key : pwKeyOf(S.currentRole, S.currentUser);
+  var cur = f ? f.current : (S.pwChange.current||'');
+  var nw = S.pwChange.newPw||'';
+  var minLen = (key==='관리자') ? 8 : 6;   // 서버(pw_change)와 같은 기준
+  var fail=function(msg){ S.pwChangeError=msg; render(); };
+  if(!nw || nw.length<minLen) return fail('새 비밀번호는 '+minLen+'자 이상이어야 합니다');
+  if(nw.length>64) return fail('새 비밀번호는 64자 이하로 해 주세요');
+  if(nw !== S.pwChange.confirm) return fail('새 비밀번호가 일치하지 않습니다');
+  if(nw === cur) return fail('지금 비밀번호와 다른 비밀번호로 정해 주세요');
+  S.pwChangeBusy=true;   // 기기 캐시 기록까지 끝날 때까지 유지(두 번 눌러 옛 비밀번호로 재요청되는 것 방지)
+  try{
+    var r; try{ r=await pwServer.call('pw_change', {p_key:key, p_old:cur, p_new:nw}, 15000); }catch(e){ r={offline:true}; }
+    var done=function(where){
+      S.showPwChange=false; S.pwChangeError=''; S._pwForce=null; S.pwChange={current:'',newPw:'',confirm:''};
+      alert(where==='server' ? '비밀번호가 변경되었습니다\n(서버에 저장 — 앱을 다시 깔거나 다른 기기에서도 이 비밀번호로 들어옵니다)' : '비밀번호가 변경되었습니다');
+      render();
+    };
+    var legacy=function(){
+      if(cur !== getPassword(key)) return fail('현재 비밀번호가 일치하지 않습니다');
+      setPassword(key, nw); done('local');
+    };
+    if(r.data){
+      var d=r.data;
+      if(d.ok){ _forgetLegacyPw(key); await pwCache.put(key, nw); logAudit('auth','비밀번호 변경', key, {server:true}); return done('server'); }
+      if(d.locked) return fail(_pwLockedMsg(d));
+      if(d.busy) return fail('잠시 후 다시 시도해 주세요');
+      if(d.expired) return fail(_pwExpiredMsg);
+      if(d.weak) return fail('새 비밀번호는 '+minLen+'~64자로 해 주세요');
+      if(d.unknown) return legacy();   // 서버에 아직 없는 계정 → 이 기기에 (관리자가 '직원 비밀번호 초기화'로 서버에 만들 수 있음)
+      // '현재 비밀번호'가 이 기기에서 바꿔 쓰던 값이고 서버는 아직 초기값이면 → 초기값→새 비밀번호로 바로 이전
+      var lg=_legacyStoredPw(key), df=DEFAULT_PASSWORDS[key];
+      if(!f && lg && cur===lg && df && lg!==df){
+        var m; try{ m=await pwServer.call('pw_change', {p_key:key, p_old:df, p_new:nw}, 15000); }catch(e){ m={offline:true}; }
+        if(m.data && m.data.ok){ _forgetLegacyPw(key); await pwCache.put(key, nw); logAudit('auth','비밀번호 변경', key, {server:true, migrated:true}); return done('server'); }
+        if(m.data && m.data.locked) return fail(_pwLockedMsg(m.data));
+        if(m.data && !m.data.ok && !m.data.busy && !m.data.expired && !m.data.weak) _forgetLegacyPw(key);   // 서버는 이미 다른 값
+      }
+      return fail('현재 비밀번호가 일치하지 않습니다');
+    }
+    if(r.missing) return legacy();
+    // 서버를 이미 쓰는데 연결이 안 되면 기기에만 바꾸지 않는다(서버와 어긋나므로). 시간 초과였다면 서버엔 반영됐을 수도 있음
+    if(pwServer.known()) return fail('서버 확인이 안 됐어요 — 인터넷을 확인하고 다시 시도하거나, 새 비밀번호로 로그인이 되는지 확인해 주세요');
+    return legacy();
+  } finally { S.pwChangeBusy=false; }
+}
+// ===== 관리자: 직원 비밀번호 초기화 (서버) — 잊어버린 직원에게 임시 비밀번호를 정해 주면, 그 직원이 다음 로그인 때 새로 정한다
+function openPwReset(){ S.pwReset={target:'', adminPw:'', newPw:'', error:'', busy:false}; render(); }
+function closePwReset(){ S.pwReset=null; render(); }
+function pwResetTargets(){
+  var list=[{key:'infodesk', label:'인포데스크'}];
+  (INSTRUCTORS||[]).forEach(function(i){ if(i && i.name) list.push({key:i.name, label:i.name}); });
+  return list;
+}
+async function submitPwReset(){
+  var R=S.pwReset; if(!R || R.busy) return;
+  var fail=function(msg){ R.error=msg; render(); };
+  if(!R.target) return fail('초기화할 직원을 고르세요');
+  if(!pwResetTargets().some(function(t){ return t.key===R.target; })) return fail('목록에 있는 직원만 초기화할 수 있어요');
+  if(!R.adminPw) return fail('관리자 비밀번호를 입력하세요');
+  if(!R.newPw || R.newPw.length<6 || R.newPw.length>64) return fail('임시 비밀번호는 6~64자로 정하세요');
+  R.busy=true; R.error=''; render();
+  var r; try{ r=await pwServer.call('pw_admin_reset', {p_admin_pw:R.adminPw, p_target:R.target, p_new:R.newPw}, 15000); }catch(e){ r={offline:true}; }
+  R.busy=false;
+  if(S.pwReset!==R) return;
+  if(r.missing) return fail('서버 비밀번호 설정(worker/supabase_passwords.sql)을 먼저 실행해야 쓸 수 있어요');
+  if(!r.data) return fail('인터넷 연결을 확인한 뒤 다시 시도해 주세요');
+  var d=r.data;
+  if(d.locked) return fail(_pwLockedMsg(d));
+  if(d.busy) return fail('잠시 후 다시 시도해 주세요');
+  if(d.weak) return fail('임시 비밀번호는 6~64자로 정하세요');
+  if(d.bad_target) return fail('관리자 계정은 여기서 초기화할 수 없어요 (SQL Editor 에서 — 안내문 참고)');
+  if(!d.ok) return fail('관리자 비밀번호가 일치하지 않습니다');
+  var label=(pwResetTargets().find(function(t){ return t.key===R.target; })||{}).label||R.target;
+  logAudit('auth','직원 비밀번호 초기화', R.target, {});
+  S.pwReset=null;
+  alert(label+' 비밀번호를 초기화했습니다.\n\n그 직원이 방금 정한 임시 비밀번호로 들어가면, 바로 새 비밀번호를 정하는 창이 뜹니다.');
   render();
 }
 function openAuditLog(){S.showAuditLog=true; S.auditFilter=S.auditFilter||'all'; S.auditUserSelected=null; render();}
