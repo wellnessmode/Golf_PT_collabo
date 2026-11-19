@@ -1481,10 +1481,10 @@ async function _fetchNotices(force){
       try{ liveToastSafe('🔔 '+(c0.user||'직원')+' · '+(c0.action||'새 활동')+(c0.target?' — '+c0.target:'')); }catch(e){}
     }
     if(unread!==window.__ntcShown){ window.__ntcShown=unread; try{render();}catch(e){} }
-    // 30일 지난 알림은 하루 한 번 정리
+    // 1년 지난 알림은 하루 한 번 정리 (v9.98: 30일 → 1년 — 직원 활동 기록은 이 알림이 유일하므로 1년 보관)
     if(!window.__ntcPruned || now-window.__ntcPruned>86400000){
       window.__ntcPruned=now;
-      var cutoff=new Date(now-30*86400000).toISOString();
+      var cutoff=new Date(now-365*86400000).toISOString();
       try{ cloud._w('delete','reports',{filters:[{col:'member_id',op:'eq',val:'notice'},{col:'created_at',op:'lt',val:cutoff}]}); }catch(e){}
     }
   }catch(e){}
