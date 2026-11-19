@@ -1133,10 +1133,8 @@ function addSession(){
   logActivity('세션 추가', mid, s.content.slice(0,40));
   logAudit('session','세션 기록', (S.members.find(function(x){return x.id===mid;})||{}).name||'', {date:s.date, author:s.author, content:s.content.slice(0,80), mediaCount:(s.media||[]).length});
   if(!save()){
-    S.sessions[mid].pop();
-    S.activityLog.pop();
-    render();
-    return;
+    // 기기 저장 공간이 꽉 차도 방금 쓴 일지를 버리지 않는다(예전엔 조용히 사라짐) — 서버로 바로 올리고 알린다 (v9.98)
+    try{ liveToast('⚠️ 이 기기 저장 공간이 부족해요 — 일지는 서버로 바로 올립니다(인터넷 연결 필요). 계속되면 관리자에게 알려주세요','err'); }catch(e){}
   }
   S.showAddSession = false;
   render();
@@ -1180,6 +1178,21 @@ function _aiSourceForSession(s, opts){
   var p=(typeof cloud!=='undefined' && cloud && typeof cloud.fetchSessionRaw==='function') ? cloud.fetchSessionRaw(s.id) : Promise.resolve('');
   return Promise.resolve(p).then(function(raw){ raw=String(raw||'').trim(); return raw.length>fb.length ? raw : fb; }, function(){ return fb; });
 }
+// 손대지 않은 자동 생성 '정리 대기' 본문인지 — [레슨 녹음 메모 … AI 정리 대기] 머리줄 + 받아쓰기 불릿(+[트랙맨] 줄)만 있는 상태.
+// 오래된 일지(7일+)는 이 형태 그대로일 때만 자동 교체한다(사람이 고친 일지를 AI 결과로 덮지 않게, v9.98).
+var _AI_PENDING_UNTOUCHED = /^\[레슨 녹음 메모[^\n]*AI 정리 대기[^\n]*\]\n([•\-·] [^\n]*\n?)+(\n\[트랙맨\][^\n]*)?$/;
+function _aiPendingUntouched(content){ return _AI_PENDING_UNTOUCHED.test(String(content||'').trim()); }
+// 오래된 일지용 소스 — 서버의 최신 본문·원문을 그 자리에서 읽어, 서버 본문도 손대지 않은 상태이고 원문이 있을 때만 원문을 돌려준다.
+function _aiOldSource(s){
+  if(!(typeof cloud!=='undefined' && cloud && cloud.enabled && cloud.client)) return Promise.resolve('');
+  try{
+    return Promise.resolve(cloud.client.from('sessions').select('content,supplement').eq('id', s.id).maybeSingle()).then(function(r){
+      var row=r && r.data; if(!row) return '';
+      if(!_aiPendingUntouched(row.content)) return '';
+      return String(row.supplement||'').trim();
+    }, function(){ return ''; });
+  }catch(e){ return Promise.resolve(''); }
+}
 // 진행 중인 AI 정리 요청 (sessId → 시작 시각). 90초 지나면 죽은 것으로 본다.
 var _aiInflight = {};
 function _aiInflightActive(sid){ var t=_aiInflight[sid]; return !!(t && Date.now()-t<90000); }
@@ -1192,10 +1205,12 @@ window.__aiBusy = function(){
 };
 
 // AI 정리 결과를 '저장된 일지'에 반영 — 사람이 이미 수정했으면 건드리지 않는다.
-function applyAiResultToSaved(mid, sessId, better, tmSummary){
+function applyAiResultToSaved(mid, sessId, better, tmSummary, opts){
   var arr = S.sessions[mid]||[]; var s = arr.find(function(x){return x.id===sessId;});
   if(!s || !better) return false;
   if(String(s.content||'').indexOf('AI 정리 대기')===-1) return false;   // 그 사이 정리됨/사람이 수정 → 건드리지 않음
+  var _old = !!(opts && opts.old);
+  if(_old && !_aiPendingUntouched(s.content)) return false;              // 오래된 일지: 사람이 손댄 흔적이 있으면 자동 교체 안 함
   // 저장된 일지에는 핵심 항목만 (폼과 동일 정책 — 전체는 녹음 원문으로 확인 가능)
   var bt=better;
   try{
@@ -1218,14 +1233,14 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary){
   }catch(e){}
   try{ logActivity('AI 일지 정리', mid, s.content.slice(0,40)); }catch(e){}
   if(save()){ try{ syncSessionUp(mid, s); }catch(e){} }
-  try{ if(typeof autoPublishReport==='function') autoPublishReport(mid, s.author); }catch(e){}   // 고정 리포트 링크 자동 갱신 — 검토 담당 = 일지 작성자
+  if(!_old){ try{ if(typeof autoPublishReport==='function') autoPublishReport(mid, s.author); }catch(e){} }   // 고정 리포트 링크 자동 갱신 — 검토 담당 = 일지 작성자 (오래된 일지 재정리는 검토 독촉을 만들지 않음)
   try{ render(); }catch(e){}
   try{ var nm=(S.members.find(function(m){return m.id===mid;})||{}).name||''; liveToastSafe('🤖 '+nm+' 일지 AI 정리 완료'); }catch(e){}
   return true;
 }
 
 // 저장된 녹음 일지를 백그라운드에서 AI 정리 → 자동 교체 (프로가 저장 후 기다릴 필요 없음)
-function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
+function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary, opts){
   if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return Promise.resolve(false);
   if(typeof aiSummarizeWithClaude!=='function') return Promise.resolve(false);
   _aiInflight[sessId]=Date.now();
@@ -1236,7 +1251,7 @@ function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary){
       try{ if(window.__aiLastError) console.warn('[ai] bg cleanup fail:', window.__aiLastError); }catch(e){}
       return false;
     }
-    return applyAiResultToSaved(mid, sessId, better, tmSummary);
+    return applyAiResultToSaved(mid, sessId, better, tmSummary, opts);
   }, function(){ delete _aiInflight[sessId]; return false; });
 }
 
@@ -1292,22 +1307,29 @@ function retryPendingAiSummaries(force){
         if(_aiInflightActive(s.id)) return;           // 이미 요청 진행 중 — 겹쳐 쏘지 않음
         var t = Date.parse(s._addedAt||s.date); if(isNaN(t) || t<oldCutoff) return;
         if((_aiSweepAttempts[s.id]||0)>=3) return;   // 앱 실행당 세션별 3회까지
-        cands.push({mid:mid, s:s, rawOnly:(t<cutoff)});
+        var old = (t<cutoff);
+        // 오래된 일지: 서버와 동기화가 끝난 뒤에만, 손대지 않은 자동 생성 본문일 때만 (사람이 고친 일지는 칩으로 직접 재시도)
+        if(old && (S.cloudSync!=='connected' || !_aiPendingUntouched(s.content))) return;
+        cands.push({mid:mid, s:s, rawOnly:old});
       });
     });
     if(!cands.length) return;
+    cands.sort(function(a,b){ return (a.rawOnly?1:0)-(b.rawOnly?1:0); });   // 최근 일지 먼저
     _aiSweepBusy = true;
+    var used = 0;   // 실제로 AI 를 부른 건수 — 원문이 없어 건너뛴 오래된 일지는 세지 않는다
     var next = function(i){
-      if(i>=cands.length || i>=5){ _aiSweepBusy=false; return; }   // 한 번에 최대 5건, 순차
+      if(i>=cands.length || used>=5){ _aiSweepBusy=false; return; }   // 한 번에 최대 5건, 순차
       var c=cands[i], s=c.s;
       _aiSweepAttempts[s.id]=(_aiSweepAttempts[s.id]||0)+1;
       var tm=''; try{ var m=String(s.content||'').match(/\n\n\[트랙맨\][^\n]*/); tm=m?m[0]:''; }catch(e){}
       var go=function(){ setTimeout(function(){ next(i+1); }, 1500); };
+      var skip=function(){ setTimeout(function(){ next(i+1); }, 30); };
       _aiInflight[s.id]=Date.now();
-      _aiSourceForSession(s, {rawOnly:!!c.rawOnly}).then(function(src){
-        if(!src){ delete _aiInflight[s.id]; return false; }
-        return bgAiCleanupSaved(c.mid, s.id, src, s.author, tm);
-      }).then(go, go);
+      (c.rawOnly ? _aiOldSource(s) : _aiSourceForSession(s)).then(function(src){
+        if(!src){ delete _aiInflight[s.id]; if(c.rawOnly) _aiSweepAttempts[s.id]=3; return 'skip'; }   // 원문 없는 오래된 일지 — 이번 실행에선 다시 안 봄
+        used++;
+        return bgAiCleanupSaved(c.mid, s.id, src, s.author, tm, c.rawOnly ? {old:true} : null);
+      }).then(function(r){ if(r==='skip') skip(); else go(); }, go);
     };
     next(0);
   }catch(e){ _aiSweepBusy=false; }

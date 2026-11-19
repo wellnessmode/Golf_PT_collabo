@@ -977,10 +977,13 @@ function save(){
   if(S.auditLog&&S.auditLog.length>100) S.auditLog=S.auditLog.slice(-100);
   var _draft=(S.showAddSession?S.newSession:null);
   // 녹음 원문은 기기에 저장하지 않는다(관리자 기기 포함 — 원문 두 벌로 저장 한도 85~93%를 쓰던 문제, v9.98).
-  // 예외: 아직 서버 업로드가 안 끝난 일지(_dirty)와 작성 중인 초안 — 이때는 기기 사본이 유일해서 지우면 원문이 사라진다.
+  // 예외: 아직 서버 업로드가 안 끝난 일지(_dirty) — 이때는 기기 사본이 유일해서 지우면 원문이 사라진다. 그때도 한 벌만 저장.
   var _rep=function(k,v){
     if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;
-    if((k==='rawTranscript'||k==='supplement') && !(this && (this._dirty || this===_draft))) return undefined;
+    if(k==='rawTranscript'||k==='supplement'){
+      if(!(this && this._dirty)) return undefined;
+      if(k==='supplement' && this.rawTranscript && String(this.rawTranscript).trim()) return undefined;   // rawTranscript 와 같은 내용 → 한 벌만
+    }
     return v;
   };
   var _pack=function(shots){ return {members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:shots,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds,_dirtyAssess:S._dirtyAssess,_draftSession:_draft,_draftMember:S.selectedMember,_lostTx:S._lostTx||[]}; };
@@ -991,7 +994,7 @@ function save(){
   try{ S.activityLog=[]; S.auditLog=S.auditLog?S.auditLog.slice(-20):[]; localStorage.setItem('golf_pt_v2',JSON.stringify(_pack([]),_rep)); return true; }
   catch(e2){
     console.warn('[save] localStorage full');
-    try{ if(!window.__saveFullWarned){ window.__saveFullWarned=true; setTimeout(function(){ try{ if(typeof liveToast==='function') liveToast('⚠️ 이 기기의 저장 공간이 부족해 일부 내용이 기기에 저장되지 않았어요 — 서버에는 올라갑니다. 계속되면 관리자에게 알려주세요','err'); }catch(_){} },0); } }catch(_){}
+    try{ if(!window.__saveFullWarned){ window.__saveFullWarned=true; setTimeout(function(){ try{ if(typeof liveToast==='function') liveToast('⚠️ 이 기기의 저장 공간이 부족해 일부 내용이 기기에 저장되지 않았어요 — 계속되면 관리자에게 알려주세요','err'); }catch(_){} },0); } }catch(_){}
     return false;
   }
 }
