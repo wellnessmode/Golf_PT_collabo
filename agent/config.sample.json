@@ -1,8 +1,9 @@
 {
   "SUPABASE_URL": "https://cacytkmijttyeasmhvhq.supabase.co",
-  "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhY3l0a21panR0eWVhc21odmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjAyMjUsImV4cCI6MjA5MTQ5NjIyNX0.ovjMFi4WSB18KeTm7MNd4jmvKEmMamObyclMjgXomNg",
+  "SUPABASE_ANON_KEY": "<Supabase anon 키>",
   "R2_WORKER_URL": "https://golf-pt-storage.ceo-fc9.workers.dev",
-  "R2_API_KEY": "national_gym-golf-pt-qwpiefjwofjwioefhlkjd",
+  "R2_API_KEY": "<스토리지 키>",
+  "AGENT_TOKEN": "",
   "watchDirs": [
     "C:\\ProgramData\\TrackMan\\TrackMan Performance Studio\\Data"
   ],
