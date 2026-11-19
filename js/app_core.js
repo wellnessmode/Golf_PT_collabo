@@ -181,9 +181,14 @@ async function pwClaimAfterLogin(role,user){
 }
 
 const APP_VERSION = {
-  version:'v9.97',
-  date:'2026-10-27',
+  version:'v9.98',
+  date:'2026-11-20',
   changes:[
+    '녹음 원문이 지워지던 문제 수정 — 프로·트레이너 폰에서 지난 일지를 고치거나 AI 정리가 나중에 반영될 때 서버의 녹음 원문이 빈칸으로 덮어써지던 버그(9~11월 49건). 이제 기기에 원문이 없으면 원문 칸을 아예 보내지 않아 서버 원문이 그대로 남음. 지워진 원문은 녹음 백업에서 복구',
+    '오래된 "AI 정리 대기" 일지도 자동 정리 — 7일이 지나면 다시 시도하지 않아 7~8월 일지가 받아쓰기 조각으로 남던 문제. 녹음 원문이 있는 일지는 180일까지 자동으로 다시 정리',
+    '관리자 기기 저장 공간 초과 방지 — 녹음 원문을 기기에 두 벌씩 저장해 저장 한도에 가까워지던 문제. 원문은 서버에만 두고(업로드 전 일지·작성 중 초안은 예외), 공간이 모자라면 샷 목록만 줄여 일지·인수인계 메모가 지워지지 않게. 그래도 모자라면 안내 표시',
+    '직원 활동 알림 보관 기간 30일 → 1년 (관리자 알림함)',
+    '보안 — 주소(#)만 바꿔 다른 역할 화면으로 들어가던 구멍 차단',
     '비밀번호를 서버에 저장 — 앱을 지웠다 다시 깔거나 폰을 바꿔도 비밀번호가 그대로. 초기(임시) 비밀번호로 들어오면 바로 새 비밀번호(6자 이상)를 정하는 창이 뜨고, 이 기기에서 바꿔 쓰던 비밀번호는 첫 로그인 때(Face ID 로그인이어도) 자동으로 서버로 옮겨짐. 초기·임시 비밀번호는 14일만 유효, 같은 계정 10번 틀리면 10분 잠금(이 기기에서 맞았던 비밀번호는 잠겨도 통과). 관리자는 마이페이지 [🔑 직원 비밀번호 초기화]로 잊어버린 직원에게 임시 비밀번호를 정해 줄 수 있음 (⚠️ 대표가 Supabase에서 worker/supabase_passwords.sql 한 번 실행 후 적용 — 실행 전에는 예전처럼 동작)',
     '앱 이름 변경 — "Golf PT" → "내셔널짐 피티앤골프"(상호와 동일). 레슨 회원뿐 아니라 트랙맨 시설 이용만 하는 회원까지 아우르는 이름. 홈 화면 아이콘 이름·탭 제목·푸시 알림·생체인증 등록명 모두 새 이름, 앱 아이콘도 기존 로고(N·골프공 마크) 기반 새 디자인. 인트로 서브 "PT & GOLF STUDIO", 리포트 헤더 서브 "PERFORMANCE REPORT". 회원 리포트 부제는 "측정 데이터 · 스윙 영상" 먼저, "레슨 기록"은 레슨 회차가 있을 때만 (※ 이미 홈 화면에 설치한 앱은 이름·아이콘이 바로 안 바뀔 수 있음 — 지우고 다시 추가)',
     '리포트 검토는 마지막으로 일지·영상을 올린 담당자만 — 프로가 마지막 레슨을 했으면 프로에게만, 트레이너면 트레이너에게만 검토 대기·독촉·푸시가 가고 [검토 완료] 버튼도 그 담당자에게만 보임 (회원 이름 옆 알림 점은 두 담당자 모두 유지). 회원 리포트: 폰에서 샷 수치를 표처럼 정렬, 카톡 안에서 열렸을 때 [기본 브라우저로 열기] 버튼과 뒤로가기 보호',
@@ -679,7 +684,13 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
     // 아래 폴백이 time 만 빼고 재전송해 시간이 조용히 유실됐다("저장해도 사라짐"의 원인).
     // media 컬럼은 확실히 존재하므로 여기 실으면 어느 DB에서든 시간이 보존된다.
     if(s.time) mediaMeta.push({type:'_meta', time:s.time});
-    var row={id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',supplement:s.rawTranscript||s.supplement||'',media:mediaMeta};
+    var row={id:s.id,member_id:memberId,date:s.date,author:s.author,content:s.content||'',media:mediaMeta};
+    // 🛡 녹음 원문(supplement)은 이 기기가 실제로 들고 있을 때만 보낸다 (v9.98).
+    // 프로·트레이너 기기(그리고 앱을 새로 켠 직후의 관리자 기기)는 원문 없이 일지를 받는데, 예전엔
+    // 일지 수정·AI 정리 반영·재전송 때 빈 원문('')을 같이 올려 서버의 원문을 지웠다(9~11월 49건 유실).
+    // upsert 는 보낸 칸만 덮어쓰므로, 칸을 아예 빼면 서버 원문은 그대로 남는다. 새 일지는 기본값 ''.
+    var _tx=String(s.rawTranscript||s.supplement||'');
+    if(_tx.trim()) row.supplement=_tx;
     if(s.time) row.time=s.time;
     if(!row.time) return await this._w('upsert','sessions',{rows:[row]});
     // time 컬럼이 아직 없는 배포(마이그레이션 전)에서도 세션 동기화가 끊기지 않게:
@@ -964,11 +975,34 @@ function initials(name){if(!name) return '?';const p=name.trim().split(/\s+/);if
 function save(){
   if(S.activityLog&&S.activityLog.length>50) S.activityLog=S.activityLog.slice(-50);
   if(S.auditLog&&S.auditLog.length>100) S.auditLog=S.auditLog.slice(-100);
-  try{var data={members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds,_dirtyAssess:S._dirtyAssess,_draftSession:(S.showAddSession?S.newSession:null),_draftMember:S.selectedMember,_lostTx:S._lostTx||[]};var _isAdm=(S.currentRole==='admin');var str=JSON.stringify(data,function(k,v){if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;if((k==='rawTranscript'||k==='supplement')&&!_isAdm) return undefined;return v;});localStorage.setItem('golf_pt_v2',str);return true;}catch(e){try{S.activityLog=[];S.auditLog=S.auditLog?S.auditLog.slice(-20):[];S.handovers={};localStorage.setItem('golf_pt_v2',JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:S.shotEvents,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds}));return true;}catch(e2){console.warn('[save] localStorage full');return false;}}
+  var _draft=(S.showAddSession?S.newSession:null);
+  // 녹음 원문은 기기에 저장하지 않는다(관리자 기기 포함 — 원문 두 벌로 저장 한도 85~93%를 쓰던 문제, v9.98).
+  // 예외: 아직 서버 업로드가 안 끝난 일지(_dirty)와 작성 중인 초안 — 이때는 기기 사본이 유일해서 지우면 원문이 사라진다.
+  var _rep=function(k,v){
+    if(k==='data'&&typeof v==='string'&&v.length>1000) return undefined;
+    if((k==='rawTranscript'||k==='supplement') && !(this && (this._dirty || this===_draft))) return undefined;
+    return v;
+  };
+  var _pack=function(shots){ return {members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,auditLog:S.auditLog,lastSeen:S.lastSeen,handovers:S.handovers,bays:S.bays,activeSessions:S.activeSessions,shotEvents:shots,deletedSessionIds:S.deletedSessionIds,deletedMemberIds:S.deletedMemberIds,_dirtyAssess:S._dirtyAssess,_draftSession:_draft,_draftMember:S.selectedMember,_lostTx:S._lostTx||[]}; };
+  try{ localStorage.setItem('golf_pt_v2',JSON.stringify(_pack(S.shotEvents),_rep)); return true; }catch(e){}
+  // 저장 공간 부족 → 샷 목록은 최근 200개만 기기에 남긴다(앱을 켤 때 서버에서 다시 받음). 일지·인수인계 메모는 그대로.
+  try{ var _sh=(S.shotEvents||[]); localStorage.setItem('golf_pt_v2',JSON.stringify(_pack(_sh.length>200?_sh.slice(-200):_sh),_rep)); return true; }catch(e1){}
+  // 그래도 부족 → 활동·감사 기록만 줄여서 마지막 시도 (인수인계 메모·미업로드 표시·초안은 지우지 않음)
+  try{ S.activityLog=[]; S.auditLog=S.auditLog?S.auditLog.slice(-20):[]; localStorage.setItem('golf_pt_v2',JSON.stringify(_pack([]),_rep)); return true; }
+  catch(e2){
+    console.warn('[save] localStorage full');
+    try{ if(!window.__saveFullWarned){ window.__saveFullWarned=true; setTimeout(function(){ try{ if(typeof liveToast==='function') liveToast('⚠️ 이 기기의 저장 공간이 부족해 일부 내용이 기기에 저장되지 않았어요 — 서버에는 올라갑니다. 계속되면 관리자에게 알려주세요','err'); }catch(_){} },0); } }catch(_){}
+    return false;
+  }
 }
 function estimateStorageSize(){try{return JSON.stringify({members:S.members,assessments:S.assessments,sessions:S.sessions,deleteRequests:S.deleteRequests,activityLog:S.activityLog,lastSeen:S.lastSeen}).length;}catch(e){return 0;}}
 function loadLocal(){try{const d=localStorage.getItem('golf_pt_v2');if(d){const p=JSON.parse(d);S.members=p.members||SAMPLE_DATA.members;S.assessments=p.assessments||SAMPLE_DATA.assessments;S.sessions=p.sessions||SAMPLE_DATA.sessions;S.deleteRequests=p.deleteRequests||{};S.activityLog=p.activityLog||[];S.auditLog=p.auditLog||[];S.lastSeen=p.lastSeen||{};S.handovers=p.handovers||{};S.bays=CONFIG_BAYS_SET?BAYS_DEFAULT.slice():((p.bays&&p.bays.length)?p.bays:BAYS_DEFAULT.slice());S.activeSessions=p.activeSessions||{};S.shotEvents=p.shotEvents||[];S.deletedSessionIds=p.deletedSessionIds||{};S.deletedMemberIds=p.deletedMemberIds||{};S._dirtyAssess=p._dirtyAssess||{};S._draftSession=p._draftSession||null;S._draftMember=p._draftMember||null;S._lostTx=p._lostTx||[];}else{S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}}catch(e){S.members=SAMPLE_DATA.members;S.assessments=SAMPLE_DATA.assessments;S.sessions=SAMPLE_DATA.sessions;}if(!S.bays||!S.bays.length) S.bays=BAYS_DEFAULT.slice();}
-function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}
+function readHash(){var h=location.hash.replace('#','');if(!h)return;var parts=h.split('-');var role=parts[0];var user=decodeURIComponent(parts.slice(1).join('-'));var authed=sessionStorage.getItem('golf_pt_auth');if(!authed){location.hash='';return;}
+  // 🛡 주소(#) 만 바꿔서 다른 역할로 들어가는 것 차단 (v9.98) — 이 탭에서 실제로 로그인한 역할·사람과 같을 때만 복원
+  // (예전엔 인포데스크로 로그인한 뒤 주소 끝을 #admin 으로 바꿔 새로고침하면 관리자가 됐다)
+  var _ai=String(authed).indexOf(':'), _aRole=_ai>=0?String(authed).slice(0,_ai):String(authed), _aUser=_ai>=0?String(authed).slice(_ai+1):'';
+  if(_aRole!==role || ((role==='pro'||role==='trainer') && _aUser!==user)){location.hash='';return;}
+  if(role==='infodesk'){S.currentRole='infodesk';S.currentUser='인포데스크';}else if(role==='admin'){S.currentRole='admin';S.currentUser='관리자';}else if(role==='pro'&&user){S.currentRole='pro';S.currentUser=user;}else if(role==='trainer'&&user){S.currentRole='trainer';S.currentUser=user;}
   // 세션 복원(리로드/재개)도 로그인 상태 → 자동 업데이트가 계속 동작하도록 플래그 세팅
   if(S.currentRole){ try{window.__authed=true;}catch(e){} }}
 function setRole(role,user){var key=role==='infodesk'?'infodesk':(role==='admin'?'관리자':user);

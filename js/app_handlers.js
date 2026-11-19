@@ -1172,10 +1172,11 @@ function _aiSourceFromContent(content){
 }
 // 재시도용 소스 결정 (Promise<string>): 기기의 원문 → 클라우드 원문(그 순간만 읽고 저장 안 함)
 // → 본문의 받아쓰기 조각. 프로 기기는 loadAll 이 원문을 안 싣기 때문에 두 번째 단계가 핵심.
-function _aiSourceForSession(s){
+function _aiSourceForSession(s, opts){
+  var rawOnly=!!(opts && opts.rawOnly);   // true: 녹음 원문이 있을 때만(받아쓰기 조각 폴백 안 함) — 오래된 일지 재정리용
   var local=String((s&&s.rawTranscript)||'').trim();
   if(local) return Promise.resolve(local);
-  var fb=_aiSourceFromContent(s&&s.content);
+  var fb=rawOnly ? '' : _aiSourceFromContent(s&&s.content);
   var p=(typeof cloud!=='undefined' && cloud && typeof cloud.fetchSessionRaw==='function') ? cloud.fetchSessionRaw(s.id) : Promise.resolve('');
   return Promise.resolve(p).then(function(raw){ raw=String(raw||'').trim(); return raw.length>fb.length ? raw : fb; }, function(){ return fb; });
 }
@@ -1273,7 +1274,10 @@ function retryPendingAiSummaries(force){
     if(typeof aiEnabled!=='function' || !aiEnabled()) return;
     if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
     _aiSweepLastRun = Date.now();
-    var cutoff = Date.now() - 7*24*3600*1000;        // 최근 7일만
+    // 최근 7일: 원문 → 받아쓰기 조각 순으로 정리. 7일~180일 된 '정리 대기' 일지(v9.98): 녹음 원문이 있을 때만 정리
+    // (예전엔 7일이 지나면 영영 재시도되지 않아 7~8월 일지 11건이 '정리 대기'로 굳었다). 원문 칸은 v9.98 부터 비워 올리지 않으므로 안전.
+    var cutoff = Date.now() - 7*24*3600*1000;
+    var oldCutoff = Date.now() - 180*24*3600*1000;
     var cands = [];
     Object.keys(S.sessions||{}).forEach(function(mid){
       (S.sessions[mid]||[]).forEach(function(s){
@@ -1286,9 +1290,9 @@ function retryPendingAiSummaries(force){
         // (겹쳐 돌아도 applyAiResultToSaved 가 '대기' 마커 확인 후 교체하므로 안전)
         if(S.currentRole!=='admin' && s.author!==S.currentUser) return;
         if(_aiInflightActive(s.id)) return;           // 이미 요청 진행 중 — 겹쳐 쏘지 않음
-        var t = Date.parse(s._addedAt||s.date); if(isNaN(t) || t<cutoff) return;
+        var t = Date.parse(s._addedAt||s.date); if(isNaN(t) || t<oldCutoff) return;
         if((_aiSweepAttempts[s.id]||0)>=3) return;   // 앱 실행당 세션별 3회까지
-        cands.push({mid:mid, s:s});
+        cands.push({mid:mid, s:s, rawOnly:(t<cutoff)});
       });
     });
     if(!cands.length) return;
@@ -1300,7 +1304,7 @@ function retryPendingAiSummaries(force){
       var tm=''; try{ var m=String(s.content||'').match(/\n\n\[트랙맨\][^\n]*/); tm=m?m[0]:''; }catch(e){}
       var go=function(){ setTimeout(function(){ next(i+1); }, 1500); };
       _aiInflight[s.id]=Date.now();
-      _aiSourceForSession(s).then(function(src){
+      _aiSourceForSession(s, {rawOnly:!!c.rawOnly}).then(function(src){
         if(!src){ delete _aiInflight[s.id]; return false; }
         return bgAiCleanupSaved(c.mid, s.id, src, s.author, tm);
       }).then(go, go);
