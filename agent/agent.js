@@ -21,12 +21,17 @@
 // ⚠️ 변환·업로드 로직을 고칠 때마다 이 숫자를 올릴 것.
 //
 // v12 변경 (2026-11, 서버 점검 A2·A3·A4·A8·A9·B5 반영):
-//  · 샷당 영상 작업 1개 — 정상 ftmf(내장 영상)와 같은 스윙의 단독 stmf 가 지문 병합되면 Videos 폴더 작업이
-//    하나 더 생겨 같은 스윙을 두 번 올리던 문제(1·2번 타석, 먼저 올린 <측정ID>_scene 이 곧바로 고아) 수정.
+//  · 같은 스윙 중복 업로드 정리 — 정상 ftmf(내장 영상)와 같은 스윙의 단독 stmf 가 지문 병합되면 예전엔 내장 영상과
+//    Videos 폴더 영상을 둘 다 올려, 먼저 올린 <측정ID>_scene 이 곧바로 고아가 됐다(1·2번 타석). 이제 Videos 폴더 영상
+//    (측면·정면·클럽 — 앱이 실제로 보여 주는 것)을 먼저 붙이고, 내장 영상은 Videos 폴더에서 아무것도 못 찾았을 때만
+//    올린다(대비용). 작업은 종류마다 샷당 1개(Videos 폴더 1 · 내장 1).
 //    영상 키가 다른 키로 바뀌면 새 업로드·행 갱신이 성공한 뒤 옛 R2 파일을 지운다(이 샷 이름의 파일만).
+//    대표 영상은 측면(DL, 없으면 볼 카메라)이 오면 바뀌고, 클럽은 대표가 비어 있을 때만 대표가 된다(측면 슬롯 영상 보존).
 //    다른 샷에 이미 붙은 Videos 폴더 파일은 재사용하지 않는다(남의 스윙 → 영상 없음 + 로그).
 //    더 완전한 측정의 재전송은 data 만 병합 — 이미 붙은 영상 키·보관 표시·회원 배정을 지우지 않는다.
-//  · 활성 세션 3시간 상한 — started_at 을 함께 읽어 3시간 넘게 켜진 세션은 꺼진 것으로 본다(타석당 1회 로그).
+//  · 활성 세션 4시간 상한 — started_at 을 함께 읽어 4시간 넘게 켜진 세션은 꺼진 것으로 본다(타석당 1회 로그).
+//  · 서버 요청이 응답 도중 끊겨도(연결 리셋·종료) 멈추지 않게 모든 요청에 최종 시한 — 백그라운드 영상 연결이
+//    멈춰도 샷 수집(스캔)은 같은 샷의 잠금을 몇 초 이상 기다리지 않는다.
 //  · 재시작 복구 — Videos 폴더(단독 stmf) 영상 작업을 종류·측정시각·올린 앵글과 함께 상태 파일에 기록해
 //    재시작 후에도 그대로 이어서 처리(예전엔 내장 영상 작업으로 잘못 되살려 '영상 없음'으로 끝남).
 //  · 하트비트 — 시작 시·5분마다 저장소 워커에 hb/<bay>.json (버전·최근 신호·대기열·시계 오차, 회원 정보 없음).
@@ -58,9 +63,15 @@ var processed = {};
 // 같은 샷을 매 스캔 재전송하는 버그가 났다. before-start 는 재전송과 무관하니 분리.
 var _beforeStart = {};
 var _shotBest = {};        // shotId → 지금까지 보낸 측정 완성도 점수(더 완전한 값만 반영)
-// shotId → 이 샷의 영상 작업 종류('vf'=Videos 폴더, 'emb'=ftmf 내장). 샷당 1개만 —
-// v12: 내장 영상 작업도 표시해, 같은 스윙의 단독 stmf 가 Videos 폴더 작업을 또 만들지 않게 한다.
+// shotId → 이 샷의 영상 작업 종류: 'vf'(Videos 폴더) · 'emb'(ftmf 내장) · 'both'(같은 스윙의 정상 ftmf + 단독 stmf) ·
+// 'gone'(앱에서 행 삭제 → 새 작업 안 만듦). 종류마다 샷당 1개만.
+// v12: 같은 스윙에 둘 다 있으면 Videos 폴더 작업(측면·정면·클럽 — 앱이 실제로 보여 주는 영상)이 우선이고,
+// 내장 영상 작업은 '대비용'(_fallback) — Videos 폴더 작업이 끝날 때까지 기다렸다가 그쪽이 아무것도 못 붙였을 때만 올린다.
+// (예전 v11 은 둘 다 올려 내장 영상이 곧바로 고아가 됐고, v12 초안은 Videos 폴더 작업을 막아 정면·클럽이 사라졌다)
 var _videoQueuedFor = {};
+function _hasJob(id, kind){ var v = _videoQueuedFor[id]; return v === kind || v === 'both'; }
+function _markJob(id, kind){ var v = _videoQueuedFor[id]; _videoQueuedFor[id] = (!v || v === kind) ? kind : (v === 'gone' ? 'gone' : 'both'); }
+var EMB_DEFER_MAX_MS = 10 * 60000;   // 대비용 내장 영상이 Videos 폴더 작업을 기다리는 최대 시간
 var _fpShot = {};          // 측정값 지문 → {id,t} — 다른 측정ID로 온 같은 스윙 병합용(3분 창)
 var _recentShots = {};     // bay → [{evMs,id}] 최근 샷(같은 물리적 샷의 여러 stmf 를 시각 근접으로 병합)
 // 같은 물리적 샷의 여러 stmf 를 하나의 shotId 로 — 측정시각 ±1.5초 이내면 같은 샷으로 본다.
@@ -86,6 +97,7 @@ try {
   });
 } catch (e) {}
 var _parseFail = {};   // 부분 파일 파싱 재시도 카운터 (영속 아님)
+var _busyLogged = {};  // (v12) fname → '영상 연결 진행 중이라 보강 재전송 미룸' 로그를 남겼음 (파일당 1번)
 // 시작 컷오프: 재시작 때마다 '지금'으로 리셋하면 단절/크래시/재부팅 동안의 샷이 유실된다.
 // → 직전 실행이 마지막으로 처리한 시각을 이어받아, 그 사이 생성된 파일도 처리한다.
 // 단, 소급을 30분으로 제한: 그보다 오래 꺼져 있었으면(또는 신버전 첫 실행) 옛
@@ -98,8 +110,9 @@ var AGENT_CUTOFF_MS = Math.max(_maxBack, Math.min(_resume, _now)) - ((CFG && CFG
 
 // ── (v12) 설정값 — 전부 선택 항목. config.json 에 없으면 아래 기본값 ─────────────
 function _cfgNum(v, d){ return (v != null && v !== '' && !isNaN(+v)) ? +v : d; }
-// 활성 세션 상한(시간). 앱은 녹음 중이면 2시간 자동 종료를 미루고 181분짜리 실제 레슨도 있어 3시간. 0 이하 = 상한 없음
-var SESSION_MAX_MS = _cfgNum(CFG && CFG.sessionMaxHours, 3) * 3600000;
+// 활성 세션 상한(시간). 앱은 녹음 중이면 2시간 자동 종료를 미룬다. 실제 녹음 레슨(10-07 3번룸)은 세션을 켠 뒤
+// 181~185분에도 샷을 쳤다 — 3시간이면 그 샷들이 '연습 샷'으로 버려지므로 여유를 두고 4시간. 0 이하 = 상한 없음
+var SESSION_MAX_MS = _cfgNum(CFG && CFG.sessionMaxHours, 4) * 3600000;
 // 정면(FO) 영상 크기 상한(MB). 넘으면 1280 재인코딩. 0 = 재인코딩 안 함(경고만)
 var FO_MAX_BYTES = _cfgNum(CFG && CFG.foMaxMB, 5) * 1e6;
 var FO_WARN_BYTES = FO_MAX_BYTES > 0 ? FO_MAX_BYTES : 5e6;
@@ -228,24 +241,44 @@ function _noteServerDate(hdr, t0, t1){
 }
 
 // ---- HTTPS helper (타임아웃 포함 — 네트워크 단절 시 무한 정지 방지) ----
+// (v12) 응답 헤더를 받은 뒤 본문 도중 연결이 끊기면(리셋·종료) Node 는 res 에 'aborted'/'close' 만 내고 'end' 도
+// req 'error' 도 내지 않는다 — 예전엔 그대로 영원히 기다렸다(소켓 유휴 타임아웃도 더는 안 걸림). 이제 'aborted'·
+// 'error'·완료 전 'close' 는 실패로 끝내고, 무엇이 와도 (제한시간+5초) 안에는 반드시 끝나는 최종 시한을 둔다.
+// 정상 응답(end)은 예전과 똑같이 처리한다.
+var HTTP_HARD_EXTRA_MS = 5000;
 function httpRequest(urlStr, opts, body){
   return new Promise(function(resolve, reject){
-    var u = new URL(urlStr);
-    var t0 = Date.now();
-    var req = https.request({
-      hostname: u.hostname, path: u.pathname + u.search, method: opts.method || 'GET',
-      headers: opts.headers || {}, port: 443
-    }, function(res){
-      try{ _noteServerDate(res.headers && res.headers.date, t0, Date.now()); }catch(_){}
-      var chunks = [];
-      res.on('data', function(c){ chunks.push(c); });
-      res.on('end', function(){ resolve({ status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers || {} }); });
-    });
+    var done = false, hard = null, req = null;
     var TIMEOUT = (opts.timeoutMs || 30000);
-    req.setTimeout(TIMEOUT, function(){ req.destroy(new Error('timeout '+TIMEOUT+'ms')); });
-    req.on('error', reject);
-    if (body) req.write(body);
-    req.end();
+    function fin(err, val){
+      if (done) return;
+      done = true;
+      if (hard) clearTimeout(hard);
+      if (err){ try{ if (req) req.destroy(); }catch(_){} reject(err); }
+      else resolve(val);
+    }
+    try{
+      var u = new URL(urlStr);
+      var t0 = Date.now();
+      req = https.request({
+        hostname: u.hostname, path: u.pathname + u.search, method: opts.method || 'GET',
+        headers: opts.headers || {}, port: 443
+      }, function(res){
+        try{ _noteServerDate(res.headers && res.headers.date, t0, Date.now()); }catch(_){}
+        var chunks = [];
+        res.on('data', function(c){ chunks.push(c); });
+        res.on('end', function(){ fin(null, { status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers || {} }); });
+        res.on('aborted', function(){ fin(new Error('응답 도중 연결 끊김')); });
+        res.on('error', function(e){ fin(e || new Error('응답 오류')); });
+        res.on('close', function(){ if (!res.complete) fin(new Error('응답이 끝나기 전에 연결 닫힘')); });
+      });
+      req.setTimeout(TIMEOUT, function(){ req.destroy(new Error('timeout '+TIMEOUT+'ms')); });
+      req.on('error', function(e){ fin(e || new Error('요청 오류')); });
+      hard = setTimeout(function(){ fin(new Error('최종 시한 초과 ' + (TIMEOUT + HTTP_HARD_EXTRA_MS) + 'ms')); }, TIMEOUT + HTTP_HARD_EXTRA_MS);
+      if (hard.unref) hard.unref();
+      if (body) req.write(body);
+      req.end();
+    }catch(e){ fin(e); }
   });
 }
 
@@ -290,14 +323,25 @@ async function fetchShotRow(shotId, timeoutMs){
 // (v12) 같은 샷에 대한 행 읽고-고쳐-쓰기(영상 연결·재전송 병합·원본 요청 기록)를 이 프로세스 안에서 한 줄로 세운다.
 // 영상 작업(백그라운드)과 스캔(재전송)이 동시에 같은 행을 고치면 한쪽이 다른 쪽 변경을 덮어써 키가 사라질 수 있다.
 var _shotLocks = {};
-function withShotLock(id, fn){
+var LOCK_WAIT_GAVE_UP = { lockWaitGaveUp: true };
+// waitMs(선택): 앞선 작업이 그만큼 안에 잠금을 놓지 않으면 기다리지 않고 LOCK_WAIT_GAVE_UP 을 돌려준다.
+// 포기한 작업은 나중에 차례가 와도 실행하지 않는다(다음 재시도와 겹치지 않게). 이미 시작한 작업은 끝까지 기다린다.
+function withShotLock(id, fn, waitMs){
   var prev = _shotLocks[id] || Promise.resolve();
-  var p = prev.then(function(){ return fn(); });
+  var st = { started:false, gaveUp:false };
+  var p = prev.then(function(){ if (st.gaveUp) return LOCK_WAIT_GAVE_UP; st.started = true; return fn(); });
   var tail = p.then(function(){}, function(){});
   _shotLocks[id] = tail;
   tail.then(function(){ if (_shotLocks[id] === tail) delete _shotLocks[id]; });
-  return p;
+  if (!(waitMs > 0)) return p;
+  return new Promise(function(resolve, reject){
+    var t = setTimeout(function(){ if (!st.started){ st.gaveUp = true; resolve(LOCK_WAIT_GAVE_UP); } }, waitMs);
+    p.then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
+  });
 }
+// (v12) 스캔(샷 수집)이 같은 샷의 잠금을 기다리는 최대 시간 — 영상 연결은 보통 1초 안에 끝난다.
+// 그보다 오래 잡혀 있으면(서버 응답 멈춤) 보강 재전송은 다음 주기로 미루고 새 샷 수집을 계속한다.
+var REPUSH_LOCK_WAIT_MS = 5000;
 // 행 값 갱신(PATCH 또는 워커 /db update) — 실패 시 failMsg 가 있으면 예전과 같은 문구로 로그
 async function _patchShotValues(shotId, values, failMsg){
   if (CFG.useDbProxy && workerAuthOk()){
@@ -318,7 +362,7 @@ async function _patchShotValues(shotId, values, failMsg){
 // ---- 활성(타석 레슨) 세션이 있는 베이 목록 캐시 ----
 // "타석 레슨"을 켜면 앱이 active_sessions 에 행을 만든다. 레슨이 켜진 베이의 샷만
 // 저장 → 연습 샷은 아예 안 들어옴(과금·클러터 방지). anon GET(읽기전용)으로 주기적 갱신.
-// (v12) started_at 도 읽어 SESSION_MAX_MS(기본 3시간) 넘게 켜진 세션은 '꺼짐'으로 본다 — 레슨 뒤 [종료]를
+// (v12) started_at 도 읽어 SESSION_MAX_MS(기본 4시간) 넘게 켜진 세션은 '꺼짐'으로 본다 — 레슨 뒤 [종료]를
 // 안 누르면 그 타석의 연습 타구가 하루 종일 저장·업로드되던 문제. 경과 시간은 서버 시각(Date 헤더) 기준.
 var _activeBays = {};       // bay_id → true (활성 세션 있는 베이 — v12: 시작 후 상한 이내만)
 var _activeBaysAt = 0;      // 마지막 갱신 시각
@@ -401,7 +445,10 @@ function _ownedVideoKey(key, shotId, mids){
     .filter(function(p){ return p && String(p).length >= 4; });
   return pre.some(function(p){ return m[1].indexOf(String(p) + '_') === 0; });
 }
-async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
+// (v12) videoKey === undefined 이면 video_r2_key 는 건드리지 않는다(Videos 폴더 작업 — 같은 행의 내장 영상 원본 mkv 키를
+//       지워 고아·삭제 대상으로 만들지 않게). mainIfNone: mp4Key 가 없을 때, 행에 대표 영상이 아직 없을 때만 대표로 쓸 키
+//       (클럽 — 이미 있는 측면 슬롯 대표(볼 카메라·내장 영상)를 밀어내 '대체됨'으로 지우지 않게).
+async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra, mainIfNone){
   var res = await withShotLock(shotId, async function(){
     var rr = await fetchShotRow(shotId);
     if (rr.ok && !rr.row){ log('  ! 영상 연결 건너뜀: 샷 행이 없음(앱에서 삭제됨) (' + shotId + ')'); return { ok:false }; }
@@ -409,7 +456,9 @@ async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
     if (!cur && !fallbackData) { log('  ! 영상 연결 보류: 서버 data 조회 실패 + 대체 data 없음 (' + shotId + ')'); return { ok:false }; }
     var data = Object.assign({}, fallbackData, cur || {});   // 서버 최신 data 우선(그 사이 앱 변경 보존)
     delete data._videoPending;                               // 업로드 종료(성공/실패) → 진행 표시 해제
+    var rawNow = (videoKey === undefined) ? ((rr.row && rr.row.video_r2_key) || null) : videoKey;
     if (mp4Key) data.videoMp4R2Key = mp4Key;
+    else if (mainIfNone && !data.videoMp4R2Key && !rawNow) data.videoMp4R2Key = mainIfNone;
     if (extra && typeof extra === 'object'){
       Object.keys(extra).forEach(function(k){
         if (extra[k]==null) return;
@@ -418,12 +467,12 @@ async function attachShotVideo(shotId, videoKey, mp4Key, fallbackData, extra){
         data[k]=extra[k];
       });
     }
-    var values = { video_r2_key: videoKey, data: data };
+    var values = (videoKey === undefined) ? { data: data } : { video_r2_key: videoKey, data: data };
     if (!(await _patchShotValues(shotId, values, '영상키 업데이트 실패'))) return { ok:false };
     // (v12/A2) 이번 갱신으로 행이 더는 참조하지 않게 된 옛 영상 키 = 대체된 파일 → 아래에서 R2 에서 지운다
     var gone = [];
     if (rr.row){
-      var now = _rowVideoKeys({ video_r2_key: videoKey, data: data });
+      var now = _rowVideoKeys({ video_r2_key: rawNow, data: data });
       var mids = [(rr.row.data || {}).measurementId, data.measurementId];
       _rowVideoKeys(rr.row).forEach(function(k){ if (now.indexOf(k) === -1 && _ownedVideoKey(k, shotId, mids)) gone.push(k); });
     }
@@ -454,8 +503,9 @@ async function patchShotData(shotId, extra){
 // (v12/A2) 같은 샷의 '더 완전한 측정' 재전송 — 예전엔 행 전체를 upsert 로 다시 써서 그 사이 붙은 영상 키·
 // _kept(보관)·회원 배정을 지울 수 있었다(영상은 R2 에 고아로 남음). 이제 서버의 현재 data 에 새 측정값만 덮어쓴다.
 // 반환: 'ok' | 'fail'(네트워크 → 다음 주기 재시도) | 'gone'(앱에서 행 삭제 → 되살리지 않음)
+//       | 'busy'(같은 샷의 영상 연결이 REPUSH_LOCK_WAIT_MS 넘게 잠금을 잡고 있음 → 다음 주기 재시도, 스캔은 계속)
 async function repushShotData(shotId, newData, setPending){
-  return withShotLock(shotId, async function(){
+  var r = await withShotLock(shotId, async function(){
     var rr = await fetchShotRow(shotId);
     if (!rr.ok) return 'fail';
     if (!rr.row) return 'gone';
@@ -465,7 +515,8 @@ async function repushShotData(shotId, newData, setPending){
     if (curData._videoPending != null) data._videoPending = curData._videoPending;   // 진행 표시는 영상 작업이 관리
     else if (setPending) data._videoPending = 1;                                     // 이번에 영상 작업을 새로 만든 경우만
     return (await _patchShotValues(shotId, { data: data }, 'Supabase 재전송(병합) 실패')) ? 'ok' : 'fail';
-  });
+  }, REPUSH_LOCK_WAIT_MS);
+  return (r === LOCK_WAIT_GAVE_UP) ? 'busy' : r;
 }
 
 // ============ 원본 영상 요청 처리 (앱의 [원본 요청] → 이 PC 의 고화질 원본을 그대로 업로드) ============
@@ -885,41 +936,83 @@ function scoreMeasurement(data){
   return n;
 }
 
+// (v12) 업로드·삭제도 httpRequest 와 같은 이유로 응답 도중 끊김('aborted'·완료 전 'close')·응답 오류를 실패로 끝내고
+// 최종 시한을 둔다 — 예전엔 끝나지 않는 요청 하나가 영상 대기열 전체를 멈춰 세울 수 있었다.
+function _settleOnce(resolve, getReq, hardMs, onHard){
+  var st = { done:false, hard:null };
+  st.fin = function(v, completed){   // completed = 응답을 끝까지 받음(상태 코드로 판정) → 연결은 그대로 둔다
+    if (st.done) return;
+    st.done = true;
+    if (st.hard) clearTimeout(st.hard);
+    if (!v && !completed){ try{ var r = getReq(); if (r) r.destroy(); }catch(_){} }
+    resolve(v);
+  };
+  st.hard = setTimeout(function(){ try{ if (onHard) onHard(); }catch(_){} st.fin(false); }, hardMs);
+  if (st.hard.unref) st.hard.unref();
+  return st;
+}
+function _watchRes(res, st, onFail){
+  res.on('aborted', function(){ if (!st.done && onFail) onFail('응답 도중 연결 끊김'); st.fin(false); });
+  res.on('error', function(e){ if (!st.done && onFail) onFail((e && e.message) || '응답 오류'); st.fin(false); });
+  res.on('close', function(){ if (!res.complete){ if (!st.done && onFail) onFail('응답이 끝나기 전에 연결 닫힘'); st.fin(false); } });
+}
 async function uploadVideo(key, buf, contentType){
   if (!workerAuthOk()) return false;
   return new Promise(function(resolve){
+    var req = null;
+    // 최종 시한 — 느린 회선의 정상 업로드는 끝나도록 크기에 비례해 넉넉히(3분 + 1MB당 20초). 유휴 3분 제한은 그대로.
+    var hardMs = 180000 + Math.ceil(((buf && buf.length) || 0) / 1e6) * 20000;
+    var st = _settleOnce(resolve, function(){ return req; }, hardMs, function(){ log('  ! R2 업로드 오류 최종 시한 초과(' + Math.round(hardMs/1000) + '초)'); });
     try{
       var u = new URL(CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/' + encodeURIComponent(key));
       var t0 = Date.now();
-      var req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'PUT', port:443,
+      req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'PUT', port:443,
         headers: workerHeaders({ 'Content-Type': contentType||'application/octet-stream', 'Content-Length': buf.length }) },
         function(res){ try{ _noteServerDate(res.headers && res.headers.date, t0, Date.now()); }catch(_){}
-          res.on('data',function(){}); res.on('end',function(){ resolve(res.statusCode>=200&&res.statusCode<300); }); });
+          _watchRes(res, st, function(why){ log('  ! R2 업로드 오류 ' + why); });
+          res.on('data',function(){}); res.on('end',function(){ st.fin(res.statusCode>=200&&res.statusCode<300, true); }); });
       req.setTimeout(180000, function(){ req.destroy(new Error('R2 업로드 타임아웃')); });   // 대용량 영상 여유 3분
-      req.on('error', function(e){ log('  ! R2 업로드 오류 '+e.message); resolve(false); });
+      req.on('error', function(e){ if (!st.done) log('  ! R2 업로드 오류 '+e.message); st.fin(false); });
       req.write(buf); req.end();
-    }catch(e){ resolve(false); }
+    }catch(e){ st.fin(false); }
   });
 }
 // R2 객체 삭제 — (v12) 샷의 영상 키가 다른 키로 바뀌었을 때 대체된 옛 파일을 지운다(attachShotVideo).
+// 저장소 워커가 타석 PC 의 삭제를 거절하면(401/403 — 워커 v2 는 공용 열쇠를 끈 뒤 타석 PC 토큰의 DELETE 를 받지 않음)
+// 이번 실행 동안은 더 시도하지 않는다(요청·로그 낭비 방지). 남은 파일은 서버 쪽 고아 정리 작업 몫. 샷·업로드와 무관.
+var _deleteRefused = 0;
 async function deleteVideo(key){
   if (!workerAuthOk()) return false;
+  if (_deleteRefused) return false;
   return new Promise(function(resolve){
+    var req = null;
+    var st = _settleOnce(resolve, function(){ return req; }, 35000, function(){ log('  ! R2 삭제 오류 최종 시한 초과(35초)'); });
     try{
       var u = new URL(CFG.R2_WORKER_URL.replace(/\/+$/,'') + '/' + encodeURIComponent(key));
-      var req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'DELETE', port:443,
+      req = https.request({ hostname:u.hostname, path:u.pathname+u.search, method:'DELETE', port:443,
         headers: workerHeaders() },
-        function(res){ res.on('data',function(){}); res.on('end',function(){ resolve(res.statusCode>=200&&res.statusCode<300); }); });
+        function(res){
+          _watchRes(res, st, function(why){ log('  ! R2 삭제 오류 ' + why); });
+          res.on('data',function(){});
+          res.on('end',function(){
+            var sc = res.statusCode;
+            if ((sc === 401 || sc === 403) && !_deleteRefused){
+              _deleteRefused = sc;
+              log('  ! 저장소가 이 타석 PC 의 옛 영상 삭제를 거절함(' + sc + ') — 이번 실행 동안 삭제 시도 중단(남은 파일은 서버 정리 작업 몫, 샷·영상 업로드는 영향 없음)');
+            }
+            st.fin(sc>=200&&sc<300, true);
+          }); });
       req.setTimeout(30000, function(){ req.destroy(new Error('R2 삭제 타임아웃')); });
-      req.on('error', function(e){ log('  ! R2 삭제 오류 '+e.message); resolve(false); });
+      req.on('error', function(e){ if (!st.done) log('  ! R2 삭제 오류 '+e.message); st.fin(false); });
       req.end();
-    }catch(e){ resolve(false); }
+    }catch(e){ st.fin(false); }
   });
 }
 
 // ============ (v12/A3) 하트비트 — 저장소 워커에 hb/<bay>.json ============
 // 예전 5분 하트비트는 이 PC 의 agent.log 에만 남아, 타석 PC 가 살아 있는지 원격으로 알 방법이 없었다.
-// 시작 시 1번 + 5분마다 작은 JSON 을 올린다(앱 관리자 화면에서 'PC 신호 n분 전 · vX · 트랙맨 파일 n분 전').
+// 시작 시 1번 + 5분마다 작은 JSON 을 올린다(앱 관리자 화면에 'PC 신호 n분 전 · vX · 트랙맨 파일 n분 전'을 보여 줄 용도 —
+// 그 화면은 앱 쪽 작업이 따로 필요하다. 지금은 agent.log '감시 중' 줄의 '하트비트 ✓ n분 전'으로만 확인).
 // 회원 이름·ID·샷 ID·파일명은 넣지 않는다(이 파일은 키 없이 읽힘). 실패해도 샷 수집과 무관 —
 // 기다리지 않고(fire-and-forget) 10초 제한, 동시에 1건만.
 var _hb = { inFlight:false, flightAt:0, lastAttempt:0, lastOkAt:0, fails:0, sent:0 };
@@ -945,7 +1038,7 @@ function buildHeartbeat(bayId){
     pendingVideos: Object.keys(pend).length,         // 영상이 아직 다 안 붙은 샷 수(처리 중 포함)
     trackmanNewestFileAgeSec: newest ? Math.max(0, Math.round((now - newest)/1000)) : null,
     activeSession: !!_activeBays[bayId],            // 에이전트가 보는 '타석 레슨 켜짐' (회원 정보 없음)
-    sessionExpired: !!_expiredBays[bayId],          // 세션 행은 있지만 상한(기본 3시간) 초과로 꺼짐 취급
+    sessionExpired: !!_expiredBays[bayId],          // 세션 행은 있지만 상한(기본 4시간) 초과로 꺼짐 취급
     gate: CFG.requireActiveSession !== false,
     clockSkewSec: _skew.ms == null ? null : Math.round(_skew.ms / 100) / 10,   // 양수 = PC 가 빠름
     restarts: +_stateMeta.restarts || 0,
@@ -1053,7 +1146,7 @@ async function handleFtmf(filePath){
 
   // ── 타석 레슨 게이트 ── "타석 레슨"을 켠 베이(활성 세션 있음)의 샷만 저장한다.
   // 레슨 안 켜고 친 연습 샷은 아예 저장 안 함(과금·클러터 방지). requireActiveSession=false 면 해제.
-  // (v12) 3시간 넘게 켜진 세션은 _activeBays 에서 빠져 여기서 '꺼짐'으로 걸린다(A4).
+  // (v12) 상한(기본 4시간) 넘게 켜진 세션은 _activeBays 에서 빠져 여기서 '꺼짐'으로 걸린다(A4).
   if (CFG.requireActiveSession !== false && !_activeBays[bayId] && _noSession[fname] == null) {
     // (v12/B5) 처음 보는 샷 파일인데 꺼짐으로 보이면 — 그 자리에서 서버에 1번 더 확인(타석당 3초 1회)
     try{ await refreshActiveBaysNow(bayId); }catch(e){}
@@ -1110,13 +1203,13 @@ async function handleFtmf(filePath){
   if (!betterOrNew) {
     // 이미 더 완전한 값으로 이 샷을 보냄 → 데이터 재전송 스킵(중복·값 요동 방지).
     processed[fname] = { id: shotId, mid: parsed.measurementId, bay: bayId, t: Date.now() };
-    // (v12/A2) 샷당 영상 작업 1개 — 같은 스윙의 정상 ftmf 가 이미 내장 영상 작업('emb')을 만들었으면
-    // Videos 폴더 작업을 또 만들지 않는다(예전엔 같은 스윙을 <측정ID>_scene + tm_<측정ID>_* 로 두 번 올림).
-    if (CFG.uploadVideo && parsed.isDirectStmf && !_videoQueuedFor[shotId]) {
-      _videoQueuedFor[shotId] = 'vf';
-      _queueVideosFolderJob(fname, shotId, bayId, evMs);
-    } else if (CFG.uploadVideo && parsed.isDirectStmf && _videoQueuedFor[shotId] === 'emb') {
-      log('  같은 스윙의 내장 영상 작업이 이미 있어 Videos 폴더 매칭은 하지 않음(샷당 영상 작업 1개) ' + fname + ' → ' + shotId);
+    // (v12/A2) 같은 스윙의 단독 stmf → Videos 폴더 작업(샷당 1개). 정상 ftmf 의 내장 영상 작업이 먼저 있어도 만든다 —
+    // 앱이 보여 주는 측면·정면·클럽은 이쪽이고, 내장 영상은 이쪽이 아무것도 못 붙였을 때만 올린다(_addVfJob).
+    // 같은 스윙의 ftmf 가 늦게 왔으면(Videos 폴더 작업이 이미 있음) 그 내장 영상은 대비용으로만 대기열에 둔다.
+    if (CFG.uploadVideo && _videoQueuedFor[shotId] !== 'gone') {
+      if (parsed.isDirectStmf && !_hasJob(shotId, 'vf')) _addVfJob(fname, shotId, bayId, evMs);
+      else if (!parsed.isDirectStmf && parsed.videos && parsed.videos.length && _hasJob(shotId, 'vf') && !_hasJob(shotId, 'emb'))
+        _addEmbJob(filePath, fname, shotId, bayId);
     }
     try{ var _mtS=fs.statSync(filePath).mtimeMs; if(_mtS>(_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mtS; }catch(e){}
     saveState();
@@ -1126,7 +1219,10 @@ async function handleFtmf(filePath){
   // ── 1단계: 샷 "데이터"를 먼저 전송 (영상 없이) ─────────────────────────
   // (v12) 이 프로세스가 이미 보낸 샷의 '더 완전한 측정'이면 행 전체 upsert 대신 data 병합 갱신(repushShotData)
   var isRepush = (_shotBest[shotId] != null);
-  var willQueueVideo = !!(CFG.uploadVideo && !_videoQueuedFor[shotId] && (parsed.isDirectStmf || (parsed.videos && parsed.videos.length)));
+  // 이번에 '영상 준비 중' 표시를 새로 걸 영상 작업이 생기는가 — 대비용 내장 영상(Videos 폴더 작업이 이미 있음)은 제외
+  var willQueueVideo = !!(CFG.uploadVideo && _videoQueuedFor[shotId] !== 'gone' && (parsed.isDirectStmf
+    ? !_hasJob(shotId, 'vf')
+    : (parsed.videos && parsed.videos.length && !_hasJob(shotId, 'emb') && !_hasJob(shotId, 'vf'))));
   var nowIso = new Date().toISOString();
   var shot = {
     id: shotId,
@@ -1149,11 +1245,17 @@ async function handleFtmf(filePath){
     var nd = Object.assign({}, shot.data); delete nd._videoPending;
     var rp = await repushShotData(shotId, nd, willQueueVideo);
     if (rp === 'fail'){ log('전송 실패(다음 주기 재시도): ' + fname); return; }
+    if (rp === 'busy'){
+      // (v12) 같은 샷의 영상 연결(백그라운드)이 서버 응답을 오래 기다리는 중 — 기다리지 않고 다음 주기에 다시(스캔은 계속)
+      if (!_busyLogged[fname]){ _busyLogged[fname] = 1; log('같은 샷의 영상 연결이 진행 중이라 보강 재전송은 다음 주기에: ' + fname + ' → ' + shotId); }
+      return;
+    }
+    delete _busyLogged[fname];
     if (rp === 'gone'){
       // 앱에서 이미 지운 샷 — 되살리지 않고, 영상도 새로 만들지 않는다
       log('샷 행이 앱에서 삭제됨 — 재전송·영상 생략: ' + fname + ' id=' + shotId);
       _shotBest[shotId] = score;
-      if (!_videoQueuedFor[shotId]) _videoQueuedFor[shotId] = 'gone';
+      _videoQueuedFor[shotId] = 'gone';   // 같은 스윙의 다른 파일이 와도 새 영상 작업을 만들지 않음(진행 중 작업은 스스로 행 삭제를 확인)
       processed[fname] = { id: shotId, mid: parsed.measurementId, bay: bayId, t: Date.now() };
       try{ var _mtG=fs.statSync(filePath).mtimeMs; if(_mtG>(_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mtG; }catch(e){}
       saveState();
@@ -1186,22 +1288,13 @@ async function handleFtmf(filePath){
   // ── 2단계: 영상은 "대기열"로 — 데이터 전송을 절대 막지 않는다 ─────────────
   // 정상 ftmf: 파일 내부 embedded 영상 추출. 단독 stmf(고장 상태): 영상이 파일 안에
   // 없고 TPS Videos 폴더에 낱개로 저장되므로, 측정시각으로 매칭해 붙인다(샷당 1회).
-  // (v12) 샷당 영상 작업 1개 — 종류와 무관하게 이미 작업이 있으면 새로 만들지 않는다.
-  if (CFG.uploadVideo){
+  // (v12) 종류마다 샷당 1개 — Videos 폴더 작업이 우선, 같은 스윙의 내장 영상은 대비용(_addVfJob/_addEmbJob).
+  if (CFG.uploadVideo && _videoQueuedFor[shotId] !== 'gone'){
     if (parsed.isDirectStmf){
-      if (!_videoQueuedFor[shotId]){
-        _videoQueuedFor[shotId] = 'vf';
-        _queueVideosFolderJob(fname, shotId, bayId, evMs);   // (v12/A9) 종류·측정시각을 상태에 기록(vp 아님)
-      }
+      if (!_hasJob(shotId, 'vf')) _addVfJob(fname, shotId, bayId, evMs);   // (v12/A9) 종류·측정시각을 상태에 기록(vp 아님)
     } else if (parsed.videos && parsed.videos.length){
-      if (!_videoQueuedFor[shotId]){
-        _videoQueuedFor[shotId] = 'emb';
-        processed[fname].vp = filePath;
-        processed[fname].vj = { k:'emb' };
-        _videoQueue.push({ fp: filePath, fname: fname, shotId: shotId, bayId: bayId });
-      } else {
-        log('  이 샷은 영상 작업이 이미 있어(샷당 1개) 이 파일의 내장 영상은 올리지 않음 ' + fname + ' → ' + shotId);
-      }
+      if (!_hasJob(shotId, 'emb')) _addEmbJob(filePath, fname, shotId, bayId);
+      else log('  이 샷은 내장 영상 작업이 이미 있어(샷당 1개) 이 파일의 내장 영상은 올리지 않음 ' + fname + ' → ' + shotId);
     }
   }
   try{ var _mt=fs.statSync(filePath).mtimeMs; if(_mt> (_stateMeta.lastSeenMtime||0)) _stateMeta.lastSeenMtime=_mt; }catch(e){}
@@ -1218,6 +1311,37 @@ function _queueVideosFolderJob(fname, shotId, bayId, evMs){
   _videoQueue.push({ videosFolder:true, shotId: shotId, bayId: bayId, evMs: evMs, fname: fname });
   if (processed[fname]){ delete processed[fname].vp; processed[fname].vj = { k:'vf', ev: evMs }; }
 }
+// 대기 중인 이 샷의 내장 영상 작업을 '대비용'으로 표시(상태 파일 vj.fb 에도 — 재시작해도 유지)
+function _markEmbFallback(shotId){
+  for (var i = 0; i < _videoQueue.length; i++){
+    var j = _videoQueue[i];
+    if (j && !j.videosFolder && j.shotId === shotId){
+      j._fallback = true;
+      var p = processed[j.fname];
+      if (p && typeof p.vp === 'string') p.vj = { k:'emb', fb:1 };
+    }
+  }
+}
+// (v12/A2) Videos 폴더 작업 추가(샷당 1개). 같은 스윙의 내장 영상 작업이 있으면 그건 대비용으로 돌린다.
+function _addVfJob(fname, shotId, bayId, evMs){
+  var hadEmb = _hasJob(shotId, 'emb');
+  _markJob(shotId, 'vf');
+  _queueVideosFolderJob(fname, shotId, bayId, evMs);
+  if (hadEmb){
+    _markEmbFallback(shotId);
+    log('  같은 스윙의 정상 ftmf 도 있음 — Videos 폴더 영상(측면·정면·클럽)을 붙이고, 내장 영상은 그쪽이 아무것도 못 찾을 때만 올림 ' + fname + ' → ' + shotId);
+  }
+}
+// (v12/A2) 내장 영상 작업 추가(샷당 1개). 같은 스윙의 Videos 폴더 작업이 이미 있으면 대비용으로.
+function _addEmbJob(filePath, fname, shotId, bayId){
+  var fb = _hasJob(shotId, 'vf');
+  _markJob(shotId, 'emb');
+  var j = { fp: filePath, fname: fname, shotId: shotId, bayId: bayId };
+  if (fb) j._fallback = true;
+  if (processed[fname]){ processed[fname].vp = filePath; processed[fname].vj = fb ? { k:'emb', fb:1 } : { k:'emb' }; }
+  _videoQueue.push(j);
+  if (fb) log('  같은 스윙의 Videos 폴더 영상 작업이 있음 — 이 파일의 내장 영상은 그쪽이 아무것도 못 찾을 때만 올림 ' + fname + ' → ' + shotId);
+}
 function _persistVfKeys(job, keys){
   var p = processed[job.fname];
   if (!p) return;
@@ -1228,6 +1352,21 @@ function _persistVfKeys(job, keys){
 }
 function _clearVideoJobState(fname){
   if (fname && processed[fname]){ delete processed[fname].vp; delete processed[fname].vj; saveState(); }
+}
+// (v12/A2) 대비용 내장 영상 작업이 같은 스윙의 Videos 폴더 작업을 아직 기다려야 하나 — 그 작업이 대기열에 있는 동안
+// (최대 EMB_DEFER_MAX_MS). 기다리기 시작할 때 1번만 로그. scan() 은 기다리는 작업을 건너뛰고 다음 작업을 바로 처리한다.
+function _embWaitForVf(job){
+  try{
+    if (!job || job.videosFolder) return false;
+    if (!(job._fallback || _hasJob(job.shotId, 'vf'))) return false;
+    job._fallback = true;
+    if (!job._deferSince) job._deferSince = Date.now();
+    if (Date.now() - job._deferSince >= EMB_DEFER_MAX_MS) return false;
+    var vfQueued = _videoQueue.some(function(j){ return j && j.videosFolder && j.shotId === job.shotId; });
+    if (!vfQueued) return false;
+    if (!job._deferLogged){ job._deferLogged = 1; log('  내장 영상은 같은 스윙의 Videos 폴더 영상 작업 뒤로 미룸(그쪽이 영상을 붙이면 올리지 않음) shot=' + job.shotId); }
+    return true;
+  }catch(e){ return false; }
 }
 async function processVideoJob(job){
   // ── 단독 stmf(고장 상태): 파일 안에 영상이 없다 → Videos 폴더에서 시각 매칭해 붙인다 ──
@@ -1277,8 +1416,10 @@ async function processVideoJob(job){
       job._tries = (job._tries||0)+1;
       if (job._tries < 16){ _videoQueue.push(job); return; }
       var skAll = vids._skippedTaken || {};
-      log('  영상 매칭 실패(' + ((skAll.dl||skAll.fo||skAll.club||skAll.ball) ? '후보가 모두 다른 샷에 이미 붙은 파일 — 영상 없음으로 둠' : '파일 못 찾음') + ') shot=' + job.shotId);
-      try{ await attachShotVideo(job.shotId, null, null, null); }catch(e){}  // _videoPending 해제
+      // (v12) 같은 스윙의 대비용 내장 영상 작업이 기다리고 있으면 그쪽이 올리고 '영상 준비 중'도 해제한다
+      var embWaiting = _videoQueue.some(function(j){ return j && !j.videosFolder && j.shotId === job.shotId; });
+      log('  영상 매칭 실패(' + ((skAll.dl||skAll.fo||skAll.club||skAll.ball) ? '후보가 모두 다른 샷에 이미 붙은 파일 — 영상 없음으로 둠' : '파일 못 찾음') + ') shot=' + job.shotId + (embWaiting ? ' → 같은 스윙의 내장 영상으로 대신함' : ''));
+      if (!embWaiting){ try{ await attachShotVideo(job.shotId, undefined, null, null); }catch(e){} }  // _videoPending 해제 (video_r2_key 는 그대로)
       _clearVideoJobState(job.fname);
       return;
     }
@@ -1368,13 +1509,17 @@ async function processVideoJob(job){
       if (p[0] && p[1]) _noteAssigned(p[0].fp, job.shotId);
     });
     if (dlKey) keys.dl = dlKey; if (foKey) keys.fo = foKey; if (clubKey) keys.club = clubKey; if (ballKey) keys.ball = ballKey;
-    // 주(대표) 영상 — 칩·리포트 대표 재생용. DL > 클럽 > 볼 순.
-    // 보충 패스에서 DL 이 늦게 오면 대표를 DL 로 업그레이드. (v12: 지금까지 올린 키 전체 기준으로 매번 계산)
-    var mainKey = keys.dl || keys.club || keys.ball || null;
+    // 주(대표) 영상 — 칩·리포트 대표 재생용. 측면(DL) > 볼 카메라(측면이 없을 때 '_scene' 으로 올린 것).
+    // 클럽은 행에 대표가 아직 없을 때만 대표가 된다(clubMain). 보충 패스에서 DL 이 늦게 오면 대표를 DL 로 업그레이드.
+    // (v12: 지금까지 올린 키 전체 기준으로 매번 다시 보낸다. 단, 예전 v11 처럼 클럽이 이미 있는 대표 — 볼 카메라·내장 영상 —
+    //  를 밀어내지 않는다. 밀어내면 옛 대표가 '대체됨'으로 지워져 측면 슬롯 영상이 사라졌다)
+    var mainKey = keys.dl || keys.ball || null;
+    var clubMain = mainKey ? null : (keys.club || null);
     try{
       var extraKeys = { videoFO: keys.fo || null, videoDL: keys.dl || null, videoClub: keys.club || null, _agentVer: AGENT_VERSION };
       if (Object.keys(vidMeta).length) extraKeys._vidMeta = vidMeta;   // attachShotVideo 가 기존 진단과 병합
-      var okv = await attachShotVideo(job.shotId, null, mainKey, null, extraKeys);
+      // video_r2_key 는 건드리지 않는다(undefined) — 같은 행의 내장 영상 원본 mkv 키를 지우지 않게
+      var okv = await attachShotVideo(job.shotId, undefined, mainKey, null, extraKeys, clubMain);
       if (okv) log('  영상 연결' + (anyHave?'(보충)':'') + ' → 측면:' + (dlKey||(have.dl?'유지':'없음')) + ' 정면:' + (foKey||(have.fo?'유지':'없음')) + ' 클럽:' + (clubKey||(have.club?'유지':'없음')) + (ballKey?' (대표=볼카메라)':''));
     }catch(e){ log('  영상 연결 실패: ' + (e&&e.message||e)); }
     // 측면 또는 정면이 아직 없으면 보충 수집 계속 (샷 후 3분까지) — 아이폰 영상 지연 대비
@@ -1389,14 +1534,42 @@ async function processVideoJob(job){
     return;
   }
 
+  // ── ftmf 내장 영상 ──
+  // (v12/A2) 같은 스윙의 Videos 폴더 작업이 있으면(대비용) 그 작업이 대기열에서 빠질 때까지 뒤로 미루고(최대 10분),
+  // 그 뒤 행에 Videos 폴더 영상이 붙어 있으면 올리지 않는다 — 같은 스윙을 두 번 올려 내장 영상이 곧바로 고아가 되던 문제.
+  // Videos 폴더에서 아무것도 못 찾았으면 이 내장 영상을 그대로 올린다(그 샷이 영상 없이 끝나지 않게).
+  var embFallback = !!(job._fallback || _hasJob(job.shotId, 'vf'));
+  if (_embWaitForVf(job)){ _videoQueue.push(job); return; }
   // (v12/A2) 행이 이미 지워졌으면(앱에서 삭제) 내장 영상을 변환·업로드하지 않는다 — 조회 실패면 예전처럼 진행
-  try{
-    var pre0 = await fetchShotRow(job.shotId, 8000);
-    if (pre0.ok && !pre0.row){ log('  샷 행이 앱에서 삭제됨 — 내장 영상 업로드 중단 shot=' + job.shotId); _clearVideoJobState(job.fname); return; }
-  }catch(e){}
+  var pre0 = { ok:false, row:null };
+  try{ pre0 = await fetchShotRow(job.shotId, 8000); }catch(e){}
+  if (pre0.ok && !pre0.row){ log('  샷 행이 앱에서 삭제됨 — 내장 영상 업로드 중단 shot=' + job.shotId); _clearVideoJobState(job.fname); return; }
+  if (embFallback && !pre0.ok){
+    // 대비용은 행을 읽어야 Videos 폴더 영상이 붙었는지 안다 — 모르면 올리지 않고 잠시 뒤 다시(최대 6번)
+    job._readTries = (job._readTries || 0) + 1;
+    if (job._readTries < 6){ _videoQueue.push(job); return; }
+    log('  내장 영상(대비용) 건너뜀 — 샷 행 조회가 계속 실패해 Videos 폴더 영상이 붙었는지 확인 못 함 shot=' + job.shotId);
+    _clearVideoJobState(job.fname);
+    return;
+  }
   var buf, parsed;
   try { buf = fs.readFileSync(job.fp); parsed = parseFtmf(buf); }
   catch(e){ log('영상 단계: 파일 재읽기 실패 ' + job.fname + ': ' + e.message); parsed = null; }
+  if (embFallback && pre0.row){
+    // Videos 폴더 작업이 '측면' 영상(DL 아이폰, 없으면 볼 카메라 대표)을 붙였으면 내장 영상은 올리지 않는다.
+    // 정면·클럽만 붙었으면 측면 자리가 비어 있으므로 내장 영상을 측면(대표)으로 올린다(클럽 대표 → 내장 영상, 클럽 탭은 그대로).
+    var ownBase = job.bayId + '/' + ((parsed && parsed.measurementId) || job.shotId);
+    var own = [ownBase + '_scene.mp4', ownBase + '_scene.mkv'];
+    var d0 = pre0.row.data || {};
+    var mk0 = d0.videoMp4R2Key || null;
+    var vfSide = !!(d0.videoDL || (mk0 && own.indexOf(mk0) === -1 && mk0 !== d0.videoClub && mk0 !== d0.videoFO));
+    if (vfSide){
+      log('  같은 스윙의 Videos 폴더 측면 영상이 이미 붙어 있어 내장 영상은 올리지 않음(중복 업로드 방지) shot=' + job.shotId);
+      _clearVideoJobState(job.fname);
+      return;
+    }
+    var embAsSide = !!(d0.videoFO || d0.videoClub);   // 정면·클럽만 있음 → 내장 영상이 측면(대표) 자리를 채운다
+  }
   var fallbackData = null;
   if (parsed) fallbackData = Object.assign({ measurementId: parsed.measurementId, trackingUnit: parsed.trackingUnit, measuredAt: parsed.eventTime }, parsed.data);
   var videoKey = null, videoMp4Key = null;
@@ -1429,9 +1602,11 @@ async function processVideoJob(job){
   }
   if (videoKey || videoMp4Key) _hbMeta.up[job.bayId] = Date.now();
   // 성공이든 실패든 행 갱신 — 영상 키 부착 + _videoPending 해제(앱 진행표시 종료)
+  // (v12) 대비용은 행을 못 읽으면 data 를 파싱값으로 통째로 덮어쓰지 않는다(이미 붙은 Videos 폴더 정면·클럽 키 보존)
   try{
-    var okU = await attachShotVideo(job.shotId, videoKey, videoMp4Key, fallbackData);
-    if (okU && (videoKey || videoMp4Key)) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey));
+    var okU = await attachShotVideo(job.shotId, videoKey, videoMp4Key, embFallback ? null : fallbackData);
+    if (okU && (videoKey || videoMp4Key)) log('  영상 연결 완료 → ' + (videoMp4Key || videoKey) + (embAsSide ? ' (Videos 폴더 영상에 측면이 없어 내장 영상을 측면으로)' : ''));
+    else if (!okU && embFallback && (videoKey || videoMp4Key)) log('  ! 내장 영상(대비용) 행 연결 실패 — 올린 파일은 참조 없이 남을 수 있음(서버 정리 대상) ' + (videoMp4Key || videoKey));
   }catch(e){ log('  영상 연결 실패: ' + (e && e.message || e)); }
   _clearVideoJobState(job.fname);
 }
@@ -1455,10 +1630,10 @@ function rebuildVideoQueue(){
     var vj = (p.vj && typeof p.vj === 'object') ? p.vj : null;
     var hasVp = typeof p.vp === 'string';
     if (!vj && !hasVp) continue;
-    if (_videoQueuedFor[p.id]){ delete p.vp; delete p.vj; continue; }   // 샷당 작업 1개
     var bay = p.bay || CFG.defaultBay || 'bay3';
     var kind = vj && vj.k;
     if (!kind) kind = (hasVp && /\.stmf$/i.test(p.vp)) ? 'vf' : 'emb';
+    if (_hasJob(p.id, kind)){ delete p.vp; delete p.vj; continue; }   // 종류마다 샷당 작업 1개
     if (kind === 'vf'){
       var ev = vj ? +vj.ev : 0;
       if (!ev || isNaN(ev)) ev = _evFromFile(p.vp) || _evFromShotId(p.id);
@@ -1470,10 +1645,13 @@ function rebuildVideoQueue(){
       if (Object.keys(keys).length){ job._keys = keys; job._have = { dl:!!keys.dl, fo:!!keys.fo, club:!!keys.club, ball:!!keys.ball }; }
       _videoQueue.push(job);
       delete p.vp; p.vj = { k:'vf', ev: ev, keys: keys };
-      _videoQueuedFor[p.id] = 'vf'; nVf++;
+      if (_hasJob(p.id, 'emb')) _markEmbFallback(p.id);   // 먼저 복구한 같은 스윙의 내장 영상 작업 → 대비용
+      _markJob(p.id, 'vf'); nVf++;
     } else if (hasVp && fs.existsSync(p.vp)){
-      _videoQueue.push({ fp: p.vp, fname: fn, shotId: p.id, bayId: bay, _restored:true });
-      _videoQueuedFor[p.id] = 'emb'; nEmb++;
+      var ejob = { fp: p.vp, fname: fn, shotId: p.id, bayId: bay, _restored:true };
+      if ((vj && vj.fb) || _hasJob(p.id, 'vf')){ ejob._fallback = true; p.vj = { k:'emb', fb:1 }; }
+      _videoQueue.push(ejob);
+      _markJob(p.id, 'emb'); nEmb++;
     } else { delete p.vp; delete p.vj; }
   }
   _recoveredJobs = nVf + nEmb;
@@ -1555,15 +1733,22 @@ async function scan(){
   // 아이폰 .mov 트랜스코드가 수십 초 걸려도 데이터 전송(다음 스캔)은 5초마다 계속 돈다.
   // → "방금 친 샷의 데이터"가 영상 변환 때문에 밀리는 일이 없다.
   if (_videoQueue.length && !_videoBusy){
-    _videoBusy = true;
-    var vjob = _videoQueue.shift();
-    _videoCurrent = vjob;
-    processVideoJob(vjob)
-      .catch(function(e){
-        log('영상 처리 오류 ' + (vjob.fname||vjob.shotId) + ': ' + (e&&e.message||e));
-        _clearVideoJobState(vjob.fname);
-      })
-      .then(function(){ _videoBusy = false; _videoCurrent = null; _watchdogTick(); });
+    // (v12) 같은 스윙의 Videos 폴더 작업을 기다리는 대비용 내장 영상 작업은 차례를 쓰지 않고 뒤로 — 다음 작업을 바로 처리
+    var vjob = null;
+    for (var vi = _videoQueue.length; vi > 0 && !vjob; vi--){
+      var vcand = _videoQueue.shift();
+      if (_embWaitForVf(vcand)) _videoQueue.push(vcand); else vjob = vcand;
+    }
+    if (vjob){
+      _videoBusy = true;
+      _videoCurrent = vjob;
+      processVideoJob(vjob)
+        .catch(function(e){
+          log('영상 처리 오류 ' + (vjob.fname||vjob.shotId) + ': ' + (e&&e.message||e));
+          _clearVideoJobState(vjob.fname);
+        })
+        .then(function(){ _videoBusy = false; _videoCurrent = null; _watchdogTick(); });
+    }
   }
   // 원본 영상 요청 — 20초마다 앱이 남긴 요청을 확인해 백그라운드로 처리 (변환 큐와 별개)
   try{ await origRequestTick(); }catch(e){}
@@ -1662,7 +1847,8 @@ function start(){
   say('타석 레슨 게이트: ' + (CFG.requireActiveSession !== false ? 'ON (앱에서 타석 레슨 켠 베이의 샷만 저장 — 연습샷 제외' + (SESSION_MAX_MS > 0 ? ', 세션 ' + (SESSION_MAX_MS/3600000) + '시간 넘으면 꺼짐 취급' : '') + ')' : 'OFF (모든 샷 저장)'));
   if (AGENT_TOKEN) say('타석 PC 토큰: 사용 (서버 요청에 함께 보냄)');
   else if (_tokenNote) say('⚠️ ' + _tokenNote);
-  if (_looksUnset(CFG.SUPABASE_ANON_KEY)) say('🚨 config.json 의 SUPABASE_ANON_KEY 가 비어 있음(샘플 자리표시자) — 샷 전송 불가. 관리자에게 키를 받아 넣으세요');
+  // ⚠️ 이 문구에 '샷 전송' 을 넣지 말 것 — gpt-admin.ps1 diag 가 그 글자가 든 줄을 '업로드 1건'으로 세어 정상으로 잘못 판정한다
+  if (_looksUnset(CFG.SUPABASE_ANON_KEY)) say('🚨 config.json 의 SUPABASE_ANON_KEY 가 비어 있음(샘플 자리표시자) — 샷을 서버에 보낼 수 없음. 관리자에게 키를 받아 넣으세요');
   if (CFG.uploadVideo && _looksUnset(CFG.R2_API_KEY) && !AGENT_TOKEN) say('⚠️ config.json 의 R2_API_KEY 가 비어 있음(샘플 자리표시자) — 영상 업로드·하트비트 불가');
   checkClock().catch(function(e){ say('시계검증 오류: '+e.message); });
   if (CFG.requireActiveSession !== false) refreshActiveBays().catch(function(){});   // 시작 시 1회 선갱신
@@ -1695,7 +1881,9 @@ module.exports = {
     get origLastPoll(){ return _origLastPoll; }, set origLastPoll(v){ _origLastPoll = v; },
     get noSession(){ return _noSession; }, get noSessionFirst(){ return _noSessionFirst; }, isIdle: _isIdle,
     get forceRefreshAt(){ return _forceRefreshAt; },
-    get SESSION_MAX_MS(){ return SESSION_MAX_MS; }, get FO_MAX_BYTES(){ return FO_MAX_BYTES; }
+    get SESSION_MAX_MS(){ return SESSION_MAX_MS; }, get FO_MAX_BYTES(){ return FO_MAX_BYTES; },
+    fetchShotRow: fetchShotRow, httpRequest: httpRequest, withShotLock: withShotLock,
+    get deleteRefused(){ return _deleteRefused; }, REPUSH_LOCK_WAIT_MS: REPUSH_LOCK_WAIT_MS, EMB_DEFER_MAX_MS: EMB_DEFER_MAX_MS
   }
 };
 // 'node agent.js' 로 실행하면 예전과 똑같이 바로 시작한다. (테스트가 GPT_AGENT_NO_AUTOSTART=1 로 모듈만 부를 때만 시작 안 함)

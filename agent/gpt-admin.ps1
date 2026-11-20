@@ -116,6 +116,20 @@ function Update-Agent {
       if (Test-Path "$dir\$f") { Copy-Item "$dir\$f" "$dir\$($f -replace '\.js$','_old.js')" -Force }
       Copy-Item "$tmp\$f" "$dir\$f" -Force
     }
+    # 상태확인.bat · 이 스크립트(gpt-admin.ps1)도 함께 최신으로 (선택 — 실패해도 업데이트는 계속)
+    #  - 새 상태확인.bat 은 agent.js 의 AGENT_VERSION 숫자를 읽어 최신 여부를 정확히 보여줌 (예전 것은 구버전도 '최신' 표시)
+    try {
+      $stTmp = Join-Path $tmp 'status.bat'
+      Invoke-WebRequest -Uri "$base/%EC%83%81%ED%83%9C%ED%99%95%EC%9D%B8.bat" -OutFile $stTmp -UseBasicParsing -TimeoutSec 30
+      $stHead = (Get-Content $stTmp -TotalCount 1)
+      if ((Get-Item $stTmp).Length -gt 500 -and $stHead -match '^\s*@echo off') { Copy-Item $stTmp (Join-Path $dir '상태확인.bat') -Force; Out-Line '[참고] 상태확인.bat 갱신' }
+    } catch { Out-Line ('[참고] 상태확인.bat 갱신 건너뜀: ' + $_.Exception.Message) }
+    try {
+      $gaTmp = Join-Path $tmp 'gpt-admin.ps1'
+      Invoke-WebRequest -Uri "$base/gpt-admin.ps1" -OutFile $gaTmp -UseBasicParsing -TimeoutSec 30
+      $perr = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($gaTmp, [ref]$null, [ref]$perr)
+      if ((Get-Item $gaTmp).Length -gt 4000 -and (-not $perr -or $perr.Count -eq 0) -and (Select-String -Path $gaTmp -Pattern 'function Update-Agent' -Quiet)) { Copy-Item $gaTmp (Join-Path $dir 'gpt-admin.ps1') -Force; Out-Line '[참고] gpt-admin.ps1 갱신' }
+    } catch { Out-Line ('[참고] gpt-admin.ps1 갱신 건너뜀: ' + $_.Exception.Message) }
   } else { Out-Line '[유지] 검증 실패 - 기존 파일 그대로 재시작만 합니다.' }
   Out-Line '[4/4] 재시작...'
   $up = Start-Agent
