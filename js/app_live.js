@@ -93,25 +93,34 @@ function openLiveSession(){
 }
 function closeLiveSession(){ S.showLiveSession=false; stopLivePolling(); render(); }
 
-// 라이브 세션 활성 중 자동 폴링 (4초마다) — 새로고침 안 눌러도 새 샷 자동 표시.
+// 라이브 세션 활성 중 자동 폴링 — 새로고침 안 눌러도 새 샷 자동 표시.
 // 폴링 시점에 이전 샷ID 들을 기억해 '새로 들어온 것' 만 _isNew 마킹 → 카드에 강조.
+// 전송량 절약(B2 — 예전엔 4초마다 최근 샷 1000개를 통째로 다시 받아 화면 1대가 1시간에 25~85MB):
+//  · 화면이 숨겨졌거나(폰 잠금·다른 앱) 이전 폴링이 아직 안 끝났으면 건너뜀
+//  · 진행 중인 수업이 어디에도 없으면 30초 간격(타석 PC 는 수업이 켜진 타석의 샷만 올림), 있으면 4초
+//  · 평소엔 진행 세션 + 최근 20분 샷만 받아 id 로 합치고, 전체(최근 1000개)는 5분마다·앱 시작·새로고침 때만
+//    (다른 기기에서 지우거나 옮긴 20분 넘은 샷은 최대 5분 늦게 반영)
 var _livePollTimer = null, _liveLastIds = null;
+var LIVE_POLL_MS=4000, LIVE_IDLE_MS=30000, LIVE_WINDOW_MS=20*60000, LIVE_FULL_MS=5*60000;
+var _livePoll = { busy:0, seq:0, lastAt:0 };
 function startLivePolling(){
+  try{ hbEnsure(); }catch(e){}   // 타석 PC 상태 신호(하트비트) — 60초마다, 화면이 보일 때만
   if(_livePollTimer) return;
   // 첫 회는 즉시
-  _livePollTick();
-  _livePollTimer = setInterval(_livePollTick, 4000);
+  _livePollTick(true);
+  _livePollTimer = setInterval(_livePollTick, LIVE_POLL_MS);
   // 폰 백그라운드 갔다 오면 즉시 한 번 더
   if(!window._liveVisHook){
     window._liveVisHook = true;
     document.addEventListener('visibilitychange', function(){
-      if(!document.hidden && S.showLiveSession) _livePollTick();
+      if(!document.hidden && S.showLiveSession) _livePollTick(true);
     });
   }
 }
 function stopLivePolling(){
   if(_livePollTimer){ clearInterval(_livePollTimer); _livePollTimer=null; }
   _liveLastIds = null;
+  _livePoll.busy = 0; _livePoll.seq++;   // 진행 중이던 폴링의 응답은 버린다(샷 삭제 직후 옛 샷이 되살아나지 않게)
 }
 // ===== 샷 영상 상태 칩 — 업로드 진행(%) 표시 + 준비되면 그 자리에서 바로 재생 =====
 // 데이터가 먼저 오고 영상은 20~40초 뒤 붙는 구조라, 그 사이 "영상이 왜 없지?" 혼란 방지.
@@ -530,16 +539,64 @@ function autoEndStaleSessions(remoteActive){
   });
 }
 
-// 오래된 미배정 샷 자동 정리 (관리자 기기, 24시간 경과분) — 에이전트는 그대로 두고
-// 앱이 노이즈를 스스로 청소. 회원에게 귀속된 샷은 절대 건드리지 않음. PC 원본 무관.
-var _stalePurgeDone = false;
-function purgeStaleUnassigned(){
-  if(_stalePurgeDone) return;                       // 세션당 1회
-  // 프로·트레이너·관리자 기기 모두 실행 — 관리자 전용이던 시절엔 미배정 샷이
-  // 수백 개씩 쌓였음(2026-08 실측 635개). 삭제는 멱등이라 다기기 겹침 안전.
-  if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
-  var cutoff = Date.now() - 24*3600*1000;
-  var stale = (S.shotEvents||[]).filter(function(s){
+// ============ 샷 자동 정리 · 세션 자동 종료 — 주기 실행 (A4·D6, v9.99) ============
+// 예전엔 수업 센터를 연 뒤 첫 폴링에서 '앱 실행당 1번'만 돌아, 며칠씩 켜 두는 기기에선 미배정 샷(24시간)·미보관 영상(3일)이 쌓였고
+// 아무도 수업 센터를 안 열면 끄지 않은 세션이 계속 켜져 있었다. → 서버 자료를 받은 직후(앱 시작·로그인), 30분마다, 앱으로 돌아올 때
+// 다시 실행한다. 프로·트레이너·관리자 기기만(삭제는 멱등이라 여러 기기가 겹쳐도 안전). 화면이 숨겨졌거나 샷 수신 일시정지·일괄 삭제 중이면 건너뜀.
+var SHOT_MAINT_MS = 30*60000;
+var _maint = { busy:false, lastAt:0, pending:false };
+function _maintRole(){ return S.currentRole==='pro' || S.currentRole==='trainer' || S.currentRole==='admin'; }
+async function shotMaintTick(reason){
+  if(!_maintRole() || typeof cloud==='undefined' || !cloud.enabled) return false;
+  if(S.cloudSync==='loading'){ _maint.pending=true; return false; }   // 서버 자료를 받는 중 — 다 받으면(shotMaintAfterLoad) 바로
+  if(S.cloudSync==='auth' || S._authNeedLoad || document.hidden) return false;
+  var now = Date.now();
+  if(reason==='timer' && now-_maint.lastAt < SHOT_MAINT_MS) return false;
+  if(reason==='resume' && now-_maint.lastAt < 60000) return false;
+  if((reason==='boot' || reason==='login') && _maint.lastAt && now-_maint.lastAt < 20000) return false;   // 방금 돌았음
+  if(_maint.busy || (typeof shotPauseOn==='function' && shotPauseOn()) || window._shotsDeleting) return false;
+  _maint.busy = true; _maint.lastAt = now; _maint.pending = false;
+  try{
+    try{ await delQueueRetry(); }catch(e){}            // 지난번에 못 지운 영상·행부터
+    try{ await _maintActiveSessions(); }catch(e){}     // 어제 시작·2시간 넘은 세션 자동 종료
+    try{ await purgeStaleUnassigned(); }catch(e){}     // 24시간 넘은 미배정 샷(행 + 영상)
+    try{ await purgeOldShotVideos(); }catch(e){}       // 3일 지난 미보관 샷 영상(수치는 유지)
+    try{ await purgeOldOrigVideos(); }catch(e){}       // 7일 지난 원본 영상
+  } finally { _maint.busy = false; _maint.lastAt = Date.now(); try{ save(); }catch(e){} }
+  return true;
+}
+// 앱 시작·새로고침이 서버 자료(라이브 포함)를 다 받은 직후 — 처음 받은 때, 또는 받는 사이에 로그인했을 때만
+function shotMaintAfterLoad(){
+  if(!_maint.pending && _maint.lastAt) return;
+  setTimeout(function(){ shotMaintTick('boot'); }, 0);
+}
+try{
+  setInterval(function(){ shotMaintTick('timer'); }, 60000);   // 1분마다 확인 → 30분 지났으면 실행 (폰이 잠들었다 깨도 밀리지 않게)
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) setTimeout(function(){ shotMaintTick('resume'); }, 1500); });
+}catch(e){}
+// 수업 센터가 닫혀 있어도 끄지 않은 세션을 자동 종료 — 열려 있으면 폴링이 매번 한다
+async function _maintActiveSessions(){
+  if(S.showLiveSession && _livePollTimer) return;
+  var a = await cloud.loadActiveSessions(); if(!a) return;
+  // 0개 = 잠긴 DB 에서 토큰이 안 먹혀도 이렇게 보인다 → 확인되기 전엔 이 기기의 진행 세션을 비우지 않음
+  if(!Object.keys(a).length && Object.keys(S.activeSessions||{}).length && !(await _emptyAnswerTrusted())) return;
+  if(S.showLiveSession && _livePollTimer) return;   // 그사이 수업 센터를 열었으면 폴링에 맡김
+  autoEndStaleSessions(a);
+  applyRemoteActive(a);
+  autoEndOverdueSessions();
+}
+
+// 오래된 미배정 샷 자동 정리 (24시간 경과분) — 에이전트는 그대로 두고 앱이 노이즈를 스스로 청소.
+// 회원에게 귀속된 샷은 절대 건드리지 않음. PC 원본 무관. 24시간 기준은 그대로(레슨 뒤 미배정 샷을 회원에게 넘길 시간).
+// 후보는 서버에서 바로 찾는다 — 이 기기의 최근 1000개 목록 밖으로 밀린 옛 미배정 샷도, 그사이 다른 기기에서 배정된 샷도 정확히.
+// 영상(R2) 먼저 → 다 지워진 샷만 행 삭제(A2). 고객 리포트가 쓰는 영상 파일은 남긴다(행만 정리).
+async function purgeStaleUnassigned(){
+  if(!_maintRole()) return 0;
+  var now = Date.now(), cutoff = now - 24*3600*1000;
+  var ow = (S.members||[]).filter(function(m){ return m && m.ownerWatch && safeId(m.id); }).map(function(m){ return m.id; });
+  var rows = await cloud.staleShotRows(new Date(cutoff).toISOString(), ow);
+  if(!rows || !rows.length) return 0;
+  var stale = rows.filter(function(s){
     if(s.memberName){
       // 귀속된 샷 보호 — 단, 관찰용(타석 점검) 샷은 하루 지나면 행·영상 함께 정리
       // (점검용이라 기록 가치 없음 + 최근 샷 1000개 창을 잠식해 실회원 샷을 밀어냄)
@@ -551,21 +608,20 @@ function purgeStaleUnassigned(){
     // 원본 영상을 받은 샷(orig)은 원본 보관 기간(7일, purgeOldOrigVideos) 동안 행도 보호.
     // 요청만 걸린 샷(_origReq)은 PC 가 영영 응답 안 할 수도 있으니 요청 후 7일까지만 보호
     if(s.data && s.data.orig) return false;
-    if(s.data && s.data._origReq==1 && Date.now()-(Date.parse(s.data._origReqAt||'')||0) < 7*24*3600*1000) return false;
-    if(s._pendingBay && S.activeSessions[s._pendingBay]) return false;  // 진행 중 레슨 대기샷 보호
+    if(s.data && s.data._origReq==1 && now-(Date.parse(s.data._origReqAt||'')||0) < 7*24*3600*1000) return false;
+    var act=S.activeSessions[s.bayId];   // 진행 중 레슨의 대기샷 보호 (그 세션 시작 뒤에 측정된 샷)
+    if(act && !s.memberName && bayMode(s.bayId, act)==='lesson'){ var mt=Date.parse((s.data&&s.data.measuredAt)||s.ts), st=Date.parse(act.startedAt); if(!isNaN(mt) && !isNaN(st) && mt>=st-120000) return false; }
     var t = Date.parse(s.ts);
     return !isNaN(t) && t < cutoff;
   });
-  _stalePurgeDone = true;
-  if(!stale.length) return;
-  var ids = stale.map(function(s){return s.id;});
-  S.shotEvents = (S.shotEvents||[]).filter(function(s){ return ids.indexOf(s.id)===-1; });
-  try{ save(); }catch(e){}
-  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
-    stale.forEach(r2RemoveShotVideos);
-    console.warn('[live] 오래된 미배정 '+ids.length+'건 자동 정리');
-    try{ liveToastSafe('🧹 오래된 미배정 '+ids.length+'개 자동 정리됨'); }catch(e){}
-  });
+  if(!stale.length) return 0;
+  var keep = await cloud.reportStrings(); if(!keep) return 0;   // 리포트 목록을 못 받음 → 이번엔 지우지 않음
+  var r = await delShotsRun(stale, {keep:keep});
+  if(r.rows){
+    console.warn('[live] 오래된 미배정 '+r.rows+'건 자동 정리');
+    if(S.showLiveSession) liveToastSafe('🧹 오래된 미배정 '+r.rows+'개 자동 정리됨');
+  }
+  return r.rows;
 }
 // 영상 보관 정책 — "앱에서 저장(선별)한 샷"만 영상 영구 보관.
 // 연습모드 자동귀속 샷의 영상은 SHOT_VIDEO_KEEP_DAYS(기본 3일) 후 자동 삭제.
@@ -583,114 +639,177 @@ function _memberRecentVideoShotIds(n){
   });
   return prot;
 }
-var _vidRetentionDone = false;
-function purgeOldShotVideos(){
-  if(_vidRetentionDone) return;                     // 세션당 1회
-  // 프로·트레이너·관리자 기기 모두 실행 — 관리자 전용이던 시절엔 관리자가 수업 센터를
-  // 안 열면 미보관 영상이 무한 누적돼 R2 요금이 계속 나왔음(2026-08 청구서 135GB).
-  // R2 삭제는 멱등이라 여러 기기가 겹쳐 실행해도 안전. 호출 시점은 loadLive 직후(최신 _kept 반영).
-  if(S.currentRole!=='pro' && S.currentRole!=='trainer' && S.currentRole!=='admin') return;
-  _vidRetentionDone = true;
+// 프로·트레이너·관리자 기기 모두 실행 — 관리자 전용이던 시절엔 관리자가 수업 센터를
+// 안 열면 미보관 영상이 무한 누적돼 R2 요금이 계속 나왔음(2026-08 청구서 135GB). R2 삭제는 멱등이라 여러 기기가 겹쳐도 안전.
+// 영상을 먼저 지우고(A2) 지워진 키만 서버 행에서 비운다 — 못 지운 영상의 키는 그대로 남아(그 영상은 계속 재생됨) 다음 정리 때 다시.
+// 고객 리포트가 쓰는 영상은 지우지 않는다(A6 — 날짜별 비포/애프터·클럽별 기록은 저장(_kept) 안 한 샷 영상도 쓴다).
+async function purgeOldShotVideos(){
+  if(!_maintRole()) return 0;
   var days = (window.APP_CONFIG && APP_CONFIG.SHOT_VIDEO_KEEP_DAYS) || 3;
   var cutoff = Date.now() - days*24*3600*1000;
   // 회원 귀속 샷은 "회원별 최근 8개(영상 보유)"를 태그 없이도 보호 — 비포/애프터를
   // 안 눌러도 리포트의 스윙 영상 캐러셀이 비지 않게 (2026-08-16 윤명숙 리포트 영상 0개 사고)
-  var prot = _memberRecentVideoShotIds(8);
-  var targets = (S.shotEvents||[]).filter(function(s){
+  var prot = _memberRecentVideoShotIds(8), busy = delQ.ids();
+  var want = function(s){
+    if(!s || busy[s.id]) return false;                                         // 이미 지우는 중
     if(s.data && s.data._kept) return false;                                   // 선별 저장 샷 보호
     if(prot[s.id]) return false;                                               // 회원별 최근 영상 보호
-    var d = s.data||{};
-    if(!(s.videoR2Key || d.videoMp4R2Key || d.videoDL || d.videoFO || d.videoClub)) return false;   // 영상 없는 샷
+    if(!shotVideoKeys(s,'video').length) return false;                         // 영상 없는 샷
     var t = Date.parse(s.ts);
     return !isNaN(t) && t < cutoff;
-  });
-  if(!targets.length) return;
-  targets.forEach(function(s){
-    r2RemoveShotVideos(s);                          // R2 삭제 (키 지우기 전에!) — 전 앵글 포함
-    s.videoR2Key = null;
-    if(s.data){ delete s.data.videoMp4R2Key; delete s.data.videoDL; delete s.data.videoFO; delete s.data.videoClub; }
-    try{ cloud.clearShotVideo(s); }catch(e){}       // 다른 기기에도 "영상 없음" 전파
-  });
-  try{ save(); }catch(e){}
-  console.warn('[live] 보관정책: 미보관 샷 영상 '+targets.length+'건 정리(데이터 유지)');
-  try{ liveToastSafe('🎞 '+days+'일 지난 미보관 샷 영상 '+targets.length+'개 자동 정리(수치는 유지)'); }catch(e){}
+  };
+  var cand = (S.shotEvents||[]).filter(want);
+  if(!cand.length) return 0;
+  // 지우기 직전에 서버 값으로 다시 확인 — 이 기기 목록은 몇 분~몇 시간 전 것이라, 그사이 다른 기기에서 [저장](_kept)했을 수 있다
+  var fresh = await cloud.shotsByIds(cand.map(function(s){ return s.id; }));
+  if(!fresh) return 0;
+  var targets = cand.map(function(s){ return fresh[s.id]; }).filter(want);
+  if(!targets.length) return 0;
+  var rep = await cloud.reportStrings(); if(!rep) return 0;   // 리포트 목록을 못 받음 → 이번엔 지우지 않음
+  var ids = {}; targets.forEach(function(s){ ids[s.id]=1; });
+  var keep = _keysInUse(ids); Object.keys(rep).forEach(function(k){ keep[k]=1; });
+  var jobs = targets.map(function(s){ return delJob(s.id, 'clear', shotVideoKeys(s,'video').filter(function(k){ return !keep[k]; })); }).filter(function(j){ return j.k.length; });
+  if(!jobs.length) return 0;
+  var r = await delJobsRun(delQ.add(jobs));
+  var n = r.done.filter(function(j){ return j.op==='clear'; }).length;
+  if(n){
+    try{ save(); }catch(e){}
+    console.warn('[live] 보관정책: 미보관 샷 영상 '+n+'건 정리(데이터 유지)');
+    if(S.showLiveSession) liveToastSafe('🎞 '+days+'일 지난 미보관 샷 영상 '+n+'개 자동 정리(수치는 유지)');
+  }
+  return n;
 }
 // 원본 영상(요청해서 PC 에서 올린 고화질 파일)은 7일 뒤 자동 삭제 — 원본은 크기가 커서
-// 오래 두면 무료 용량을 잠식한다. 삭제 후 행은 일반 규칙(미배정 24h 등)으로 돌아간다.
+// 오래 두면 무료 용량을 잠식한다. 삭제 후 행은 일반 규칙(미배정 24h 등)으로 돌아간다. 파일을 먼저 지우고 다 지워지면 data.orig 를 비운다.
 var ORIG_VIDEO_KEEP_DAYS = 7;
-var _origRetentionDone = false;
-function purgeOldOrigVideos(){
-  if(_origRetentionDone) return;
-  if(!(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) return;   // 요청 주체 기기에서만
-  _origRetentionDone = true;
-  var cutoff = Date.now() - ORIG_VIDEO_KEEP_DAYS*24*3600*1000;
-  var n=0;
+async function purgeOldOrigVideos(){
+  if(!(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) return 0;   // 요청 주체 기기에서만
+  var cutoff = Date.now() - ORIG_VIDEO_KEEP_DAYS*24*3600*1000, busy = delQ.ids(), jobs = [];
   (S.shotEvents||[]).forEach(function(s){
-    var o=s.data && s.data.orig; if(!o || !o.at) return;
+    var o=s.data && s.data.orig; if(!o || !o.at || busy[s.id]) return;
     var t=Date.parse(o.at); if(isNaN(t) || t>=cutoff) return;
-    ['dl','fo','club','scene'].forEach(function(k){ try{ if(o[k] && typeof r2!=='undefined' && r2.enabled) r2.remove(o[k]); }catch(e){} });
-    delete s.data.orig; n++;
-    try{ cloud.updateShotData(s); }catch(e){}
+    jobs.push(delJob(s.id, 'orig', shotVideoKeys(s,'orig')));
   });
+  if(!jobs.length) return 0;
+  var r = await delJobsRun(delQ.add(jobs));
+  var n = r.done.filter(function(j){ return j.op==='orig'; }).length;
   if(n){ try{ save(); }catch(e){} console.warn('[live] 원본 영상 보관기간 만료 '+n+'건 정리'); }
+  return n;
 }
 
-async function _livePollTick(){
+// 서버에서 온 샷 s 에 이 기기 전용 표시(_rcvAt/_isNew/_uiSavedAt=저장됨 카드 상태)를 이어 붙인다
+function _liveKeep(s, o){
+  if(!o) return s;
+  if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; if(o._uiSavedAt) s._uiSavedAt=o._uiSavedAt;
+  // 방금 보낸 원본 요청 플래그가 서버 반영 전 폴링 응답에 덮이지 않게 (60초 창)
+  try{ if(o.data && o.data._origReq==1 && s.data && s.data._origReq!=1 && !s.data.orig && Date.now()-(Date.parse(o.data._origReqAt||'')||0)<60000){ s.data._origReq=1; s.data._origReqAt=o.data._origReqAt; } }catch(e){}
+  return s;
+}
+// 전체(최근 1000개) 결과 → 그대로 교체 (서버에 없는 샷 = 지워진 샷). 삭제 대기열의 샷은 빼고(그 답이 대기열에 적히기 전에 받은 것일 수 있음)
+function _liveMergeFull(live){
+  var om={}, gone=delQ.ids('del'); (S.shotEvents||[]).forEach(function(s){ om[s.id]=s; });
+  return (live.shotEvents||[]).filter(function(s){ return !gone[s.id]; }).map(function(s){ return _liveKeep(s, om[s.id]); });
+}
+// 최근 20분 창 결과 → id 로 합치기: 받은 샷은 새 값으로, 처음 보는 샷은 추가, 창 안쪽(5초 여유)인데 서버 답에 없는 샷·
+// 콕 집어 물었는데 없는 샷은 다른 기기에서 지운 것으로 보고 뺀다. 창 밖의 샷은 그대로(5분마다 전체로 맞춤). 최근 1000개만 유지.
+function _liveMergeWindow(live){
+  var got={}, asked={}, out=[], gone=delQ.ids('del');
+  (live.shotEvents||[]).concat(live.extra||[]).forEach(function(s){ if(!gone[s.id]) got[s.id]=s; });
+  (live.ids||[]).forEach(function(id){ asked[id]=1; });
+  var cut=Date.parse(live.since)+5000;
+  (S.shotEvents||[]).forEach(function(o){
+    var n=got[o.id];
+    if(n){ out.push(_liveKeep(n, o)); delete got[o.id]; return; }
+    var t=Date.parse(o.ts);
+    if(live.complete && !isNaN(t) && t>=cut) return;
+    if(asked[o.id]) return;
+    out.push(o);
+  });
+  Object.keys(got).forEach(function(id){ out.push(got[id]); });
+  out.sort(function(a,b){ return (Date.parse(a.ts)||0)-(Date.parse(b.ts)||0); });   // 오래된 → 최신 (전체 결과와 같은 순서)
+  return out.length>1000 ? out.slice(out.length-1000) : out;
+}
+// 창(20분)보다 오래됐지만 지켜볼 샷 — 30분 안에 원본 영상을 요청한 샷(PC 가 올리면 ⬇ 버튼이 바로 뜨게 id 로 콕 집어 받음, 최대 20개)
+function _liveWatchIds(now){
+  var out=[];
+  (S.shotEvents||[]).forEach(function(s){
+    var d=s.data||{}; if(d._origReq!=1) return;
+    var t=Date.parse(s.ts); if(!isNaN(t) && t>=now-LIVE_WINDOW_MS) return;   // 창 안이면 어차피 받음
+    var at=Date.parse(d._origReqAt||''); if(isNaN(at) || now-at>30*60000) return;
+    if(!safeId(s.id)) return;
+    out.push(s.id);
+  });
+  return out.slice(-20);
+}
+// 이 창 결과를 적용하면 화면에서 뭔가 사라지나 (진행 세션 · 창 안의 샷 · 콕 집어 물은 샷)
+function _liveWouldDrop(live){
+  if(Object.keys(S.activeSessions||{}).length) return true;
+  if(live.ids && live.ids.length) return true;
+  var cut=Date.parse(live.since)+5000;
+  return (S.shotEvents||[]).some(function(s){ var t=Date.parse(s.ts); return !isNaN(t) && t>=cut; });
+}
+async function _livePollTick(force){
   if(!S.showLiveSession) { stopLivePolling(); return; }
   if(!cloud || !cloud.enabled) return;
+  if(document.hidden) return;   // 화면이 숨겨짐(폰 잠금·다른 앱) — 돌아오면 visibilitychange 가 바로 1번
+  var now = Date.now();
+  if(_livePoll.busy && now-_livePoll.busy < 25000) return;   // 이전 폴링이 아직 진행 중 (25초 넘게 안 끝나면 멈춘 것으로 보고 새로)
+  var idle = !Object.keys(S.activeSessions||{}).length;
+  if(!force && idle && now-_livePoll.lastAt < LIVE_IDLE_MS-LIVE_POLL_MS/2) return;   // 진행 중인 수업이 없으면 약 30초 간격
   if(typeof shotPauseOn==='function' && shotPauseOn()) return;
   if(window._shotsDeleting) return;   // 일괄 삭제 진행 중 — 서버 정리 전 재로드 금지
+  var seq = ++_livePoll.seq; _livePoll.busy = now; _livePoll.lastAt = now;
   try{
-    var live = await cloud.loadLive();
-    if(!live) return;
+    var full = !_liveFullAt || now-_liveFullAt >= LIVE_FULL_MS;   // 5분마다 전체(최근 1000개), 그 사이엔 최근 20분 창
+    var live = full ? await cloud.loadLive() : await cloud.loadLiveWindow(new Date(now-LIVE_WINDOW_MS).toISOString(), _liveWatchIds(now));
+    if(!live || seq!==_livePoll.seq) return;   // 실패, 또는 그 사이 폴링을 멈췄다 다시 켬(옛 응답)
     if(!S.showLiveSession) return;  // 폴링 중 닫혔으면 무시
     if(window._shotsDeleting) return; // 폴링 요청이 삭제 시작 '전'에 나갔어도, 응답 적용은 차단
+    // 모든 결과가 0행인데 화면에서 지울 게 있다 — 잠긴 DB 에서 토큰이 안 먹혀도 이렇게 보이므로 토큰부터 확인(무효면 비밀번호 창, 화면은 그대로)
+    if(!full && live.empty && _liveWouldDrop(live)){
+      if(!(await _emptyAnswerTrusted())) return;
+      if(seq!==_livePoll.seq || !S.showLiveSession || window._shotsDeleting) return;
+    }
     autoEndStaleSessions(live.activeSessions);  // 어제 켜두고 잊은 세션 자동 종료(서버 포함)
     // 변경 감지를 위해 ID 집합 / 활성세션 키 비교
     var prev = _liveLastIds;
-    var curIds = (live.shotEvents||[]).map(function(s){return s.id;});
     var hasNew = false;
     if(prev){
       var prevSet = {}; prev.forEach(function(id){prevSet[id]=true;});
-      (live.shotEvents||[]).forEach(function(s){ if(!prevSet[s.id]){ s._isNew = Date.now(); hasNew = true; } });
+      (live.shotEvents||[]).concat(live.extra||[]).forEach(function(s){ if(!prevSet[s.id]){ s._isNew = Date.now(); hasNew = true; } });
     }
     var actBefore = JSON.stringify(Object.keys(S.activeSessions||{}).sort());
     var actAfter  = JSON.stringify(Object.keys(live.activeSessions||{}).sort());
+    if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
+    // _isNew/_rcvAt/_uiSavedAt(저장됨 카드 상태) 보존하며 머지
+    S.shotEvents = full ? _liveMergeFull(live) : _liveMergeWindow(live);
+    if(full) _liveFullAt = Date.now();
+    var curIds = S.shotEvents.map(function(s){return s.id;});
     var countChanged = !prev || curIds.length !== prev.length;
     // 영상 상태 변화 감지 — 데이터 먼저 오고 영상이 나중에 붙는 구조라, 영상 키/업로드중
     // 플래그가 바뀌면 재렌더해야 "업로드중 → 🎬 보기" 전환이 화면에 반영된다.
-    var vidSig = (live.shotEvents||[]).slice(-80).map(function(s){
+    var sigShots = S.shotEvents.slice(-80);
+    if(!full && live.ids && live.ids.length){ var _ask={}; live.ids.forEach(function(id){ _ask[id]=1; }); S.shotEvents.forEach(function(s){ if(_ask[s.id] && sigShots.indexOf(s)===-1) sigShots.push(s); }); }   // 지켜보는(원본 요청) 샷의 변화도 화면에
+    var vidSig = sigShots.map(function(s){
       var d=s.data||{}; return s.id+((d.videoMp4R2Key||d.videoDL)?'v':((d.videoFO||d.videoClub)?'f':(s.videoR2Key?'k':(d._videoPending?'p':'-'))))+(d.orig?'o':'')+(d._origReq==1?'r':'')+(d._origErr?'e':'');
     }).join('');
     var vidChanged = (window._liveLastVidSig!==undefined) && (window._liveLastVidSig!==vidSig);
     window._liveLastVidSig = vidSig;
     var changed = hasNew || (actBefore!==actAfter) || countChanged || vidChanged;
     _liveLastIds = curIds;
-    if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
-    // _isNew/_rcvAt/_uiSavedAt(저장됨 카드 상태) 보존하며 머지
-    var oldMap={}; (S.shotEvents||[]).forEach(function(s){oldMap[s.id]=s;});
-    S.shotEvents = (live.shotEvents||[]).map(function(s){
-      var o=oldMap[s.id];
-      if(o){ if(o._rcvAt) s._rcvAt=o._rcvAt; if(o._isNew) s._isNew=o._isNew; if(o._uiSavedAt) s._uiSavedAt=o._uiSavedAt;
-        // 방금 보낸 원본 요청 플래그가 서버 반영 전 폴링 응답에 덮이지 않게 (60초 창)
-        try{ if(o.data && o.data._origReq==1 && s.data && s.data._origReq!=1 && !s.data.orig && Date.now()-(Date.parse(o.data._origReqAt||'')||0)<60000){ s.data._origReq=1; s.data._origReqAt=o.data._origReqAt; } }catch(e){}
-      }
-      return s;
-    });
     autoEndOverdueSessions(); // 2시간 넘게 켜진 세션 자동 종료 — 이후 샷이 계속 귀속되는 것 차단
     if(typeof reconcileAgentShots==='function') reconcileAgentShots();
-    purgeStaleUnassigned();   // 첫 폴링에서 24h+ 미배정 노이즈 자동 청소(관리자)
-    purgeOldShotVideos();     // 보관정책: 미보관 샷 영상 3일 후 자동 삭제(관리자, 데이터 유지)
-    purgeOldOrigVideos();     // 원본 영상 7일 후 자동 삭제 (요청 주체 기기)
+    // 24h+ 미배정·3일 지난 미보관 영상·7일 지난 원본 정리는 폴링이 아니라 shotMaintTick(앱 시작·로그인·30분마다·앱 복귀)이 한다
     // 변경 없으면 render 스킵 — 스크롤이 4초마다 위로 튀는 문제 해결
     if(!changed) return;
     try{save();}catch(e){}
-    // 1) 부분 DOM 패치 — render 자체를 안 부르고 두 영역만 교체 (가장 매끈)
-    var patched = (typeof _patchLivePartials==='function') && _patchLivePartials();
+    // 1) 부분 DOM 패치 — render 자체를 안 부르고 두 영역만 교체 (가장 매끈). 원본 영상 창이 열려 있으면 그 창도 바뀌어야 하므로 전체 render
+    var patched = !S._origPanel && (typeof _patchLivePartials==='function') && _patchLivePartials();
     if(patched) return;
     // 2) 구조적 변경일 때 전체 render — render() 함수 자체가 스크롤 자동 보존
     render();
-  }catch(e){ /* 네트워크 일시 오류 무시 — 다음 4초에 재시도 */ }
+  }catch(e){ /* 네트워크 일시 오류 무시 — 다음 회차에 재시도 */ }
+  finally{ if(seq===_livePoll.seq) _livePoll.busy = 0; }
 }
 
 // 회원 카드에서 바로 라이브 시작 (회원 → 베이 선택)
@@ -745,18 +864,28 @@ async function purgeAllShots(){
   if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
   liveToast('🗑 '+n+'개 삭제 중...','ok');
   logActivity('샷 전체 삭제', '', n+'개');
-  // 2) 폴링 정지(서버 정리 끝나기 전에 옛 샷이 다시 부활하지 않도록)
+  // 2) 폴링 정지(지울 목록을 대기열에 적기 전에 옛 샷이 다시 부활하지 않도록)
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
   _liveLastIds = null;
   window._shotsDeleting = true;
-  // 3) Supabase 한방 + R2 영상 백그라운드 병렬 — await 안 함, 사용자 안 기다림
-  Promise.resolve(cloud.deleteAllShots()).then(function(ok){
-    snapshot.forEach(r2RemoveShotVideos);
-    logAudit('session','샷 전체삭제','',{count:n, cloud:ok});
-    window._shotsDeleting = false;
-    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
-  });
+  // 3) 서버의 샷 전부(화면 1000개 밖 포함)를 받아 영상부터 지우고, 영상이 다 지워진 샷만 행 삭제(A2)
+  //    — 예전 '행 한 번에 전부 삭제'는 화면에 없던 샷의 영상을 주인 없는 파일로 남겼다
+  var all = await cloud.shotRowsWhere(null);
+  var p = delShotsRun(_shotListUnion(snapshot, all));   // 대기열에 적힌 뒤로는 폴링이 그 샷을 되살리지 않는다
+  window._shotsDeleting = false;
+  if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
+  var r = await p;
+  logAudit('session','샷 전체삭제','',{count:n, cloud:!!all, rows:r.rows, left:r.left});
+  if(!all) liveToast('⚠️ 서버 삭제 실패 — 다시 시도해주세요','err');
+  else if(r.left) liveToast(DEL_LATER_MSG,'err');
+  else liveToast('✓ 전체 삭제 완료','ok');
+}
+// 이 기기 목록 + 서버 목록(있으면 서버 값 우선 — 영상 키가 최신)
+function _shotListUnion(local, server){
+  var m={}, out=[];
+  (server||[]).concat(local||[]).forEach(function(s){ if(s && s.id && !m[s.id]){ m[s.id]=1; out.push(s); } });
+  return out;
 }
 
 // 베이 모드 전환 (레슨 선별저장 ↔ 연습 자동저장)
@@ -775,13 +904,22 @@ function setBayMode(bayId, mode){
 function saveLessonShot(shotId, bayId, tag){
   var act=S.activeSessions[bayId]; if(!act){ liveToast('활성 세션이 없습니다','err'); return; }
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
-  s.memberId=act.memberId; s.memberName=act.memberName; s.author=act.author; delete s._pendingBay;
   if(!s.data) s.data={};
+  var b4={memberId:s.memberId, memberName:s.memberName, author:s.author, pb:s._pendingBay, kept:s.data._kept, tag:s.data._tag};
+  s.memberId=act.memberId; s.memberName=act.memberName; s.author=act.author; delete s._pendingBay;
   s.data._kept=1;   // 선별 저장 = 영상 영구 보관 (보관 정책에서 제외)
   if(tag==='before'||tag==='after') s.data._tag=tag;
-  s._uiSavedAt=Date.now();   // 카드 유지 + "저장됨" 상태 표시용 (이 기기 한정)
+  var mine=s._uiSavedAt=Date.now();   // 카드 유지 + "저장됨" 상태 표시용 (이 기기 한정)
   save();
-  try{ cloud.reassignShot(s.id, act.memberId, act.memberName); cloud.updateShotData(s); }catch(e){}
+  // 회원 배정 + 표시(_kept·_tag)만 서버에 — data 는 서버 값에 병합(A5). 실패하면 카드를 저장 전으로 되돌리고 '저장 실패 — 다시 눌러주세요'
+  var set={_kept:1}; if(tag==='before'||tag==='after') set._tag=tag;
+  _shotWrite(s.id, function(){ return cloud.updateShotData(s, set, null, {member_id:act.memberId, member_name:act.memberName}); }, function(cur){
+    if(cur._uiSavedAt!==mine) return;   // 그사이 다시 누름(저장 취소 등) — 그 동작이 화면을 정한다
+    cur.memberId=b4.memberId; cur.memberName=b4.memberName; cur.author=b4.author; if(b4.pb) cur._pendingBay=b4.pb; delete cur._uiSavedAt;
+    if(!cur.data) cur.data={};
+    if(b4.kept===undefined) delete cur.data._kept; else cur.data._kept=b4.kept;
+    if(b4.tag===undefined) delete cur.data._tag; else cur.data._tag=b4.tag;
+  });
   logActivity('레슨 샷 저장'+(tag?' ('+(tag==='before'?'비포':'애프터')+')':''), act.memberId, getBay(bayId).name+' · '+((s.data&&s.data.club)||''));
   render();
   liveToast('✓ '+act.memberName+'님에게 저장'+(tag?(tag==='before'?' — 📌 비포 영상':' — ✅ 애프터 영상'):''),'ok');
@@ -797,21 +935,47 @@ function togglePsShowAll(bayId){
 // 저장 취소 — 샷을 다시 미배정(대기) 상태로 되돌린다
 function cancelLessonShot(shotId){
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;}); if(!s) return;
+  var b4={memberId:s.memberId, memberName:s.memberName, author:s.author, ui:s._uiSavedAt, kept:s.data&&s.data._kept, tag:s.data&&s.data._tag};
   s.memberId=null; s.memberName=null; s.author=null;
   if(s.data){ delete s.data._tag; delete s.data._kept; }
   delete s._uiSavedAt;
   save();
-  try{ cloud.reassignShot(s.id, null, null); cloud.updateShotData(s); }catch(e){}
+  _shotWrite(s.id, function(){ return cloud.updateShotData(s, null, ['_tag','_kept'], {member_id:null, member_name:null}); }, function(cur){
+    if(cur._uiSavedAt) return;   // 그사이 다시 저장함
+    cur.memberId=b4.memberId; cur.memberName=b4.memberName; cur.author=b4.author; cur._uiSavedAt=b4.ui||Date.now();
+    if(!cur.data) cur.data={};
+    if(b4.kept!==undefined) cur.data._kept=b4.kept; if(b4.tag!==undefined) cur.data._tag=b4.tag;
+  });
   render();
   liveToast('저장 취소됨 — 다시 선택할 수 있어요','ok');
 }
-// 레슨 모드: 이 샷 버림 (화면+서버+R2 영상까지 제거 — 영상만 남는 고아 방지)
+// 샷 표시 저장(저장·저장 취소·원본 요청) 결과 확인 (A5) — 서버에서 실제로 바뀌었는지(바뀐 행 1개) 보고, 실패하면(네트워크·권한·그사이 삭제)
+// 이 기기 화면을 누르기 전으로 되돌린 뒤 '저장 실패 — 다시 눌러주세요'. 예전엔 결과를 안 봐서 실패해도 '저장됨'으로 보였고 그 샷은
+// 24시간 뒤 미배정으로 지워졌다. 같은 샷의 저장은 차례대로(저장 → 바로 취소를 눌러도 순서가 뒤집히지 않게).
+var _shotWQ={};
+function _shotWrite(id, run, revert){
+  if(!(typeof cloud!=='undefined' && cloud.enabled)) return Promise.resolve(true);
+  var prev=_shotWQ[id]||Promise.resolve();
+  var p=prev.then(function(){ return run(); }).then(function(ok){ return !!ok; }, function(){ return false; }).then(function(ok){
+    if(!ok){
+      var cur=(S.shotEvents||[]).find(function(x){ return x.id===id; });   // 폴링이 그사이 샷 객체를 새로 바꿨을 수 있어 id 로 다시 찾는다
+      if(cur){ try{ revert(cur); }catch(e){} }
+      try{ save(); }catch(e){}
+      try{ liveToast('저장 실패 — 다시 눌러주세요','err'); }catch(e){}
+    }
+    return ok;
+  });
+  _shotWQ[id]=p; p.then(function(){ if(_shotWQ[id]===p) delete _shotWQ[id]; });
+  return p;
+}
+// 영상 삭제가 다 끝나지 않음(다음 정리 때 자동으로 다시) — 수업 센터 화면에서만 알림
+function _delLaterToast(r){ if(r && r.left){ try{ if(S.showLiveSession) liveToast(DEL_LATER_MSG,'err'); }catch(e){} } return r; }
+// 레슨 모드: 이 샷 버림 (화면+서버+R2 영상까지 제거 — 영상만 남는 고아 방지). 영상을 먼저 지우고 다 지워지면 서버 행(A2)
 function dropLessonShot(shotId){
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;});
-  if(s) r2RemoveShotVideos(s);
   S.shotEvents=(S.shotEvents||[]).filter(function(x){return x.id!==shotId;});
   save();
-  try{ cloud.deleteShot(shotId); }catch(e){}
+  if(s) delShotsRun([s]).then(_delLaterToast, function(){});
   render();
 }
 function renderBayPickModal(){
@@ -980,9 +1144,10 @@ async function endLiveSession(bayId){
   }
   var bay = getBay(bayId);
   var hasVoice = (act._transcript||'').trim().length>0;
+  var rcNo = _rcRefusedId(act.memberId);   // 녹음·AI 정리 거부 회원 — 메모는 AI 없이 일지 칸으로
   var pendCnt = (typeof pendingShotsForBay==='function') ? pendingShotsForBay(bayId).length : 0;
   var msg = bay.name+' · '+act.memberName+'님 세션을 종료할까요?\n'
-    + (hasVoice ? '(받아쓴 내용을 AI가 세션카드로 정리합니다)' : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)')
+    + (hasVoice ? (rcNo ? '(메모를 세션카드에 옮겨요 — 녹음·AI 정리 거부 회원이라 AI 정리는 하지 않아요)' : '(받아쓴 내용을 AI가 세션카드로 정리합니다)') : '(세션 기록 카드가 열립니다 — 메모를 추가하고 저장하세요)')
     + (pendCnt ? '\n\n💡 비포/애프터 지정은 종료 전에만 가능해요 — [전체 샷 ⏮]에서 처음 친 샷도 지정할 수 있습니다 (미저장 샷 '+pendCnt+'개)' : '');
   if(!confirm(msg)) return;
   try{ window.__busyHold = Date.now() + 15000; }catch(e){}   // 종료 처리~일지 카드 열림 사이 SW 리로드 보류
@@ -1009,7 +1174,7 @@ async function endLiveSession(bayId){
   // 라이브 세션 종료 = 세션 기록 생성 (일원화). 음성 있으면 AI 정리, 없으면 빈 카드.
   if(transcript.trim()){
     openVoiceDraft(memberId, author, transcript);
-    liveToast('🤖 AI가 세션카드를 정리했어요 — 확인 후 저장','ok');
+    liveToast(rcNo ? '⏹ 세션 종료 — 메모를 세션카드에 옮겼어요, 확인 후 저장' : '🤖 AI가 세션카드를 정리했어요 — 확인 후 저장','ok');
   } else {
     // 음성 없음 → 회원 선택 후 빈 세션카드 모달 (수기 입력)
     S.selectedMember = memberId;
@@ -1075,15 +1240,14 @@ function deleteShot(shotId){
   var shot = S.shotEvents.find(function(s){ return s.id===shotId; });
   if(!shot) return;
   if(!confirm(shot.memberName+'님의 저장된 샷을 삭제할까요?\n(영상·데이터가 함께 삭제됩니다)')) return;
-  r2RemoveShotVideos(shot);   // R2 영상(mkv+mp4) 실제 삭제 — 확인문구대로 함께 제거(고아 방지)
   S.shotEvents = S.shotEvents.filter(function(s){ return s.id!==shotId; });
   if(S.liveReassignShot===shotId) S.liveReassignShot=null;
   save();
   logActivity('저장된 샷 삭제', shot.memberId, getBay(shot.bayId).name);
   logAudit('session','저장된 샷 삭제', shot.memberName, {shotId:shotId, bay:shot.bayId});
-  cloud.deleteShot(shotId);
   render();
-  liveToast('🗑 샷 삭제됨','ok');
+  // R2 영상(전 앵글)을 먼저 지우고, 다 지워지면 서버 행 — 확인문구대로 함께 제거(고아 방지, A2)
+  delShotsRun([shot]).then(function(r){ if(r.left) _delLaterToast(r); else liveToast('🗑 샷 삭제됨','ok'); }, function(){});
 }
 
 // ============ 음성 받아쓰기 → AI 세션카드 ============
@@ -1274,7 +1438,9 @@ function _backupTranscript(bayId, act, force){
 async function _fetchTranscriptBackup(bayId, act){
   try{
     if(typeof r2==='undefined' || !r2.enabled) return '';
-    var res=await fetch(r2.url(_recBackupKey(bayId, act)));
+    // 인증 헤더(공용 열쇠·로그인 토큰)를 붙여 읽는다 — 워커가 녹음 백업 읽기를 잠가도(REC_REQUIRE_AUTH=1) 복구가 끊기지 않게.
+    // no-store: 브라우저 캐시의 옛 전문이 아니라 방금 올린 전문을 받기
+    var res=await wFetch(r2.url(_recBackupKey(bayId, act)), {cache:'no-store'});
     if(!res || !res.ok) return '';
     return String(await res.text()||'').trim();
   }catch(e){ return ''; }
@@ -1368,12 +1534,62 @@ function resumeInterruptedRec(){
     try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}
     S.showLiveSession=true; S.showDashboard=false; S.selectedMember=null;
     try{ if(typeof startLivePolling==='function') startLivePolling(); }catch(e){}
+    if(_rcRefusedId(act.memberId)){ try{ liveToast('🎙 녹음 거부 회원이라 녹음을 다시 시작하지 않았어요','err'); }catch(e){} return; }   // 그 사이 거부가 기록됨
     startBayRec(info.bayId);                                          // 마이크 권한은 이미 허용됨 — 제스처 없이 재개
     try{ liveToastSafe('🎙 중단됐던 녹음을 자동으로 다시 시작했어요 — 이전 내용은 저장돼 있습니다'); }catch(e){}
     try{ render(); }catch(e){}
   }catch(e){}
 }
 try{ setTimeout(resumeInterruptedRec, 4000); }catch(e){}   // 부팅(자동 로그인 복원) 후
+// ---------- 녹음·AI 정리 동의 확인 (v9.99) ----------
+// 🎙 수업 녹음 → 서버의 동의 기록을 잠깐 확인 → 동의: 바로 녹음 · 거부: 녹음 안 함(짧은 안내) · 기록 없음: 확인 창
+// [오늘 구두 동의 받음 — 기록하고 녹음] [녹음 없이 진행] [취소]. 어떤 경우에도 레슨·샷 저장은 막지 않는다.
+var _recSkip = {};   // 이 기기에서 '녹음 없이 진행'을 고른 타석 세션('타석|시작 시각') — 메모칸을 바로 펼친다
+async function recStartAsk(bayId){
+  var act=S.activeSessions[bayId]; if(!act){ liveToast('먼저 회원을 배정하세요','err'); return; }
+  var m=S.members.find(function(x){return x.id===act.memberId;});
+  if(!m || m.ownerWatch) return startBayRec(bayId);                  // 관찰용(타석 점검) 등 — 예전 그대로
+  if(S._rcCheck || _rec.bayId) return;
+  S._rcCheck=bayId; try{ render(); }catch(e){}
+  try{ await _rcFresh(m, 2500); }catch(e){}
+  S._rcCheck=null;
+  var now=S.activeSessions[bayId];
+  if(!now || now.memberId!==m.id){ try{ render(); }catch(e){} return; }   // 확인하는 사이 수업이 끝났거나 바뀜
+  var st=recConsentState(m);
+  if(st==='yes') return startBayRec(bayId);
+  if(st==='no'){ liveToast('🎙 녹음 거부 회원이에요 — 녹음 없이 진행해요','err'); return; }
+  S.recAsk={bayId:bayId, memberId:m.id}; render();
+}
+function recAskCancel(){ S.recAsk=null; render(); }
+function recAskSkip(){
+  var q=S.recAsk; S.recAsk=null;
+  var a=q && S.activeSessions[q.bayId]; if(a) _recSkip[q.bayId+'|'+(a.startedAt||'')]=1;
+  liveToast('녹음 없이 진행해요 — 필요하면 메모칸에 적어 주세요','ok');
+}
+function recAskOral(){
+  var q=S.recAsk; S.recAsk=null;
+  var m=q && S.members.find(function(x){return x.id===q.memberId;});
+  if(!m){ try{ render(); }catch(e){} return; }
+  m.recConsent=_rcToday(); m.recConsentHow='구두'; m.recConsentNo=''; m.recConsentBy=S.currentUser||''; m.recConsentAt=new Date().toISOString();
+  try{ _rcLog(m); }catch(e){}
+  try{ save(); }catch(e){}
+  try{ syncMemberUp(m); }catch(e){}
+  try{ render(); }catch(e){}
+  startBayRec(q.bayId);   // 같은 탭 안에서 바로 시작 — 마이크 권한 창이 막히지 않게
+}
+function renderRecAskModal(){
+  var q=S.recAsk; if(!q) return '';
+  var m=S.members.find(function(x){return x.id===q.memberId;});
+  return '<div class="modal-overlay" onclick="if(event.target===this)recAskCancel()"><div class="modal rc-ask">'
+    + '<div class="rc-ask-icon">🎙</div>'
+    + '<div class="modal-title">녹음 동의가 기록되지 않은 회원</div>'
+    + '<div class="rc-ask-msg"><b>'+esc(m?m.name:'')+'</b>님은 녹음·AI 정리 동의 기록이 없어요.<br>녹음해도 되는지 여쭤 봐 주세요. 동의하지 않으셔도 레슨은 그대로 진행돼요.</div>'
+    + '<div class="rc-ask-btns">'
+    +   '<button class="btn primary" onclick="recAskOral()">오늘 구두 동의 받음 — 기록하고 녹음</button>'
+    +   '<button class="btn" onclick="recAskSkip()">녹음 없이 진행</button>'
+    +   '<button class="btn rc-ask-cancel" onclick="recAskCancel()">취소</button>'
+    + '</div></div></div>';
+}
 async function startBayRec(bayId){
   if(!recSupported()){ liveToast('이 기기는 녹음을 지원하지 않습니다','err'); return; }
   if(_rec.bayId){ liveToast('이미 '+getBay(_rec.bayId).name+'에서 녹음 중입니다','err'); return; }
@@ -1422,7 +1638,7 @@ async function sttTranscribe(blob){
     var ac = (typeof AbortController!=='undefined') ? new AbortController() : null;
     var killT = ac ? setTimeout(function(){ try{ac.abort();}catch(e){} }, 35000) : null;
     try{
-      var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':blob.type||'application/octet-stream'},body:blob,signal:ac?ac.signal:undefined});
+      var res=await wFetch(r2.workerUrl+'/stt',{method:'POST',headers:{'Content-Type':blob.type||'application/octet-stream'},body:blob,signal:ac?ac.signal:undefined});
       clearTimeout(killT);
       if(res.status===501||res.status===404||res.status===401){ window._sttReady=false; throw new Error('stt-not-ready '+res.status); }   // 키미설정/경로없음/인증 — 재시도 무의미
       if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} lastErr=new Error('stt http '+res.status+' '+t.slice(0,120)); continue; }  // 5xx 등 → 1회 재시도
@@ -1444,7 +1660,7 @@ async function sttTranscribe(blob){
 async function checkSttReady(){
   try{
     if(typeof r2==='undefined' || !r2.enabled){ window._sttReady=false; return; }
-    var res=await fetch(r2.workerUrl+'/stt',{method:'POST',headers:{'X-API-Key':r2.apiKey,'Content-Type':'audio/mp4'},body:new Uint8Array(0)});
+    var res=await wFetch(r2.workerUrl+'/stt',{method:'POST',headers:{'Content-Type':'audio/mp4'},body:new Uint8Array(0)});
     window._sttReady = (res.status===400 || (res.status>=200 && res.status<300));
     if(typeof render==='function' && S.showLiveSession){ try{render();}catch(e){} }
   }catch(e){ /* 네트워크 실패 — 판정 보류(undefined). 녹음 버튼 표시, 시도 시 실패하면 안내로 전환 */ }
@@ -1460,7 +1676,7 @@ function aiEnabled(){
   var cfg=window.APP_CONFIG||{};
   var wurl=cfg.AI_WORKER_URL||cfg.R2_WORKER_URL;
   var wkey=cfg.AI_WORKER_KEY||cfg.R2_API_KEY;
-  if(cfg.AI_VIA_WORKER && wurl && wkey) return true; // 워커 프록시
+  if(cfg.AI_VIA_WORKER && wurl && (wkey || (cfg.R2_WORKER_URL && tokStore.token()))) return true; // 워커 프록시 (공용 열쇠 또는 로그인 토큰)
   return !!getAnthropicKey(); // 기기 로컬 키
 }
 function setAnthropicKey(){
@@ -1478,11 +1694,11 @@ function setAnthropicKey(){
 }
 
 // fetch + 타임아웃 — 응답이 영영 안 오면 AI 정리가 '진행 중'에 영구히 갇힌다 (실패로 전환해 재시도 경로로)
-function _fetchT(url, opts, ms){
+function _fetchT(url, opts, ms, fn){
   var ac=(typeof AbortController!=='undefined')?new AbortController():null;
   var t=ac?setTimeout(function(){ try{ac.abort();}catch(_){} }, ms||45000):null;
   var o=ac?Object.assign({},opts,{signal:ac.signal}):opts;
-  return fetch(url,o).finally(function(){ if(t) clearTimeout(t); });
+  return (fn ? fn(url,o) : fetch(url,o)).finally(function(){ if(t) clearTimeout(t); });   // fn = wFetch (저장 워커: 인증 헤더)
 }
 
 // Claude 정리 — 골프 특화 구조화. 1순위 워커 프록시, 2순위 브라우저 직접, 실패 시 null→로컬 폴백.
@@ -1538,11 +1754,15 @@ async function aiSummarizeWithClaude(transcript, author){
     // 엣지에서 워커가 실행된 경우로, 스마트 배치를 켠 AI 전용 워커를 우선 경로로 둔다.
     var wbases=[];
     [cfg.AI_WORKER_URL, cfg.R2_WORKER_URL].forEach(function(b){ b=String(b||'').replace(/\/+$/,''); if(b && wbases.indexOf(b)===-1) wbases.push(b); });
-    if(cfg.AI_VIA_WORKER && wbases.length && wauth){
+    var wtok=tokStore.token();
+    if(cfg.AI_VIA_WORKER && wbases.length && (wauth || wtok)){
       for(var wi=0; wi<wbases.length; wi++){
+        // 저장 워커(R2_WORKER_URL)는 로그인 토큰도 받음 → 인증 헤더 공통 처리(wFetch). AI 전용 워커는 공용 열쇠만 알아서 예전처럼
+        var viaR2=(typeof r2!=='undefined' && r2.enabled && wbases[wi]===r2.workerUrl);
+        if(!viaR2 && !wauth) continue;
         try{
           var wurl=wbases[wi]+'/claude';
-          var wres=await _fetchT(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth},body:JSON.stringify(payload)},60000);
+          var wres=await _fetchT(wurl,{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':wauth||''},body:JSON.stringify(payload)},60000, viaR2?wFetch:null);
           var wbodyText=''; try{ wbodyText=await wres.text(); }catch(_){}
           if(wres.ok){
             var wj=null; try{ wj=JSON.parse(wbodyText); }catch(_){}
@@ -1676,6 +1896,12 @@ function openVoiceDraft(memberId, author, transcript){
     summary='\n\n[트랙맨] 저장된 샷 '+todayShots.length+'개'+(carries.length?' · 베스트 캐리 '+Math.max.apply(null,carries)+'yd':'');
   }
   S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
+  if(recConsentState(m)==='no'){
+    // 녹음·AI 정리를 거부한 회원 (v9.99) — 메모를 그대로 일지 칸에 옮기고 AI 로 보내지 않는다(녹음 원문으로도 저장 안 함)
+    S.newSession={ date:today(), time:nowHalfHour(), author:author, content:String(transcript||'').trim()+summary, media:[], mediaUrls:['',''], _tmSummary:summary };
+    S.showAddSession=true;
+    return true;
+  }
   var localStructured=structureTranscript(transcript,author);
   var prefill=localStructured+summary;
   // rawTranscript = 받아쓴 전문(원문). 신뢰도 담보용 — 세션에 함께 저장, 화면에선 접어둠.
@@ -1724,6 +1950,7 @@ function openVoiceDraft(memberId, author, transcript){
 function retryAiSummarize(){
   var ns=S.newSession;
   if(!ns || ns._aiPending) return;
+  if(_rcRefusedId(S.selectedMember)){ alert('녹음·AI 정리를 거부한 회원이에요.\nAI 정리를 하지 않으니 일지를 직접 정리해 주세요.'); return; }
   // 원문(rawTranscript)이 있으면 그걸로, 없으면(관리자 아닌 기기 등) 현재 메모 내용을 소스로 정리.
   if(!aiEnabled()){ alert('AI 정리가 설정되지 않았습니다.\n워커에 ANTHROPIC_API_KEY 시크릿을 등록하거나(권장), 관리자 모드의 AI 설정에서 키를 입력하세요.'); return; }
   // 소스: 기기 원문 → (수정 폼이면) 클라우드 원문을 그 순간만 읽기 → 본문 조각 폴백
@@ -1820,6 +2047,7 @@ function renderLiveSession(){
   html += renderReassignModal();
   html += renderBayPickModal();
   html += renderClassPickModal();
+  html += renderRecAskModal();
   html += renderOrigPanel();
   return html;
 }
@@ -1842,17 +2070,30 @@ function _origShots(){
 }
 function requestOrigVideo(sid){
   var s=(S.shotEvents||[]).find(function(x){return x.id===sid;}); if(!s) return;
-  s.data=s.data||{}; s.data._origReq=1; s.data._origReqAt=new Date().toISOString(); delete s.data._origErr;
+  s.data=s.data||{};
+  var b4={req:s.data._origReq, at:s.data._origReqAt, err:s.data._origErr};
+  var at=new Date().toISOString();
+  s.data._origReq=1; s.data._origReqAt=at; delete s.data._origErr;
   try{ save(); }catch(e){}
-  try{ cloud.updateShotData(s); }catch(e){}
+  _shotWrite(s.id, function(){ return cloud.updateShotData(s, {_origReq:1, _origReqAt:at}, ['_origErr']); }, function(cur){
+    var d=cur.data||{}; if(d._origReqAt!==at) return;   // 그사이 다시 요청·취소함
+    if(b4.req===undefined) delete d._origReq; else d._origReq=b4.req;
+    if(b4.at===undefined) delete d._origReqAt; else d._origReqAt=b4.at;
+    if(b4.err!==undefined) d._origErr=b4.err;
+  });
   try{ logAudit('session','원본 영상 요청', s.memberName||'미배정', {bay:s.bayId, shotId:s.id}); }catch(e){}
   liveToastSafe('🎞 원본 요청 보냄 — 타석 PC 가 올리면 ⬇ 버튼이 생겨요 (보통 1~3분)');
   render();
 }
 function cancelOrigRequest(sid){
   var s=(S.shotEvents||[]).find(function(x){return x.id===sid;}); if(!s||!s.data) return;
+  var b4={req:s.data._origReq, at:s.data._origReqAt};
   delete s.data._origReq; delete s.data._origReqAt;
-  try{ save(); }catch(e){} try{ cloud.updateShotData(s); }catch(e){}
+  try{ save(); }catch(e){}
+  _shotWrite(s.id, function(){ return cloud.updateShotData(s, null, ['_origReq','_origReqAt']); }, function(cur){
+    var d=cur.data=cur.data||{}; if(d._origReq==1) return;   // 그사이 다시 요청함
+    if(b4.req!==undefined) d._origReq=b4.req; if(b4.at!==undefined) d._origReqAt=b4.at;
+  });
   render();
 }
 function _origFname(s, angle, key){
@@ -1961,27 +2202,155 @@ function renderClassPickModal(){
     + '</div></div>';
 }
 
+// ============ 타석 PC 상태 신호 — 하트비트 (A3·D7 · v9.99) ============
+// 타석 PC 에이전트(v12~)는 시작할 때와 5분마다 저장 워커에 hb/<타석>.json 을 올린다(버전·마지막 신호·트랙맨 최신 파일 나이·영상 대기 수 — 회원 정보 없음).
+// 예전엔 PC 가 살아 있는지 원격으로 알 길이 없어, 고장 나면 레슨을 시작한 뒤 '샷이 안 뜬다'로 처음 알았다.
+// 수업 센터가 화면에 보이는 동안(관리자는 대시보드에서도) 60초마다 읽어 타석 카드에 'PC 신호 n분 전 · v12 · 트랙맨 파일 n분 전 · 영상 대기 n'.
+// 영업시간(07~23시, 한국 시간)에 15분 넘게 신호가 없으면 빨간색. 파일이 없으면(404 — 아직 v12 로 업데이트 안 한 PC) '신호 없음(구버전)'.
+// 열쇠 없이 읽는 공개 파일이라 인증 헤더를 붙이지 않는다(붙이면 지금 워커 v1 의 CORS 에 막힘) · 캐시 금지(no-store + 매번 다른 주소).
+// 파일 내용은 공용 열쇠로 누구나 쓸 수 있는 저장소에서 오므로 숫자만 꺼내 쓰고, 그 안의 글자는 화면에 넣지 않는다.
+// 화면 갱신은 해당 칸만 고친다(render 안 함 — 메모 입력·스크롤이 60초마다 끊기지 않게).
+var HB_POLL_MS = 60000, HB_TICK_MS = 5000, HB_RED_MIN = 15;
+var _bayHb = { at:0, busy:0, seq:0, data:Object.create(null), loop:false };   // data[타석 id] = {st:'ok'|'none'|'err', j:하트비트, got}
+function _hbBays(){ return ((S.bays && S.bays.length) ? S.bays : BAYS_DEFAULT).filter(function(b){ return b && safeId(b.id) && String(b.id).length<=40; }); }
+function _hbWanted(){
+  if(document.hidden || typeof r2==='undefined' || !r2.enabled || !S.currentRole) return false;
+  return !!S.showLiveSession || (S.currentRole==='admin' && !S.selectedMember);   // 수업 센터 · 관리자 대시보드
+}
+// 수업 센터를 열 때·관리자 대시보드를 그릴 때 — 반복 확인을 (한 번만) 켜고 지금 받을 때가 됐으면 받는다
+function hbEnsure(){
+  if(!_bayHb.loop){
+    _bayHb.loop=true;
+    var loop=function(){ try{ hbTick(); }catch(e){} setTimeout(loop, HB_TICK_MS); };
+    setTimeout(loop, HB_TICK_MS);
+    try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden) hbTick(); }); }catch(e){}
+  }
+  return hbTick();
+}
+async function hbTick(force){
+  var seq=0;
+  try{
+    if(!_hbWanted()) return false;
+    var now=Date.now();
+    if(_bayHb.busy && now-_bayHb.busy<20000) return false;
+    if(!force && _bayHb.at && now-_bayHb.at<HB_POLL_MS) return false;
+    var bays=_hbBays(); if(!bays.length) return false;
+    seq=++_bayHb.seq; _bayHb.busy=now; _bayHb.at=now;
+    var res=await Promise.all(bays.map(function(b){ return _hbFetch(b.id); }));
+    if(seq!==_bayHb.seq) return false;
+    // 잠깐 못 읽었으면(네트워크·서버 오류) 직전에 받은 값을 그대로 둔다
+    bays.forEach(function(b, i){ var r=res[i], old=_bayHb.data[b.id]; if(r.st==='err' && old && old.st!=='err') return; _bayHb.data[b.id]=r; });
+    _bayHb.busy=0;
+    _hbPatch();
+    return true;
+  }catch(e){ return false; }
+  finally{ if(seq && seq===_bayHb.seq) _bayHb.busy=0; }
+}
+async function _hbFetch(id){
+  try{
+    var res=await fetch(r2.workerUrl+'/hb/'+encodeURIComponent(id)+'.json?t='+Date.now(), {cache:'no-store'});
+    if(res.status===404) return {st:'none', got:Date.now()};
+    if(!res.ok) return {st:'err', got:Date.now()};
+    var j=await res.json();
+    return (j && typeof j==='object' && !Array.isArray(j)) ? {st:'ok', j:j, got:Date.now()} : {st:'err', got:Date.now()};
+  }catch(e){ return {st:'err', got:Date.now()}; }
+}
+function _hbNum(v){ if(v===null || v===undefined || v==='' || typeof v==='boolean' || typeof v==='object') return null; var n=Number(v); return isFinite(n) ? n : null; }
+function _hbAgo(ms){ var m=Math.floor(ms/60000); if(m<1) return '방금'; if(m<60) return m+'분 전'; var h=Math.floor(m/60); if(h<48) return h+'시간 전'; return Math.floor(h/24)+'일 전'; }
+function _hbBiz(ms){ var h=new Date(ms+9*3600000).getUTCHours(); return h>=7 && h<23; }   // 영업시간 07~23시 (한국 시간 — 기기 시간대와 무관)
+function _hbKst(ms){ var d=new Date(ms+9*3600000), p=function(n){ return ('0'+n).slice(-2); }; return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes()); }
+function _hbSkewMs(j){ var sk=_hbNum(j && j.clockSkewSec); return (sk!==null && Math.abs(sk)<7*86400) ? sk*1000 : 0; }   // 양수 = PC 시계가 빠름
+function _hbTime(v){ return (typeof v==='string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) ? Date.parse(v) : NaN; }   // 에이전트가 쓰는 ISO 시각만 (아무 글자나 날짜로 읽지 않게)
+// 하트비트를 보낸 시각(PC 시계 오차를 빼서 서버 시각으로) · 버전(숫자만)
+function _hbAt(id){
+  var d=_bayHb.data[id]; if(!d || d.st!=='ok') return null;
+  var t=_hbTime(d.j.at); if(isNaN(t)) return null;
+  var v=parseInt(d.j.ver,10);
+  return {t:t-_hbSkewMs(d.j), v:(v>0 && v<10000) ? v : 0};
+}
+// 타석 하나의 표시 → {cls:'ok'|'late'|'red'|'none'|'err', txt} | null(아직 안 읽음) — 하트비트에 있는 칸만 보여 준다
+function _hbInfo(id){
+  var d=_bayHb.data[id]; if(!d) return null;
+  if(d.st==='none') return {cls:'none', txt:'PC 신호 없음(구버전)'};
+  var h=_hbAt(id); if(!h) return {cls:'err', txt:'PC 신호 확인 안 됨'};
+  var j=d.j, now=Date.now(), age=Math.max(0, now-h.t), p=['PC 신호 '+_hbAgo(age)];
+  if(h.v) p.push('v'+h.v);
+  var tf=_hbNum(j.trackmanNewestFileAgeSec); if(tf!==null && tf>=0) p.push('트랙맨 파일 '+_hbAgo(tf*1000+age));
+  var pv=_hbNum(j.pendingVideos); if(pv===null) pv=_hbNum(j.queueLen); if(pv!==null && pv>=0) p.push('영상 대기 '+Math.round(pv));
+  var late=age>HB_RED_MIN*60000;
+  return {cls:late ? (_hbBiz(now) ? 'red' : 'late') : 'ok', txt:p.join(' · ')};
+}
+// 관리자 대시보드용 덧붙임 — 에이전트 시작(재시작) 시각 · 재시작 때 복구한 영상 작업 · PC 시계 오차 · 켜 둔 세션 상한
+function _hbSub(id){
+  var d=_bayHb.data[id]; if(!d || d.st!=='ok') return '';
+  var j=d.j, out=[], sk=_hbNum(j.clockSkewSec), st=_hbTime(j.startedAt);
+  if(!isNaN(st)) out.push('에이전트 시작 '+_hbKst(st-_hbSkewMs(j)));
+  var rj=_hbNum(j.recoveredJobs); if(rj!==null && rj>0) out.push('복구한 영상 작업 '+Math.round(rj));
+  if(sk!==null && Math.abs(sk)>=2 && Math.abs(sk)<7*86400){ var a=Math.round(Math.abs(sk)); out.push('PC 시계 '+(sk>0?'+':'-')+(a>=60 ? Math.floor(a/60)+'분'+(a%60?' '+(a%60)+'초':'') : a+'초')); }
+  if(j.sessionExpired===true) out.push('켜 둔 세션 시간 초과 — 샷 수집 멈춤');
+  return out.join(' · ');
+}
+function _hbLineHTML(id){
+  if(!safeId(id) || String(id).length>40) return '';
+  var h=_hbInfo(id);
+  return '<div class="bay-hb'+(h?' '+h.cls:'')+'" data-hb="'+id+'">'+(h?esc(h.txt):'')+'</div>';
+}
+function _hbDashHtml(){
+  var bays=_hbBays();
+  if(!bays.length || typeof r2==='undefined' || !r2.enabled) return '';
+  return '<div class="dash-card dash-hb-card"><h3>🖥 타석 PC 상태 <small>PC 에이전트가 5분마다 보내는 신호 · 영업시간(07~23시)에 15분 넘게 없으면 빨간색</small></h3>'
+    + bays.map(function(b){
+        var h=_hbInfo(b.id);
+        return '<div class="hb-row"><span class="hb-bay">'+esc(b.name||b.id)+'</span>'
+          + '<span class="bay-hb'+(h?' '+h.cls:'')+'" data-hb="'+b.id+'" data-hbph="확인 중…">'+(h?esc(h.txt):'확인 중…')+'</span>'
+          + '<small class="hb-sub" data-hbsub="'+b.id+'">'+esc(_hbSub(b.id))+'</small></div>';
+      }).join('')
+    + '</div>';
+}
+// 받은 값으로 화면의 해당 칸만 고친다 (타석 카드 · 대시보드 카드 · 관리자 구버전 경고)
+function _hbPatch(){
+  try{
+    var els=document.querySelectorAll('[data-hb]');
+    for(var i=0;i<els.length;i++){
+      var el=els[i], h=_hbInfo(el.getAttribute('data-hb'));
+      el.className='bay-hb'+(h?' '+h.cls:'');
+      el.textContent=h ? h.txt : (el.getAttribute('data-hbph')||'');
+    }
+    var subs=document.querySelectorAll('[data-hbsub]');
+    for(var k=0;k<subs.length;k++) subs[k].textContent=_hbSub(subs[k].getAttribute('data-hbsub'));
+    if(S.showLiveSession && S.currentRole==='admin'){
+      var html=_staleAgentWarnHTML((S.bays && S.bays.length) ? S.bays : BAYS_DEFAULT, true), old=document.querySelector('.live-wrap .agent-stale');
+      if(old){ if(html) old.outerHTML=html; else old.parentNode.removeChild(old); }
+      else if(html){ var sub=document.querySelector('.live-wrap .live-sub'); if(sub) sub.insertAdjacentHTML('afterend', html); }
+    }
+  }catch(e){}
+}
+
 // 타석 PC 에이전트 구버전 경고 (관리자 기기만) — 에이전트를 고쳐도 그 PC 에서
 // update.ps1 을 안 돌리면 반영되지 않는데, 예전엔 확인할 방법이 없어 "고쳤는데
-// 왜 그대로냐"가 반복됐다. 오늘 들어온 샷의 _agentVer 로 판별한다.
-// (구버전은 _agentVer 자체를 안 실어 보내므로 '없음'도 구버전으로 본다)
-var AGENT_VERSION_EXPECTED = 11;
+// 왜 그대로냐"가 반복됐다. 최근 24시간 샷의 _agentVer 와 하트비트(v12~)의 버전 중 더 최근 것으로 판별한다
+// (밤사이 업데이트한 PC 가 다음 샷까지 '구버전'으로 남지 않게). 구버전은 _agentVer 자체를 안 실어 보내므로 '없음'도 구버전.
+var AGENT_VERSION_EXPECTED = 12;
 function _staleAgentWarnHTML(bays, isAdmin){
   try{
     if(!isAdmin) return '';
     var since = Date.now() - 24*3600*1000;
-    var latest = {};   // bayId → 가장 최근 샷의 _agentVer (없으면 0)
+    var latest = {};   // bayId → 가장 최근 근거 {t, v} (샷의 _agentVer 또는 하트비트 버전, 없으면 0)
     (S.shotEvents||[]).forEach(function(s){
       if(s.source!=='agent' || !s.bayId) return;
       var t=Date.parse(s.ts); if(isNaN(t) || t<since) return;
       if(latest[s.bayId] && latest[s.bayId].t>t) return;
-      latest[s.bayId]={ t:t, v:((s.data&&s.data._agentVer)||0) };
+      latest[s.bayId]={ t:t, v:(parseInt(s.data&&s.data._agentVer,10)||0) };
     });
-    var stale = Object.keys(latest).filter(function(b){ return latest[b].v < AGENT_VERSION_EXPECTED; })
-      .map(function(b){ return getBay(b).name; });
+    Object.keys(_bayHb.data).forEach(function(b){
+      var h=_hbAt(b); if(!h || h.t<since) return;
+      if(latest[b] && latest[b].t>h.t) return;
+      latest[b]={ t:h.t, v:h.v };
+    });
+    var stale = Object.keys(latest).filter(function(b){ return latest[b].v < AGENT_VERSION_EXPECTED; });
     if(!stale.length) return '';
-    return '<div class="agent-stale">⚠️ '+esc(stale.join(' · '))+' PC 에이전트가 구버전입니다<br>'
-         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환·업로드 속도·정면 영상 속도 보정 수정이 아직 적용되지 않았습니다</small></div>';
+    return '<div class="agent-stale">⚠️ '+stale.map(function(b){ return esc(getBay(b).name)+(latest[b].v?' v'+latest[b].v:''); }).join(' · ')+' PC 에이전트가 구버전입니다 (최신 v'+AGENT_VERSION_EXPECTED+')<br>'
+         + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — PC 상태 신호·중복 업로드 정리·재시작 영상 복구 등 최신 수정이 아직 적용되지 않았습니다</small></div>';
   }catch(e){ return ''; }
 }
 
@@ -1992,7 +2361,8 @@ function renderBayCard(bay, canCoach, isAdmin){
   if(act && typeof isOwnerWatchMember==='function' && isOwnerWatchMember(act.memberId)
      && !(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) act = null;
   var typeLabel = bay.type==='lesson_only' ? '레슨 전용' : '연습 · 레슨';
-  var head = '<div class="bay-card-hd '+safeBayColor(bay.color)+'"><span class="bay-name">'+esc(bay.name)+'</span><span class="bay-type">'+typeLabel+'</span></div>';
+  var head = '<div class="bay-card-hd '+safeBayColor(bay.color)+'"><span class="bay-name">'+esc(bay.name)+'</span><span class="bay-type">'+typeLabel+'</span></div>'
+           + _hbLineHTML(bay.id);   // PC 신호 n분 전 · v12 · 트랙맨 파일 n분 전 · 영상 대기 n (하트비트)
 
   if(!act){
     var emptyBody = '<div class="bay-empty">'
@@ -2038,17 +2408,23 @@ function renderBayCard(bay, canCoach, isAdmin){
       delete act._sttBusy; delete act._sttBusyAt;
       try{save();}catch(e){}
     } else {
-      if(recSupported() && !_rec.bayId && !sttOff){
-        body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+safeId(bay.id)+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
+      // 녹음·AI 정리 동의 (v9.99) — 거부한 회원은 녹음 버튼 대신 짧은 안내(레슨·샷 저장은 그대로), 기록 없음은 녹음 전에 확인 창
+      var rcNo = !!(_bm && !_bm.ownerWatch && recConsentState(_bm)==='no');
+      if(rcNo){
+        body += '<div class="rec-disabled rc-refused">🎙 녹음 거부 회원 — 녹음 없이 진행해요<br><small>동의가 바뀌면 회원 화면의 녹음 동의 배지에서 고쳐 주세요</small></div>';
+      } else if(recSupported() && !_rec.bayId && !sttOff){
+        body += (S._rcCheck===bay.id)
+          ? '<button class="btn rec-start-btn" disabled>🎙 녹음 동의 확인 중…</button>'
+          : '<button class="btn rec-start-btn" onclick="recStartAsk(\''+safeId(bay.id)+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
       }
-      if(sttOff){
+      if(sttOff && !rcNo){
         body += '<div class="rec-disabled">🎙 음성→글 변환 서버가 아직 준비 안 됐어요.<br><b>아래 메모칸에 직접 입력</b>하거나, <b>키보드의 마이크 🎤</b>로 받아쓰기 하세요.<br><small>(관리자: 워커에 Groq 키 등록하면 실시간 녹음이 켜집니다)</small></div>';
       }
       // 메모칸 — 녹음 텍스트 확인·수정 + 직접 타이핑/키보드 받아쓰기 (항상 접근 가능)
-      if((act._transcript||'').trim() || !recSupported() || sttOff){
+      if((act._transcript||'').trim() || !recSupported() || sttOff || rcNo || _recSkip[bay.id+'|'+(act.startedAt||'')]){
         body += '<div class="voice-ios">'
-              +   '<div class="vi-head">📝 수업 메모 <small>(자동 저장 · 세션 종료 시 AI 정리)</small></div>'
-              +   '<textarea class="vi-area" placeholder="수업 내용을 입력하거나 키보드 마이크 🎤 로 받아쓰세요." oninput="updateVoiceText(\''+safeId(bay.id)+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
+              +   '<div class="vi-head">📝 수업 메모 <small>'+(rcNo?'(자동 저장 · 종료 시 일지로 · AI 정리 안 함)':'(자동 저장 · 세션 종료 시 AI 정리)')+'</small></div>'
+              +   '<textarea class="vi-area" placeholder="'+(rcNo?'수업 내용을 직접 적어 주세요.':'수업 내용을 입력하거나 키보드 마이크 🎤 로 받아쓰세요.')+'" oninput="updateVoiceText(\''+safeId(bay.id)+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
               + '</div>';
       }
     }
@@ -2225,7 +2601,7 @@ async function deleteSelectedShots(){
   var total = (S.shotEvents||[]).length;
   // 화면에 보이는 샷을 전부 선택했으면 = "전부 지우려는 의도".
   // 화면 상한(1000)보다 서버에 더 많이 쌓여 있으면, 보이는 것만 지워도 나머지가 다시 뜬다.
-  // → 이 경우 서버 전체 삭제(deleteAllShots)로 확실히 비운다.
+  // → 이 경우 서버의 샷 전부(화면 밖 포함)를 받아 영상부터 지우고 행까지 확실히 비운다.
   var wipeAll = ids.length >= total && total > 0;
   var msg = wipeAll
     ? '⚠️ 저장된 샷을 서버까지 전부 삭제합니다.\n(화면에 안 보이는 옛 샷 포함 · 트랙맨 PC 영상은 그대로)\n\n되돌릴 수 없습니다. 계속할까요?'
@@ -2239,41 +2615,38 @@ async function deleteSelectedShots(){
   S._shotSelMode=false; S._shotSel={};
   try{ save(); }catch(e){}
   if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
-  liveToastSafe(wipeAll ? '🗑 전체 삭제 중...' : '🗑 '+targets.length+'개 삭제됨');
-  // 2) 폴링 정지 + 서버 삭제 + R2 백그라운드
+  liveToastSafe(wipeAll ? '🗑 전체 삭제 중...' : '🗑 '+targets.length+'개 삭제 중...');
+  // 2) 폴링 정지 → 영상(R2)부터 지우고, 영상이 다 지워진 샷만 서버 행 삭제(A2). 전부 삭제면 서버의 샷 전부(화면 밖 포함)를 받아서
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
   _liveLastIds = null;
   window._shotsDeleting = true;
-  var op = wipeAll ? cloud.deleteAllShots() : cloud.deleteShotsBulk(ids);
-  Promise.resolve(op).then(function(ok){
-    targets.forEach(r2RemoveShotVideos);
-    if(!ok){ liveToastSafe('⚠️ 서버 삭제 실패 — 다시 시도해주세요'); }
-    else if(wipeAll){ liveToastSafe('✓ 전체 삭제 완료'); }
-    window._shotsDeleting = false;
-    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 800);
-  });
+  var all = wipeAll ? await cloud.shotRowsWhere(null) : null;
+  var p = delShotsRun(wipeAll ? _shotListUnion(targets, all) : targets);   // 대기열에 적힌 뒤로는 폴링이 그 샷을 되살리지 않는다
+  window._shotsDeleting = false;
+  if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 800);
+  var r = await p;
+  if(wipeAll && !all) liveToastSafe('⚠️ 서버 삭제 실패 — 다시 시도해주세요');
+  else if(r.left) _delLaterToast(r);
+  else liveToastSafe(wipeAll ? '✓ 전체 삭제 완료' : '✓ '+targets.length+'개 삭제됨');
 }
 async function purgeUnassignedShots(){
   var un = (S.shotEvents||[]).filter(function(s){ return s._unassigned && !s.memberName; });
   if(!un.length) return;
   if(!confirm('미배정 '+un.length+'개 삭제합니다.\n(트랙맨 PC 영상은 그대로)\n계속할까요?')) return;
-  var ids = un.map(function(s){return s.id;});
   // 즉시 화면 갱신
   S.shotEvents = S.shotEvents.filter(function(s){ return !(s._unassigned && !s.memberName); });
   try{ save(); }catch(e){}
   if(typeof _patchShotLogOnly==='function') _patchShotLogOnly(); else render();
-  liveToastSafe('🗑 미배정 '+un.length+'개 삭제됨');
-  // 백그라운드 정리
+  liveToastSafe('🗑 미배정 '+un.length+'개 삭제 중...');
+  // 영상(R2)부터 지우고, 영상이 다 지워진 샷만 서버 행 삭제(A2) — 대기열에 적힌 뒤로는 폴링이 그 샷을 되살리지 않는다
   var hadPoll = !!_livePollTimer;
   if(typeof stopLivePolling==='function') stopLivePolling();
   _liveLastIds = null;
-  window._shotsDeleting = true;
-  Promise.resolve(cloud.deleteShotsBulk(ids)).then(function(){
-    un.forEach(r2RemoveShotVideos);
-    window._shotsDeleting = false;
-    if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
-  });
+  var p = delShotsRun(un);
+  if(hadPoll && typeof startLivePolling==='function') setTimeout(startLivePolling, 1200);
+  var r = await p;
+  if(r.left) _delLaterToast(r); else liveToastSafe('✓ 미배정 '+un.length+'개 삭제됨');
 }
 
 function renderLiveStartModal(){

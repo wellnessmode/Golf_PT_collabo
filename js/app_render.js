@@ -65,6 +65,7 @@ function renderRoleSelector(){
         <div class="hero-rgroup"><span class="hero-rlabel">골프 PT</span>${trainers.map(function(inst){return roleBtn('rc-trainer','trainer',inst.name,inst.name,'');}).join('')}</div>
         <div class="hero-rgroup"><span class="hero-rlabel">시스템</span>${roleBtn('rc-admin','admin','관리자','관리자','관리자 모드')}</div>
       </div>
+      ${S.cloudSync==='auth'?'<div class="hero-lockhint" style="margin:10px 4px 0;font-size:12.5px;color:rgba(255,255,255,.88)">🔒 보안 잠금 중 — 비밀번호로 로그인하면 자료를 불러와요</div>':''}
       <div class="update-notice collapsed">
         <div class="update-head" onclick="this.parentElement.classList.toggle('collapsed')">
           <span>${APP_VERSION.version} · ${APP_VERSION.date} · 업데이트 내역</span>
@@ -73,7 +74,7 @@ function renderRoleSelector(){
         <ul class="update-list">${APP_VERSION.changes.map(function(c){return '<li>'+c+'</li>';}).join('')}</ul>
       </div>
     </div>
-  </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?esc(S.pendingRole.user):'')+'</div>'+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">'+esc(S.pwMsg||'비밀번호가 일치하지 않습니다')+'</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+esc(S.bioError)+'</div>':'')+(bio.available&&S.pendingRole&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user)&&!S.bioBusy?'<div style="text-align:center;margin:-4px 0 10px"><a href="#" onclick="event.preventDefault();bioReenrollHint()" style="font-size:11.5px;color:var(--tx-3);text-decoration:underline">생체 로그인이 안 되나요? 지문·Face ID 다시 등록</a></div>':'')+(!bio.available?'<label class="pw-trust"><input type="checkbox" '+(S.trustDevice?'checked':'')+' onchange="S.trustDevice=this.checked"><span>이 기기에서 자동 로그인<small>다음부터 비밀번호 없이 바로 입장 (스튜디오 공용 기기용)</small></span></label>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">'+(S.bioEnrollFor.reenroll?'생체 로그인 다시 등록':'생체 로그인 등록')+'</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">'+(S.bioEnrollFor.reenroll?'이 기기의 생체 로그인 등록이 풀려 있었어요<br><span style="font-size:11px;color:var(--tx-3)">(폰 업데이트·지문 재등록 뒤에 흔한 일 · 다시 등록하면 바로 복구)</span><br>':'')+'이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+esc(S.bioError)+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
+  </div>${S.showPwModal?'<div class="modal-overlay" onclick="if(event.target===this)cancelPassword()"><div class="modal pw-modal" style="width:340px"><div class="modal-title" style="text-align:center">🔒 '+(S.pendingRole?esc(S.pendingRole.user):'')+'</div>'+(S.pendingRole&&_bioOk(S.pendingRole.role,S.pendingRole.user)?'<button class="btn bio-btn"'+(S.bioBusy?' disabled':'')+' onclick="bioLoginNow()">'+(S.bioBusy?'🔓 인증 중...':'🆔 Face ID · 지문으로 로그인')+'</button><div class="pw-divider"><span>또는 비밀번호</span></div>':'')+'<div class="form-group"><label class="form-label">비밀번호</label><input class="form-input" type="password" placeholder="비밀번호를 입력하세요" oninput="S.pwInput=this.value" onkeydown="if(event.key===\'Enter\')submitPassword()" autofocus></div>'+(S.pwError?'<div style="color:#993c1d;font-size:12px;margin-bottom:10px;text-align:center">'+esc(S.pwMsg||'비밀번호가 일치하지 않습니다')+'</div>':'')+(S.pendingRole&&_needPwForToken(pwKeyOf(S.pendingRole.role,S.pendingRole.user))&&((bio.available&&bio.isRegistered(S.pendingRole.role,S.pendingRole.user))||deviceTrusted())?'<div style="color:var(--tx-2);font-size:11.5px;margin-bottom:10px;text-align:center">🔒 보안 잠금 중 — 이번엔 비밀번호로 들어와 주세요</div>':'')+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px;text-align:center">'+esc(S.bioError)+'</div>':'')+(S.pendingRole&&_bioOk(S.pendingRole.role,S.pendingRole.user)&&!S.bioBusy?'<div style="text-align:center;margin:-4px 0 10px"><a href="#" onclick="event.preventDefault();bioReenrollHint()" style="font-size:11.5px;color:var(--tx-3);text-decoration:underline">생체 로그인이 안 되나요? 지문·Face ID 다시 등록</a></div>':'')+(!bio.available?'<label class="pw-trust"><input type="checkbox" '+(S.trustDevice?'checked':'')+' onchange="S.trustDevice=this.checked"><span>이 기기에서 자동 로그인<small>다음부터 비밀번호 없이 바로 입장 (스튜디오 공용 기기용)</small></span></label>':'')+'<div class="modal-actions"><button class="btn" onclick="cancelPassword()">취소</button><button class="btn primary" onclick="submitPassword()">확인</button></div></div></div>':''}${S.bioEnrollFor?'<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center"><div style="font-size:46px;margin:6px 0 10px">🆔</div><div class="modal-title" style="text-align:center;margin-bottom:8px">'+(S.bioEnrollFor.reenroll?'생체 로그인 다시 등록':'생체 로그인 등록')+'</div><div style="font-size:13px;color:var(--tx-2);line-height:1.7;margin-bottom:16px">'+(S.bioEnrollFor.reenroll?'이 기기의 생체 로그인 등록이 풀려 있었어요<br><span style="font-size:11px;color:var(--tx-3)">(폰 업데이트·지문 재등록 뒤에 흔한 일 · 다시 등록하면 바로 복구)</span><br>':'')+'이 기기에서 다음부터<br><b>Face ID / 지문 / 홍채</b>로 즉시 로그인할 수 있어요.<br><span style="font-size:11px;color:var(--tx-3)">(이 기기에만 저장 · 서버 전송 없음)</span></div>'+(S.bioError?'<div style="color:#993c1d;font-size:11.5px;margin-bottom:10px">'+esc(S.bioError)+'</div>':'')+'<div class="modal-actions" style="justify-content:center;gap:8px"><button class="btn" onclick="bioEnrollSkip()">다음에</button><button class="btn primary"'+(S.bioBusy?' disabled':'')+' onclick="bioEnrollNow()">'+(S.bioBusy?'등록 중...':'🆔 등록하기')+'</button></div></div></div>':''}`;
   // 인트로 몬타주 시작/정리. 재렌더 때마다 기존 타이머는 먼저 정리한다.
   try{ if(window.__heroRot){ clearInterval(window.__heroRot); window.__heroRot=null; } }catch(e){}
   if(introing){
@@ -184,7 +185,7 @@ function mdLite(text){
 function _renderKey(){
   return (S.currentRole||'')+'|'+(S.selectedMember||'')+'|'
        + (S.showLiveSession?'L':'') + (S.showPerformance?'P':'')
-       + (S.showDashboard?'D':'') + (S.showReport?'R':'') + (S.showAddSession?'S':'');
+       + (S.showDashboard?'D':'') + (S.showAddSession?'S':'');
 }
 function render(){
   var snap = null;
@@ -224,9 +225,9 @@ function _renderRecovery(err){
 // 복구 버튼 — 모달/임시상태 닫고 안전하게 재렌더 (그래도 안 되면 새로고침)
 function recoverApp(){
   try{
-    S.showLiveSession=false; S.showPerformance=false; S.showReport=false;
+    S.showLiveSession=false; S.showPerformance=false;
     S.showAddSession=false; S.showAddMember=false; S.perfShotModal=null;
-    S.liveToast=null; S.showPwModal=false; S.bioEnrollFor=null; S.showTranscriptVault=false; S.storageAudit=null;
+    S.liveToast=null; S.showPwModal=false; S.bioEnrollFor=null; S.showTranscriptVault=false; S.storageAudit=null; S.consentEdit=null; S.recAsk=null;
     render();
     var root=document.getElementById('root');
     if(!root || !root.children || root.children.length===0 || root.querySelector('.recovery-panel')){
@@ -316,6 +317,7 @@ function _render(){
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="event.stopPropagation();openPwReset()">🔑 직원 비밀번호 초기화</button>':''}
       ${S.currentRole==='admin'?'<button class="mp-btn" onclick="openAuditLog()">감사 로그</button>':''}
       ${isInfo?'<button class="mp-btn" onclick="event.stopPropagation();window.open(\'manual.html\',\'_blank\')">사용 매뉴얼</button>':''}
+      ${isInfo?'<button class="mp-btn" onclick="event.stopPropagation();openConsentForm()">🖨 녹음 동의서 (인쇄용)</button>':''}
       <div class="mp-version" onclick="event.stopPropagation();reloadApp&&reloadApp()" title="탭하면 최신 버전으로 새로고침">버전 ${APP_VERSION.version} · ${APP_VERSION.date}</div>
     </div>
     ${syncBadge()}
@@ -329,6 +331,7 @@ function _render(){
         <div class="topbar-avatar ${safeColor(member.color)}">${esc(initials(member.name))}</div>
         <div>
           <div class="member-title">${esc(member.name)} 회원님</div>
+          ${member.ownerWatch?'':'<div class="member-rc-line">'+recConsentBadge(member)+'</div>'}
           <div class="member-subtitle">${(function(){var lessonExp=member.golfLessonExpiry||member.expiry||'';var ptExp=member.golfPTExpiry||'';if((member.memberType||'pt_lesson')==='lesson'){return '레슨 '+(st?st.pro+st.trainer:0)+'/'+esc(member.golfLessonCount||'0')+'회'+(lessonExp?' · ~'+esc(lessonExp)+expiryBadge(lessonExp):'');}return '레슨 '+(st?st.pro:0)+'/'+esc(member.golfLessonCount||'0')+'회'+(lessonExp?' (~'+esc(lessonExp)+expiryBadge(lessonExp)+')':'')+' · PT '+(st?st.trainer:0)+'/'+esc(member.golfPTCount||'0')+'회'+(ptExp?' (~'+esc(ptExp)+expiryBadge(ptExp)+')':'');})()}</div>
           ${(member.phone||member.email||member.registeredDate)?`<div class="member-detail-line">${member.phone?'📞 '+esc(member.phone):''}${member.email?' · ✉ '+esc(member.email):''}${member.registeredDate?' · 가입일 '+esc(member.registeredDate):''}</div>`:''}
           ${(member.handicap||member.avgScore||member.focusPoints)?`<div class="member-detail-line golf-profile">${member.handicap?'HC '+esc(member.handicap):''}${member.avgScore?' · 평균 '+esc(member.avgScore)+'타':''}${member.focusPoints?' · '+esc(member.focusPoints):''}</div>`:''}
@@ -386,14 +389,14 @@ function _render(){
                 <div class="session-author">${esc(s.author)}</div>
                 <div class="session-date">${esc(s.date)}${s.time?' · '+esc(timeLabel(s.time)):''}</div>
                 ${s.author!==S.currentUser&&s._addedAt&&s._addedAt>(S.lastSeen[S.currentUser]||'')?'<span class="new-badge">NEW</span>':''}
-                ${String(s.content||'').indexOf('AI 정리 대기')!==-1&&(s.author===S.currentUser||isAdmin)?'<span class="ai-wait-chip" onclick="event.stopPropagation();retryAiForSession(\''+safeId(S.selectedMember)+'\',\''+safeId(s.id)+'\')">🤖 AI 정리 중 · 탭하면 재시도</span>':''}
+                ${(function(){ /* 'AI 정리 대기' 배지 — 하루가 지나도 정리 안 된 일지는 '실패'로 (D3) */ var ap=(typeof aiPendingState==='function')?aiPendingState(s):(String(s.content||'').indexOf('AI 정리 대기')!==-1?'pending':''); if(!ap||!(s.author===S.currentUser||isAdmin)) return ''; return '<span class="ai-wait-chip'+(ap==='failed'?' fail':'')+'" onclick="event.stopPropagation();retryAiForSession(\''+safeId(S.selectedMember)+'\',\''+safeId(s.id)+'\')">'+(ap==='failed'?'⚠️ AI 정리 실패 — 눌러서 다시':'🤖 AI 정리 중 · 탭하면 재시도')+'</span>'; })()}
                 ${(function(){var mm=s.media||[];var nv=mm.filter(function(x){var t=x.mimeType||inferMime(x.name||'')||(x.data||'');return String(t).indexOf('video')!==-1;}).length;var ni=mm.length-nv;var b='';if(nv>0)b+='<span class="media-chip vid">🎬'+(nv>1?nv:'')+'</span>';if(ni>0)b+='<span class="media-chip img">📷'+(ni>1?ni:'')+'</span>';return b;})()}
                 <div class="session-chevron">▼</div>
               </div>
               <div class="session-collapsed" onclick="toggleSession('${safeId(s.id)}')">${esc(prev.slice(0,42))}${prev.length>42?'…':''}</div>
               <div class="session-bd">
                 <div class="session-content">${typeof mdLite==='function'?mdLite(s.content):s.content}</div>
-                ${(isAdmin&&s.rawTranscript&&s.rawTranscript.trim()&&s.rawTranscript.trim()!==(s.content||'').trim())?'<details class="raw-transcript"><summary>🎙 녹음 원문 전체 보기 ('+Math.round(s.rawTranscript.trim().length)+'자) · 관리자 전용</summary><div class="raw-transcript-body">'+s.rawTranscript.replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div></details>':''}
+                ${(isAdmin&&typeof sessionRawBlock==='function')?sessionRawBlock(mid,s):''}
                 ${s.media&&s.media.length>0?'<div class="session-media">'+s.media.map(function(m,mi){var localSrc=m.mediaId?(S.mediaUrls[m.mediaId]||''):'';var remoteSrc=(r2.enabled&&(m.r2Key||m.mediaId))?r2.url(m.r2Key||m.mediaId):'';var src=safeUrl(localSrc||remoteSrc||(m.data||''));var mime=m.mimeType||(m.data||'').slice(5,30)||inferMime(m.name)||'';var isImg=mime.indexOf('image/')!==-1||(m.data&&m.data.indexOf('image/')!==-1);var isVideo=mime.indexOf('video/')!==-1||(m.data&&m.data.indexOf('video/')!==-1);var failNote=(m.r2Status==='failed'&&m.mediaId)?'<div class="sm-error">☁ 클라우드 업로드 실패 — 이 기기에만 저장됨 · <a href="#" onclick="event.preventDefault();retryMediaUpload(\''+safeId(s.id)+'\','+mi+')">다시 업로드</a></div>':'';if(m.type==='file'&&src&&isImg) return '<img class="sm-thumb" src="'+esc(src)+'" onclick="openMediaView(this.src)" alt="'+((m.name||'').replace(/"/g,'&quot;'))+'">'+failNote;if(m.type==='file'&&src&&isVideo){var vid='v_'+safeId(s.id)+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid+'"><video class="sm-video" id="'+vid+'" src="'+esc(src)+'" controls playsinline preload="metadata" crossorigin="anonymous" onerror="onVideoError(this,\''+vid+'\')"></video><div class="video-controls"><button class="vc-btn" onclick="toggleLoop(\''+vid+'\')" id="loop_'+vid+'" title="반복 재생">반복</button><span class="vc-spacer"></span><button class="vc-btn" onclick="setSpeed(\''+vid+'\',1)">1x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.5)">0.5x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.25)">0.25x</button><button class="vc-btn" onclick="setSpeed(\''+vid+'\',0.125)">0.125x</button><span class="vc-speed" id="spd_'+vid+'">1x</span></div>'+failNote+'</div>';}if(m.type==='file'&&src&&!isImg&&!isVideo){var vid2='v_'+safeId(s.id)+'_'+mi;return '<div class="video-wrap" id="wrap_'+vid2+'"><video class="sm-video" id="'+vid2+'" src="'+esc(src)+'" controls playsinline preload="metadata" crossorigin="anonymous" onerror="onVideoError(this,\''+vid2+'\')"></video><div class="sm-hint">미디어 유형 미확인 · 재생 안 되면 <a href="'+esc(src)+'" target="_blank" rel="noopener">새 창에서 열기</a></div></div>';}if(m.type==='file'&&!src) return '<div class="sm-missing">미디어 로딩 중 — 다른 기기에서 업로드한 영상은 R2 동기화 후 표시됩니다</div>';return '';}).join('')+'</div>':''}
                 ${s._ai?'<div class="ai-summary"><div class="ai-header">AI 분석</div><div class="ai-body"><p class="ai-text">'+esc(s._ai.summary)+'</p>'+(s._ai.next_focus?'<div class="ai-focus">다음 집중: '+esc(s._ai.next_focus)+'</div>':'')+'<div class="ai-recs"><div class="ai-rec-col"><div class="ai-rec-title">골프 훈련</div>'+(s._ai.golf_drills||[]).map(function(d){return '<div class="ai-rec-item">'+esc(d)+'</div>';}).join('')+'</div><div class="ai-rec-col"><div class="ai-rec-title">웨이트</div>'+(s._ai.weight_training||[]).map(function(d){return '<div class="ai-rec-item">'+esc(d)+'</div>';}).join('')+'</div></div></div></div>':''}
                 <div class="session-actions">
@@ -453,6 +456,8 @@ function _render(){
       <div class="form-group"><label class="form-label">목표</label><input class="form-input" placeholder="예: 3개월 내 100타 깨기" value="${(S.newMember.goal||'').replace(/"/g,'&quot;')}" oninput="S.newMember.goal=this.value"></div>
       <div class="form-group"><label class="form-label">주력 교정 포인트</label><input class="form-input" placeholder="예: 슬라이스, 힙 슬라이드" value="${(S.newMember.focusPoints||'').replace(/"/g,'&quot;')}" oninput="S.newMember.focusPoints=this.value"></div>
       <div class="form-group"><label class="form-label">담당 지도자 배정</label><div class="assign-grid">${INSTRUCTORS.map(function(inst){var checked=(S.newMember.assignedTo||[]).indexOf(inst.name)!==-1;var cls=inst.role==='pro'?'assign-pro':'assign-trainer';return '<label class="assign-opt '+cls+(checked?' checked':'')+'"><input type="checkbox" '+(checked?'checked ':'')+' onchange="toggleAssign(\''+inst.name+'\')">'+ ' '+inst.name+'</label>';}).join('')}</div></div>
+      <div class="form-section-label rc-label">녹음·AI 정리 동의 <button type="button" class="rc-print" onclick="openConsentForm()">🖨 동의서 인쇄</button></div>
+      ${_rcFormHtml('S.newMember', S.newMember)}
       <div class="modal-actions"><button class="btn" onclick="closeModal()">취소</button><button class="btn primary" onclick="${S.editMemberId?'saveMemberEdit()':'addMember()'}">${S.editMemberId?'저장':'등록'}</button></div>
     </div>
   </div>` : ''}
@@ -473,7 +478,7 @@ function _render(){
   })() : ''}
 
   ${renderHandoverModal()}
-  ${renderReportModal()}
+  ${renderConsentEdit()}
   ${renderTranscriptVault()}
   ${renderStorageAudit()}
   ${renderImageCardModal()}

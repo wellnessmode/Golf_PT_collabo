@@ -359,6 +359,7 @@ async function sharePerfSummary(){
   if(m.reportDirty && !_canReview(m)){ alert('검토 대기 중인 리포트입니다. 검토는 마지막으로 일지를 남긴 '+_reviewOwner(m)+' 담당이에요.\n검토가 끝난 뒤 공유해 주세요.'); return; }
   if(!data){ alert('공유할 데이터가 없습니다.'); return; }
   if(typeof cloud==='undefined'||!cloud.enabled){ alert('클라우드 미연결 — 공유 링크를 만들 수 없습니다.'); return; }
+  if(!_confirmPendingExcluded(mid, '지금 공유할까요?')) return;   // 'AI 정리 대기' 일지는 리포트에서 빠짐 — 보내기 전에 알림 (D3)
   try{ liveToastSafe('📤 고객용 리포트 링크 생성 중...'); }catch(e){}
   await _withMemberShots(data, mid);   // 이 회원의 샷 전체(서버) — 라이브 캐시 1000건 한계 회피
   // 공유 주소 사전 점검 — 전용 도메인(REPORT_BASE)이 아직 연결 전이거나 중계 워커가
@@ -457,6 +458,7 @@ async function reviewPublishReport(mid){
   if(!m.reportId){ alert('아직 리포트 링크를 공유한 적이 없는 회원입니다.\n[리포트 공유]로 먼저 링크를 만들어 보내주세요.'); return; }
   if(!_canReview(m)){ alert('이 회원의 검토는 마지막으로 일지를 남긴 '+_reviewOwner(m)+' 담당입니다.\n(가장 최근에 레슨·일지를 올린 담당자만 검토 완료를 누를 수 있어요)'); return; }
   if(typeof cloud==='undefined' || !cloud.enabled){ alert('클라우드 미연결 — 반영할 수 없습니다.'); return; }
+  if(!_confirmPendingExcluded(mid, '지금 회원 링크에 반영할까요?')) return;   // 'AI 정리 대기' 일지는 리포트에서 빠짐 (D3)
   try{ liveToastSafe('📤 회원 리포트에 반영 중...'); }catch(e){}
   try{
     var data=buildPerfData(mid); if(!data){ alert('리포트 데이터가 없습니다'); return; }
@@ -535,9 +537,12 @@ async function _fetchMemberShotsForReport(mid){
   try{
     if(typeof cloud==='undefined'||!cloud||!cloud.enabled||!cloud.client||!mid) return null;
     var LIM=3000;
-    var r=await cloud.client.from('shot_events').select('id,bay_id,member_id,member_name,author,ts,data,video_r2_key,source').eq('member_id',mid).neq('source','mock').order('ts',{ascending:false}).limit(LIM);
+    // 서버는 한 번에 1000개까지만 줘서 limit(3000)도 조용히 1000개로 잘렸다(B6) → 1000개씩 나눠 최대 3000개
+    var c=cloud.client;
+    var r=await cloud._pages(function(){ return c.from('shot_events').select('id,bay_id,member_id,member_name,author,ts,data,video_r2_key,source').eq('member_id',mid).neq('source','mock').order('ts',{ascending:false}).order('id',{ascending:false}); }, LIM);
     if(r.error||!Array.isArray(r.data)) return null;
-    var shots=r.data.map(function(x){ return {id:x.id,bayId:x.bay_id,memberId:x.member_id,memberName:x.member_name,author:x.author||'',ts:x.ts,data:x.data||{},videoR2Key:x.video_r2_key||null,source:x.source||'agent'}; });
+    var gone=(typeof delQ!=='undefined')?delQ.ids('del'):{};   // 지우는 중인 샷(영상 삭제 대기)은 리포트에 넣지 않음
+    var shots=r.data.filter(function(x){ return !gone[x.id]; }).map(function(x){ return {id:x.id,bayId:x.bay_id,memberId:x.member_id,memberName:x.member_name,author:x.author||'',ts:x.ts,data:x.data||{},videoR2Key:x.video_r2_key||null,source:x.source||'agent'}; });
     if(shots.length>=LIM) shots._limited=true;
     return shots;
   }catch(e){ return null; }
@@ -545,6 +550,21 @@ async function _fetchMemberShotsForReport(mid){
 async function _withMemberShots(data, mid){
   try{ var shots=await _fetchMemberShotsForReport(mid); if(shots && (shots.length || !(data.shots||[]).length)) data.shots=shots; }catch(e){}
   return data;
+}
+// 리포트 일지 구분 — 관리자·미지정 작성자는 골프 레슨으로
+function _reportRole(s){ var r=(typeof getRole==='function')?getRole(s.author):''; return r==='trainer'?'trainer':'pro'; }
+function _isAiPendingLog(s){ return (typeof aiPendingState==='function') ? !!aiPendingState(s) : String((s&&s.content)||'').indexOf('AI 정리 대기')!==-1; }
+// 리포트에서 빠지는 'AI 정리 대기' 일지 수 — 리포트에 실릴 최근 25개(골프·PT 각각) 안에 든 것만 센다(공유 전 경고용)
+function _reportPendingCount(mid){
+  var all=(S.sessions[mid]||[]).slice().sort(sessionCompare), n=0;
+  ['pro','trainer'].forEach(function(r){ all.filter(function(s){ return _reportRole(s)===r; }).slice(0,25).forEach(function(s){ if(_isAiPendingLog(s)) n++; }); });
+  return n;
+}
+// 공유·반영 직전 확인 — 빠지는 일지가 있으면 알리고 계속할지 묻는다. 계속하면 true
+function _confirmPendingExcluded(mid, what){
+  var n=_reportPendingCount(mid);
+  if(!n) return true;
+  return confirm('AI 정리가 끝나지 않은 일지 '+n+'건은 리포트에서 빠집니다.\n(일지 카드의 AI 정리 표시를 눌러 정리하면 다음 반영 때 들어가요)\n\n'+(what||'지금 공유할까요?'));
 }
 function _buildReportContent(mid, m, data){
   var shots=data.shots||[];
@@ -615,9 +635,11 @@ function _buildReportContent(mid, m, data){
     }
   }catch(e){ console.warn('[share] trackman build skip:', e); }
   // 레슨 일지 — 고객에게 보이는 내용만 (녹음 원문 제외), 최근 40개 (페이지가 골프/PT 로 나눠 보여줌)
+  // 'AI 정리 대기' 일지(받아쓰기 조각 상태)는 넣지 않는다(D3) — 정리되면 다음 반영 때 들어간다. 레슨 횟수(proSessions 등)에는 그대로 센다
   var allSess=(S.sessions[mid]||[]).slice().sort(sessionCompare);
-  var roleOf=function(s){ var r=(typeof getRole==='function')?getRole(s.author):''; return r==='trainer'?'trainer':'pro'; };   // 관리자·미지정 작성자는 골프 레슨으로
-  var proL=allSess.filter(function(s){ return roleOf(s)==='pro'; }).slice(0,25), ptL=allSess.filter(function(s){ return roleOf(s)==='trainer'; }).slice(0,25);
+  var roleOf=_reportRole;
+  var okLog=function(s){ return !_isAiPendingLog(s); };
+  var proL=allSess.filter(function(s){ return roleOf(s)==='pro' && okLog(s); }).slice(0,25), ptL=allSess.filter(function(s){ return roleOf(s)==='trainer' && okLog(s); }).slice(0,25);
   var sessions=proL.concat(ptL).sort(sessionCompare).map(function(s){
     var vids2=(s.media||[]).filter(function(mm){ var mt=String(mm.mimeType||inferMime(mm.name||'')||''); return mt.indexOf('video')!==-1 && mm.r2Key && !/\.mkv$/i.test(String(mm.r2Key)); })
       .map(function(mm){ return {key:mm.r2Key, view:mm.view||''}; });
@@ -742,15 +764,14 @@ function deletePerfShot(shotId){
   var club=(typeof _clubKo==='function'?_clubKo(s.data&&s.data.club):(s.data&&s.data.club))||'샷';
   if(!confirm('이 샷을 리포트에서 삭제할까요?\n\n'+club+' · '+String(s.ts).slice(0,16).replace('T',' ')
     +'\n\n영상(모든 앵글)과 측정 기록이 완전히 삭제됩니다.\n잘못 저장된 다른 회원의 영상을 제거할 때 사용하세요.\n\n※ 되돌릴 수 없습니다')) return;
-  try{ r2RemoveShotVideos(s); }catch(e){}
   S.shotEvents=(S.shotEvents||[]).filter(function(x){return x.id!==shotId;});
   save();
-  try{ cloud.deleteShot(shotId); }catch(e){}
+  // 영상(모든 앵글)을 먼저 지우고, 다 지워지면 서버 행(A2). 못 지운 영상은 대기열에 남아 자동으로 다시 — 그동안 리포트 발행에도 안 들어감
+  try{ delShotsRun([s]).then(function(r){ try{ liveToastSafe(r.left ? DEL_LATER_MSG : '🗑 샷 삭제됨 — 영상·측정 기록 제거'); }catch(e){} }, function(){}); }catch(e){}
   try{ logActivity('리포트 샷 삭제', s.memberId, club+' · '+String(s.ts).slice(0,10)); }catch(e){}
   try{ logAudit('session','리포트 샷 삭제', s.memberName||'', {shotId:shotId, club:club, ts:s.ts, tag:(s.data&&s.data._tag)||''}); }catch(e){}
   S.perfShotModal=null; S.perfShotView=0;
   render();
-  try{ liveToastSafe('🗑 샷 삭제됨 — 영상·측정 기록 제거'); }catch(e){}
   try{ if(typeof autoPublishReport==='function') autoPublishReport(s.memberId); }catch(e){}   // 고정 리포트 링크 자동 갱신
 }
 // 샷 모달 안 앵글 전환 (측면/정면/클럽) — 재렌더 없이 비디오 src 만 교체.
@@ -1015,6 +1036,7 @@ function renderPerformance(){
   var m=data.member;
   var ts=S.perfTextScale||1;
   var locked=_buildLockIn(m, S.sessions[m.id]||[], data.shots||[]);
+  var pendN=S.perfDemo?0:_reportPendingCount(m.id);   // 회원 리포트에서 빠지는 'AI 정리 대기' 일지 수
   // 공용 계산 — 클럽별 평균 · 목표 (여러 섹션에서 재사용)
   var avgs = (data.shots&&data.shots.length) ? _buildClubAverages(data.shots) : null;
   var goalM = _parseGoalDist(m.goal), goalAuto=false;
@@ -1049,6 +1071,10 @@ function renderPerformance(){
               : '<span>✅ 회원 링크가 최신 상태입니다</span>'))
         +'</div>'
       : '')
+    // 링크를 아직 안 보낸 회원 — 대시보드 '리포트 링크 없는 활성 회원'에서 바로 오는 곳 (D2)
+    +((!S.perfDemo && !m.reportId && S.currentRole) ? '<div class="pv-nolink"><span>📤 아직 회원님께 리포트 링크를 보낸 적이 없어요 — 아래 내용을 확인하고 보내 주세요</span><button onclick="sharePerfSummary()">📤 리포트 공유</button></div>' : '')
+    // 'AI 정리 대기' 일지는 회원 리포트에서 빠진다 (D3)
+    +(pendN ? '<div class="pv-aiwarn">⚠️ AI 정리가 끝나지 않은 일지 <b>'+pendN+'</b>건은 회원 리포트에서 빠져요 — 회원 화면의 일지 카드에서 AI 정리 표시를 눌러 정리해 주세요</div>' : '')
     +(S.perfDemo?'<div class="pv-meta" style="color:#d97706;font-weight:700">※ 상담용 데모 데이터입니다 — 실제 회원 측정값이 아닙니다</div>':'')
   +'</div>';
 
@@ -1313,7 +1339,7 @@ function renderPerformance(){
       var txt=String(s.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\s+/g,' ').trim();
       var body=(typeof mdLite==='function')?mdLite(s.content||''):esc(s.content||'').replace(/\n/g,'<br>');
       return '<div class="pv-lesson-row exp" onclick="this.classList.toggle(\'open\')">'
-        +'<div class="pv-lesson-hd"><span class="pv-lesson-date">'+esc(s.date)+(s.time?' '+esc(timeLabel(s.time)):'')+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span><span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span><span class="pv-lesson-arw">▾</span></div>'
+        +'<div class="pv-lesson-hd"><span class="pv-lesson-date">'+esc(s.date)+(s.time?' '+esc(timeLabel(s.time)):'')+'</span><span class="pv-lesson-tag '+r+'">'+tag+'</span>'+(_isAiPendingLog(s)?'<span class="pv-lesson-ex" title="AI 정리가 끝나면 회원 리포트에 들어가요">리포트 제외</span>':'')+'<span class="pv-lesson-txt">'+esc(txt.slice(0,64))+(txt.length>64?'…':'')+'</span><span class="pv-lesson-arw">▾</span></div>'
         +'<div class="pv-lesson-body">'+body+'</div>'
         +'</div>';
     }).join('')+'</div>';
@@ -1555,7 +1581,7 @@ function _rvPending(user, role){
 }
 // 일지·회원 폼이 열려 있거나 업로드 중 — 이때 회원을 바꾸면 작성 중인 일지가 다른 회원에게 저장되므로 절대 끼어들지 않는다
 function _rvFormOpen(){
-  try{ return !!(S.showAddSession || S.editSessionId || S.showAddMember || S.editMemberId || S.showReport || (S.uploading>0)); }catch(e){ return false; }
+  try{ return !!(S.showAddSession || S.editSessionId || S.showAddMember || S.editMemberId || S.consentEdit || (S.uploading>0) || (S.storageAudit && S.storageAudit.needKey)); }catch(e){ return false; }   // 관리자 열쇠 입력 중 — 다시 그리면 친 글자가 지워짐 · 녹음 동의 창
 }
 // 녹음·받아쓰기 중, 타석 레슨 화면, 성과 리포트(검토 화면), 폼 작성 중엔 방해하지 않는다
 function _rvBusy(){
@@ -1584,6 +1610,7 @@ async function _rvRefreshFlags(){
       if((m.reportDirty||'')!==rd){ if(rd) m.reportDirty=rd; else delete m.reportDirty; changed=true; }
       if((m.reportDirtyBy||'')!==rby){ if(rby) m.reportDirtyBy=rby; else delete m.reportDirtyBy; changed=true; }
       if(rid && m.reportId!==rid){ m.reportId=rid; changed=true; }
+      if(_rcAt(d)>_rcAt(m)){ _rcCopy(m, d); changed=true; }   // 다른 기기에서 적은 녹음 동의·거부 (더 새로운 기록만)
     });
     var tomb=S.deletedMemberIds||{}; var have={}; (S.members||[]).forEach(function(m){ have[m.id]=true; });
     r.data.forEach(function(row){
