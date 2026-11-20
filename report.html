@@ -214,6 +214,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent;line-height:1
   </div>
 </div>
 
+<!-- 이 태그는 속성 없이 그대로 둔다: 저장 워커(v1·v2)가 고객용 /r/ 페이지를 만들 때 이 모양 그대로를 찾아 지운다(속성을 붙이면 못 지워 고객 페이지가 supabase-js 를 받음).
+     integrity(SRI)는 워커의 그 정규식을 고친 뒤에 index.html 과 같은 값으로 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
 <script src="config.js"></script>
 <script>

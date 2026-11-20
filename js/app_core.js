@@ -167,16 +167,31 @@ const tokStore = {
 // pw_login·pw_change 응답의 토큰 저장. 비밀번호를 바꾸면 서버가 그 계정의 예전 토큰을 모두 무효로 하므로, 새 토큰이 없으면 옛 것도 버린다
 function _tokFromPw(d, key, changed){ try{ if(d && d.token) tokStore.save(d.token, d.exp, key); else if(changed){ var o=tokStore.raw(); if(o && o.u===key) tokStore.clear(); } }catch(e){} }
 // supabase-js 의 모든 요청(global.fetch)에 'x-staff-token' 을 붙인다 — 토큰이 없으면 예전 요청과 똑같음.
-// 안전장치: 그 헤더가 붙은 요청만 네트워크 오류(예상 밖 CORS 거절)로 실패하고 헤더 없이는 되면, 잠기지 않은 DB 에서는
-// 이 화면 동안 헤더를 빼고 보낸다(앱이 멈추지 않게). 잠긴 DB 에서는 토큰 없이 볼 수 있는 게 없으니 그대로 오류.
-var _sbNoTok=false;
+// 안전장치: 그 헤더가 붙은 요청만 네트워크 오류(예상 밖 CORS 거절)로 거듭 실패하고 헤더 없이는 되면, 잠기지 않은 DB 에서는
+// 30분 동안 헤더를 빼고 보낸다(앱이 멈추지 않게). 한 번의 실패는 대부분 잠깐 끊긴 것이라 같은 요청을 먼저 한 번 더 보낸다 — 예전엔
+// 한 번 끊기면 이 화면 내내 토큰 없이 보내, 저장 기록에 누가 했는지 안 남았고 그 사이 DB 를 잠그면 유효한 토큰을 버리고 로그아웃됐다.
+// 잠긴 DB 와 토큰 확인(gpt_whoami)에는 헤더를 늘 붙인다(빼면 볼 수 있는 게 없고, 확인이 '무효'로 나온다).
+var _sbNoTok=false;   // 헤더를 빼고 보내는 시한(ms) — false/0 이면 붙인다
+function _sbNoTokOn(){ return !!_sbNoTok && Date.now()<_sbNoTok; }
+function _sbIsWhoami(input){ try{ return /\/rpc\/gpt_whoami(\?|$)/.test(String((input && input.url) || input || '')); }catch(e){ return false; } }
 function _sbFetch(input, init){
-  var t=_sbNoTok ? '' : tokStore.token(), i2;
-  if(!t) return fetch(input, init);
+  var who=_sbIsWhoami(input);
+  var t=(_sbNoTokOn() && S._dbMode!=='locked' && !who) ? '' : tokStore.token(), i2;
+  if(!t){
+    // 잠긴 DB 에서 로그인 중인 이 기기의 토큰이 만료됨(15분 임시 토큰을 '나중에' 등) — 이대로는 아무것도 안 보이고 지우기·고치기가 오류 없이
+    // 무시된다 → 빈 답을 기다리지 않고 바로 비밀번호 로그인으로 (이 요청은 그대로 보냄)
+    if(S._dbMode==='locked' && S.currentRole && S.cloudSync==='connected' && !tokStore.get() && !_sbFetch._need){
+      _sbFetch._need=1; setTimeout(function(){ _sbFetch._need=0; if(S._dbMode==='locked' && S.currentRole && !tokStore.get()) _authNeedLogin(); }, 0);
+    }
+    return fetch(input, init);
+  }
   try{ i2=Object.assign({}, init||{}); var h=new Headers(i2.headers || ((typeof Request!=='undefined' && input instanceof Request) ? input.headers : undefined)); h.set('x-staff-token', t); i2.headers=h; }catch(e){ return fetch(input, init); }
   return fetch(input, i2).catch(function(e){
-    if((e && e.name==='AbortError') || S._dbMode==='locked') throw e;
-    return fetch(input, init).then(function(r){ _sbNoTok=true; try{ console.warn('[auth] x-staff-token 헤더가 막혀 이 화면에서는 빼고 보냅니다'); }catch(_){} return r; }, function(){ throw e; });
+    if((e && e.name==='AbortError') || S._dbMode==='locked' || who) throw e;
+    return fetch(input, i2).catch(function(e2){   // 잠깐 끊긴 것인지 한 번 더
+      if(e2 && e2.name==='AbortError') throw e2;
+      return fetch(input, init).then(function(r){ _sbNoTok=Date.now()+30*60000; try{ console.warn('[auth] x-staff-token 헤더가 막혀 30분 동안 빼고 보냅니다'); }catch(_){} return r; }, function(){ throw e; });
+    });
   });
 }
 // DB 잠금 상태 — 'locked' | 'open' | ''(모름). 잠긴 걸 본 기기는 기억해 두고 다음 부팅 때 먼저 확인한다
@@ -252,10 +267,21 @@ async function _emptyAnswerTrusted(){
   if(w.data && tokStore.token()===before){ tokStore.clear(); _authNeedLogin(); }
   return false;
 }
+// 잠긴 DB 에서 지우기(영상·행) 직전 — 이 기기 토큰이 지금도 유효한지 서버에 다시 묻는다(캐시 안 씀). 잠긴 DB 는 무효 토큰(다른 폰에서 비밀번호 변경·
+// 관리자 초기화·만료)의 지우기를 오류 없이 0행으로 넘겨서, 영상만 지워지고 행은 남아 다른 기기에 영상 없는 샷으로 되살아났다.
+// → true 지워도 됨(잠기지 않은 DB 포함) · false 지금은 안 됨(토큰 무효면 비밀번호 로그인부터, 확인 못 하면 다음에)
+async function _lockedWriteOk(){
+  if(S._dbMode!=='locked') return true;
+  if(!tokStore.get()){ if(S.currentRole) _authNeedLogin(); return false; }
+  var before=tokStore.token(), w=await authWhoami();
+  if(w.missing || (w.data && (w.data.mode!=='locked' || w.data.ok))) return true;
+  if(w.data && tokStore.token()===before){ tokStore.clear(); _authNeedLogin(); }
+  return false;
+}
 // 회원 0명 응답 — 정말 빈 스튜디오(첫 설치)인지, 잠금 때문에 안 보이는 것인지. 모르면 빈 서버로 보지 않는다
 async function _emptyServerIsReal(){
   if((window.APP_CONFIG||{}).AUTH_REQUIRED) return false;
-  var w=await authWhoami(30000);
+  var w=await authWhoami();   // 캐시 안 씀 — 방금(30초 안) '잠기지 않음'이었어도 그 사이 잠그거나 토큰이 취소됐을 수 있다(빈 답을 빈 스튜디오로 믿으면 목록이 지워짐)
   if(w.missing) return true;
   return !!(w.data && w.data.mode!=='locked');
 }
@@ -320,6 +346,8 @@ const APP_VERSION = {
   version:'v9.99',
   date:'2026-11-20',
   changes:[
+    '수업 센터·녹음 안정화 — 다른 기기에서 시작한 레슨이 몇 초 안에 타석 카드에 뜨고, 느린 와이파이에서 방금 시작한 레슨이 사라지지 않게. 오전 9시 전에 시작한 레슨이 9시에 "어제 세션"으로 자동 종료되던 문제 수정, 녹음 중인 레슨은 자동 종료하지 않고 끝나면 일지 초안으로. 동의 기록이 있으면 🎙 녹음이 누르는 즉시 시작',
+    '기록 보호 — 녹음 동의를 저장해도 인포데스크가 고친 유효기간·횟수·연락처가 되돌아가지 않게, 새로고침·다시 로그인할 때 아직 못 올린 회원·평가 수정이 사라지지 않게. 자동 정리는 다시 지우기 직전에 서버에서 다시 확인해 그 사이 저장·배정된 샷과 리포트 영상은 지우지 않음. 폰 와이파이가 끊기면 PC 신호를 빨간색 대신 "확인 안 됨"으로',
     '녹음·AI 정리 동의 기록 — 회원 등록·[수정] 화면 맨 아래와 회원 이름 옆 배지(🎙 녹음 동의 / 녹음 거부 / 녹음 동의 미기록)에서 동의(서면·구두와 날짜) 또는 거부를 기록. 동의 기록이 없는 회원의 수업 녹음을 시작하면 [오늘 구두 동의 받음 — 기록하고 녹음] · [녹음 없이 진행] · [취소]를 묻고, 거부한 회원은 녹음·AI 정리 없이 레슨·샷 저장만 진행. 인쇄용 동의서는 인포데스크·관리자 사이드바 [🖨 녹음 동의서 (인쇄용)]',
     '대시보드 점검 카드 — 🤖 AI 정리 대기 N건(하루가 지나도 정리 안 된 일지는 "⚠️ AI 정리 실패 — 눌러서 다시"), 📤 리포트 링크 없는 활성 회원(눌러서 바로 공유), 🎙 녹음 동의 미기록 활성 회원. 인포데스크·관리자는 지도자별 기록(최근 7일·30일 일지 수 · 마지막 작성 · 60일간 기록 없는 담당 회원)과 ⚠️ 만료됐는데 최근 30일 레슨 있음 · 📈 구매 횟수 초과 목록, 관리자는 🎙 원문 없는 녹음 일지 N건. 회원별 진행률은 구매 횟수를 넘으면 그대로 표시(예: 12/10)',
     '회원 리포트에 받아쓰기 조각이 나가지 않게 — 아직 "AI 정리 대기"인 일지는 회원 리포트에서 빼고, 그런 일지가 있으면 공유·검토 완료 전에 몇 건이 빠지는지 먼저 알려 줌',
@@ -809,9 +837,11 @@ const cloud = {
     }
     try{
       var q=this.client.from(table);
+      // 잠긴 DB 는 무효 토큰(취소·만료)의 고치기·지우기를 오류 없이 '0행'으로 넘긴다 → 바뀐 행을 돌려받아 0행이면 토큰부터 확인(무효면 비밀번호 로그인)
+      var lk=(S._dbMode==='locked'), sel=((opts.filters||[])[0]||{}).col||'*';
       if(op==='upsert'){ var r0=await q.upsert(opts.rows); if(r0.error) throw r0.error; }
-      else if(op==='update'){ var qq=q.update(opts.values); (opts.filters||[]).forEach(function(f){ qq=qq[f.op||'eq'](f.col,f.val); }); var r1=await qq; if(r1.error) throw r1.error; }
-      else if(op==='delete'){ var qd=q.delete(); (opts.filters||[]).forEach(function(f){ qd=qd[f.op||'eq'](f.col,f.val); }); var r2=await qd; if(r2.error) throw r2.error; }
+      else if(op==='update'){ var qq=q.update(opts.values); (opts.filters||[]).forEach(function(f){ qq=qq[f.op||'eq'](f.col,f.val); }); if(lk) qq=qq.select(sel); var r1=await qq; if(r1.error) throw r1.error; if(lk && !(r1.data||[]).length) _authLost(); }
+      else if(op==='delete'){ var qd=q.delete(); (opts.filters||[]).forEach(function(f){ qd=qd[f.op||'eq'](f.col,f.val); }); if(lk) qd=qd.select(sel); var r2=await qd; if(r2.error) throw r2.error; if(lk && !(r2.data||[]).length) _authLost(); }
       return true;
     }catch(e){ console.warn('[cloud] '+op+' '+table+' fail',e&&e.message); return wantErr?String(e&&e.message||e):false; }
   },
@@ -825,6 +855,24 @@ const cloud = {
       if(r.error) return {error:r.error, data:out};
       var d=r.data||[]; for(var i=0;i<d.length;i++) out.push(d[i]);
       if(d.length<n) break;
+    }
+    return {data:out};
+  },
+  // 표 전체를 키 순서로 끝까지(빈 쪽이 올 때까지) — offset 이 아니라 '마지막으로 받은 키보다 큰 것'으로 이어 받는다(스토리지 정리의 보호 목록용).
+  // range 로 받으면 받는 사이 다른 기기가 앞쪽 행을 지운 만큼 다음 쪽이 밀려 그 자리의 행을 못 봤다 → 저장한 샷의 영상이 '고아'로 잡힐 수 있었다.
+  // cols: 유일한 키 칸(1개, 또는 assessments 처럼 2개). 최대 cap 행 · 실패하면 {error}
+  async _keyset(table, cols, cap){
+    var c=this.client, out=[], last=null, n=0;
+    var qv=function(v){ return '"'+String(v==null?'':v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"'; };   // 논리식(or) 안의 값은 따옴표로
+    for(;;){
+      var q=c.from(table).select('*'); cols.forEach(function(k){ q=q.order(k,{ascending:true}); });
+      if(last){ if(cols.length===1) q=q.gt(cols[0], last[cols[0]]); else q=q.or(cols[0]+'.gt.'+qv(last[cols[0]])+',and('+cols[0]+'.eq.'+qv(last[cols[0]])+','+cols[1]+'.gt.'+qv(last[cols[1]])+')'); }
+      var r=await q.limit(1000);
+      if(r.error) return {error:r.error, data:out};
+      var d=r.data||[]; if(!d.length) break;
+      for(var i=0;i<d.length;i++) out.push(d[i]);
+      last=d[d.length-1];
+      if(out.length>=cap || ++n>=1000) break;
     }
     return {data:out};
   },
@@ -885,6 +933,21 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
     }catch(e){}
     var extra={phone:m.phone||'',email:m.email||'',registeredDate:m.registeredDate||'',golfLessonCount:m.golfLessonCount||'',golfPTCount:m.golfPTCount||'',golfLessonAmount:m.golfLessonAmount||'',golfPTAmount:m.golfPTAmount||'',expiry:m.expiry||'',golfLessonExpiry:m.golfLessonExpiry||'',golfPTExpiry:m.golfPTExpiry||'',assignedTo:m.assignedTo||[],memberType:m.memberType||'pt_lesson',handicap:m.handicap||'',avgScore:m.avgScore||'',goal:m.goal||'',focusPoints:m.focusPoints||'',reportId:m.reportId||'',reportDirty:m.reportDirty||'',reportDirtyBy:(m.reportDirty?(m.reportDirtyBy||''):''),ownerWatch:m.ownerWatch||'',
       recConsent:m.recConsent||'',recConsentBy:m.recConsentBy||'',recConsentHow:m.recConsentHow||'',recConsentNo:m.recConsentNo||'',recConsentAt:m.recConsentAt||''};return await this._w('upsert','members',{rows:[{id:m.id,name:m.name,color:m.color,data:extra}]});},
+  // 녹음 동의만 서버에 — 지금 서버의 회원 행을 다시 읽어 동의 칸만 바꿔 쓴다. 예전엔 직원 폰의 회원 사본을 통째로 올려, 폰이 받은 뒤에
+  // 인포데스크가 고친 유효기간·구매 횟수·연락처 등이 서버에서 조용히 되돌아갔다. 서버 기록이 더 새로우면(다른 기기에서 기록) 그것을 따른다.
+  // 서버에 아직 없는 회원(이 기기에서 새로 등록해 아직 안 올라감)은 예전처럼 통째로. → 성공 true
+  // noCreate: 서버에 그 회원 행이 없으면 아무것도 쓰지 않는다(이 기기에 없는 회원의 동의만 적을 때 — 빈 회원 행을 만들지 않게)
+  async upsertMemberConsent(m, noCreate){if(!this.enabled||!m||!m.id) return false;
+    try{ var r=await this.client.from('members').select('id,name,color,data').eq('id',m.id).maybeSingle();
+      if(!r || r.error) return false;
+      var row=r.data; if(!row) return noCreate ? false : await this.upsertMember(m);
+      var d=Object.assign({}, row.data||{});
+      if(_rcAt(d)>_rcAt(m)){ _rcCopy(m, d); return true; }
+      REC_CONSENT_KEYS.forEach(function(k){ d[k]=m[k]||''; });
+      return await this._w('upsert','members',{rows:[{id:row.id,name:row.name,color:row.color,data:d}]});
+    }catch(e){ return false; }},
+  // 회원 한 명을 통째로(앱의 회원 모양으로) — 이 기기에 아직 없는 회원(다른 기기에서 방금 등록)의 녹음 동의 확인용. 없거나 못 읽으면 null
+  async memberRow(id){if(!this.enabled||!id) return null;try{const r=await this.client.from('members').select('*').eq('id',id).maybeSingle();if(!r||r.error||!r.data) return null;const x=r.data;return Object.assign({id:x.id,name:x.name,color:x.color||'av-green'},x.data||{});}catch(e){return null;}},
   // 회원 한 명의 data 를 그 자리에서 읽기 — 녹음 시작 직전 동의 확인용(다른 기기에서 방금 적었을 수 있음). 못 읽으면 null
   async memberData(id){if(!this.enabled||!id) return null;try{const r=await this.client.from('members').select('data').eq('id',id).maybeSingle();if(!r||r.error||!r.data) return null;return r.data.data||{};}catch(e){return null;}},
   async upsertAssessment(memberId,itemKey,result,note){if(!this.enabled) return false;return await this._w('upsert','assessments',{rows:[{member_id:memberId,item_key:itemKey,result:result||'미검사',note:note||'',updated_at:new Date().toISOString()}]});},
@@ -958,8 +1021,9 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
       var r=await this.client.from('shot_events').select('*').lt('ts',beforeIso).or(or).order('ts',{ascending:true}).order('id',{ascending:true}).limit(1000);
       if(r.error) return null; return this._liveShots(r.data); }catch(e){ return null; }},
   // id 로 콕 집어 지금 서버 값(정리 직전 확인용) → {id: 샷} · 실패하면 null
-  async shotsByIds(ids){if(!this.enabled) return null;var out={};
-    try{ for(var i=0;i<(ids||[]).length;i+=80){ var r=await this.client.from('shot_events').select('*').in('id',ids.slice(i,i+80)); if(r.error) return null; this._liveShots(r.data).forEach(function(s){ out[s.id]=s; }); } return out; }catch(e){ return null; }},
+  // raw: 삭제 대기열에 있는 샷도 그대로(대기 작업을 다시 하기 전 확인용 — 화면용 걸러내기 없이)
+  async shotsByIds(ids, raw){if(!this.enabled) return null;var out={}, self=this;
+    try{ for(var i=0;i<(ids||[]).length;i+=80){ var r=await this.client.from('shot_events').select('*').in('id',ids.slice(i,i+80)); if(r.error) return null; (raw ? (r.data||[]).map(function(x){ return self._shotRow(x); }) : this._liveShots(r.data)).forEach(function(s){ out[s.id]=s; }); } return out; }catch(e){ return null; }},
   // 조건에 맞는 샷 행 전부(1000개씩 끝까지, mock 포함 — 회원 삭제·전체 삭제용) · 실패하면 null
   async shotRowsWhere(where){if(!this.enabled) return null;
     try{ var c=this.client, self=this;
@@ -992,7 +1056,7 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
       var walk=function(v,d){ if(v==null||d>60) return; if(typeof v==='string'){ addStr(v); var t=v.trim(); if(t.length>1 && (t[0]==='{'||t[0]==='[')){ try{ walk(JSON.parse(t),d+1); }catch(e){} } return; }
         if(typeof v==='object'){ for(var k in v){ if(Object.prototype.hasOwnProperty.call(v,k)){ addStr(k); walk(v[k],d+1); } } } };
       var T=[['members',['id']],['assessments',['member_id','item_key']],['sessions',['id']],['reports',['id']],['shot_events',['id']],['active_sessions',['bay_id']],['bays',['id']]];
-      var got=await Promise.all(T.map(function(x){ return self._pages(function(){ var q=c.from(x[0]).select('*'); x[1].forEach(function(o){ q=q.order(o,{ascending:true}); }); return q; }, 200000); }));
+      var got=await Promise.all(T.map(function(x){ return self._keyset(x[0], x[1], 200000); }));
       for(var i=0;i<T.length;i++){
         var r=got[i], tb=T[i][0];
         if(!r || r.error || r.data.length>=200000) return null;
@@ -1030,7 +1094,8 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
     try{
       var r=await this.client.from('shot_events').select('id,data,video_r2_key').eq('id',id).limit(1);
       if(r.error) return {fail:true};
-      var row=(r.data||[])[0]; if(!row) return {gone:true};
+      var row=(r.data||[])[0];
+      if(!row) return (S._dbMode==='locked' && !(await _lockedWriteOk())) ? {fail:true} : {gone:true};   // 잠긴 DB: 무효 토큰이면 '없음'처럼 보인다 → 토큰이 유효할 때만 '없음'
       var d0=JSON.stringify(row.data||{}), d=JSON.parse(d0);
       if(edit) d=edit(d, row)||d;
       var extra=(typeof cols==='function' ? cols(row) : cols)||{};
@@ -1056,9 +1121,19 @@ sessions[r.member_id].push({id:r.id,date:r.date,time:r.time||_tMeta||undefined,a
   async deleteShot(id){if(!this.enabled) return;await this._w('delete','shot_events',{filters:[{col:'id',op:'eq',val:id}]});},
   // 샷 행 지우기(영상을 먼저 지운 뒤 — delJobsRun) — 80개씩. IN 절에 수백 개 ID 를 한 번에 넣으면 URL 길이 초과(414)로 조용히 실패한다.
   // → {성공한 묶음의 id:1} · DB 미연결(로컬 모드)이면 모두 지운 것으로
+  // 잠긴 DB 에서는 지운 행을 돌려받아 그 행만 지운 것으로 — 무효 토큰이면 오류 없이 0행이라, 예전엔 영상만 지워지고 행은 남은 채 작업이 끝났다.
+  // 안 돌아온 id 는 토큰이 지금 유효하다고 서버가 답할 때만 '이미 없음'으로 본다(아니면 대기열에 남아 다시 로그인한 뒤 다시)
   async deleteShotRows(ids){var out={};if(!ids||!ids.length) return out;
     if(!this.enabled){ ids.forEach(function(id){ out[id]=1; }); return out; }
-    for(var i=0;i<ids.length;i+=80){ var part=ids.slice(i,i+80); if(await this._w('delete','shot_events',{filters:[{col:'id',op:'in',val:part}]})) part.forEach(function(id){ out[id]=1; }); }
+    var locked=(S._dbMode==='locked' && !this.dbProxy), trust=null;
+    for(var i=0;i<ids.length;i+=80){ var part=ids.slice(i,i+80);
+      if(!locked){ if(await this._w('delete','shot_events',{filters:[{col:'id',op:'in',val:part}]})) part.forEach(function(id){ out[id]=1; }); continue; }
+      try{ var r=await this.client.from('shot_events').delete().in('id',part).select('id'); if(r.error) continue;
+        var got={}; (r.data||[]).forEach(function(x){ if(x && x.id){ got[x.id]=1; out[x.id]=1; } });
+        var rest=part.filter(function(id){ return !got[id]; });
+        if(rest.length){ if(trust===null) trust=await _lockedWriteOk(); if(trust) rest.forEach(function(id){ out[id]=1; }); }
+      }catch(e){}
+    }
     return out;}
 };
 
@@ -1108,7 +1183,7 @@ function applyRemoteActive(remoteActive){
     var tx = p && String(p._transcript||'').trim();
     if(!tx || p.author!==S.currentUser) return;
     if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(p.memberId)) return;   // 관찰용 회원 — 일지 복구 대상 아님
-    if(typeof _rec!=='undefined' && _rec.bayId===b) return;   // 이 기기에서 녹음 중이면 폴링 잡음 — 건드리지 않음
+    if(typeof _rec!=='undefined' && (_rec.bayId===b || _rec._lastBay===b)) return;   // 이 기기에서 녹음 중·마지막 조각 변환 중 — 녹음 마무리(_finishRec)가 전문으로 복구한다(초안 두 번 방지)
     try{
       if(typeof openVoiceDraft==='function' && !S.showAddSession && openVoiceDraft(p.memberId, p.author, tx)){
         liveToastSafe('🎙 다른 곳에서 종료된 세션의 녹음 전문을 복구했어요 — 일지를 저장하세요');
@@ -1125,7 +1200,7 @@ function applyRemoteActive(remoteActive){
     if(p && p.memberId === n.memberId){
       if(!n.mode && p.mode) n.mode = p.mode;
       Object.keys(p).forEach(function(k){
-        if(k.charAt(0)==='_' && n[k]===undefined) n[k]=p[k];
+        if(k.charAt(0)==='_' && k!=='_gone' && n[k]===undefined) n[k]=p[k];
       });
     }
     if(!n.mode){
@@ -1133,6 +1208,10 @@ function applyRemoteActive(remoteActive){
       n.mode = (bay && bay.type==='lesson_only') ? 'lesson' : 'practice';
     }
   });
+  // 이 기기에서 녹음 중인 수업이 다른 곳에서 끝났으면(2시간 자동 종료 등) 녹음을 마칠 때까지 이 기기 화면엔 남긴다 — 예전엔 바로 사라져
+  // [녹음 종료] 버튼이 없어지고 그 뒤에 받아쓴 글은 어디에도 저장되지 않았다. 녹음을 마치면 다음 확인 때 위의 복구로 일지 초안이 된다.
+  // 서버엔 이 수업이 없으므로 새 샷은 이 회원에게 붙이지 않는다(_gone)
+  try{ var _rb=(typeof _rec!=='undefined') ? _rec.bayId : null; if(_rb && prev[_rb] && !next[_rb]){ next[_rb]=prev[_rb]; next[_rb]._gone=1; } }catch(e){}
   S.activeSessions = next;
 }
 function reconcileAgentShots(){
@@ -1147,7 +1226,7 @@ function reconcileAgentShots(){
     var pending = (s.source==='agent') && (!s.memberId || s.memberId===AGENT_EMPTY_MEMBER || !s.memberName);
     if(!pending) return true;
     var act = S.activeSessions[s.bayId];
-    if(act && !isStaleSession(act)){
+    if(act && !act._gone && !isStaleSession(act)){
       // 백로그 차단 — 세션 시작 "이전에 측정된" 샷(에이전트가 꺼져 있다 재시작하며
       // 밀어넣는 옛 샷)은 현재 세션에 귀속/대기시키지 않는다. (2분 시계 오차 허용)
       var mt = Date.parse((s.data && s.data.measuredAt) || s.ts);
@@ -1285,7 +1364,7 @@ var delQ={
   add(jobs){ var a=this.all(), idx={}, out=[];
     a.forEach(function(j){ if(j.id && !j.x) idx[j.op+'|'+j.id]=j; });
     (jobs||[]).forEach(function(nj){ var ex=nj.id?idx[nj.op+'|'+nj.id]:null;
-      if(ex){ nj.k.forEach(function(k){ if(ex.k.indexOf(k)===-1 && ex.g.indexOf(k)===-1) ex.k.push(k); }); out.push(ex); }
+      if(ex){ nj.k.forEach(function(k){ if(ex.k.indexOf(k)===-1 && ex.g.indexOf(k)===-1) ex.k.push(k); }); if(!nj.a) delete ex.a; out.push(ex); }   // 사람이 누른 삭제가 합쳐지면 자동 작업 표시(a)를 뗀다(다시 확인 대상 아님)
       else { a.push(nj); if(nj.id) idx[nj.op+'|'+nj.id]=nj; out.push(nj); } });
     this.save(); return out; },
   ids(op){ var m={}; this.all().forEach(function(j){ if(j.id && !j.x && (!op || j.op===op)) m[j.id]=1; }); return m; }   // 대기 중인 샷 id
@@ -1308,6 +1387,11 @@ async function delJobsRun(jobs){
   var out={rows:0, left:0, keysFailed:0, done:[]};
   var other=(jobs||[]).filter(function(j){ return j && !j.x && _delBusy[j.j]; }).length;   // 다른 곳에서 지우는 중 — 그쪽이 끝냄(아직 안 끝난 것으로 셈)
   jobs=(jobs||[]).filter(function(j){ return j && !j.x && !_delBusy[j.j]; });
+  if(!jobs.length){ out.left=other; return out; }
+  // 잠긴 DB: 이 기기 토큰이 지금도 유효하다고 서버가 답할 때만 지운다 — 무효 토큰이면 영상만 지워지고 행은 오류 없이 남는다.
+  // 아니면 job 은 대기열에 그대로(비밀번호로 다시 로그인한 뒤 다음 정리 때 다시)
+  if(typeof cloud!=='undefined' && cloud.enabled && S._dbMode==='locked' && !(await _lockedWriteOk())){ out.left=other+jobs.length; return out; }
+  var n0=jobs.length; jobs=jobs.filter(function(j){ return !j.x && !_delBusy[j.j]; }); other+=n0-jobs.length;   // 확인하는 사이 다른 곳에서 시작한 job 은 그쪽에
   if(!jobs.length){ out.left=other; return out; }
   jobs.forEach(function(j){ _delBusy[j.j]=1; });
   try{
@@ -1342,17 +1426,21 @@ async function delQueueRetry(){
   var now=Date.now();
   delQ.all().forEach(function(j){ if(!j.x && ((j.n||0)>60 || now-(j.at||0)>30*86400000)){ j.x=1; console.warn('[del] 오래 못 지운 삭제 대기 정리:', j.op, j.k.length); } });
   delQ.save();
-  return await delJobsRun(delQ.all().slice());
+  var jobs=delQ.all().slice();
+  // 자동 정리(24시간 미배정·3일 영상·7일 원본)가 남긴 작업은 다시 하기 직전에 서버 값으로 다시 판단한다(그 사이 배정·저장됐거나 리포트가 쓰기 시작했을 수 있음)
+  if(typeof _delAutoRecheck==='function') jobs=await _delAutoRecheck(jobs);
+  return await delJobsRun(jobs);
 }
 // 샷 지우기 공통 — 사람이 누른 삭제(샷 삭제·버림·선택/전체/미배정 삭제·리포트 샷 삭제·회원 삭제)와 자동 정리(24시간 미배정).
 // 이 기기 목록에서 빼고 대기열에 먼저 적은 뒤(도중에 앱이 닫혀도 다음에 이어서) 영상부터 지운다.
 // o.keep: 지우면 안 되는 파일 {키:1}(고객 리포트가 쓰는 영상) · o.extra: 함께 지울 다른 파일(회원 일지 첨부)
+// o.auto: 자동 정리가 정한 삭제('stale' 등) — 대기열에서 다시 할 때는 그 직전에 서버 값으로 다시 판단한다(_delAutoRecheck)
 async function delShotsRun(shots, o){
   o=o||{};
   var ids={}, list=[];
   (shots||[]).forEach(function(s){ if(s && s.id && !ids[s.id]){ ids[s.id]=1; list.push(s); } });
   var keep=_keysInUse(ids); Object.keys(o.keep||{}).forEach(function(k){ keep[k]=1; });
-  var jobs=list.map(function(s){ return delJob(s.id, 'del', shotVideoKeys(s).filter(function(k){ return !keep[k]; })); });
+  var jobs=list.map(function(s){ var j=delJob(s.id, 'del', shotVideoKeys(s).filter(function(k){ return !keep[k]; })); if(o.auto) j.a=o.auto; return j; });
   var ex=(o.extra||[]).filter(function(k){ return k && typeof k==='string' && !keep[k]; });
   if(ex.length) jobs.push(delJob('', '', ex));
   jobs=delQ.add(jobs);
@@ -1451,7 +1539,7 @@ function _rcCopy(to, from){REC_CONSENT_KEYS.forEach(function(k){to[k]=(from&&fro
 // 이 기기의 오늘 날짜 — today() 는 UTC 날짜라 오전 9시 전엔 어제가 된다(동의한 날은 실제 날짜로)
 function _rcToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // 서버에서 회원을 새로 받은 뒤 — 이 기기의 동의 기록이 더 새로우면(올리기 실패, 또는 옛 버전 앱이 회원을 저장하며 동의 칸을 지움) 다시 올린다
-function _rcKeep(localMembers){(localMembers||[]).forEach(function(lm){if(!lm||!_rcAt(lm)) return;var rm=(S.members||[]).find(function(x){return x.id===lm.id;});if(!rm||_rcAt(lm)<=_rcAt(rm)) return;_rcCopy(rm, lm);try{syncMemberUp(rm);}catch(e){}});}
+function _rcKeep(localMembers){(localMembers||[]).forEach(function(lm){if(!lm||!_rcAt(lm)) return;var rm=(S.members||[]).find(function(x){return x.id===lm.id;});if(!rm||_rcAt(lm)<=_rcAt(rm)) return;_rcCopy(rm, lm);try{syncConsentUp(rm);}catch(e){}});}
 // 녹음 시작 직전 — 서버의 동의 기록을 그 자리에서 확인(다른 기기에서 방금 거부·동의를 적었을 수 있음). ms 까지만 기다리고, 못 받으면 이 기기 기록대로
 function _rcFresh(m, ms){
   if(!m||typeof cloud==='undefined'||!cloud||!cloud.enabled) return Promise.resolve(false);
@@ -1562,6 +1650,13 @@ function syncMemberUp(m, opts){
   m._dirty = true;
   try{save();}catch(e){}
   Promise.resolve(cloud.upsertMember(m, opts)).then(function(ok){ if(ok){ delete m._dirty; try{save();}catch(e){} } });
+}
+// 녹음 동의만 올리기(위 upsertMemberConsent) — 회원 정보를 통째로 올리지 않는다. 실패해도 이 기기의 기록이 더 새로우므로
+// 다음에 서버에서 받을 때(_rcKeep) 다시 올라간다
+function syncConsentUp(m, noCreate){
+  if(!m) return;
+  try{save();}catch(e){}
+  Promise.resolve(cloud.upsertMemberConsent(m, noCreate)).then(function(ok){ if(ok){ try{save();}catch(e){} } }, function(){});
 }
 // 체형평가 업로드 — 실패 시 _dirtyAssess 에 표시 → 머지에서 재시도.
 function syncAssessUp(mid, key, v){
@@ -1834,6 +1929,7 @@ async function init(){
       } else {await seedRemote();}
       purgeZombieSessions();   // 클라우드 머지 후 유령 세션 재확인(서버 삭제 포함)
       save();S.cloudSync='connected';
+      try{ ensureOwnerWatchMember(); }catch(e){}   // 서버 목록을 받은 지금 확인 (받기 전엔 만들지 않음)
     } else {S.cloudSync=S._authNeedLoad?'auth':'error';}
     // 라이브 세션(베이/활성세션/굿샷) 클라우드 로드 — 테이블 미생성 시 null 반환 → 로컬 유지
     try{const live=await cloud.loadLive();if(live){if(CONFIG_BAYS_SET){S.bays=BAYS_DEFAULT.slice();cloud.upsertBays(S.bays);}else if(live.bays&&live.bays.length){S.bays=live.bays;}else{cloud.upsertBays(S.bays);}applyRemoteActive(live.activeSessions);(function(){var om={};(S.shotEvents||[]).forEach(function(s){om[s.id]=s;});S.shotEvents=(live.shotEvents||[]).map(function(s){var o=om[s.id];if(o){if(o._rcvAt)s._rcvAt=o._rcvAt;if(o._isNew)s._isNew=o._isNew;if(o._uiSavedAt)s._uiSavedAt=o._uiSavedAt;}return s;});})();_liveFullAt=Date.now();reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live load skip:',e);}
@@ -1931,6 +2027,9 @@ function canSeeOwnerWatch(){
 function ensureOwnerWatchMember(){
   try{
     if(S.currentRole!=='trainer' || S.currentUser!==OWNER_WATCH_USER) return;
+    // 서버 자료를 다 받은 뒤에만 — 받기 전(잠긴 DB 에서 비밀번호 로그인 직후 느린 망 등)엔 이 기기 목록이 아직 예시 자료라
+    // 서버에 이미 있는 '타석 점검'을 못 보고 하나 더 만들었다. 다 받으면(_refreshFromCloudNow·앱 시작 머지) 그때 다시 확인한다
+    if(typeof cloud!=='undefined' && cloud && cloud.enabled && (S.cloudSync!=='connected' || S._authNeedLoad)) return;
     if(S.members.some(function(m){return m.ownerWatch;})) return;
     var m={ id:uid(), name:'타석 점검', color:'av-green', memberType:'lesson', ownerWatch:1,
       assignedTo:[OWNER_WATCH_USER], registeredDate:today(), phone:'', email:'',
@@ -2011,10 +2110,14 @@ async function _refreshFromCloudNow(){
       if(s.media) localMediaMap[s.id]=s.media;
       if(s._dirty){ if(!localDirty[mid]) localDirty[mid]=[]; localDirty[mid].push(s); }   // 업로드 미완 보존
     });});
-    var _localMembers=S.members;
+    var _localMembers=S.members, _localAssess=S.assessments||{};
     S.members=remote.members;S.assessments=remote.assessments;S.sessions=remote.sessions;
     var _mtomb2=S.deletedMemberIds||{};
     if(Object.keys(_mtomb2).length){ S.members=S.members.filter(function(m){ if(_mtomb2[m.id]){ try{cloud.deleteMember(m.id);}catch(e){} delete S.assessments[m.id]; delete S.sessions[m.id]; return false; } return true; }); }
+    // 이 기기에서 아직 못 올린 회원 수정(_dirty)·평가(_dirtyAssess)는 서버 사본으로 덮지 않고 다시 얹어 올린다(앱 시작 머지와 같게).
+    // 예전엔 새로고침 때, 그리고 잠긴 DB 에서 토큰이 취소·만료돼 비밀번호로 다시 들어온 직후(이 경로로만 받음) 그 수정이 조용히 사라졌다
+    (_localMembers||[]).forEach(function(dm){ if(!dm || !dm._dirty || _mtomb2[dm.id]) return; var i=S.members.findIndex(function(x){return x.id===dm.id;}); if(i>=0) S.members[i]=dm; else S.members.push(dm); try{ syncMemberUp(dm); }catch(e){} });
+    var _da=S._dirtyAssess||{}; Object.keys(_da).forEach(function(k){ if(!_da[k]) return; var p=k.split('|'), lv=(_localAssess[p[0]]||{})[p[1]]; if(!lv || _mtomb2[p[0]]) return; if(!S.assessments[p[0]]) S.assessments[p[0]]={}; S.assessments[p[0]][p[1]]=lv; try{ syncAssessUp(p[0], p[1], lv); }catch(e){} });
     try{ _rcKeep(_localMembers); }catch(e){}   // 서버보다 새로운 이 기기의 녹음 동의 기록은 지우지 않고 다시 올린다
     var _tomb=S.deletedSessionIds||{};
     Object.keys(S.sessions).forEach(function(mid){S.sessions[mid]=(S.sessions[mid]||[]).filter(function(s){if(_tomb[s.id]){try{cloud.deleteSession(s.id);}catch(e){}return false;}return true;});});
@@ -2033,6 +2136,7 @@ async function _refreshFromCloudNow(){
     purgeZombieSessions();
     try{ if(typeof _rawIdxReset==='function') _rawIdxReset(); }catch(e){}   // 관리자 원문 목록(어느 일지에 원문이 있나)도 다시 받게
     save();S.cloudSync='connected';
+    try{ ensureOwnerWatchMember(); }catch(e){}   // 서버 목록을 받은 지금 확인 (받기 전엔 만들지 않음)
   }else{S.cloudSync=S._authNeedLoad?'auth':'error';}
   try{const live=await cloud.loadLive();if(live){if(live.bays&&live.bays.length&&!CONFIG_BAYS_SET) S.bays=live.bays;applyRemoteActive(live.activeSessions);(function(){var om={};(S.shotEvents||[]).forEach(function(s){om[s.id]=s;});S.shotEvents=(live.shotEvents||[]).map(function(s){var o=om[s.id];if(o){if(o._rcvAt)s._rcvAt=o._rcvAt;if(o._isNew)s._isNew=o._isNew;if(o._uiSavedAt)s._uiSavedAt=o._uiSavedAt;}return s;});})();_liveFullAt=Date.now();reconcileAgentShots();save();}}catch(e){console.warn('[cloud] live refresh skip:',e);}
   try{ if(typeof shotMaintAfterLoad==='function') shotMaintAfterLoad(); }catch(e){}   // 받는 중에 로그인했으면 그 자동 정리를 지금

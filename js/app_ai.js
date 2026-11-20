@@ -22,7 +22,8 @@ var PT_KEYWORDS = {
   '파워': {keywords:['파워','폭발력','점프','스윙','케틀벨','클린','스내치'], exercises:['케틀벨 스윙','박스 점프','파워 클린','메디신볼 슬램']},
 };
 
-function generateLocalSummary(memberId, session){
+// noSave: 저장은 부른 쪽이 한 번에 (앱 시작 때 모든 일지를 훑는 analyzeExistingSessions — 일지마다 기기 저장을 하면 화면이 멈췄다)
+function generateLocalSummary(memberId, session, noSave){
   if(session._ai) return;
   if(!session.content || session.content.trim().length<5) return;
   // 요약 인용에는 헤더([레슨 녹음 메모...] 등)·마크다운 기호·불릿 대시를 걷어낸 본문만 사용
@@ -83,7 +84,7 @@ function generateLocalSummary(memberId, session){
       next_focus: detected.length>0 ? detected[0]+' 강화 훈련 지속' : '전신 밸런스 훈련'
     };
   }
-  save();
+  if(!noSave) save();
 }
 
 // ============ 세션 수정 ============
@@ -687,6 +688,8 @@ function openMediaView(src){
 
 async function deleteSession(id){
   if(!confirm('이 세션 기록을 삭제하시겠습니까?')) return;
+  // 잠긴 DB: 이 기기 토큰이 지금 유효할 때만 지운다 — 무효(취소·만료)면 첨부 영상만 지워지고 일지는 서버에 오류 없이 남는다(무효면 비밀번호 로그인부터)
+  if(typeof _lockedWriteOk==='function' && !(await _lockedWriteOk())){ if(S.currentRole) liveToastSafe('지금은 삭제할 수 없어요 — 연결을 확인한 뒤 다시 눌러 주세요'); return; }
   const mid = S.selectedMember;
   var sess = (S.sessions[mid]||[]).find(function(x){return x.id===id;});
   if(sess && sess.media){
@@ -710,6 +713,8 @@ async function deleteSession(id){
 }
 
 // ============ 기존 세션 자동 분석 (로컬) ============
+// 앱 시작 3초 뒤 모든 일지의 로컬 요약(_ai)을 만든다 — 기기 저장(save)은 끝에 한 번만. 예전엔 일지마다 상태 전체를 기기에 다시 써서
+// (일지 수 × 전체 크기) 앱을 켤 때마다 화면이 몇 초씩 멈췄고, 일지가 1,500건을 넘으면 페이지가 죽었다
 function analyzeExistingSessions(){
   var count = 0;
   for(var mid in S.sessions){
@@ -717,10 +722,11 @@ function analyzeExistingSessions(){
     for(var i=0;i<sessions.length;i++){
       if(sessions[i]._ai) continue;
       if(!sessions[i].content || sessions[i].content.trim().length<5) continue;
-      generateLocalSummary(mid, sessions[i]);
+      generateLocalSummary(mid, sessions[i], true);
       count++;
     }
   }
+  if(count>0){ try{ save(); }catch(e){} }
   if(count>0 && !(typeof _rvFormOpen==='function' && _rvFormOpen())) render();   // 입력 중(일지·회원 폼, 관리자 열쇠 칸)이면 다시 그리지 않음 — 친 글자가 지워지지 않게
 }
 

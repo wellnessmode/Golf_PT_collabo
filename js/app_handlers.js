@@ -132,7 +132,7 @@ function saveConsentEdit(){
   var st=S.consentEdit; if(!st) return;
   var m=S.members.find(function(x){return x.id===st.mid;});
   S.consentEdit=null;
-  if(m && _rcApply(m, st)){ _rcLog(m); save(); syncMemberUp(m); }
+  if(m && _rcApply(m, st)){ _rcLog(m); save(); syncConsentUp(m); }   // 동의 칸만 서버에 (이 기기의 낡은 회원 정보로 다른 칸을 되돌리지 않게)
   render();
 }
 function renderConsentEdit(){
@@ -795,6 +795,12 @@ async function purgeStorageOrphans(){
   if(S.storageAudit!==A) return;
   if(!P){ A.purging=null; render(); alert('서버 자료를 다시 확인하지 못해 아무것도 지우지 않았어요 — 잠시 후 다시 해 주세요'); return; }
   var now=Date.now(), list=d.cand.list.filter(function(o){ return !_saWhy(o, P, now); });
+  // 마지막으로 후보 파일 이름의 샷 id 를 서버에 콕 집어 다시 묻는다(80개씩) — 전체 대조 중에 놓쳤거나 그 뒤에 생긴 샷 행이 있으면 지우지 않는다
+  var sids=[], seen={}; list.forEach(function(o){ (_saShotIds(o.key)||[]).forEach(function(id){ if(!seen[id]){ seen[id]=1; sids.push(id); } }); });
+  var have=sids.length ? await cloud.shotsByIds(sids, true) : {};
+  if(S.storageAudit!==A) return;
+  if(!have){ A.purging=null; render(); alert('서버 자료를 다시 확인하지 못해 아무것도 지우지 않았어요 — 잠시 후 다시 해 주세요'); return; }
+  list=list.filter(function(o){ return !(_saShotIds(o.key)||[]).some(function(id){ return have[id]; }); });
   R.checking=false; R.total=list.length; R.skipped=d.cand.list.length-list.length; render();
   var i=0, closed=false;
   var tooMany=function(){ var at=R.done+R.fail; return R.fail>R.total*0.01 || (at>=100 && R.fail>at*0.01); };
@@ -1255,10 +1261,9 @@ function retryPendingAiSummaries(force){
       if(_rcRefusedId(mid)) return;   // 녹음·AI 정리를 거부한 회원의 일지는 AI 로 보내지 않는다
       (S.sessions[mid]||[]).forEach(function(s){
         if(String(s.content||'').indexOf('AI 정리 대기')===-1) return;
-        // 원문이 기기에 없어도(프로 기기는 loadAll 이 원문을 안 실음) 건너뛰지 않는다 —
-        // 실행 시점에 _aiSourceForSession 이 클라우드 원문 → 본문 조각 순으로 소스를 정한다.
-        // 예전엔 원문 없으면 그냥 건너뛰어 프로 기기에서 스위퍼가 아무것도 못 했다.
-        if(!String(s.rawTranscript||'').trim() && _aiSourceFromContent(s.content).length < 20) return;
+        // 원문이 기기에 없어도(어느 기기도 loadAll 로 원문을 받지 않음 — v9.99) 건너뛰지 않는다 —
+        // 실행 시점에 _aiSourceForSession 이 클라우드 원문 → 본문 조각 순으로 소스를 정하고, 그래도 20자가 안 되면 그때 건너뛴다(아래).
+        // 예전엔 이 자리에서 '기기의 원문 없음 + 조각 20자 미만'이면 건너뛰어, 조각은 짧아도 서버에 원문이 있는 일지가 영영 정리되지 않았다.
         // 담당자 본인 기기 또는 관리자 기기만 — 여러 기기의 중복 API 호출 억제
         // (겹쳐 돌아도 applyAiResultToSaved 가 '대기' 마커 확인 후 교체하므로 안전)
         if(S.currentRole!=='admin' && s.author!==S.currentUser) return;
@@ -1285,6 +1290,7 @@ function retryPendingAiSummaries(force){
       _aiInflight[s.id]=Date.now();
       (c.rawOnly ? _aiOldSource(s) : _aiSourceForSession(s)).then(function(src){
         if(!src){ delete _aiInflight[s.id]; if(c.rawOnly) _aiSweepAttempts[s.id]=3; return 'skip'; }   // 원문 없는 오래된 일지 — 이번 실행에선 다시 안 봄
+        if(!c.rawOnly && !String(s.rawTranscript||'').trim() && String(src).trim()===_aiSourceFromContent(s.content) && String(src).trim().length < 20){ delete _aiInflight[s.id]; _aiSweepAttempts[s.id]=3; return 'skip'; }   // 원문이 어디에도 없고(받아쓰기 조각으로 대신) 조각도 너무 짧음 — AI 로 보내지 않음(이번 실행에선 다시 안 봄)
         used++;
         return bgAiCleanupSaved(c.mid, s.id, src, s.author, tm, c.rawOnly ? {old:true} : null);
       }).then(function(r){ if(r==='skip') skip(); else go(); }, go);

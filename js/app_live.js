@@ -23,9 +23,15 @@ function memberColor(id){
   return m ? m.color : 'av-green';
 }
 // 어제(또는 그 이전) 시작된 세션 = stale → 굿샷 차단 (수동종료 정책 사각지대 방어)
+// 날짜는 한국 시간으로 비교 — 예전엔 UTC 날짜라 오전 9시 전에 시작한 수업이 9시부터 '어제 세션'이 돼 자동 종료·녹음 차단됐다.
+// 날짜가 바뀐 것만으로는 진행 중인 수업을 끊지 않는다 — 자동 종료 시간(SESSION_AUTO_END_HOURS, 기본 2시간)도 지나야 '어제 세션'
+function _kstDay(ms){ return new Date(ms+9*3600000).toISOString().slice(0,10); }
 function isStaleSession(act){
   if(!act || !act.startedAt) return false;
-  return String(act.startedAt).slice(0,10) < today();
+  var t=Date.parse(act.startedAt), now=Date.now();
+  if(isNaN(t)) return String(act.startedAt).slice(0,10) < _kstDay(now);
+  var minAge=((window.APP_CONFIG && APP_CONFIG.SESSION_AUTO_END_HOURS)||2)*3600*1000;
+  return _kstDay(t) < _kstDay(now) && now-t >= minAge;
 }
 function formatElapsed(startedAt){
   var ms = Date.now() - new Date(startedAt).getTime();
@@ -103,6 +109,26 @@ function closeLiveSession(){ S.showLiveSession=false; stopLivePolling(); render(
 var _livePollTimer = null, _liveLastIds = null;
 var LIVE_POLL_MS=4000, LIVE_IDLE_MS=30000, LIVE_WINDOW_MS=20*60000, LIVE_FULL_MS=5*60000;
 var _livePoll = { busy:0, seq:0, lastAt:0 };
+// 이 기기에서 방금 시작·종료한 수업 — 서버 저장이 끝나기 전에 보낸 확인(폴링) 답은 그 변화를 아직 모르므로, 그 답으로 되돌리지 않는다
+// (예전엔 느린 와이파이에서 시작 저장보다 먼저 온 답이 방금 시작한 수업을 지워, 30초 가까이 샷이 미배정으로 쌓이고 '+ 회원 배정'이 다시 떴다)
+// bayId → {sess:시작한 세션 | null, gone:종료한 세션, at:바꾼 시각, done:서버 저장 요청이 끝난 시각}
+var _liveLocal = {};
+function _liveLocalMark(bayId, sess, p, gone){
+  var e={sess:sess||null, gone:gone||null, at:Date.now(), done:0}; _liveLocal[bayId]=e;
+  Promise.resolve(p).then(function(){ e.done=Date.now(); }, function(){ e.done=Date.now(); });
+}
+// reqAt 에 보낸 요청의 진행 세션 답(remote) — 아직 서버에 닿지 않았을 수 있는 이 기기의 변화를 다시 얹는다. 저장이 끝난 뒤에 보낸 요청의 답(또는 1분 경과)부터는 서버를 따른다
+function _liveLocalApply(remote, reqAt){
+  remote=remote||{};
+  Object.keys(_liveLocal).forEach(function(b){
+    var e=_liveLocal[b];
+    if((e.done && reqAt>e.done) || Date.now()-e.at>60000){ delete _liveLocal[b]; return; }
+    var r=remote[b];
+    if(e.sess){ if(!r || r.memberId!==e.sess.memberId || Date.parse(r.startedAt)!==Date.parse(e.sess.startedAt)) remote[b]=Object.assign({}, e.sess); }
+    else if(e.gone && r && r.memberId===e.gone.memberId && Date.parse(r.startedAt)===Date.parse(e.gone.startedAt)) delete remote[b];   // 방금 끝낸 그 수업(다른 기기에서 새로 시작한 수업은 그대로)
+  });
+  return remote;
+}
 function startLivePolling(){
   try{ hbEnsure(); }catch(e){}   // 타석 PC 상태 신호(하트비트) — 60초마다, 화면이 보일 때만
   if(_livePollTimer) return;
@@ -474,6 +500,9 @@ function _buildPendingShotsHTML(bayId){
 // 새 샷이 베이/모드/세션 종료 등 '구조적' 변경을 동반하면 false 반환 → 호출자가 full render.
 function _patchLivePartials(){
   try{
+    // 0) 타석 카드 구성이 바뀜(다른 기기에서 수업 시작·종료, 회원 바뀜 등) → 아래 패치는 이미 그려진 수업 카드만 고치므로 전체 render
+    //    (예전엔 빈 타석에 생긴 수업이 누가 화면을 누를 때까지 '비어있음'으로 남았다)
+    if(_liveCardsStale()) return false;
     // 1) 베이카드별 .pending-shots 영역 갱신 (레슨모드만 의미 있음)
     var bayCards = document.querySelectorAll('.bay-card.active[data-bay]');
     for(var i=0;i<bayCards.length;i++){
@@ -525,6 +554,8 @@ function autoEndStaleSessions(remoteActive){
     if(act && isStaleSession(act)){
       // 로컬에 받아쓴 전문이 남아 있으면 버리지 않고 일지 초안으로 (유실 방지)
       var local = S.activeSessions && S.activeSessions[bayId];
+      if(typeof _rec!=='undefined' && _rec.bayId===bayId) return;   // 이 기기에서 녹음 중 — 녹음을 마친 뒤에 (2시간 규칙과 같게)
+      if(local && local._sttBusy && local._sttBusyAt && Date.now()-local._sttBusyAt<90000) return;   // 마지막 조각 변환 중
       var tx = local && (local._transcript||'').trim();
       var mid = (local||act).memberId, author=(local||act).author;
       delete src[bayId];
@@ -577,7 +608,9 @@ try{
 // 수업 센터가 닫혀 있어도 끄지 않은 세션을 자동 종료 — 열려 있으면 폴링이 매번 한다
 async function _maintActiveSessions(){
   if(S.showLiveSession && _livePollTimer) return;
+  var reqAt = Date.now();
   var a = await cloud.loadActiveSessions(); if(!a) return;
+  a = _liveLocalApply(a, reqAt);   // 방금 이 기기에서 시작·종료한 수업이 서버에 닿기 전의 답이면 되돌리지 않게
   // 0개 = 잠긴 DB 에서 토큰이 안 먹혀도 이렇게 보인다 → 확인되기 전엔 이 기기의 진행 세션을 비우지 않음
   if(!Object.keys(a).length && Object.keys(S.activeSessions||{}).length && !(await _emptyAnswerTrusted())) return;
   if(S.showLiveSession && _livePollTimer) return;   // 그사이 수업 센터를 열었으면 폴링에 맡김
@@ -596,32 +629,69 @@ async function purgeStaleUnassigned(){
   var ow = (S.members||[]).filter(function(m){ return m && m.ownerWatch && safeId(m.id); }).map(function(m){ return m.id; });
   var rows = await cloud.staleShotRows(new Date(cutoff).toISOString(), ow);
   if(!rows || !rows.length) return 0;
-  var stale = rows.filter(function(s){
-    if(s.memberName){
-      // 귀속된 샷 보호 — 단, 관찰용(타석 점검) 샷은 하루 지나면 행·영상 함께 정리
-      // (점검용이라 기록 가치 없음 + 최근 샷 1000개 창을 잠식해 실회원 샷을 밀어냄)
-      if(!(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(s.memberId))) return false;
-      var actW=S.activeSessions[s.bayId];
-      if(actW && actW.memberId===s.memberId) return false;   // 점검 세션 진행 중이면 보호
-      if(s.data && s.data._kept) return false;               // 점검 중 [저장]한 샷은 리포트용 — 지우지 않음
-    }
-    // 원본 영상을 받은 샷(orig)은 원본 보관 기간(7일, purgeOldOrigVideos) 동안 행도 보호.
-    // 요청만 걸린 샷(_origReq)은 PC 가 영영 응답 안 할 수도 있으니 요청 후 7일까지만 보호
-    if(s.data && s.data.orig) return false;
-    if(s.data && s.data._origReq==1 && now-(Date.parse(s.data._origReqAt||'')||0) < 7*24*3600*1000) return false;
-    var act=S.activeSessions[s.bayId];   // 진행 중 레슨의 대기샷 보호 (그 세션 시작 뒤에 측정된 샷)
-    if(act && !s.memberName && bayMode(s.bayId, act)==='lesson'){ var mt=Date.parse((s.data&&s.data.measuredAt)||s.ts), st=Date.parse(act.startedAt); if(!isNaN(mt) && !isNaN(st) && mt>=st-120000) return false; }
-    var t = Date.parse(s.ts);
-    return !isNaN(t) && t < cutoff;
-  });
+  var stale = rows.filter(function(s){ return _staleWanted(s, now); });
   if(!stale.length) return 0;
   var keep = await cloud.reportStrings(); if(!keep) return 0;   // 리포트 목록을 못 받음 → 이번엔 지우지 않음
-  var r = await delShotsRun(stale, {keep:keep});
+  var r = await delShotsRun(stale, {keep:keep, auto:'stale'});
   if(r.rows){
     console.warn('[live] 오래된 미배정 '+r.rows+'건 자동 정리');
     if(S.showLiveSession) liveToastSafe('🧹 오래된 미배정 '+r.rows+'개 자동 정리됨');
   }
   return r.rows;
+}
+// 24시간 넘은 미배정 샷 정리 규칙 (서버에서 방금 받은 샷 s 로 판단) — 대기열에서 다시 할 때도 같은 규칙으로 다시 판단한다(_delAutoRecheck)
+function _staleWanted(s, now){
+  if(!s) return false;
+  var cutoff = now - 24*3600*1000;
+  if(s.memberName){
+    // 귀속된 샷 보호 — 단, 관찰용(타석 점검) 샷은 하루 지나면 행·영상 함께 정리
+    // (점검용이라 기록 가치 없음 + 최근 샷 1000개 창을 잠식해 실회원 샷을 밀어냄)
+    if(!(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(s.memberId))) return false;
+    var actW=S.activeSessions[s.bayId];
+    if(actW && actW.memberId===s.memberId) return false;   // 점검 세션 진행 중이면 보호
+    if(s.data && s.data._kept) return false;               // 점검 중 [저장]한 샷은 리포트용 — 지우지 않음
+  }
+  // 원본 영상을 받은 샷(orig)은 원본 보관 기간(7일, purgeOldOrigVideos) 동안 행도 보호.
+  // 요청만 걸린 샷(_origReq)은 PC 가 영영 응답 안 할 수도 있으니 요청 후 7일까지만 보호
+  if(s.data && s.data.orig) return false;
+  if(s.data && s.data._origReq==1 && now-(Date.parse(s.data._origReqAt||'')||0) < 7*24*3600*1000) return false;
+  var act=S.activeSessions[s.bayId];   // 진행 중 레슨의 대기샷 보호 (그 세션 시작 뒤에 측정된 샷)
+  if(act && !s.memberName && bayMode(s.bayId, act)==='lesson'){ var mt=Date.parse((s.data&&s.data.measuredAt)||s.ts), st=Date.parse(act.startedAt); if(!isNaN(mt) && !isNaN(st) && mt>=st-120000) return false; }
+  var t = Date.parse(s.ts);
+  return !isNaN(t) && t < cutoff;
+}
+// 3일 지난 미보관 샷 영상 정리 규칙 (prot: 회원별 최근 영상 보호 목록)
+function _retentionWanted(s, prot, cutoff){
+  if(!s) return false;
+  if(s.data && s.data._kept) return false;                                   // 선별 저장 샷 보호
+  if(prot[s.id]) return false;                                               // 회원별 최근 영상 보호
+  if(!shotVideoKeys(s,'video').length) return false;                         // 영상 없는 샷
+  var t = Date.parse(s.ts);
+  return !isNaN(t) && t < cutoff;
+}
+// 대기열에 남은 자동 정리 작업(a: 'stale' 24시간 미배정 · 'keep' 3일 영상 · 'orig' 7일 원본)을 다시 하기 직전 — 그 샷을 서버에서 다시 읽고
+// 고객 리포트 글자도 다시 받아 지금도 지울 대상인지 판단한다. 예전엔 처음 실패했을 때의 판단을 최대 30일 동안 그대로 다시 실행해, 그 사이
+// 다른 기기에서 회원에게 배정·[저장]한 샷이나 고객 리포트가 쓰기 시작한 영상까지 지웠다(대기 중인 샷은 이 기기 화면에서도 숨겨져 알 수 없었음).
+// 이제: 배정·저장된 샷의 작업은 버리고(샷이 다시 보임), 리포트·다른 샷이 쓰는 파일은 지우지 않는다. 확인하지 못하면 자동 작업은 이번엔 쉰다
+async function _delAutoRecheck(jobs){
+  var auto=(jobs||[]).filter(function(j){ return j && !j.x && j.a && j.id; });
+  if(!auto.length) return jobs;
+  var rows=await cloud.shotsByIds(auto.map(function(j){ return j.id; }), true);
+  var rep=rows ? await cloud.reportStrings() : null;
+  if(!rows || !rep) return jobs.filter(function(j){ return !(j && j.a && j.id); });
+  var now=Date.now(), prot=_memberRecentVideoShotIds(8), oc=now-ORIG_VIDEO_KEEP_DAYS*24*3600*1000;
+  auto.forEach(function(j){
+    var s=rows[j.id], d=(s && s.data)||{};
+    if(s){
+      if(j.op==='del' && (d._kept || !_staleWanted(s, now))){ j.x=1; return; }      // 그 사이 회원에게 배정·저장됨 → 지우지 않음
+      if(j.op==='clear' && (d._kept || prot[s.id])){ j.x=1; return; }               // 그 사이 [저장]됨
+      if(j.op==='orig' && d.orig && !(Date.parse(d.orig.at) < oc)){ var cur=shotVideoKeys(s,'orig'); j.k=j.k.filter(function(k){ return cur.indexOf(k)===-1; }); }   // 새로 받은 원본은 그대로
+    }
+    var ex={}; ex[j.id]=1; var used=_keysInUse(ex);
+    j.k=j.k.filter(function(k){ return !rep[k] && !used[k]; });                       // 리포트·다른 샷이 쓰는 파일은 남긴다
+  });
+  delQ.save();
+  return jobs.filter(function(j){ return j && !j.x; });
 }
 // 영상 보관 정책 — "앱에서 저장(선별)한 샷"만 영상 영구 보관.
 // 연습모드 자동귀속 샷의 영상은 SHOT_VIDEO_KEEP_DAYS(기본 3일) 후 자동 삭제.
@@ -650,14 +720,7 @@ async function purgeOldShotVideos(){
   // 회원 귀속 샷은 "회원별 최근 8개(영상 보유)"를 태그 없이도 보호 — 비포/애프터를
   // 안 눌러도 리포트의 스윙 영상 캐러셀이 비지 않게 (2026-08-16 윤명숙 리포트 영상 0개 사고)
   var prot = _memberRecentVideoShotIds(8), busy = delQ.ids();
-  var want = function(s){
-    if(!s || busy[s.id]) return false;                                         // 이미 지우는 중
-    if(s.data && s.data._kept) return false;                                   // 선별 저장 샷 보호
-    if(prot[s.id]) return false;                                               // 회원별 최근 영상 보호
-    if(!shotVideoKeys(s,'video').length) return false;                         // 영상 없는 샷
-    var t = Date.parse(s.ts);
-    return !isNaN(t) && t < cutoff;
-  };
+  var want = function(s){ return !!s && !busy[s.id] && _retentionWanted(s, prot, cutoff); };   // 이미 지우는 중인 샷은 빼고
   var cand = (S.shotEvents||[]).filter(want);
   if(!cand.length) return 0;
   // 지우기 직전에 서버 값으로 다시 확인 — 이 기기 목록은 몇 분~몇 시간 전 것이라, 그사이 다른 기기에서 [저장](_kept)했을 수 있다
@@ -668,7 +731,7 @@ async function purgeOldShotVideos(){
   var rep = await cloud.reportStrings(); if(!rep) return 0;   // 리포트 목록을 못 받음 → 이번엔 지우지 않음
   var ids = {}; targets.forEach(function(s){ ids[s.id]=1; });
   var keep = _keysInUse(ids); Object.keys(rep).forEach(function(k){ keep[k]=1; });
-  var jobs = targets.map(function(s){ return delJob(s.id, 'clear', shotVideoKeys(s,'video').filter(function(k){ return !keep[k]; })); }).filter(function(j){ return j.k.length; });
+  var jobs = targets.map(function(s){ var j=delJob(s.id, 'clear', shotVideoKeys(s,'video').filter(function(k){ return !keep[k]; })); j.a='keep'; return j; }).filter(function(j){ return j.k.length; });
   if(!jobs.length) return 0;
   var r = await delJobsRun(delQ.add(jobs));
   var n = r.done.filter(function(j){ return j.op==='clear'; }).length;
@@ -688,7 +751,7 @@ async function purgeOldOrigVideos(){
   (S.shotEvents||[]).forEach(function(s){
     var o=s.data && s.data.orig; if(!o || !o.at || busy[s.id]) return;
     var t=Date.parse(o.at); if(isNaN(t) || t>=cutoff) return;
-    jobs.push(delJob(s.id, 'orig', shotVideoKeys(s,'orig')));
+    var j=delJob(s.id, 'orig', shotVideoKeys(s,'orig')); j.a='orig'; jobs.push(j);
   });
   if(!jobs.length) return 0;
   var r = await delJobsRun(delQ.add(jobs));
@@ -754,15 +817,26 @@ async function _livePollTick(force){
   if(document.hidden) return;   // 화면이 숨겨짐(폰 잠금·다른 앱) — 돌아오면 visibilitychange 가 바로 1번
   var now = Date.now();
   if(_livePoll.busy && now-_livePoll.busy < 25000) return;   // 이전 폴링이 아직 진행 중 (25초 넘게 안 끝나면 멈춘 것으로 보고 새로)
-  var idle = !Object.keys(S.activeSessions||{}).length;
-  if(!force && idle && now-_livePoll.lastAt < LIVE_IDLE_MS-LIVE_POLL_MS/2) return;   // 진행 중인 수업이 없으면 약 30초 간격
   if(typeof shotPauseOn==='function' && shotPauseOn()) return;
   if(window._shotsDeleting) return;   // 일괄 삭제 진행 중 — 서버 정리 전 재로드 금지
+  var idle = !Object.keys(S.activeSessions||{}).length;
+  if(!force && idle && now-_livePoll.lastAt < LIVE_IDLE_MS-LIVE_POLL_MS/2){
+    // 진행 중인 수업이 없으면 샷 조회(큰 쪽)는 약 30초 간격 — 진행 세션(0~3행, 아주 작음)만 4초마다 확인해
+    // 다른 기기·타석 아이패드에서 시작한 수업을 바로 알아챈다(예전엔 다음 30초 폴링까지 몰랐다). 찾으면 지금 바로 전체로 받는다
+    var aseq = ++_livePoll.seq; _livePoll.busy = now;
+    var a = null;
+    try{ a = await cloud.loadActiveSessions(); }catch(e){}
+    finally{ if(aseq===_livePoll.seq) _livePoll.busy = 0; }
+    if(aseq!==_livePoll.seq || !a || !S.showLiveSession) return;
+    if(!Object.keys(_liveLocalApply(a, now)).length) return;
+    now = Date.now();
+  }
   var seq = ++_livePoll.seq; _livePoll.busy = now; _livePoll.lastAt = now;
   try{
     var full = !_liveFullAt || now-_liveFullAt >= LIVE_FULL_MS;   // 5분마다 전체(최근 1000개), 그 사이엔 최근 20분 창
     var live = full ? await cloud.loadLive() : await cloud.loadLiveWindow(new Date(now-LIVE_WINDOW_MS).toISOString(), _liveWatchIds(now));
     if(!live || seq!==_livePoll.seq) return;   // 실패, 또는 그 사이 폴링을 멈췄다 다시 켬(옛 응답)
+    live.activeSessions = _liveLocalApply(live.activeSessions||{}, now);   // 이 기기에서 방금 시작·종료한 수업이 서버에 닿기 전 답이면 되돌리지 않게
     if(!S.showLiveSession) return;  // 폴링 중 닫혔으면 무시
     if(window._shotsDeleting) return; // 폴링 요청이 삭제 시작 '전'에 나갔어도, 응답 적용은 차단
     // 모든 결과가 0행인데 화면에서 지울 게 있다 — 잠긴 DB 에서 토큰이 안 먹혀도 이렇게 보이므로 토큰부터 확인(무효면 비밀번호 창, 화면은 그대로)
@@ -778,9 +852,11 @@ async function _livePollTick(force){
       var prevSet = {}; prev.forEach(function(id){prevSet[id]=true;});
       (live.shotEvents||[]).concat(live.extra||[]).forEach(function(s){ if(!prevSet[s.id]){ s._isNew = Date.now(); hasNew = true; } });
     }
-    var actBefore = JSON.stringify(Object.keys(S.activeSessions||{}).sort());
-    var actAfter  = JSON.stringify(Object.keys(live.activeSessions||{}).sort());
+    // 진행 수업 비교는 타석·회원·시작 시각까지 (같은 타석에서 회원만 바뀌어도 다시 그리게) — 적용한 뒤의 실제 상태로
+    var actSig = function(){ var a=S.activeSessions||{}; return JSON.stringify(Object.keys(a).sort().map(function(b){ return b+'='+_bayCardSig(a[b]); })); };
+    var actBefore = actSig();
     if(typeof applyRemoteActive==='function') applyRemoteActive(live.activeSessions); else S.activeSessions=live.activeSessions;
+    var actAfter = actSig();
     // _isNew/_rcvAt/_uiSavedAt(저장됨 카드 상태) 보존하며 머지
     S.shotEvents = full ? _liveMergeFull(live) : _liveMergeWindow(live);
     if(full) _liveFullAt = Date.now();
@@ -1085,7 +1161,7 @@ function confirmLiveStart(){
   save();
   logActivity('라이브 세션 시작', c.memberId, bay.name);
   logAudit('session','라이브 세션 시작', c.memberName, {bay:bay.name, author:author});
-  cloud.startActiveSession(c.bayId, sess);
+  _liveLocalMark(c.bayId, sess, cloud.startActiveSession(c.bayId, sess));   // 저장이 끝나기 전의 폴링 답이 이 수업을 지우지 않게
   S.liveConfirm=null; render();
   liveToast('▶ '+c.memberName+'님 · '+bay.name+' 세션 시작','ok');
 }
@@ -1159,7 +1235,7 @@ async function endLiveSession(bayId){
   save();
   logActivity('라이브 세션 종료', memberId, bay.name);
   logAudit('session','라이브 세션 종료', act.memberName, {bay:bay.name, voice:hasVoice});
-  cloud.endActiveSession(bayId);
+  _liveLocalMark(bayId, null, cloud.endActiveSession(bayId), act);   // 종료 저장 전의 폴링 답이 이 수업을 되살리지 않게
   // 관찰용 회원(타석 점검) — 일지 작성 없이 조용히 종료
   if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId)){
     liveToast('⏹ '+bay.name+' 세션 종료','ok'); render(); return;
@@ -1381,9 +1457,10 @@ function _startSegment(){
   var mime=_recMime();
   var opts={audioBitsPerSecond:48000}; if(mime) opts.mimeType=mime;  // 32k→48k: 잡음 많은 스튜디오에서 말소리 선명도↑ (파일 크기는 여전히 작음)
   var mr=new MediaRecorder(_rec.stream, opts);
-  var segChunks=[];
+  var segChunks=[], R=_rec;
   mr.ondataavailable=function(e){ if(e.data&&e.data.size) segChunks.push(e.data); };
   mr.onstop=function(){
+    if(R.discard){ segChunks=[]; return; }   // 녹음 거부가 확인돼 버린 녹음 — 변환도 저장도 하지 않는다
     var isFinal=_rec.stopping;
     var blob=new Blob(segChunks,{type:(segChunks[0]&&segChunks[0].type)||'audio/mp4'});
     var tiny = blob.size<=2000;
@@ -1404,7 +1481,7 @@ function _startSegment(){
         _startSegment();   // 공백 최소화 — 먼저 다음 조각 시작
       }
     }
-    if(!tiny){ _handleSegment(blob, isFinal); }
+    if(!tiny){ _handleSegment(blob, isFinal, R); }
     else if(isFinal){ _finishRec(); }
     _recUpdateUI();
   };
@@ -1460,7 +1537,7 @@ function sttFilterHallucination(text){
   t=t.replace(/\s{2,}/g,' ').trim();
   return t.length<2 ? '' : t;
 }
-async function _handleSegment(blob, isFinal){
+async function _handleSegment(blob, isFinal, R){
   var bayId=_rec.bayId || _rec._lastBay;
   _rec.pendingStt++;
   var text='';
@@ -1478,14 +1555,24 @@ async function _handleSegment(blob, isFinal){
     try{ r2.upload('rec/'+bayId+'_'+Date.now()+'_'+_rec.segIdx+(String(blob.type).indexOf('mp4')!==-1?'.m4a':'.webm'), blob); }catch(_){}
   }
   _rec.pendingStt--;
+  if(R && R.discard) return;           // 그 사이 이 녹음을 버림(녹음 거부 확인) — 받은 글도 쓰지 않는다
   text=sttFilterHallucination(text);   // 무음 구간 환각 문장("자막 제공..." 등) 제거
   if(text){
     _rec.tx=((_rec.tx||'')+' '+text).trim();     // 녹음기 버퍼 — 폴링과 무관하게 절대 안 사라짐
     var act=S.activeSessions[bayId];
+    if(act && _rec.mid && act.memberId!==_rec.mid) act=null;   // 그 사이 이 타석에 다른 회원 수업 — 그 회원 메모에 섞지 않는다(끝날 때 녹음한 회원 일지 초안으로)
     if(act){ act._transcript=_recFullText(); try{save();}catch(e){} _backupTranscript(bayId, act); }
     _recUpdateUI();   // render 없이 실시간 텍스트만 갱신
   }
   if(isFinal){ _finishRec(); }
+}
+// 녹음한 수업이 이미 끝났을 때 받아쓴 글 → 그 회원 일지 초안(지금 못 열면 보관했다가 다음 확인 때). 관찰용 회원은 아님
+function _recRecover(mid, author, tx){
+  if(!mid || !tx || (typeof isOwnerWatchMember==='function' && isOwnerWatchMember(mid))) return false;
+  try{ if(!S.showAddSession && openVoiceDraft(mid, author, tx)){ liveToast('🎙 수업이 다른 곳에서 끝나 녹음 내용을 일지 초안으로 옮겼어요 — 저장해 주세요','ok'); return true; } }catch(e){}
+  S._lostTx=S._lostTx||[]; S._lostTx.push({memberId:mid, author:author, tx:tx, at:new Date().toISOString()}); try{ save(); }catch(e){}
+  liveToast('🎙 녹음 내용을 보관했어요 — 잠시 뒤 일지 초안으로 열어요','ok');
+  return true;
 }
 // 최종 마무리 — 모든 변환 완료 후 전문을 세션에 확정 기록.
 // ⏱ 최대 45초만 기다린다 — 변환 요청이 걸려서 안 돌아와도 지금까지의 텍스트로
@@ -1497,8 +1584,15 @@ function _finishRec(){
   if(_rec.pendingStt>0 && !timedOut){ setTimeout(_finishRec, 400); return; }   // 남은 변환 대기
   var bayId=_rec._lastBay;
   var act=bayId && S.activeSessions[bayId];
+  if(act && _rec.mid && act.memberId!==_rec.mid) act=null;   // 다른 회원 수업으로 바뀜
   var full=_recFullText();
   try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}   // 녹음이 정상 마무리됨 — 자동 재개 마커 해제
+  // 녹음하던 수업이 그 사이 다른 곳에서 끝났거나(이 기기에만 남겨 둔 수업 · _gone) 다른 회원 수업으로 바뀜 → 받아쓴 글을 녹음한 회원의 일지 초안으로
+  if(!act || act._gone){
+    var _mid=act ? act.memberId : _rec.mid, _au=act ? act.author : _rec.author, _tx=String(full||(act&&act._transcript)||'').trim();
+    if(act){ delete S.activeSessions[bayId]; try{save();}catch(e){} act=null; }
+    if(_tx && _mid){ _rec._lastBay=null; _rec._finishT0=null; _recRecover(_mid, _au, _tx); try{ render(); }catch(e){} return; }
+  }
   if(act){
     if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
     delete act._sttBusy; delete act._sttBusyAt;
@@ -1547,18 +1641,59 @@ try{ setTimeout(resumeInterruptedRec, 4000); }catch(e){}   // 부팅(자동 로�
 var _recSkip = {};   // 이 기기에서 '녹음 없이 진행'을 고른 타석 세션('타석|시작 시각') — 메모칸을 바로 펼친다
 async function recStartAsk(bayId){
   var act=S.activeSessions[bayId]; if(!act){ liveToast('먼저 회원을 배정하세요','err'); return; }
-  var m=S.members.find(function(x){return x.id===act.memberId;});
-  if(!m || m.ownerWatch) return startBayRec(bayId);                  // 관찰용(타석 점검) 등 — 예전 그대로
+  var mid=act.memberId, m=S.members.find(function(x){return x.id===mid;});
+  if(m && m.ownerWatch) return startBayRec(bayId);                   // 관찰용(타석 점검) — 예전 그대로
   if(S._rcCheck || _rec.bayId) return;
+  // 이 기기에 동의 기록이 있으면 누른 그 자리에서 바로 녹음(v9.98 처럼) — 서버 기록은 뒤에서 확인하고, 그 사이 다른 기기에서 거부가 적혔으면
+  // 녹음을 멈추고 버린다(아무것도 변환·저장하지 않음). 예전엔 이 확인을 기다리느라 느린 와이파이에서 매번 2~2.5초 늦게 시작했다
+  if(m && recConsentState(m)==='yes'){ _rcCheckBg(m, bayId); return startBayRec(bayId, mid); }
   S._rcCheck=bayId; try{ render(); }catch(e){}
-  try{ await _rcFresh(m, 2500); }catch(e){}
+  if(m){ try{ await _rcFresh(m, 2500); }catch(e){} }
+  else {
+    // 이 기기에 아직 없는 회원(인포데스크에서 방금 등록, 다른 기기에서 수업 시작) — 예전엔 확인 없이 바로 녹음했다. 서버에서 그 회원을 받아 판단한다
+    var row=null; try{ row=await _rcFetchMember(mid, 2500); }catch(e){ row=null; }
+    if(row && !S.members.some(function(x){ return x.id===row.id; }) && !(S.deletedMemberIds||{})[row.id]){ S.members.push(row); try{ save(); }catch(e){} }
+    m=S.members.find(function(x){return x.id===mid;});
+  }
   S._rcCheck=null;
   var now=S.activeSessions[bayId];
-  if(!now || now.memberId!==m.id){ try{ render(); }catch(e){} return; }   // 확인하는 사이 수업이 끝났거나 바뀜
-  var st=recConsentState(m);
-  if(st==='yes') return startBayRec(bayId);
-  if(st==='no'){ liveToast('🎙 녹음 거부 회원이에요 — 녹음 없이 진행해요','err'); return; }
-  S.recAsk={bayId:bayId, memberId:m.id}; render();
+  if(!now || now.memberId!==mid){ try{ render(); }catch(e){} return; }   // 확인하는 사이 수업이 끝났거나 바뀜
+  if(m && m.ownerWatch) return startBayRec(bayId);
+  var st=m ? recConsentState(m) : '';
+  if(st==='yes') return startBayRec(bayId, mid);
+  if(st==='no'){ liveToast('🎙 녹음 거부 회원이에요 — 녹음 없이 진행해요','err'); try{ render(); }catch(e){} return; }
+  S.recAsk={bayId:bayId, memberId:mid, name:(m?m.name:act.memberName)||''}; render();   // 기록 없음(서버에서도 못 받은 회원 포함) → 확인 창, 몰래 녹음하지 않는다
+}
+// 이 기기에 없는 회원을 서버에서 받기 — ms 까지만 기다림. 못 받으면 null
+function _rcFetchMember(id, ms){
+  if(typeof cloud==='undefined' || !cloud || !cloud.enabled) return Promise.resolve(null);
+  var p=Promise.resolve(cloud.memberRow(id)).then(function(m){ return m||null; }, function(){ return null; });
+  return Promise.race([p, new Promise(function(r){ setTimeout(function(){ r(null); }, ms||2500); })]);
+}
+// 동의 기록이 있어 바로 녹음한 뒤 — 서버의 동의 기록을 뒤에서 확인. 다른 기기에서 그 사이 거부가 적혔으면 이 녹음을 멈추고 버린다
+function _rcCheckBg(m, bayId){
+  if(!m || typeof cloud==='undefined' || !cloud || !cloud.enabled) return;
+  Promise.resolve(cloud.memberData(m.id)).then(function(d){
+    if(!d || !(_rcAt(d)>_rcAt(m))) return;
+    _rcCopy(m, d); try{ save(); }catch(e){}
+    if(recConsentState(m)==='no' && _rec.bayId===bayId && _rec.mid===m.id) _recDiscard(bayId, '🎙 녹음 거부가 기록된 회원이에요 — 녹음을 멈췄어요(저장하지 않음)');
+    else { try{ render(); }catch(e){} }   // (마이크를 여는 중이었으면 startBayRec 이 거부를 보고 멈춘다)
+  }, function(){});
+}
+// 녹음 버리기 — 녹음기·마이크를 멈추고, 이번 녹음의 조각은 변환·저장하지 않는다(메모는 녹음 전으로)
+function _recDiscard(bayId, msg){
+  if(_rec.bayId!==bayId) return;
+  var R=_rec, act=S.activeSessions[bayId];
+  R.discard=true; R.stopping=true;
+  try{ localStorage.removeItem('golf_pt_rec_active'); }catch(e){}
+  clearInterval(R.uiTimer); clearTimeout(R.segTimer); clearTimeout(R.autoStop);
+  try{ if(R.wakeLock) R.wakeLock.release(); }catch(e){}
+  try{ if(R.mr) R.mr.stop(); }catch(e){}
+  try{ R.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+  if(act && (!R.mid || act.memberId===R.mid)){ act._transcript=R.txBase||''; delete act._sttBusy; delete act._sttBusyAt; try{ save(); }catch(e){} }
+  R.tx=''; R.bayId=null; R.mr=null; R.stream=null; R._lastBay=null;
+  try{ render(); }catch(e){}
+  if(msg) liveToast(msg,'err');
 }
 function recAskCancel(){ S.recAsk=null; render(); }
 function recAskSkip(){
@@ -1568,14 +1703,19 @@ function recAskSkip(){
 }
 function recAskOral(){
   var q=S.recAsk; S.recAsk=null;
-  var m=q && S.members.find(function(x){return x.id===q.memberId;});
-  if(!m){ try{ render(); }catch(e){} return; }
+  if(!q){ try{ render(); }catch(e){} return; }
+  // 창을 띄운 사이 타석의 수업이 끝났거나 다른 회원으로 바뀜 → 이 동의를 그 회원 것으로 적지도, 녹음하지도 않는다 (다시 눌러 확인)
+  var a=S.activeSessions[q.bayId];
+  if(!a || a.memberId!==q.memberId){ liveToast('타석의 회원이 바뀌었어요 — 다시 눌러 주세요','err'); try{ render(); }catch(e){} return; }
+  // 이 기기에 아직 없는 회원(서버에서도 못 받음)이면 동의는 서버의 그 회원 행에만 적는다(행이 없으면 아무것도 만들지 않음)
+  var m=S.members.find(function(x){return x.id===q.memberId;}), known=!!m;
+  if(!m) m={id:q.memberId, name:q.name||a.memberName||''};
   m.recConsent=_rcToday(); m.recConsentHow='구두'; m.recConsentNo=''; m.recConsentBy=S.currentUser||''; m.recConsentAt=new Date().toISOString();
   try{ _rcLog(m); }catch(e){}
   try{ save(); }catch(e){}
-  try{ syncMemberUp(m); }catch(e){}
+  try{ syncConsentUp(m, !known); }catch(e){}   // 동의 칸만 서버에 (이 기기의 낡은 회원 정보로 다른 칸을 되돌리지 않게)
   try{ render(); }catch(e){}
-  startBayRec(q.bayId);   // 같은 탭 안에서 바로 시작 — 마이크 권한 창이 막히지 않게
+  startBayRec(q.bayId, q.memberId);   // 같은 탭 안에서 바로 시작 — 마이크 권한 창이 막히지 않게
 }
 function renderRecAskModal(){
   var q=S.recAsk; if(!q) return '';
@@ -1583,21 +1723,25 @@ function renderRecAskModal(){
   return '<div class="modal-overlay" onclick="if(event.target===this)recAskCancel()"><div class="modal rc-ask">'
     + '<div class="rc-ask-icon">🎙</div>'
     + '<div class="modal-title">녹음 동의가 기록되지 않은 회원</div>'
-    + '<div class="rc-ask-msg"><b>'+esc(m?m.name:'')+'</b>님은 녹음·AI 정리 동의 기록이 없어요.<br>녹음해도 되는지 여쭤 봐 주세요. 동의하지 않으셔도 레슨은 그대로 진행돼요.</div>'
+    + '<div class="rc-ask-msg"><b>'+esc(m?m.name:(q.name||''))+'</b>님은 녹음·AI 정리 동의 기록이 없어요.<br>녹음해도 되는지 여쭤 봐 주세요. 동의하지 않으셔도 레슨은 그대로 진행돼요.</div>'
     + '<div class="rc-ask-btns">'
     +   '<button class="btn primary" onclick="recAskOral()">오늘 구두 동의 받음 — 기록하고 녹음</button>'
     +   '<button class="btn" onclick="recAskSkip()">녹음 없이 진행</button>'
     +   '<button class="btn rc-ask-cancel" onclick="recAskCancel()">취소</button>'
     + '</div></div></div>';
 }
-async function startBayRec(bayId){
+// expectMid: 확인(동의 창 등)한 회원 — 그 사이 타석 회원이 바뀌었으면 녹음하지 않는다. 녹음 거부가 기록된 회원도 녹음하지 않는다(마이크를 여는 사이 포함)
+async function startBayRec(bayId, expectMid){
   if(!recSupported()){ liveToast('이 기기는 녹음을 지원하지 않습니다','err'); return; }
   if(_rec.bayId){ liveToast('이미 '+getBay(_rec.bayId).name+'에서 녹음 중입니다','err'); return; }
   var act=S.activeSessions[bayId]; if(!act){ liveToast('먼저 회원을 배정하세요','err'); return; }
+  var _bad=function(a){ return !a || a.memberId!==(expectMid||act.memberId) || _rcRefusedId(a.memberId); };
+  if(_bad(act)){ liveToast(_rcRefusedId(act.memberId) ? '🎙 녹음 거부 회원이에요 — 녹음 없이 진행해요' : '타석의 회원이 바뀌었어요 — 다시 눌러 주세요','err'); try{ render(); }catch(e){} return; }
   try{
     var stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
-    // txBase = 녹음 시작 전 이미 있던 메모, tx = 이번 녹음으로 쌓이는 텍스트(자체 버퍼)
-    _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0, txBase:(act._transcript||'').trim(), tx:''};
+    if(_rec.bayId || _bad(S.activeSessions[bayId])){ try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){} try{ render(); }catch(e){} return; }   // 마이크를 여는 사이 바뀜·거부 확인됨
+    // txBase = 녹음 시작 전 이미 있던 메모, tx = 이번 녹음으로 쌓이는 텍스트(자체 버퍼) · mid/author = 녹음하는 수업의 회원·담당
+    _rec={bayId:bayId, stream:stream, mr:null, chunks:[], startedAt:Date.now(), uiTimer:null, segTimer:null, wakeLock:null, stopping:false, segIdx:0, pendingStt:0, txBase:(act._transcript||'').trim(), tx:'', mid:act.memberId, author:act.author};
     // 진행 중 표시 — 앱이 죽어도(갤럭시 절전 킬 등) 재시작 시 녹음을 자동 재개하기 위한 복구 마커
     try{ localStorage.setItem('golf_pt_rec_active', JSON.stringify({bayId:bayId, at:Date.now(), author:S.currentUser||''})); }catch(e){}
     try{ var ub=document.getElementById('upd-banner'); if(ub) ub.remove(); }catch(e){}   // 녹음 중 업데이트 배너 숨김
@@ -2238,8 +2382,8 @@ async function hbTick(force){
     seq=++_bayHb.seq; _bayHb.busy=now; _bayHb.at=now;
     var res=await Promise.all(bays.map(function(b){ return _hbFetch(b.id); }));
     if(seq!==_bayHb.seq) return false;
-    // 잠깐 못 읽었으면(네트워크·서버 오류) 직전에 받은 값을 그대로 둔다
-    bays.forEach(function(b, i){ var r=res[i], old=_bayHb.data[b.id]; if(r.st==='err' && old && old.st!=='err') return; _bayHb.data[b.id]=r; });
+    // 잠깐 못 읽었으면(네트워크·서버 오류) 직전에 받은 값을 그대로 두고, 마지막 읽기가 실패했다는 것만 적어 둔다(fail — 다음에 읽히면 사라짐)
+    bays.forEach(function(b, i){ var r=res[i], old=_bayHb.data[b.id]; if(r.st==='err' && old && old.st!=='err'){ old.fail=r.got; return; } _bayHb.data[b.id]=r; });
     _bayHb.busy=0;
     _hbPatch();
     return true;
@@ -2278,6 +2422,8 @@ function _hbInfo(id){
   var tf=_hbNum(j.trackmanNewestFileAgeSec); if(tf!==null && tf>=0) p.push('트랙맨 파일 '+_hbAgo(tf*1000+age));
   var pv=_hbNum(j.pendingVideos); if(pv===null) pv=_hbNum(j.queueLen); if(pv!==null && pv>=0) p.push('영상 대기 '+Math.round(pv));
   var late=age>HB_RED_MIN*60000;
+  // 이 기기가 신호를 못 읽는 중(이 기기의 와이파이 등)이면 예전 신호를 계속 나이 들게 해 '빨간색 — PC 고장'으로 보이지 않게, 확인 안 됨으로
+  if(late && d.fail) return {cls:'err', txt:'PC 신호 확인 안 됨(이 기기 연결 확인)'};
   return {cls:late ? (_hbBiz(now) ? 'red' : 'late') : 'ok', txt:p.join(' · ')};
 }
 // 관리자 대시보드용 덧붙임 — 에이전트 시작(재시작) 시각 · 재시작 때 복구한 영상 작업 · PC 시계 오차 · 켜 둔 세션 상한
@@ -2354,12 +2500,29 @@ function _staleAgentWarnHTML(bays, isAdmin){
   }catch(e){ return ''; }
 }
 
-function renderBayCard(bay, canCoach, isAdmin){
-  var act = S.activeSessions[bay.id];
-  // 관찰용(타석 점검) 세션은 담당자·관리자 외에는 빈 타석으로 보임 — [+ 회원 배정]을
-  // 누르면 조용히 인수되므로(_takeOverConfirm) 다른 직원에겐 막히지도, 드러나지도 않음
+// 타석 카드에 보일 수업 — 관찰용(타석 점검) 세션은 담당자·관리자 외에는 빈 타석으로 보임 ([+ 회원 배정]을
+// 누르면 조용히 인수되므로(_takeOverConfirm) 다른 직원에겐 막히지도, 드러나지도 않음)
+function _bayCardAct(bayId){
+  var act = S.activeSessions[bayId];
   if(act && typeof isOwnerWatchMember==='function' && isOwnerWatchMember(act.memberId)
      && !(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) act = null;
+  return act || null;
+}
+// 카드를 그린 근거(회원·시작 시각·어제 세션·다른 곳에서 끝남) — 폴링이 부분 패치로 충분한지 판단할 때 그려진 카드와 비교
+function _bayCardSig(act){ return act ? String(act.memberId||'')+'|'+String(act.startedAt||'')+(isStaleSession(act)?'|s':'')+(act._gone?'|g':'') : ''; }
+// 그려진 타석 카드가 지금 상태와 다른가 (빈 타석에 수업이 생김·끝남·회원이 바뀜 등) → 부분 패치로는 못 그림
+function _liveCardsStale(){
+  var grid=document.querySelector('.bay-grid'); if(!grid) return false;
+  var cards=grid.querySelectorAll('.bay-card'), bays=(S.bays && S.bays.length) ? S.bays : BAYS_DEFAULT;
+  if(cards.length!==bays.length) return true;
+  for(var i=0;i<bays.length;i++){
+    var c=cards[i], drawn=c.classList.contains('active') ? (c.getAttribute('data-sig')||'') : '';
+    if(drawn!==_bayCardSig(_bayCardAct(bays[i].id))) return true;
+  }
+  return false;
+}
+function renderBayCard(bay, canCoach, isAdmin){
+  var act = _bayCardAct(bay.id);
   var typeLabel = bay.type==='lesson_only' ? '레슨 전용' : '연습 · 레슨';
   var head = '<div class="bay-card-hd '+safeBayColor(bay.color)+'"><span class="bay-name">'+esc(bay.name)+'</span><span class="bay-type">'+typeLabel+'</span></div>'
            + _hbLineHTML(bay.id);   // PC 신호 n분 전 · v12 · 트랙맨 파일 n분 전 · 영상 대기 n (하트비트)
@@ -2381,6 +2544,7 @@ function renderBayCard(bay, canCoach, isAdmin){
 
   var body = '<div class="bay-active">';
   if(stale){ body += '<div class="bay-stale">⚠️ 어제 시작된 세션입니다.<br>굿샷이 차단됩니다 — 종료 후 다시 시작하세요.</div>'; }
+  if(act._gone){ body += '<div class="bay-stale">⏹ 다른 곳에서 끝난 수업이에요 — 녹음을 마치면 내용이 일지 초안으로 옮겨져요</div>'; }
   // 이름 옆 [종료] — 카드 맨 아래까지 스크롤하지 않고 바로 종료 (아래 큰 종료 버튼도 유지)
   // 회원 전화번호 — 녹음 화면에서 바로 보이게(정우진 프로 건의). 탭하면 전화.
   var _bm = S.members.find(function(x){return x.id===act.memberId;});
@@ -2466,7 +2630,7 @@ function renderBayCard(bay, canCoach, isAdmin){
   body += '<div class="bay-actions">';
   body += '<button class="btn bay-end-btn" onclick="endLiveSession(\''+safeId(bay.id)+'\')">⏹ 종료</button>';
   body += '</div></div>';
-  return '<div class="bay-card active" data-bay="'+safeId(bay.id)+'">'+head+body+'</div>';
+  return '<div class="bay-card active" data-bay="'+safeId(bay.id)+'" data-sig="'+esc(_bayCardSig(act))+'">'+head+body+'</div>';
 }
 
 function _shotTimeLabel(s){
