@@ -9,6 +9,41 @@ $dir  = 'C:\golfpt-sync'
 $base = 'https://raw.githubusercontent.com/wellnessmode/Golf_PT_collabo/main/agent'
 $files = @('agent.js','ftmf-parser.js')
 
+# >>> gpt-fresh-config — 신규 설치 때만 쓰는 config.json 생성 (기존 config.json 은 절대 건드리지 않음)
+#     config.sample.json 은 공개 저장소라 키 대신 "<...>" 자리표시자만 들어 있다 → 여기서 키 2개를 입력받아 채운다.
+function Read-GptKey([string]$label) {
+  for ($i = 0; $i -lt 3; $i++) {
+    $v = Read-Host ('  ' + $label + ' 붙여넣고 Enter')
+    if ($null -eq $v) { $v = '' }
+    $v = ([string]$v).Trim().Trim('"').Trim("'").Trim()
+    if ($v -match '^[A-Za-z0-9._~+/=-]{8,4096}$') { return $v }
+    if ($v) { Write-Host '  [다시] 키에 쓸 수 없는 문자(공백·따옴표·한글 등)가 들어 있습니다.' -ForegroundColor Yellow }
+    else { Write-Host '  [다시] 비어 있습니다.' -ForegroundColor Yellow }
+  }
+  return $null
+}
+function Set-GptConfigValue([string]$text, [string]$name, [string]$value) {
+  # "이름": "값" 한 줄의 값만 바꾼다 (값은 Read-GptKey 가 영문·숫자·._~+/=- 만 허용 → 따옴표·$·역슬래시 없음)
+  $pat = '("' + [regex]::Escape($name) + '"\s*:\s*)"[^"]*"'
+  return [regex]::Replace($text, $pat, '${1}"' + $value + '"')
+}
+function New-GptConfig([string]$samplePath, [string]$outPath) {
+  if (Test-Path $outPath) { return $false }
+  $text = [System.IO.File]::ReadAllText($samplePath, [System.Text.Encoding]::UTF8)
+  Write-Host ''
+  Write-Host ' [필수] 키 2개를 입력합니다 - 관리자에게 받거나, 다른 타석 PC 의 C:\golfpt-sync\config.json 에서 복사.' -ForegroundColor Yellow
+  Write-Host '        (입력한 키는 화면에 보입니다. 주변에 다른 사람이 없을 때 입력하세요.)'
+  $anon = Read-GptKey 'Supabase anon 키(SUPABASE_ANON_KEY)'
+  $r2   = Read-GptKey '스토리지 키(R2_API_KEY)'
+  if ($anon) { $text = Set-GptConfigValue $text 'SUPABASE_ANON_KEY' $anon }
+  else { Write-Host '  [주의] Supabase 키 미입력 - 메모장에서 "<Supabase anon 키>" 자리에 직접 넣어야 샷이 전송됩니다.' -ForegroundColor Red }
+  if ($r2) { $text = Set-GptConfigValue $text 'R2_API_KEY' $r2 }
+  else { Write-Host '  [주의] 스토리지 키 미입력 - 메모장에서 "<스토리지 키>" 자리에 직접 넣어야 영상이 올라갑니다.' -ForegroundColor Red }
+  [System.IO.File]::WriteAllText($outPath, $text, (New-Object System.Text.UTF8Encoding($false)))
+  return $true
+}
+# <<< gpt-fresh-config
+
 Write-Host ''
 Write-Host '=== Golf PT 에이전트 올인원 업데이트 ===' -ForegroundColor Cyan
 # 신규 타석 PC 지원 — 폴더/런처가 없으면 "신규 설치 모드"로 전부 받아서 구성한다.
@@ -86,12 +121,27 @@ if (!(Test-Path "$dir\start-hidden.vbs")) {
   }
 }
 
+# ── 4b2. 상태확인.bat 갱신 (선택 — 실패해도 업데이트는 계속) ──
+#      새 상태확인.bat 은 agent.js 의 AGENT_VERSION 숫자를 읽어 GitHub 최신 버전과 비교한다
+#      (옛 것은 표식 문자열만 봐서 구버전도 '최신'으로 표시했다). 파일명이 한글이라 URL 인코딩으로 받는다.
+try {
+  $stTmp = Join-Path $tmp 'status-check.bat'
+  Invoke-WebRequest -Uri "$base/%EC%83%81%ED%83%9C%ED%99%95%EC%9D%B8.bat" -OutFile $stTmp -UseBasicParsing
+  $stHead = (Get-Content $stTmp -TotalCount 1)
+  if ((Get-Item $stTmp).Length -gt 500 -and $stHead -match '^\s*@echo off') { Copy-Item $stTmp (Join-Path $dir '상태확인.bat') -Force }
+  else { Write-Host '[참고] 상태확인.bat 새 파일이 비정상이라 기존 것을 유지합니다.' -ForegroundColor DarkYellow }
+} catch { Write-Host "[참고] 상태확인.bat 갱신 건너뜀: $($_.Exception.Message)" -ForegroundColor DarkYellow }
+
 # ── 4c. config.json 없으면 샘플로 생성 후, 타석 설정을 받고 종료 ──
 #      (bay3 기본값 그대로 돌면 샷이 3번룸으로 잘못 귀속되므로 시작하지 않는다)
+#      이미 있는 config.json 은 절대 바꾸지 않는다 — 이 블록은 config.json 이 없을 때(신규 설치)만 실행.
 if (!(Test-Path "$dir\config.json")) {
   Write-Host '[신규] config.json 이 없어 샘플로 생성합니다...' -ForegroundColor Yellow
-  try { Invoke-WebRequest -Uri "$base/config.sample.json" -OutFile "$dir\config.json" -UseBasicParsing }
+  $smp = Join-Path $tmp 'config.sample.json'
+  try { Invoke-WebRequest -Uri "$base/config.sample.json" -OutFile $smp -UseBasicParsing }
   catch { Write-Host "[오류] 샘플 설정 다운로드 실패: $($_.Exception.Message)" -ForegroundColor Red; pause; exit 1 }
+  try { New-GptConfig $smp "$dir\config.json" | Out-Null }
+  catch { Write-Host "[오류] config.json 생성 실패: $($_.Exception.Message)" -ForegroundColor Red; pause; exit 1 }
   Write-Host ''
   Write-Host '=====================================================' -ForegroundColor Yellow
   Write-Host ' [필수] 지금 메모장이 열립니다 - 이 PC 타석에 맞게 수정:' -ForegroundColor Yellow
@@ -100,6 +150,7 @@ if (!(Test-Path "$dir\config.json")) {
   Write-Host '  2) "bayMap": { ... }      ->  "bayMap": {}'
   Write-Host '  3) "ffmpegPath": ""       ->  3번룸 PC 의 config.json 과 같은 값'
   Write-Host '     (예: "C:\\ffmpeg\\bin\\ffmpeg.exe" - 그 위치에 ffmpeg 도 복사해둘 것)'
+  Write-Host '  4) "SUPABASE_ANON_KEY" / "R2_API_KEY" 가 아직 "<...>" 이면 -> 키 붙여넣기'
   Write-Host ''
   Write-Host '  저장(Ctrl+S) 후, 아까 그 두 줄을 다시 실행하면 시작됩니다.' -ForegroundColor Yellow
   Write-Host '=====================================================' -ForegroundColor Yellow

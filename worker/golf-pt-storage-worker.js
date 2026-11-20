@@ -601,13 +601,13 @@ async function handleObject(request, env, ctx, url, L) {
   if (!d.ok) {
     if (d.forbidden) {
       L.e = 'agent-scope';
-      return json({ error: 'forbidden', detail: '타석 PC 토큰은 자기 타석 경로(<bay>/, orig/<bay>/, hb/<bay>.json)에 올리기(PUT)만 할 수 있습니다' }, 403);
+      return json({ error: 'forbidden', detail: '타석 PC 토큰은 자기 타석 경로(<bay>/, orig/<bay>/, hb/<bay>.json)에 올리기와, 방금 올린 자기 타석 영상 지우기만 할 수 있습니다' }, 403);
     }
     return authFail(L);
   }
   setAuth(L, A, d.how);
   if (m === 'PUT') return putObject(request, env, ctx, url, key, L);
-  if (m === 'DELETE') return deleteObject(env, url, key, L);
+  if (m === 'DELETE') return deleteObject(env, url, key, L, !!d.agentDel);
   return json({ error: 'method not allowed' }, 405);
 }
 
@@ -643,12 +643,21 @@ async function putObject(request, env, ctx, url, key, L) {
   }
 }
 
-async function deleteObject(env, url, key, L) {
+async function deleteObject(env, url, key, L, agentRecentOnly) {
   if (key.indexOf('__meta/') === 0 || !keySane(key)) {
     L.e = 'key-not-allowed';
     return json({ error: 'key not allowed', detail: '허용되지 않은 저장 경로입니다' }, 400);
   }
   try {
+    if (agentRecentOnly) {
+      // 타석 PC 토큰의 삭제: 올린 지 6시간 안 된 파일만 (없는 파일은 그대로 성공 처리)
+      const h = await env.BUCKET.head(key);
+      const up = h && h.uploaded ? new Date(h.uploaded).getTime() : NaN;
+      if (h && !(up > Date.now() - AGENT_DELETE_MAX_AGE_MS)) {
+        L.e = 'agent-delete-old';
+        return json({ error: 'forbidden', detail: '타석 PC 토큰은 올린 지 6시간이 지난 영상을 지울 수 없습니다' }, 403);
+      }
+    }
     await env.BUCKET.delete(key);
     await purgeEdgeCache(url.origin, key);   // 지운 파일이 엣지 캐시에서 계속 나가지 않게
     return json({ ok: true }, 200);
@@ -825,15 +834,18 @@ async function authFor(request, env, L) {
   return A;
 }
 function isStaff(tok) { return !!(tok && STAFF_ROLES.indexOf(tok.r) !== -1); }
-// 타석 PC 토큰: 자기 타석의 샷 영상 '<bay>/' · 원본 'orig/<bay>/' · 하트비트 'hb/<bay>.json' 에 올리기(PUT)만.
-// 다른 타석 경로나 삭제(DELETE)는 403 — 에이전트는 자기 타석 경로에만 올리고 아무것도 지우지 않음(agent.js)
+// 타석 PC 토큰: 자기 타석의 샷 영상 '<bay>/' · 원본 'orig/<bay>/' · 하트비트 'hb/<bay>.json' 에 올리기(PUT).
+// 삭제(DELETE)는 자기 타석 샷 영상 '<bay>/' 만, 그것도 올린 지 AGENT_DELETE_MAX_AGE_MS(6시간) 안 된 파일만 —
+// 에이전트 v12 가 같은 샷의 더 나은 영상으로 바꿀 때 방금 올린 옛 파일을 지우는 용도. 토큰이 새도 저장된(오래된) 영상은 못 지움.
+const AGENT_DELETE_MAX_AGE_MS = 6 * 3600 * 1000;
 function agentKeyAllowed(b, key, method) {
+  if (method === 'DELETE') return key.indexOf(b + '/') === 0;
   if (method !== 'PUT') return false;
   return key.indexOf(b + '/') === 0 || key.indexOf('orig/' + b + '/') === 0 || key === 'hb/' + b + '.json';
 }
 function writeDecision(A, key, method) {
   if (A.tok && isStaff(A.tok)) return { ok: true, how: 'token' };
-  if (A.tok && A.tok.r === 'agent' && agentKeyAllowed(A.tok.b, key, method)) return { ok: true, how: 'token' };
+  if (A.tok && A.tok.r === 'agent' && agentKeyAllowed(A.tok.b, key, method)) return { ok: true, how: 'token', agentDel: method === 'DELETE' && !A.legacy };
   if (A.legacy) return { ok: true, how: 'legacy' };
   if (A.tok && A.tok.r === 'agent') return { ok: false, forbidden: true };
   return { ok: false };
