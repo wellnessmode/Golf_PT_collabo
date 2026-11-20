@@ -207,7 +207,7 @@ function renderDashboard(){
   return `
   <div class="dashboard">
     <div class="dash-header">
-      <h2>${isStaff?('안녕하세요, '+S.currentUser+'님 👋'):'대시보드'}</h2>
+      <h2>${isStaff?('안녕하세요, '+esc(S.currentUser)+'님 👋'):'대시보드'}</h2>
       <span class="dash-ver">${todayLabel} · ${APP_VERSION.version}</span>
     </div>
     ${S.currentRole!=='infodesk'?'<button class="dash-live-btn" onclick="openLiveSession()">🏌️ 수업 센터 <small>타석 레슨 시작 · 트랙맨 샷 자동 저장</small></button>':''}
@@ -224,8 +224,8 @@ function renderDashboard(){
           var days=Math.floor((Date.now()-(Date.parse(m.reportDirty)||Date.now()))/86400000);
           var wait=days<=0?'오늘':days+'일째 대기';
           var who=(isInfo&&typeof _reviewOwner==='function')?_reviewOwner(m):'';
-          return '<button class="dash-review-row" onclick="selectMember(\''+m.id+'\');openPerformance()">'
-            +'<span>'+m.name+((lastD||who)?'<small>'+(lastD?'레슨 '+lastD:'')+(who?(lastD?' · ':'')+'검토 '+who:'')+'</small>':'')+'</span>'
+          return '<button class="dash-review-row" onclick="selectMember(\''+safeId(m.id)+'\');openPerformance()">'
+            +'<span>'+esc(m.name)+((lastD||who)?'<small>'+(lastD?'레슨 '+esc(lastD):'')+(who?(lastD?' · ':'')+'검토 '+esc(who):'')+'</small>':'')+'</span>'
             +'<i class="drr-days'+(days>=3?' late':'')+'">'+wait+'</i>'
             +'<em>검토 →</em></button>';
         }).join('')
@@ -244,13 +244,13 @@ function renderDashboard(){
         <div class="dash-bar-list">${Object.keys(instructorStats).map(function(name){
           var cnt = instructorStats[name];
           var pct = totalSessions>0?Math.round(cnt/totalSessions*100):0;
-          return '<div class="dash-bar-row"><span class="dbr-name">'+name+'</span><div class="dbr-bar-wrap"><div class="dbr-bar '+(name.indexOf('프로')!==-1?'pro':'trainer')+'" style="width:'+pct+'%"></div></div><span class="dbr-cnt">'+cnt+'</span></div>';
+          return '<div class="dash-bar-row"><span class="dbr-name">'+esc(name)+'</span><div class="dbr-bar-wrap"><div class="dbr-bar '+(name.indexOf('프로')!==-1?'pro':'trainer')+'" style="width:'+pct+'%"></div></div><span class="dbr-cnt">'+cnt+'</span></div>';
         }).join('')}</div>
       </div>`:''}
       <div class="dash-card">
         <h3>만료 임박 회원</h3>
         ${expiringMembers.length>0?'<div class="dash-expire-list">'+expiringMembers.map(function(e){
-          return '<div class="dash-expire-item"><span>'+e.name+'</span><span class="exp-badge exp-soon">D-'+e.days+'</span><span class="de-date">~'+e.expiry+'</span></div>';
+          return '<div class="dash-expire-item"><span>'+esc(e.name)+'</span><span class="exp-badge exp-soon">D-'+e.days+'</span><span class="de-date">~'+esc(e.expiry)+'</span></div>';
         }).join('')+'</div>':'<div class="empty-state" style="padding:20px">30일 이내 만료 회원이 없습니다</div>'}
       </div>
     </div>
@@ -258,8 +258,8 @@ function renderDashboard(){
       <h3>회원별 진행률</h3>
       <div class="dash-progress-list">
         ${memberProgress.map(function(p){
-          return '<div class="dash-prog-row" onclick="selectMember(\''+p.id+'\');closeDashboard()">'+
-            '<span class="dp-name">'+p.name+'</span>'+
+          return '<div class="dash-prog-row" onclick="selectMember(\''+safeId(p.id)+'\');closeDashboard()">'+
+            '<span class="dp-name">'+esc(p.name)+'</span>'+
             '<div class="dp-bars">'+
               '<div class="dp-bar-group"><span class="dp-lbl">레슨</span><div class="dp-bar-wrap"><div class="dp-bar pro" style="width:'+p.lessonPct+'%"></div></div><span class="dp-pct">'+p.pro+'/'+p.lessonTotal+'</span></div>'+
               '<div class="dp-bar-group"><span class="dp-lbl">PT</span><div class="dp-bar-wrap"><div class="dp-bar trainer" style="width:'+p.ptPct+'%"></div></div><span class="dp-pct">'+p.trainer+'/'+p.ptTotal+'</span></div>'+
@@ -273,7 +273,7 @@ function renderDashboard(){
       <div class="dash-recent">
         ${recentActivity.map(function(a){
           var prevTxt=String(a.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\s+/g,' ').trim();
-          return '<div class="dash-recent-item clickable" onclick="openSessionFromDash(\''+a.mid+'\',\''+a.id+'\')"><span class="dr-date">'+a.date+(a.time?'<em class="dr-time">'+timeLabel(a.time)+'</em>':'')+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+prevTxt.slice(0,50)+(prevTxt.length>50?'…':'')+'</span><span class="dr-open">열기 ›</span></div>';
+          return '<div class="dash-recent-item clickable" onclick="openSessionFromDash(\''+safeId(a.mid)+'\',\''+safeId(a.id)+'\')"><span class="dr-date">'+esc(a.date)+(a.time?'<em class="dr-time">'+esc(timeLabel(a.time))+'</em>':'')+'</span><span class="dr-member">'+esc(a.member)+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+esc(prevTxt.slice(0,50))+(prevTxt.length>50?'…':'')+'</span><span class="dr-open">열기 ›</span></div>';
         }).join('')||'<div class="empty-state" style="padding:20px">최근 활동이 없습니다</div>'}
       </div>
     </div>
@@ -495,8 +495,8 @@ function onVideoError(videoEl, vid){
     var src=videoEl ? videoEl.currentSrc || videoEl.src : '';
     var note=document.createElement('div');
     note.className='sm-error';
-    var safe=String(src||'').replace(/[<>"]/g,'');
-    note.innerHTML=reason+(safe?' · <a href="'+safe+'" target="_blank" rel="noopener">새 창 열기</a>':'');
+    var safe=safeUrl(src);
+    note.innerHTML=reason+(safe?' · <a href="'+esc(safe)+'" target="_blank" rel="noopener">새 창 열기</a>':'');
     wrap.appendChild(note);
   }catch(e){}
 }
@@ -518,7 +518,7 @@ function setSpeed(vid,spd){
 function openMediaView(src){
   var d=document.createElement('div');d.className='media-overlay';
   d.onclick=function(){d.remove();};
-  d.innerHTML='<img src="'+src+'" style="max-width:92vw;max-height:92vh;border-radius:8px">';
+  d.innerHTML='<img src="'+esc(safeUrl(src))+'" style="max-width:92vw;max-height:92vh;border-radius:8px">';
   document.body.appendChild(d);
 }
 

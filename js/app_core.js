@@ -25,6 +25,19 @@ const ASSESSMENT_ITEMS = [
 
 const RESULT_OPTIONS = ['미검사','정상','경미한 제한','주의 필요','제한'];
 const AVATAR_COLORS = ['av-green','av-blue','av-amber','av-coral'];
+const BAY_COLORS = ['bay-blue','bay-amber','bay-green'];
+
+// ============ 화면 출력 보호 (저장형 XSS 차단, v9.99) ============
+// DB·기기 저장소에서 온 값(회원 이름·메모·작성자·샷 정보·알림 등)은 화면 HTML 에 넣기 전에 반드시 esc().
+// onclick 같은 JS 안에 넣는 id 는 safeId() — 영문·숫자·_- 만 통과, 아니면 '' (눌러도 아무 일 없음).
+// id 가 아닌 문자열을 onclick 에 넣어야 하면 jsq() (따옴표까지 안전한 JS 문자열 리터럴).
+// 색상 클래스는 허용 목록만(safeColor·safeBayColor), 영상·사진 주소는 safeUrl()(http·https·blob·data 이미지/영상만).
+function esc(s){ return String(s==null?'':s).replace(/[&<>"'`]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c];}); }
+function safeId(id){ id=String(id==null?'':id); return /^[A-Za-z0-9_-]{1,128}$/.test(id)?id:''; }
+function jsq(s){ return esc(JSON.stringify(String(s==null?'':s))); }
+function safeColor(c){ return AVATAR_COLORS.indexOf(c)!==-1?c:AVATAR_COLORS[0]; }
+function safeBayColor(c){ return BAY_COLORS.indexOf(c)!==-1?c:BAY_COLORS[0]; }
+function safeUrl(u){ u=String(u==null?'':u).trim(); return /^(https?:|blob:|data:(image|video)\/)/i.test(u)?u:''; }
 
 // ============ B2B 화이트라벨 (config.js 오버라이드) ============
 // 브랜드/지도자/베이/초기비번은 config.js 값이 있으면 그걸 쓰고, 없으면 기본값.
@@ -1475,7 +1488,7 @@ async function checkAppUpdate(){
       b.onclick=function(){ b.textContent='업데이트 중...'; location.reload(); };
       document.body.appendChild(b);
     }
-    b.innerHTML='🔄 새 버전 '+nv+' — <b>탭하면 업데이트</b> <span>(현재 '+APP_VERSION.version+')</span>';
+    b.innerHTML='🔄 새 버전 '+esc(nv)+' — <b>탭하면 업데이트</b> <span>(현재 '+APP_VERSION.version+')</span>';
   }catch(e){}
 }
 try{

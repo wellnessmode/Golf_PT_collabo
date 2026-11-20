@@ -39,7 +39,7 @@ function svgLine(vals, labels, opt){
   var xLab='';
   if(labels&&labels.length){
     var idxs=n<=5?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
-    xLab=idxs.map(function(i){var anchor=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-7)+'" text-anchor="'+anchor+'" class="cax">'+labels[i]+'</text>';}).join('');
+    xLab=idxs.map(function(i){var anchor=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-7)+'" text-anchor="'+anchor+'" class="cax">'+esc(labels[i])+'</text>';}).join('');
   }
   // 마지막 값 배지
   var lastV=vals[n-1];
@@ -79,9 +79,9 @@ function svgMultiLine(series, labels, opt){
            '<text x="'+(pad.l-6)+'" y="'+(pad.t+ih)+'" text-anchor="end" class="cax">'+_fmtNum(min)+'</text>';
   var xLab='';
   if(n){var idxs=n<=5?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
-    xLab=idxs.map(function(i){var anchor=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-9)+'" text-anchor="'+anchor+'" class="cax">'+labels[i]+'</text>';}).join('');}
+    xLab=idxs.map(function(i){var anchor=i===0?'start':(i===n-1?'end':'middle');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-9)+'" text-anchor="'+anchor+'" class="cax">'+esc(labels[i])+'</text>';}).join('');}
   var svg='<svg viewBox="0 0 '+W+' '+H+'" class="chart" preserveAspectRatio="xMidYMid meet">'+grid+lines+yLab+xLab+'</svg>';
-  var legend='<div class="chart-legend">'+series.map(function(s){return '<span class="cl-item"><i style="background:'+s.color+'"></i>'+s.name+'</span>';}).join('')+'</div>';
+  var legend='<div class="chart-legend">'+series.map(function(s){return '<span class="cl-item"><i style="background:'+s.color+'"></i>'+esc(s.name)+'</span>';}).join('')+'</div>';
   return svg+legend;
 }
 
@@ -100,7 +100,7 @@ function svgBars(vals, labels, opt){
   }).join('');
   var xLab='';
   if(labels){var idxs=n<=6?labels.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1];
-    xLab=idxs.map(function(i){var x=pad.l+gap*i+gap/2;return '<text x="'+x.toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" class="cax">'+labels[i]+'</text>';}).join('');}
+    xLab=idxs.map(function(i){var x=pad.l+gap*i+gap/2;return '<text x="'+x.toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" class="cax">'+esc(labels[i])+'</text>';}).join('');}
   var yLab='<text x="'+(pad.l-6)+'" y="'+(pad.t+4)+'" text-anchor="end" class="cax">'+_fmtNum(max)+'</text>';
   return '<svg viewBox="0 0 '+W+' '+H+'" class="chart" preserveAspectRatio="xMidYMid meet">'+bars+yLab+xLab+'</svg>';
 }
@@ -165,7 +165,7 @@ function svgRadar(axes, seriesA, seriesB, opt){
     rings+='<polygon points="'+poly+'" fill="none" stroke="rgba(0,0,0,.07)" stroke-width="1"/>';
   });
   var spokes=axes.map(function(_,i){var a=ang(i);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+r*Math.cos(a)).toFixed(1)+'" y2="'+(cy+r*Math.sin(a)).toFixed(1)+'" stroke="rgba(0,0,0,.06)" stroke-width="1"/>';}).join('');
-  var labs=axes.map(function(ax,i){var a=ang(i);var lx=cx+(r+16)*Math.cos(a), ly=cy+(r+16)*Math.sin(a);var anchor=Math.abs(Math.cos(a))<0.3?'middle':(Math.cos(a)>0?'start':'end');return '<text x="'+lx.toFixed(1)+'" y="'+(ly+3).toFixed(1)+'" text-anchor="'+anchor+'" class="radar-lab">'+ax+'</text>';}).join('');
+  var labs=axes.map(function(ax,i){var a=ang(i);var lx=cx+(r+16)*Math.cos(a), ly=cy+(r+16)*Math.sin(a);var anchor=Math.abs(Math.cos(a))<0.3?'middle':(Math.cos(a)>0?'start':'end');return '<text x="'+lx.toFixed(1)+'" y="'+(ly+3).toFixed(1)+'" text-anchor="'+anchor+'" class="radar-lab">'+esc(ax)+'</text>';}).join('');
   function polyFor(series){return series.map(function(v,i){var p=pt(i,v);return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');}
   var pA='<polygon points="'+polyFor(seriesA)+'" fill="rgba(150,160,170,.12)" stroke="#9aa3ad" stroke-width="1.6" stroke-dasharray="4 3"/>';
   var pB='<polygon points="'+polyFor(seriesB)+'" fill="rgba(0,184,132,.16)" stroke="#00b884" stroke-width="2.2"/>';
@@ -856,8 +856,8 @@ function openCompareBA(){
     +sameWarn
     +'<div class="vv-tabs cmp-angles">'+angleTabs+'</div>'
     +'<div class="cmp-grid">'
-      +'<div class="cmp-col"><span class="cmp-tag b">BEFORE</span><video src="'+r2.url(bKey)+'" playsinline muted loop preload="auto"></video>'+(C.b.cap?'<div class="cmp-cap">'+C.b.cap+'</div>':'')+'</div>'
-      +'<div class="cmp-col"><span class="cmp-tag a">AFTER</span><video src="'+r2.url(aKey)+'" playsinline muted loop preload="auto"></video>'+(C.a.cap?'<div class="cmp-cap">'+C.a.cap+'</div>':'')+'</div>'
+      +'<div class="cmp-col"><span class="cmp-tag b">BEFORE</span><video src="'+esc(r2.url(bKey))+'" playsinline muted loop preload="auto"></video>'+(C.b.cap?'<div class="cmp-cap">'+esc(C.b.cap)+'</div>':'')+'</div>'
+      +'<div class="cmp-col"><span class="cmp-tag a">AFTER</span><video src="'+esc(r2.url(aKey))+'" playsinline muted loop preload="auto"></video>'+(C.a.cap?'<div class="cmp-cap">'+esc(C.a.cap)+'</div>':'')+'</div>'
     +'</div>'
     +'<div class="cmp-seekrow"><span class="cmp-time" data-role="cur">0.0s</span>'
       +'<input type="range" class="cmp-seek" min="0" max="1000" value="0" step="1">'
@@ -1009,7 +1009,7 @@ function renderPerformance(){
   var hasData = (data.golf&&data.golf.length) || (data.pt&&data.pt.length) || (data.shots&&data.shots.length) || _sess.length>0 || (data.assess&&data.assess.length);
   if(!hasData && !S.perfDemo){
     return '<div class="perf-overlay perf-light"><div class="perf-shell"><div class="perf-topbar"><div class="perf-brand"><img src="assets/logo.png" class="perf-logo" alt="">PERFORMANCE REPORT</div><button class="perf-close" onclick="closePerformance()">닫기</button></div>'+
-      '<div class="perf-empty"><div class="pe-icon">📊</div><div class="pe-title">'+data.member.name+' 회원님 측정 데이터가 아직 없습니다</div><div class="pe-sub">라이브 세션에서 샷을 저장하면<br>이 화면에 성장 리포트가 자동으로 그려집니다.</div><button class="perf-demo-btn" onclick="openDemoPerformance()">상담용 데모 데이터로 미리보기 →</button></div>'+
+      '<div class="perf-empty"><div class="pe-icon">📊</div><div class="pe-title">'+esc(data.member.name)+' 회원님 측정 데이터가 아직 없습니다</div><div class="pe-sub">라이브 세션에서 샷을 저장하면<br>이 화면에 성장 리포트가 자동으로 그려집니다.</div><button class="perf-demo-btn" onclick="openDemoPerformance()">상담용 데모 데이터로 미리보기 →</button></div>'+
       '</div></div>';
   }
   var m=data.member;
@@ -1037,15 +1037,15 @@ function renderPerformance(){
       +'</div>'
     +'</div>'
     +'<div class="pv-title">PERFORMANCE <span>REPORT</span>'+(S.perfDemo?'<span class="pv-demo">DEMO</span>':'')+'</div>'
-    +'<div class="pv-meta">'+(m.registeredDate||'')+' – 현재 · MEASURED BY '+APP_BRAND.measuredBy+'</div>'
+    +'<div class="pv-meta">'+esc(m.registeredDate||'')+' – 현재 · MEASURED BY '+APP_BRAND.measuredBy+'</div>'
     +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin') && m.reportId)
       ? '<div class="pv-review'+(m.reportDirty?' dirty':'')+'">'
         +(m.reportDirty
           ? (_canReview(m)
-              ? '<span>📝 저장된 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 아래 내용을 검토하세요</span><button onclick="reviewPublishReport(\''+m.id+'\')">✅ 검토 완료 — 회원 링크에 반영</button>'
+              ? '<span>📝 저장된 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 아래 내용을 검토하세요</span><button onclick="reviewPublishReport(\''+safeId(m.id)+'\')">✅ 검토 완료 — 회원 링크에 반영</button>'
               : '<span>📝 변경사항이 회원 링크에 <b>반영 전</b>입니다 — 검토는 마지막으로 일지를 남긴 <b>'+esc(_reviewOwner(m))+'</b> 담당입니다</span>')
           : (_canReview(m)
-              ? '<span>✅ 회원 링크가 최신 상태입니다</span><button class="ghost" onclick="reviewPublishReport(\''+m.id+'\')">다시 반영</button>'
+              ? '<span>✅ 회원 링크가 최신 상태입니다</span><button class="ghost" onclick="reviewPublishReport(\''+safeId(m.id)+'\')">다시 반영</button>'
               : '<span>✅ 회원 링크가 최신 상태입니다</span>'))
         +'</div>'
       : '')
@@ -1055,10 +1055,10 @@ function renderPerformance(){
   // ===== 선수 + 매몰 카운터 (Lock-in #1) =====
   html+='<div class="pv-player">'
     +'<div class="pv-p-top">'
-      +'<div><div class="pv-pname">'+m.name+' <span>회원님</span></div>'
-        +'<div class="pv-pmeta">'+[(m.handicap?'HCP '+m.handicap:''),(m.avgScore?'AVG '+m.avgScore:''),(m.registeredDate?'가입 '+m.registeredDate:'')].filter(Boolean).join(' · ')+'</div>'
+      +'<div><div class="pv-pname">'+esc(m.name)+' <span>회원님</span></div>'
+        +'<div class="pv-pmeta">'+esc([(m.handicap?'HCP '+m.handicap:''),(m.avgScore?'AVG '+m.avgScore:''),(m.registeredDate?'가입 '+m.registeredDate:'')].filter(Boolean).join(' · '))+'</div>'
       +'</div>'
-      +(m.goal?'<div class="pv-ptags"><div>🎯 '+m.goal+'</div></div>':'')
+      +(m.goal?'<div class="pv-ptags"><div>🎯 '+esc(m.goal)+'</div></div>':'')
     +'</div>'
     +'<div class="pv-invest">'
       +'<div class="pv-iv-label">⏱ '+APP_BRAND.nameKo+'과 함께한 시간</div>'
@@ -1077,7 +1077,7 @@ function renderPerformance(){
     var best=null, bestC=-1;
     data.shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bestC){bestC=c;best=s;}});
     var bd=(best&&best.data)||{}; var bm=_isMetricShot(bd);
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>베스트 샷</div><div class="pv-sec-x">'+(best?_clubKo(bd.club)+' · '+String(best.ts).slice(5,10):'')+'</div></div>'
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>베스트 샷</div><div class="pv-sec-x">'+(best?esc(_clubKo(bd.club))+' · '+esc(String(best.ts).slice(5,10)):'')+'</div></div>'
       +'<div class="pv-kgrid">'
         +'<div class="pv-k hi"><div class="pv-k-l">캐리</div><div class="pv-k-v">'+(bd.carry!=null?_fmtNum(pfDistFrom(bd.carry,bm)):'—')+'<span class="pv-k-u">'+pfDistU()+'</span></div></div>'
         +'<div class="pv-k"><div class="pv-k-l">볼 스피드</div><div class="pv-k-v">'+(bd.ballSpeed!=null?_fmtNum(pfSpdFrom(bd.ballSpeed,bm)):'—')+'<span class="pv-k-u">'+pfSpdU()+'</span></div></div>'
@@ -1102,7 +1102,7 @@ function renderPerformance(){
     var tVals=trendPts.map(function(g){return Math.round(pfDistM(_carryM(g))*10)/10;});
     var tLabs=trendPts.map(function(g){return g.date;});
     var tFirst=tVals[0], tLast=tVals[tVals.length-1], tDiff=Math.round((tLast-tFirst)*10)/10;
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>성장 그래프</div><div class="pv-sec-x">'+(_clubKo(trendPts[trendPts.length-1].club)||'드라이버')+' 캐리 · 세션 평균</div></div>'
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>성장 그래프</div><div class="pv-sec-x">'+esc(_clubKo(trendPts[trendPts.length-1].club)||'드라이버')+' 캐리 · 세션 평균</div></div>'
       +'<div class="pv-chart">'+svgLine(tVals,tLabs,{w:560,h:170,color:'#00b884',unit:pfDistU()})+'</div>'
       +(tDiff!==0?'<div class="pv-shotcount">첫 측정 대비 <strong>'+(tDiff>0?'+':'')+_fmtNum(tDiff)+' '+pfDistU()+'</strong> 변화 · '+trendPts.length+'회 측정 기준</div>':'')
       +'</div>';
@@ -1139,7 +1139,7 @@ function renderPerformance(){
           +'<div class="pv-gl-bar"><div class="pv-gl-fill" style="width:'+pct+'%"></div></div>'
           +'<div class="pv-gl-rest">'+(restM>0?_fmtNum(pfDistM(restM))+' '+pfDistU()+' 남음':'')+(paceLine?(restM>0?' · ':'')+paceLine:'')+'</div>'
         +'</div>'
-        +(m.avgScore?'<div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">평균 스코어</span><span class="pv-gl-val">'+m.avgScore+'<span class="un"> 타</span></span></div><div class="pv-gl-rest">회원 프로필 기준 — 라운드 후 업데이트하면 추이가 기록됩니다</div></div>':'')
+        +(m.avgScore?'<div class="pv-gl-row"><div class="pv-gl-top"><span class="pv-gl-name">평균 스코어</span><span class="pv-gl-val">'+esc(m.avgScore)+'<span class="un"> 타</span></span></div><div class="pv-gl-rest">회원 프로필 기준 — 라운드 후 업데이트하면 추이가 기록됩니다</div></div>':'')
       +'</div></div>';
   })();
 
@@ -1240,9 +1240,9 @@ function renderPerformance(){
           +tagBadge
           +(hasVid?'<span class="pv-vhasvid">🎬</span>':'')
           +'<div class="pv-vplay">▶</div>'
-          +'<span class="pv-vdate">'+dateStr+'</span><span class="pv-vdist">'+dist+'<span>'+u+'</span></span>'
-        +'</div><div class="pv-vinfo"><div class="pv-vclub">'+club+'</div>'
-          +'<div class="pv-vdetail">'+(d.clubSpeed!=null?'CS '+_fmtNum(pfSpdFrom(d.clubSpeed,sm)):'')+(d.smash!=null?' · '+d.smash:'')+'</div>'
+          +'<span class="pv-vdate">'+esc(dateStr)+'</span><span class="pv-vdist">'+dist+'<span>'+u+'</span></span>'
+        +'</div><div class="pv-vinfo"><div class="pv-vclub">'+esc(club)+'</div>'
+          +'<div class="pv-vdetail">'+(d.clubSpeed!=null?'CS '+_fmtNum(pfSpdFrom(d.clubSpeed,sm)):'')+(d.smash!=null?' · '+esc(d.smash):'')+'</div>'
         +'</div></div>';
       });
       html+='</div>';
@@ -1269,10 +1269,10 @@ function renderPerformance(){
       +'<div class="pv-bna-h">⏮ BEFORE  ·  AFTER ⏭</div>'
       +'<div class="pv-bna">'
         +'<div class="pv-bna-col" onclick="openPerfShot('+bIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">BEFORE</span>'+(bVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
-          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.before.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(bCm))+' <span>'+pfDistU()+'</span></div></div></div>'
+          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+esc(String(ba.before.ts).slice(0,10))+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(bCm))+' <span>'+pfDistU()+'</span></div></div></div>'
         +'<div class="pv-bna-arr">→</div>'
         +'<div class="pv-bna-col after" onclick="openPerfShot('+aIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">AFTER</span>'+(aVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
-          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+String(ba.after.ts).slice(0,10)+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(aCm))+' <span>'+pfDistU()+'</span></div></div></div>'
+          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+esc(String(ba.after.ts).slice(0,10))+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(aCm))+' <span>'+pfDistU()+'</span></div></div></div>'
       +'</div>'
       +(bVid&&aVid
         ? '<button class="pv-cmp-btn" onclick="openCompareBA()">🎬 비포·애프터 나란히 재생 <small>슬로우 · 배속 · 동시 탐색 · 앵글 전환</small></button>'
@@ -1304,7 +1304,7 @@ function renderPerformance(){
         var mm=v.m; var src=(mm.mediaId&&S.mediaUrls[mm.mediaId])?S.mediaUrls[mm.mediaId]:((typeof r2!=='undefined'&&r2.enabled&&(mm.r2Key||mm.mediaId))?r2.url(mm.r2Key||mm.mediaId):'');
         if(!src) return '';
         var label=(mm.view==='front'?'정면':mm.view==='side'?'측면':'스윙');
-        return '<div class="pv-sess-vid"><video src="'+src+'" controls playsinline preload="metadata" crossorigin="anonymous"></video><div class="pv-sess-vlabel">'+esc(v.s.date)+(v.s.time?' '+esc(timeLabel(v.s.time)):'')+' · '+label+'</div></div>';
+        return '<div class="pv-sess-vid"><video src="'+esc(src)+'" controls playsinline preload="metadata" crossorigin="anonymous"></video><div class="pv-sess-vlabel">'+esc(v.s.date)+(v.s.time?' '+esc(timeLabel(v.s.time)):'')+' · '+label+'</div></div>';
       }).join('')+'</div>';
     }
     // 각 일지는 눌러서 펼침 — 회원용 리포트 페이지와 동일한 드롭다운 (예전엔 한 줄 미리보기만)
@@ -1345,7 +1345,7 @@ function renderPerformance(){
       var f2p=Math.abs(avgs.driver.faceAngle-avgs.driver.clubPath);
       tiles.push('<div class="pv-nx"><div class="v">'+_fmtNum(f2p)+'<span class="u">°</span></div><div class="l">Face to Path (목표 ±1°)</div></div>');
     }
-    if(m.avgScore) tiles.push('<div class="pv-nx"><div class="v">'+m.avgScore+'<span class="u"> 타</span></div><div class="l">평균 스코어</div></div>');
+    if(m.avgScore) tiles.push('<div class="pv-nx"><div class="v">'+esc(m.avgScore)+'<span class="u"> 타</span></div><div class="l">평균 스코어</div></div>');
     if(!tiles.length && !m.goal) return;
     html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>시즌 목표</div><div class="pv-sec-x">담당 지도자와 설정</div></div>'
       +'<div class="pv-next">'
@@ -1391,7 +1391,7 @@ function renderPerformance(){
     if(vidUrl){
       var isClubV = views[curV].label==='클럽';
       var tabsHtml = views.length>1
-        ? '<div class="pv-vm-tabs vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===curV?' on':'')+'" onclick="setPerfShotView('+i+',\''+v.key+'\','+(v.label==='클럽'?1:0)+')">'+v.label+'</button>';}).join('')+'</div>'
+        ? '<div class="pv-vm-tabs vv-tabs">'+views.map(function(v,i){return '<button class="vv-tab'+(i===curV?' on':'')+'" onclick="setPerfShotView('+i+','+jsq(v.key)+','+(v.label==='클럽'?1:0)+')">'+v.label+'</button>';}).join('')+'</div>'
         : '';
       // 영상 로드 실패 시 실제 사유(404/형식/네트워크)를 확인해 표시 — _vidDiag
       // 클럽 딜리버리: 180° 회전(샤프트 아래) + 확대 + 기본 0.5× 슬로우.
@@ -1399,7 +1399,7 @@ function renderPerformance(){
       // 그 위에 TPS 스타일 패스 오버레이(타깃라인·패스 곡선·페이스 각).
       vidHtml=tabsHtml
         +'<div class="vid-wrap'+(isClubV?' club-on':'')+'">'
-        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+vidUrl+'" crossorigin="anonymous" data-k="'+views[curV].key+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':'')+' playsinline preload="metadata"'
+        +'<video class="pv-vm-video'+(isClubV?' vid-flip club-big':'')+'" src="'+esc(vidUrl)+'" crossorigin="anonymous" data-k="'+esc(views[curV].key)+'" data-rate="'+(isClubV?0.5:1)+'"'+(isClubV?' loop':'')+' playsinline preload="metadata"'
         +' onplay="try{_cvPlayIcon(this)}catch(e){}" onpause="try{_cvPlayIcon(this)}catch(e){}" onended="try{_cvPlayIcon(this)}catch(e){}"'
         +' onloadedmetadata="try{this.playbackRate=parseFloat(this.dataset.rate)||1}catch(e){}"'
         +' ontimeupdate="try{_cvSeekSync(this)}catch(e){}"'
@@ -1424,13 +1424,13 @@ function renderPerformance(){
       +'<div class="pv-vm-box">'
         +'<div class="pv-vm-vid">'+vidHtml+'</div>'
         +'<div class="pv-vm-info">'
-          +'<div class="pv-vm-h"><div class="pv-vm-club">'+(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+String(sm.ts).slice(0,16).replace('T',' ')+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
-          +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:\''+vidUrl+'\', \''+fname+'\')">⬇ 영상 저장</button>':'')
-          +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin'))?'<button class="pv-del-btn" onclick="deletePerfShot(\''+sm.id+'\')">🗑 이 샷 삭제 <small>잘못 저장된 영상 제거 · 되돌릴 수 없음</small></button>':'')
+          +'<div class="pv-vm-h"><div class="pv-vm-club">'+esc(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+esc(String(sm.ts).slice(0,16).replace('T',' '))+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
+          +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:'+jsq(vidUrl)+', '+jsq(fname)+')">⬇ 영상 저장</button>':'')
+          +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin'))?'<button class="pv-del-btn" onclick="deletePerfShot(\''+safeId(sm.id)+'\')">🗑 이 샷 삭제 <small>잘못 저장된 영상 제거 · 되돌릴 수 없음</small></button>':'')
           +'<div class="pv-vm-tiles">'+vmt('캐리', dm.carry!=null?_fmtNum(pfDistFrom(dm.carry,metric)):'—', pfDistU())
             +vmt('토탈', dm.total!=null?_fmtNum(pfDistFrom(dm.total,metric)):'—', pfDistU())
             +vmt('볼 스피드', dm.ballSpeed!=null?_fmtNum(pfSpdFrom(dm.ballSpeed,metric)):'—', pfSpdU())
-            +vmt('스매시', dm.smash!=null?dm.smash:'—', '')
+            +vmt('스매시', dm.smash!=null?esc(dm.smash):'—', '')
           +'</div>'
           +'<div class="pv-vm-params">'+vmp('클럽 스피드', dm.clubSpeed!=null?_fmtNum(pfSpdFrom(dm.clubSpeed,metric)):null, pfSpdU())
             +vmp('발사각', dm.launch!=null?_fmtNum(dm.launch):null, '°')
@@ -1623,7 +1623,7 @@ function _rvRender(list){
   var oldest=list[0].days;
   var rows=list.map(function(p){
     var wait=p.days<=0?'오늘':p.days+'일째 대기';
-    var sub=(p.lastDate?'레슨 '+p.lastDate:'')+(isAdmin&&p.who?(p.lastDate?' · ':'')+'검토 '+esc(p.who):'');
+    var sub=(p.lastDate?'레슨 '+esc(p.lastDate):'')+(isAdmin&&p.who?(p.lastDate?' · ':'')+'검토 '+esc(p.who):'');
     return '<button class="rvn-row" data-mid="'+esc(p.id)+'">'
       +'<span>'+esc(p.name)+(sub?'<small>'+sub+'</small>':'')+'</span>'
       +'<i class="drr-days'+(p.days>=3?' late':'')+'">'+wait+'</i>'

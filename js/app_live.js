@@ -120,7 +120,7 @@ function _vidChip(s){
   var key = d.videoMp4R2Key || d.videoDL || d.videoFO || s.videoR2Key;
   if (key){
     _vidWarm(key); if(d.videoFO && d.videoFO!==key) _vidWarm(d.videoFO);
-    return '<button class="small-btn vid-view-btn" onclick="event.stopPropagation();openShotVideo(\''+s.id+'\')">🎬 보기</button>';
+    return '<button class="small-btn vid-view-btn" onclick="event.stopPropagation();openShotVideo(\''+safeId(s.id)+'\')">🎬 보기</button>';
   }
   if (d._videoPending){
     var t0 = s._rcvAt || Date.parse(d.measuredAt || s.ts) || 0;
@@ -267,7 +267,7 @@ async function _vidDiag(videoEl, key){
     else { msg='영상 서버 응답 오류 ('+res.status+')'; sub='잠시 후 다시 시도해주세요'; }
   }catch(e){ msg='네트워크 연결 문제로 영상을 못 불러왔어요'; sub='연결 확인 후 다시 열어주세요'; }
   try{
-    box.innerHTML='<div class="pv-vm-novid"><div class="pv-vm-novid-t">'+msg+'<br><span style="font-size:11px;opacity:.75">'+sub+'</span><br><span style="font-size:9.5px;opacity:.5;word-break:break-all">'+String(key||'')+'</span></div></div>';
+    box.innerHTML='<div class="pv-vm-novid"><div class="pv-vm-novid-t">'+msg+'<br><span style="font-size:11px;opacity:.75">'+sub+'</span><br><span style="font-size:9.5px;opacity:.5;word-break:break-all">'+esc(key||'')+'</span></div></div>';
   }catch(e){}
 }
 // 영상 사전 워밍 — [🎬 보기] 칩이 뜨는 순간 2바이트만 미리 요청해 두면, 워커가
@@ -346,7 +346,7 @@ function openShotVideo(shotId){
     + '<div style="width:min(94vw,560px)">'
     + tabsHtml
     + '<div class="vid-wrap">'
-      + '<video src="'+r2.url(views[0].key)+'" crossorigin="anonymous" autoplay playsinline style="width:100%;max-height:76vh;max-height:calc(100dvh - 230px);border-radius:12px;background:#000"></video>'
+      + '<video src="'+esc(r2.url(views[0].key))+'" crossorigin="anonymous" autoplay playsinline style="width:100%;max-height:76vh;max-height:calc(100dvh - 230px);border-radius:12px;background:#000"></video>'
       + _cvSeekRowHTML()
       + _clubPathOverlayHTML(d)
     + '</div>'
@@ -414,10 +414,10 @@ function _buildPendingShotsHTML(bayId){
   // "처음 친 샷부터" 펼쳐서 — 레슨 끝에 첫 샷을 📌 비포로 지정할 수 있다 (레슨 중 폰 조작 불필요).
   var showAll = !!(S._psShowAll && S._psShowAll[bayId]);
   var list = showAll ? all.slice().reverse() : all.slice(0,6);
-  var html = '<div class="pending-shots big" data-bay-pending="'+bayId+'"><div class="ps-title">⛳ '
+  var html = '<div class="pending-shots big" data-bay-pending="'+safeId(bayId)+'"><div class="ps-title">⛳ '
         + (showAll?'이 수업 전체 샷 — 처음 친 샷부터':'방금 친 샷 — 비포/애프터로 저장')
         + '<span class="ps-count">'+all.length+'</span>'
-        + (all.length>6||showAll ? '<button type="button" class="ps-showall" onclick="togglePsShowAll(\''+bayId+'\')">'+(showAll?'최근만 보기':'전체 샷 ⏮')+'</button>' : '')
+        + (all.length>6||showAll ? '<button type="button" class="ps-showall" onclick="togglePsShowAll(\''+safeId(bayId)+'\')">'+(showAll?'최근만 보기':'전체 샷 ⏮')+'</button>' : '')
         + '</div>';
   if(showAll) html += '<div class="ps-allhint">맨 위가 이 수업의 <b>처음 친 샷</b> — 📌 비포로 지정하면 리포트에 교정 전 스윙으로 남습니다</div>';
   list.forEach(function(s){
@@ -441,17 +441,17 @@ function _buildPendingShotsHTML(bayId){
     if(s._uiSavedAt){
       // 저장 완료 상태 — 확정 배지 + [저장 취소]만 활성, 나머지 비활성
       var tagLabel = savedTag==='before' ? '✓ 비포로 저장됨' : (savedTag==='after' ? '✓ 애프터로 저장됨' : '✓ 저장됨');
-      actions = '<span class="ps-saved-badge '+(savedTag||'plain')+'">'+tagLabel+'</span>'
+      actions = '<span class="ps-saved-badge '+(savedTag==='before'||savedTag==='after'?savedTag:'plain')+'">'+tagLabel+'</span>'
               + '<button class="ps-tag before" disabled>비포로 저장</button>'
               + '<button class="ps-tag after" disabled>애프터로 저장</button>'
-              + '<button class="ps-cancel" onclick="cancelLessonShot(\''+s.id+'\')">저장 취소</button>';
+              + '<button class="ps-cancel" onclick="cancelLessonShot(\''+safeId(s.id)+'\')">저장 취소</button>';
     } else {
-      actions = '<button class="ps-tag before big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'before\')">📌 비포로 저장</button>'
-              + '<button class="ps-tag after big" onclick="saveLessonShot(\''+s.id+'\',\''+bayId+'\',\'after\')">✅ 애프터로 저장</button>'
-              + '<button class="ps-drop" onclick="dropLessonShot(\''+s.id+'\')">버림</button>';
+      actions = '<button class="ps-tag before big" onclick="saveLessonShot(\''+safeId(s.id)+'\',\''+safeId(bayId)+'\',\'before\')">📌 비포로 저장</button>'
+              + '<button class="ps-tag after big" onclick="saveLessonShot(\''+safeId(s.id)+'\',\''+safeId(bayId)+'\',\'after\')">✅ 애프터로 저장</button>'
+              + '<button class="ps-drop" onclick="dropLessonShot(\''+safeId(s.id)+'\')">버림</button>';
     }
-    html += '<div class="ps-card'+fresh+stateCls+'" data-shot="'+s.id+'">'
-          + '<div class="psc-hd"><span class="psc-club">'+club+'</span>'+_vidChip(s)+'<span class="psc-time">'+when+'</span></div>'
+    html += '<div class="ps-card'+fresh+stateCls+'" data-shot="'+safeId(s.id)+'">'
+          + '<div class="psc-hd"><span class="psc-club">'+esc(club)+'</span>'+_vidChip(s)+'<span class="psc-time">'+when+'</span></div>'
           + '<div class="psc-metrics">'+bits.join('')+'</div>'
           + '<div class="psc-actions">'+actions+'</div></div>';
   });
@@ -820,7 +820,7 @@ function renderBayPickModal(){
   if(!m) return '';
   var bays=(S.bays&&S.bays.length)?S.bays:BAYS_DEFAULT;
   return '<div class="modal-overlay" onclick="if(event.target===this)cancelBayPick()"><div class="modal">'
-    + '<div class="modal-title">'+m.name+'님 — 어느 타석?</div>'
+    + '<div class="modal-title">'+esc(m.name)+'님 — 어느 타석?</div>'
     + '<div class="baypick-grid">'
     + bays.map(function(b){
         var occ=S.activeSessions[b.id];
@@ -828,8 +828,8 @@ function renderBayPickModal(){
         if(occ && typeof isOwnerWatchMember==='function' && isOwnerWatchMember(occ.memberId)
            && !(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) occ=null;
         // 사용 중인 타석도 누를 수 있음 — 앞 타임 세션 종료 확인 후 인수 (연속 레슨)
-        return '<button class="baypick '+b.color+(occ?' occ':'')+'" onclick="pickBayForMember(\''+b.id+'\')">'
-          + '<span class="bp-name">'+b.name+'</span><span class="bp-sub">'+(occ?occ.memberName+' 진행중 · 종료 후 시작':'여기서 시작')+'</span></button>';
+        return '<button class="baypick '+safeBayColor(b.color)+(occ?' occ':'')+'" onclick="pickBayForMember(\''+safeId(b.id)+'\')">'
+          + '<span class="bp-name">'+esc(b.name)+'</span><span class="bp-sub">'+(occ?esc(occ.memberName)+' 진행중 · 종료 후 시작':'여기서 시작')+'</span></button>';
       }).join('')
     + '</div>'
     + '<div class="modal-actions"><button class="btn" onclick="cancelBayPick()">취소</button></div>'
@@ -1115,7 +1115,7 @@ function voiceMode(){
   if(isIOS()) return 'ios';
   return 'none';
 }
-function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// esc() 는 app_core.js 로 옮김 — 따옴표까지 이스케이프해 속성 값에도 안전 (v9.99)
 function startVoice(bayId){
   var act = S.activeSessions[bayId]; if(!act) return;
   if(!voiceSupported()){ liveToast('이 기기는 실시간 받아쓰기를 지원하지 않습니다 — 종료 후 직접 입력하세요','err'); return; }
@@ -1812,7 +1812,7 @@ function renderLiveSession(){
   bays.forEach(function(bay){ html += renderBayCard(bay, canCoach, isAdmin); });
   html += '</div>';
   html += renderShotLog(isAdmin);
-  if(S.liveToast){ html += '<div class="live-toast '+S.liveToast.kind+'">'+S.liveToast.msg+'</div>'; }
+  if(S.liveToast){ html += '<div class="live-toast '+(S.liveToast.kind==='err'?'err':'ok')+'">'+esc(S.liveToast.msg)+'</div>'; }
   html += '</div>';
 
   html += renderLiveStartModal();
@@ -1866,7 +1866,7 @@ function renderOrigPanel(){
   var bays=(S.bays&&S.bays.length)?S.bays:BAYS_DEFAULT;
   var bayF=S._origBay||'all';
   var chips='<div class="orig-bays"><button class="chip'+(bayF==='all'?' on':'')+'" onclick="setOrigBay(\'all\')">전체</button>'
-    + bays.map(function(b){ return '<button class="chip'+(bayF===b.id?' on':'')+'" onclick="setOrigBay(\''+b.id+'\')">'+b.name+'</button>'; }).join('')+'</div>';
+    + bays.map(function(b){ return '<button class="chip'+(bayF===b.id?' on':'')+'" onclick="setOrigBay(\''+safeId(b.id)+'\')">'+esc(b.name)+'</button>'; }).join('')+'</div>';
   var rows=_origShots();
   var ANG={dl:'측면',fo:'정면',club:'클럽',scene:'내장캠'};
   var list = rows.length===0 ? '<div class="empty-state">최근 24시간에 들어온 샷이 없습니다</div>'
@@ -1892,19 +1892,19 @@ function renderOrigPanel(){
           ['dl','fo','club','scene'].forEach(function(k){
             if(!o[k]) return;
             var mb=(o.bytes&&o.bytes[k])?' '+(o.bytes[k]/1e6).toFixed(0)+'MB':'';
-            act+='<button class="small-btn" onclick="downloadShotVideo(this,\''+r2.url(o[k])+'\',\''+_origFname(s,k,o[k])+'\')">⬇ '+ANG[k]+' 원본'+mb+'</button>';
+            act+='<button class="small-btn" onclick="downloadShotVideo(this,'+jsq(r2.url(o[k]))+','+jsq(_origFname(s,k,o[k]))+')">⬇ '+ANG[k]+' 원본'+mb+'</button>';
           });
         } else if(d._origReq==1){
           var mins=d._origReqAt?Math.floor((Date.now()-Date.parse(d._origReqAt))/60000):0;
           st='<span class="orig-st">⏳ 요청됨 · '+(mins<1?'방금':mins+'분')+(mins>=10?' — PC 응답 없음(에이전트·구버전 확인)':'')+'</span>';
-          act='<button class="small-btn" onclick="cancelOrigRequest(\''+s.id+'\')">요청 취소</button>';
+          act='<button class="small-btn" onclick="cancelOrigRequest(\''+safeId(s.id)+'\')">요청 취소</button>';
         } else if(d._origErr){
           st='<span class="orig-st err">⚠️ '+esc(String(d._origErr))+'</span>';
-          act='<button class="small-btn" onclick="requestOrigVideo(\''+s.id+'\')">다시 요청</button>';
+          act='<button class="small-btn" onclick="requestOrigVideo(\''+safeId(s.id)+'\')">다시 요청</button>';
         } else {
-          act='<button class="small-btn primary" onclick="requestOrigVideo(\''+s.id+'\')">🎞 원본 요청</button>';
+          act='<button class="small-btn primary" onclick="requestOrigVideo(\''+safeId(s.id)+'\')">🎞 원본 요청</button>';
         }
-        return '<div class="orig-row"><div class="orig-hd"><span class="orig-t">'+when+'</span><span class="shot-bay '+getBay(s.bayId).color+'">'+getBay(s.bayId).name+'</span>'
+        return '<div class="orig-row"><div class="orig-hd"><span class="orig-t">'+when+'</span><span class="shot-bay '+safeBayColor(getBay(s.bayId).color)+'">'+esc(getBay(s.bayId).name)+'</span>'
           + '<span>'+esc(d.club||'')+'</span><span class="orig-m">'+carry+'</span><span class="orig-m">'+who+'</span>'+_vidChip(s)+st+'</div>'
           + (vmTxt?'<div class="orig-hd" style="margin-top:3px">'+vmTxt+'</div>':'')
           + (act?'<div class="orig-act">'+act+'</div>':'')+'</div>';
@@ -1950,10 +1950,10 @@ function renderClassPickModal(){
            var hide=q&&m.name.toLowerCase().indexOf(q)===-1&&cho.indexOf(qcho)===-1;
            var busyBay=Object.keys(S.activeSessions).find(function(b){return S.activeSessions[b].memberId===m.id;});
            var blocked=!journal && busyBay;   // 라이브는 진행중이면 차단, 일지는 무관
-           return '<div class="live-member'+(blocked?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'"'+(hide?' style="display:none"':'')+(blocked?'':' onclick="classPickMember(\''+m.id+'\')"')+'>'
-             + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
-             + '<div class="lm-name">'+m.name+'</div>'
-             + (busyBay?'<span class="lm-busy">'+getBay(busyBay).name+' 진행중</span>':'')
+           return '<div class="live-member'+(blocked?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'"'+(hide?' style="display:none"':'')+(blocked?'':' onclick="classPickMember(\''+safeId(m.id)+'\')"')+'>'
+             + '<div class="member-avatar '+safeColor(m.color)+'">'+esc(initials(m.name))+'</div>'
+             + '<div class="lm-name">'+esc(m.name)+'</div>'
+             + (busyBay?'<span class="lm-busy">'+esc(getBay(busyBay).name)+' 진행중</span>':'')
              + '</div>';
          }).join(''))
     + '</div>'
@@ -1980,7 +1980,7 @@ function _staleAgentWarnHTML(bays, isAdmin){
     var stale = Object.keys(latest).filter(function(b){ return latest[b].v < AGENT_VERSION_EXPECTED; })
       .map(function(b){ return getBay(b).name; });
     if(!stale.length) return '';
-    return '<div class="agent-stale">⚠️ '+stale.join(' · ')+' PC 에이전트가 구버전입니다<br>'
+    return '<div class="agent-stale">⚠️ '+esc(stale.join(' · '))+' PC 에이전트가 구버전입니다<br>'
          + '<small>해당 타석 PC 에서 update.ps1 을 실행해주세요 — 영상 재생 호환·업로드 속도·정면 영상 속도 보정 수정이 아직 적용되지 않았습니다</small></div>';
   }catch(e){ return ''; }
 }
@@ -1992,12 +1992,12 @@ function renderBayCard(bay, canCoach, isAdmin){
   if(act && typeof isOwnerWatchMember==='function' && isOwnerWatchMember(act.memberId)
      && !(typeof canSeeOwnerWatch==='function' && canSeeOwnerWatch())) act = null;
   var typeLabel = bay.type==='lesson_only' ? '레슨 전용' : '연습 · 레슨';
-  var head = '<div class="bay-card-hd '+bay.color+'"><span class="bay-name">'+bay.name+'</span><span class="bay-type">'+typeLabel+'</span></div>';
+  var head = '<div class="bay-card-hd '+safeBayColor(bay.color)+'"><span class="bay-name">'+esc(bay.name)+'</span><span class="bay-type">'+typeLabel+'</span></div>';
 
   if(!act){
     var emptyBody = '<div class="bay-empty">'
       + '<div class="bay-empty-txt">비어있음</div>'
-      + (canCoach ? '<button class="btn primary bay-assign-btn" onclick="openLiveStart(\''+bay.id+'\')">+ 회원 배정</button>'
+      + (canCoach ? '<button class="btn primary bay-assign-btn" onclick="openLiveStart(\''+safeId(bay.id)+'\')">+ 회원 배정</button>'
                   : '<div class="bay-empty-sub">진행중인 세션 없음</div>')
       + '</div>';
     return '<div class="bay-card empty">'+head+emptyBody+'</div>';
@@ -2015,12 +2015,12 @@ function renderBayCard(bay, canCoach, isAdmin){
   // 회원 전화번호 — 녹음 화면에서 바로 보이게(정우진 프로 건의). 탭하면 전화.
   var _bm = S.members.find(function(x){return x.id===act.memberId;});
   var _phone = (_bm && _bm.phone && canCoach) ? String(_bm.phone).trim() : '';
-  body += '<div class="bay-member"><div class="member-avatar '+memberColor(act.memberId)+'">'+initials(act.memberName)+'</div>'
-        + '<div class="bay-member-info"><div class="bay-member-name">'+act.memberName+'님'
+  body += '<div class="bay-member"><div class="member-avatar '+safeColor(memberColor(act.memberId))+'">'+esc(initials(act.memberName))+'</div>'
+        + '<div class="bay-member-info"><div class="bay-member-name">'+esc(act.memberName)+'님'
         + (_phone ? ' <a class="bay-phone" href="tel:'+_phone.replace(/[^0-9+]/g,'')+'" onclick="event.stopPropagation()">📞 '+esc(_phone)+'</a>' : '')
         + '</div>'
-        + '<div class="bay-author '+roleCls+'">'+act.author+' · '+elapsed+' 경과</div></div>'
-        + '<button class="bay-end-top" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button></div>';
+        + '<div class="bay-author '+roleCls+'">'+esc(act.author)+' · '+elapsed+' 경과</div></div>'
+        + '<button class="bay-end-top" onclick="endLiveSession(\''+safeId(bay.id)+'\')">⏹ 종료</button></div>';
   // 수업 녹음 블록 — 회원 이름 "바로 아래"에 둔다(정우진 프로 건의: 녹음 버튼이 위쪽이면 좋겠다).
   // 예전엔 샷 카운트·'방금 친 샷' 아래에 있어 매번 스크롤해야 했다.
   // 🎙 녹음하면 20초마다 글이 실시간으로 붙고, ⏹ 종료 시 자동 저장.
@@ -2029,7 +2029,7 @@ function renderBayCard(bay, canCoach, isAdmin){
   if(!stale){
     if(recSupported() && _rec.bayId===bay.id){
       body += '<div class="rec-bar on"><span class="rec-dot"></span><span class="rec-label">녹음 중 <span id="rec-elapsed">'+_recElapsed()+'</span></span>'
-            + '<button class="rec-stop" onclick="stopBayRec(\''+bay.id+'\')">⏹ 녹음 종료</button></div>'
+            + '<button class="rec-stop" onclick="stopBayRec(\''+safeId(bay.id)+'\')">⏹ 녹음 종료</button></div>'
             + '<div class="rec-live" id="rec-live-text">'+esc(((act._transcript||'').trim()).slice(-300)||'듣는 중... 말하면 20초 안에 글로 나타나요')+'</div>';
     } else if(act._sttBusy && act._sttBusyAt && Date.now()-act._sttBusyAt<90000){
       body += '<div class="rec-bar busy"><span class="rec-spin">🌀</span><span class="rec-label">마지막 조각 변환 중 · '+_cntdnHtml(act._sttBusyAt, 45)+'</span></div>';
@@ -2039,7 +2039,7 @@ function renderBayCard(bay, canCoach, isAdmin){
       try{save();}catch(e){}
     } else {
       if(recSupported() && !_rec.bayId && !sttOff){
-        body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+bay.id+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
+        body += '<button class="btn rec-start-btn" onclick="startBayRec(\''+safeId(bay.id)+'\')">🎙 수업 녹음<small>말하면 실시간으로 글이 됩니다 · 종료 시 자동 저장</small></button>';
       }
       if(sttOff){
         body += '<div class="rec-disabled">🎙 음성→글 변환 서버가 아직 준비 안 됐어요.<br><b>아래 메모칸에 직접 입력</b>하거나, <b>키보드의 마이크 🎤</b>로 받아쓰기 하세요.<br><small>(관리자: 워커에 Groq 키 등록하면 실시간 녹음이 켜집니다)</small></div>';
@@ -2048,7 +2048,7 @@ function renderBayCard(bay, canCoach, isAdmin){
       if((act._transcript||'').trim() || !recSupported() || sttOff){
         body += '<div class="voice-ios">'
               +   '<div class="vi-head">📝 수업 메모 <small>(자동 저장 · 세션 종료 시 AI 정리)</small></div>'
-              +   '<textarea class="vi-area" placeholder="수업 내용을 입력하거나 키보드 마이크 🎤 로 받아쓰세요." oninput="updateVoiceText(\''+bay.id+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
+              +   '<textarea class="vi-area" placeholder="수업 내용을 입력하거나 키보드 마이크 🎤 로 받아쓰세요." oninput="updateVoiceText(\''+safeId(bay.id)+'\',this.value)">'+esc(act._transcript||'')+'</textarea>'
               + '</div>';
       }
     }
@@ -2075,7 +2075,7 @@ function renderBayCard(bay, canCoach, isAdmin){
     if(mode==='lesson'){
       // 레슨 모드: 모드 토글만 여기 (샷 목록은 상단에 이미 표시됨)
       body += '<div class="bay-mode-row"><span class="bay-mode lesson">레슨 · 선별 저장</span>'
-            + '<button class="mode-switch" onclick="setBayMode(\''+bay.id+'\',\'practice\')">연습으로</button></div>';
+            + '<button class="mode-switch" onclick="setBayMode(\''+safeId(bay.id)+'\',\'practice\')">연습으로</button></div>';
       var hasPending = (typeof pendingShotsForBay==='function') && pendingShotsForBay(bay.id).length>0;
       if(!hasPending){
         body += '<div class="bay-auto">🎯 공을 치면 여기에 <strong>최근 샷</strong>이 떠요 — 좋은 것만 저장</div>';
@@ -2083,14 +2083,14 @@ function renderBayCard(bay, canCoach, isAdmin){
     } else {
       // 연습 모드: 자동 저장
       body += '<div class="bay-mode-row"><span class="bay-mode practice">연습 · 자동 저장</span>'
-            + '<button class="mode-switch" onclick="setBayMode(\''+bay.id+'\',\'lesson\')">레슨으로</button></div>';
+            + '<button class="mode-switch" onclick="setBayMode(\''+safeId(bay.id)+'\',\'lesson\')">레슨으로</button></div>';
       body += '<div class="bay-auto">🎯 공을 치면 트랙맨이 <strong>모두 자동 저장</strong>합니다</div>';
     }
   }
   body += '<div class="bay-actions">';
-  body += '<button class="btn bay-end-btn" onclick="endLiveSession(\''+bay.id+'\')">⏹ 종료</button>';
+  body += '<button class="btn bay-end-btn" onclick="endLiveSession(\''+safeId(bay.id)+'\')">⏹ 종료</button>';
   body += '</div></div>';
-  return '<div class="bay-card active" data-bay="'+bay.id+'">'+head+body+'</div>';
+  return '<div class="bay-card active" data-bay="'+safeId(bay.id)+'">'+head+body+'</div>';
 }
 
 function _shotTimeLabel(s){
@@ -2171,17 +2171,17 @@ function renderShotLog(isAdmin){
       var unassigned = s._unassigned && (!s.memberName);
       var checked = !!S._shotSel[s.id];
       return '<div class="shot-row'+(unassigned?' unassigned':'')+(selMode?' selectable'+(checked?' on':''):'')+'"'
-        + (selMode?' onclick="toggleShotSel(\''+s.id+'\')"':'')+'>'
+        + (selMode?' onclick="toggleShotSel(\''+safeId(s.id)+'\')"':'')+'>'
         + (selMode?'<span class="shot-check">'+(checked?'☑':'☐')+'</span>':'')
-        + '<span class="shot-bay '+bay.color+'">'+bay.name+'</span>'
-        + '<span class="shot-member">'+(s.memberName||'<span class="unassigned-tag">미배정</span>')+'</span>'
-        + '<span class="shot-club">'+(d.club||'')+'</span>'
+        + '<span class="shot-bay '+safeBayColor(bay.color)+'">'+esc(bay.name)+'</span>'
+        + '<span class="shot-member">'+(s.memberName?esc(s.memberName):'<span class="unassigned-tag">미배정</span>')+'</span>'
+        + '<span class="shot-club">'+esc(d.club||'')+'</span>'
         + '<span class="shot-metric">'+carry+'</span>'
         + _vidChip(s)
         + '<span class="shot-time">'+_shotTimeLabel(s)+'</span>'
         + (s.source==='mock' ? '<span class="shot-mock">데모</span>' : '')
-        + (!selMode && isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+s.id+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')
-        + (!selMode && canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+s.id+'\')">삭제</button>' : '')
+        + (!selMode && isAdmin ? '<button class="small-btn shot-move" onclick="openReassign(\''+safeId(s.id)+'\')">'+(unassigned?'배정':'이동')+'</button>' : '')
+        + (!selMode && canCoach ? '<button class="small-btn del" onclick="deleteShot(\''+safeId(s.id)+'\')">삭제</button>' : '')
         + '</div>';
     }).join('') + '</div>';
     if(!selMode && assigned.length>lim){
@@ -2286,7 +2286,7 @@ function renderLiveStartModal(){
     return true;
   });
   return '<div class="modal-overlay" onclick="if(event.target===this)closeLiveStart()"><div class="modal">'
-    + '<div class="modal-title">'+bay.name+' — 회원 배정</div>'
+    + '<div class="modal-title">'+esc(bay.name)+' — 회원 배정</div>'
     + '<div class="form-group"><input class="form-input live-search-input" placeholder="회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="filterPickRows(this.value,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">배정된 회원이 없습니다</div>'
@@ -2294,10 +2294,10 @@ function renderLiveStartModal(){
            var cho=getChosung(m.name);
            var hide=q&&m.name.toLowerCase().indexOf(q)===-1&&cho.indexOf(qcho)===-1;
            var busyBay = Object.keys(S.activeSessions).find(function(b){ return S.activeSessions[b].memberId===m.id; });
-           return '<div class="live-member'+(busyBay?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'"'+(hide?' style="display:none"':'')+(busyBay?'':' onclick="pickLiveMember(\''+m.id+'\')"')+'>'
-             + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
-             + '<div class="lm-name">'+m.name+'</div>'
-             + (busyBay ? '<span class="lm-busy">'+getBay(busyBay).name+' 진행중</span>' : '')
+           return '<div class="live-member'+(busyBay?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'"'+(hide?' style="display:none"':'')+(busyBay?'':' onclick="pickLiveMember(\''+safeId(m.id)+'\')"')+'>'
+             + '<div class="member-avatar '+safeColor(m.color)+'">'+esc(initials(m.name))+'</div>'
+             + '<div class="lm-name">'+esc(m.name)+'</div>'
+             + (busyBay ? '<span class="lm-busy">'+esc(getBay(busyBay).name)+' 진행중</span>' : '')
              + '</div>';
          }).join(''))
     + '</div>'
@@ -2318,10 +2318,10 @@ function renderLiveConfirmModal(){
   var c = S.liveConfirm; if(!c) return '';
   var bay = getBay(c.bayId);
   return '<div class="modal-overlay"><div class="modal live-confirm">'
-    + '<div class="live-confirm-bay '+bay.color+'">'+bay.name+'</div>'
-    + '<div class="live-confirm-msg"><strong>'+c.memberName+'</strong>님 레슨을<br>'+bay.name+'에서 시작합니다.</div>'
+    + '<div class="live-confirm-bay '+safeBayColor(bay.color)+'">'+esc(bay.name)+'</div>'
+    + '<div class="live-confirm-msg"><strong>'+esc(c.memberName)+'</strong>님 레슨을<br>'+esc(bay.name)+'에서 시작합니다.</div>'
     + memberStatusWarn(c.memberId)
-    + '<div class="live-confirm-warn">⚠️ '+bay.name+'이(가) <strong>비어있는지 직접 확인</strong>하셨습니까?<br><span class="lcw-sub">다른 회원이 연습 중인 타석이면 안 됩니다.</span></div>'
+    + '<div class="live-confirm-warn">⚠️ '+esc(bay.name)+'이(가) <strong>비어있는지 직접 확인</strong>하셨습니까?<br><span class="lcw-sub">다른 회원이 연습 중인 타석이면 안 됩니다.</span></div>'
     + '<div class="modal-actions"><button class="btn" onclick="cancelLiveConfirm()">취소</button><button class="btn primary" onclick="confirmLiveStart()">확인 · 시작</button></div>'
     + '</div></div>';
 }
@@ -2333,16 +2333,16 @@ function renderReassignModal(){
   var q = (S.liveStartQuery||'').trim().toLowerCase(), qcho=getChosung(q);
   var list = S.members.slice();
   return '<div class="modal-overlay" onclick="if(event.target===this)closeReassign()"><div class="modal">'
-    + '<div class="modal-title">굿샷 재할당 — 현재 「'+shot.memberName+'」</div>'
+    + '<div class="modal-title">굿샷 재할당 — 현재 「'+esc(shot.memberName)+'」</div>'
     + '<div class="form-group"><input class="form-input live-search-input" placeholder="옮길 회원 검색..." value="'+q.replace(/"/g,'&quot;')+'" oninput="filterPickRows(this.value,&apos;liveStartQuery&apos;)" autocomplete="off" autocorrect="off" autocapitalize="off"></div>'
     + '<div class="live-member-list">'
     + (list.length===0 ? '<div class="empty-state">회원이 없습니다</div>'
        : '<div class="pick-empty empty-state" style="display:none">검색 결과 없음</div>'+list.map(function(m){
            var cho=getChosung(m.name);
            var hide=q&&m.name.toLowerCase().indexOf(q)===-1&&cho.indexOf(qcho)===-1;
-           return '<div class="live-member'+(m.id===shot.memberId?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'" onclick="applyReassign(\''+m.id+'\')"'+(hide?' style="display:none"':'')+'>'
-             + '<div class="member-avatar '+m.color+'">'+initials(m.name)+'</div>'
-             + '<div class="lm-name">'+m.name+'</div>'
+           return '<div class="live-member'+(m.id===shot.memberId?' busy':'')+'" data-name="'+m.name.toLowerCase().replace(/"/g,'')+'" data-cho="'+cho.replace(/"/g,'')+'" onclick="applyReassign(\''+safeId(m.id)+'\')"'+(hide?' style="display:none"':'')+'>'
+             + '<div class="member-avatar '+safeColor(m.color)+'">'+esc(initials(m.name))+'</div>'
+             + '<div class="lm-name">'+esc(m.name)+'</div>'
              + (m.id===shot.memberId ? '<span class="lm-busy">현재</span>' : '')
              + '</div>';
          }).join(''))

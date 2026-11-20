@@ -177,18 +177,18 @@ function renderHandoverModal(){
   if(list.length===0) return '';
   return `<div class="modal-overlay" onclick="if(event.target===this)closeHandover()">
     <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto">
-      <div class="modal-title">인수인계 기록 — ${list[0].memberName}</div>
+      <div class="modal-title">인수인계 기록 — ${esc(list[0].memberName)}</div>
       ${list.map(function(h,i){
         return '<div class="handover-card'+(i===0?' latest':'')+'">' +
           '<div class="ho-header">' +
-            '<span class="ho-date">'+h.date+'</span>' +
-            '<span class="ho-badge">'+h.from.join(', ')+' → '+h.to.join(', ')+'</span>' +
+            '<span class="ho-date">'+esc(h.date)+'</span>' +
+            '<span class="ho-badge">'+esc((h.from||[]).join(', '))+' → '+esc((h.to||[]).join(', '))+'</span>' +
           '</div>' +
           '<div class="ho-section"><strong>세션 현황:</strong> 총 '+h.totalSessions+'회 (프로 '+h.proSessions+' / PT '+h.trainerSessions+')</div>' +
-          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul></div>':'') +
-          (h.assessSummary.length>0?'<div class="ho-section"><strong>체형평가 이상 소견 ('+h.assessDate+'):</strong><ul>'+h.assessSummary.map(function(a){return '<li>'+a+'</li>';}).join('')+'</ul></div>':'') +
-          '<div class="ho-section"><strong>최근 세션 (최대 10개):</strong><ol>'+h.recentSessions.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol></div>' +
-          (h.videoLinks.length>0?'<div class="ho-section"><strong>최근 스윙 영상:</strong><ul>'+h.videoLinks.map(function(v){return '<li>'+v+'</li>';}).join('')+'</ul></div>':'') +
+          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul></div>':'') +
+          (h.assessSummary.length>0?'<div class="ho-section"><strong>체형평가 이상 소견 ('+esc(h.assessDate)+'):</strong><ul>'+h.assessSummary.map(function(a){return '<li>'+esc(a)+'</li>';}).join('')+'</ul></div>':'') +
+          '<div class="ho-section"><strong>최근 세션 (최대 10개):</strong><ol>'+h.recentSessions.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ol></div>' +
+          (h.videoLinks.length>0?'<div class="ho-section"><strong>최근 스윙 영상:</strong><ul>'+h.videoLinks.map(function(v){return '<li>'+esc(v)+'</li>';}).join('')+'</ul></div>':'') +
         '</div>';
       }).join('<hr style="border:none;border-top:1px dashed #ddd;margin:16px 0">')}
       <div class="modal-actions"><button class="btn" onclick="closeHandover()">닫기</button></div>
@@ -230,11 +230,11 @@ function renderQuickNoteModal(){
   var m=S.members.find(function(x){return x.id===S.selectedMember;});
   return `<div class="modal-overlay" onclick="if(event.target===this)closeQuickNote()">
     <div class="modal" style="width:440px">
-      <div class="modal-title">레슨 노트 — ${m?m.name+' 회원님':''}</div>
+      <div class="modal-title">레슨 노트 — ${m?esc(m.name)+' 회원님':''}</div>
       <div class="member-info-row">
         <div class="form-group">
           <label class="form-label">날짜</label>
-          <input type="date" class="form-input" value="${S.quickNote.date}" onchange="S.quickNote.date=this.value">
+          <input type="date" class="form-input" value="${esc(S.quickNote.date)}" onchange="S.quickNote.date=this.value">
         </div>
         <div class="form-group">
           <label class="form-label">레슨 시간</label>
@@ -243,7 +243,7 @@ function renderQuickNoteModal(){
       </div>
       <div class="form-group">
         <label class="form-label">메모</label>
-        <textarea class="form-textarea" rows="3" placeholder="오늘 레슨 내용을 간단히..." oninput="S.quickNote.memo=this.value" autofocus>${S.quickNote.memo}</textarea>
+        <textarea class="form-textarea" rows="3" placeholder="오늘 레슨 내용을 간단히..." oninput="S.quickNote.memo=this.value" autofocus>${esc(S.quickNote.memo)}</textarea>
       </div>
       <div class="form-group">
         <label class="form-label">태그</label>
@@ -361,7 +361,7 @@ function renderImageCardModal(){
   return `<div class="modal-overlay" onclick="if(event.target===this)closeImageCard()">
     <div class="modal" style="width:380px">
       <div class="modal-title">레슨 카드</div>
-      <p style="font-size:13.5px;color:var(--tx-2);margin-bottom:18px;line-height:1.6">${m.name} 회원님의 월간 레슨 리포트 카드입니다.<br>다운로드하거나 바로 공유하세요.</p>
+      <p style="font-size:13.5px;color:var(--tx-2);margin-bottom:18px;line-height:1.6">${esc(m.name)} 회원님의 월간 레슨 리포트 카드입니다.<br>다운로드하거나 바로 공유하세요.</p>
       <div class="modal-actions card-actions">
         <button class="btn" onclick="closeImageCard()">닫기</button>
         <button class="btn" onclick="generateImageCard()">📥 다운로드</button>
@@ -530,7 +530,7 @@ function renderReportModal(){
   var approvedCount = d.sessions.filter(function(s){return s.approved;}).length;
   if(d.step==='review'){
     return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:680px;max-height:92vh;overflow-y:auto">
-      <div class="modal-title">${m.name} 회원님 리포트 검토</div>
+      <div class="modal-title">${esc(m.name)} 회원님 리포트 검토</div>
       <div style="font-size:12px;color:var(--tx-2);margin-bottom:14px;padding:10px 14px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">
         AI가 세션 기록을 자동 정리함. 각 세션을 <strong>검토 후 수정</strong>하고 승인해주세요.
       </div>
@@ -540,14 +540,14 @@ function renderReportModal(){
             '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--brd);background:var(--bg-3)">'+
               '<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;'+(s.role==='pro'?'background:var(--pro-bg);color:var(--pro)':'background:var(--tr-bg);color:var(--ac)')+'">'+
                 (s.role==='pro'?'PRO':'PT')+'</span>'+
-              '<span style="font-size:12px;font-weight:600">'+s.author+'</span>'+
-              '<span style="font-size:11px;color:var(--tx-3);margin-left:auto">'+s.date+'</span>'+
+              '<span style="font-size:12px;font-weight:600">'+esc(s.author)+'</span>'+
+              '<span style="font-size:11px;color:var(--tx-3);margin-left:auto">'+esc(s.date)+'</span>'+
             '</div>'+
             '<div style="padding:10px 14px">'+
               '<div style="font-size:9px;font-weight:700;color:var(--tx-3);margin-bottom:3px">원본</div>'+
-              '<div style="font-size:11px;color:var(--tx-3);margin-bottom:8px;line-height:1.5;white-space:pre-line">'+s.original.slice(0,100)+(s.original.length>100?'...':'')+'</div>'+
+              '<div style="font-size:11px;color:var(--tx-3);margin-bottom:8px;line-height:1.5;white-space:pre-line">'+esc(String(s.original||'').slice(0,100))+(String(s.original||'').length>100?'...':'')+'</div>'+
               '<div style="font-size:9px;font-weight:700;color:var(--ac);margin-bottom:3px">AI 정리 (수정 가능)</div>'+
-              '<textarea style="width:100%;min-height:50px;padding:6px 8px;border:1px solid var(--brd-2);border-radius:6px;font-size:11px;font-family:var(--font);color:var(--tx);background:var(--bg-4);resize:vertical;line-height:1.5" onchange="updateReportSession('+i+',this.value)">'+s.cleaned+'</textarea>'+
+              '<textarea style="width:100%;min-height:50px;padding:6px 8px;border:1px solid var(--brd-2);border-radius:6px;font-size:11px;font-family:var(--font);color:var(--tx);background:var(--bg-4);resize:vertical;line-height:1.5" onchange="updateReportSession('+i+',this.value)">'+esc(s.cleaned)+'</textarea>'+
             '</div>'+
             '<div style="padding:6px 14px;border-top:1px solid var(--brd);display:flex;align-items:center;gap:6px">'+
               '<button class="btn'+(s.approved?' primary':'')+'" style="font-size:10px;padding:5px 12px" onclick="toggleReportApprove('+i+')">'+(s.approved?'승인 ✓':'승인 필요')+'</button>'+
@@ -582,10 +582,10 @@ function renderReportModal(){
     <div class="modal-title">공유 링크 생성 완료</div>
     ${d.link && d.link!=='error' ? `
     <div style="padding:14px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);margin-bottom:16px">
-      <div style="font-size:12px;color:var(--tx-2);word-break:break-all;margin-bottom:10px;padding:8px;background:var(--bg-4);border-radius:6px;font-family:var(--mono);font-size:11px">${d.link}</div>
+      <div style="font-size:12px;color:var(--tx-2);word-break:break-all;margin-bottom:10px;padding:8px;background:var(--bg-4);border-radius:6px;font-family:var(--mono);font-size:11px">${esc(d.link)}</div>
       <div style="display:flex;gap:6px">
         <button class="btn primary" id="copy-link-btn" onclick="copyReportLink()">링크 복사</button>
-        <button class="btn" onclick="window.open('${d.link}','_blank')">미리보기</button>
+        <button class="btn" onclick="window.open(${jsq(d.link)},'_blank')">미리보기</button>
       </div>
     </div>
     <div style="font-size:11px;color:var(--tx-3);margin-bottom:16px">카카오톡으로 링크를 보내면 회원이 직접 열어볼 수 있습니다.</div>
@@ -750,12 +750,12 @@ function renderTranscriptVault(){
     +'<div class="modal-title">🎙 녹음 원문 보관함 <span style="font-size:11px;font-weight:400;color:var(--tx-3)">관리자 전용 · '+rows.length+'건</span></div>'
     +'<div style="font-size:12px;color:var(--tx-2);margin-bottom:12px;padding:10px 14px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">레슨 녹음 원문은 지도자·회원 화면에는 표시되지 않습니다. AI 일지 정리가 정확했는지 검증할 때만 열람하세요.</div>'
     +'<div class="audit-filter" style="margin-bottom:10px"><button class="audit-filter-btn'+(filt==='all'?' active':'')+'" onclick="S.vaultAuthorFilter=\'all\';render()">전체 '+rows.length+'</button>'
-    +Object.keys(authors).map(function(a){return '<button class="audit-filter-btn'+(filt===a?' active':'')+'" onclick="S.vaultAuthorFilter=\''+a.replace(/'/g,'')+'\';render()">'+a+' '+authors[a]+'</button>';}).join('')
+    +Object.keys(authors).map(function(a){return '<button class="audit-filter-btn'+(filt===a?' active':'')+'" onclick="S.vaultAuthorFilter='+jsq(a)+';render()">'+esc(a)+' '+authors[a]+'</button>';}).join('')
     +'</div>'
     +(shown.length===0?'<div class="empty-state" style="padding:30px">녹음 원문이 저장된 세션이 없습니다</div>':
       shown.map(function(r){
         var s=r.s;
-        return '<details class="raw-transcript" style="margin-bottom:8px"><summary>'+s.date+' · <b>'+r.member+'</b> 회원 · '+(s.author||'')+' · '+s.rawTranscript.trim().length+'자</summary>'
+        return '<details class="raw-transcript" style="margin-bottom:8px"><summary>'+esc(s.date)+' · <b>'+esc(r.member)+'</b> 회원 · '+esc(s.author||'')+' · '+s.rawTranscript.trim().length+'자</summary>'
           +'<div class="raw-transcript-body">'+String(s.rawTranscript).replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div></details>';
       }).join(''))
     +'<div class="modal-actions"><button class="btn" onclick="closeTranscriptVault()">닫기</button></div>'
@@ -945,7 +945,7 @@ function updateNS(k,v){S.newSession[k]=v; if(k==='author'||k==='date') render();
 // ── 레슨 시간 유틸 ─────────────────────────────────────────
 // 세션에 레슨 시각(time:'HH:MM')을 붙여 같은 날 여러 레슨을 순서대로 정렬한다.
 function nowHalfHour(){ try{ var d=new Date(); var h=d.getHours(); var m=d.getMinutes()<30?'00':'30'; return (h<10?'0'+h:h)+':'+m; }catch(e){ return ''; } }
-function timeLabel(t){ if(!t) return ''; var p=String(t).split(':'); var h=parseInt(p[0],10); var m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h<12?'오전':'오후'; var hh=h%12; if(hh===0) hh=12; return ap+' '+hh+':'+m; }
+function timeLabel(t){ if(!t) return ''; var p=String(t).split(':'); var h=parseInt(p[0],10); var m=(/^\d{1,2}/.exec(p[1]||'')||['00'])[0]; if(isNaN(h)) return ''; var ap=h<12?'오전':'오후'; var hh=h%12; if(hh===0) hh=12; return ap+' '+hh+':'+m; }
 function sessionTimeOptions(sel){
   sel=sel||'';
   var out='<option value=""'+(sel?'':' selected')+'>시간 미지정</option>';
