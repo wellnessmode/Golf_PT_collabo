@@ -77,7 +77,77 @@ function renderExercisePicker(){
     '</div>'+
   '</div>';
 }
-function openAddMember(){S.newMember={name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',golfLessonExpiry:'',golfPTExpiry:'',assignedTo:[],memberType:S.sidebarTab||'pt_lesson',handicap:'',avgScore:'',goal:'',focusPoints:''}; S.editMemberId=null; S.showAddMember=true; render();}
+function openAddMember(){S.newMember=Object.assign({name:'',phone:'',email:'',registeredDate:today(),golfLessonCount:'',golfPTCount:'',golfLessonAmount:'',golfPTAmount:'',expiry:'',golfLessonExpiry:'',golfPTExpiry:'',assignedTo:[],memberType:S.sidebarTab||'pt_lesson',handicap:'',avgScore:'',goal:'',focusPoints:''},_rcFormState(null)); S.editMemberId=null; S.showAddMember=true; render();}
+// ============ 녹음·AI 정리 동의 (v9.99) ============
+// 회원 폼(인포데스크)과 회원 화면의 동의 배지 → 동의 창(인포데스크·관리자·프로·트레이너)이 같은 입력 칸을 쓴다.
+// 입력 상태: rcMode 'yes'|'no'|'' · rcHow '서면'|'구두' · rcDate — _rc0 은 연 순간의 값(손대지 않았으면 저장 안 함)
+function _rcFormState(m){
+  var st=recConsentState(m);
+  var o={rcMode:st, rcHow:(m&&m.recConsentHow==='구두')?'구두':'서면', rcDate:String((m&&(st==='no'?m.recConsentNo:m.recConsent))||'')||_rcToday()};
+  o._rc0={mode:o.rcMode, how:o.rcHow, date:o.rcDate};
+  return o;
+}
+// 입력한 동의 상태를 회원에 반영 — 바뀌었으면 true (기록한 직원·시각을 함께 남김)
+function _rcApply(m, st){
+  if(!m || !st) return false;
+  var mode=st.rcMode||'', r0=st._rc0||{};
+  if(mode===(r0.mode||'') && st.rcHow===r0.how && st.rcDate===r0.date) return false;   // 손대지 않음
+  var d=/^\d{4}-\d{2}-\d{2}$/.test(String(st.rcDate||''))?String(st.rcDate):_rcToday();
+  var y=mode==='yes'?d:'', h=mode==='yes'?(st.rcHow==='구두'?'구두':'서면'):'', n=mode==='no'?d:'';
+  if((m.recConsent||'')===y && (m.recConsentHow||'')===h && (m.recConsentNo||'')===n) return false;
+  m.recConsent=y; m.recConsentHow=h; m.recConsentNo=n; m.recConsentBy=mode?(S.currentUser||''):''; m.recConsentAt=new Date().toISOString();
+  return true;
+}
+function _rcLog(m){
+  var st=recConsentState(m), d=(st==='no'?m.recConsentNo:m.recConsent)||'';
+  try{ logActivity('녹음 동의 기록', m.id, st==='yes'?('동의 · '+(m.recConsentHow||'')+' '+d):(st==='no'?('거부 · '+d):'기록 지움')); }catch(e){}
+  try{ logAudit('member','녹음 동의 기록', m.name, {state:st||'none', how:m.recConsentHow||'', date:d}); }catch(e){}
+}
+// 동의 입력 칸 — path 는 상태 객체의 전역 경로(코드 상수 'S.newMember' / 'S.consentEdit')
+function _rcFormHtml(path, st){
+  var mode=st.rcMode||'';
+  var opt=function(field, val, label, cls){ return '<div class="radio-opt'+(((st[field]||'')===val)?' '+cls:'')+'" onclick="'+path+'.'+field+'=\''+val+'\';render()">'+label+'</div>'; };
+  var dateIn=function(lbl){ return '<div class="form-group"><label class="form-label">'+lbl+'</label><input type="date" class="form-input" value="'+esc(st.rcDate||'')+'" oninput="'+path+'.rcDate=this.value"></div>'; };
+  var h='<div class="rc-form"><div class="radio-group rc-modes">'+opt('rcMode','yes','동의','sel-trainer')+opt('rcMode','no','거부','sel-no')+opt('rcMode','','기록 없음','sel-pro')+'</div>';
+  if(mode==='yes') h+='<div class="member-info-row rc-row"><div class="form-group"><label class="form-label">받은 방법</label><div class="radio-group">'+opt('rcHow','서면','서면','sel-trainer')+opt('rcHow','구두','구두','sel-trainer')+'</div></div>'+dateIn('동의한 날')+'</div>';
+  else if(mode==='no') h+='<div class="rc-row">'+dateIn('거부한 날')+'</div>';
+  h+='<div class="rc-hint">'+(mode==='no'?'녹음하지 않고, 수업 메모도 AI로 정리하지 않아요. 레슨은 그대로 진행돼요.':(mode==='yes'?'서명한 동의서가 있으면 서면, 말로 동의하셨으면 구두를 골라 주세요.':'아직 여쭤보지 않았으면 그대로 두세요 — 녹음을 시작할 때 다시 물어봐요.'))+'</div></div>';
+  return h;
+}
+// 회원 화면 이름 옆 배지 — 누르면 동의 창
+function recConsentBadge(m){
+  if(!m || m.ownerWatch) return '';
+  var st=recConsentState(m);
+  var sub=st==='yes'?((m.recConsentHow?m.recConsentHow+' ':'')+String(m.recConsent||'').slice(2).replace(/-/g,'.')):(st==='no'?String(m.recConsentNo||'').slice(2).replace(/-/g,'.'):'');
+  return ' <button type="button" class="rc-badge rc-'+(st||'none')+'" onclick="event.stopPropagation();openConsentEdit(\''+safeId(m.id)+'\')" title="녹음·AI 정리 동의 — 눌러서 기록">🎙 '+(st==='yes'?'녹음 동의':(st==='no'?'녹음 거부':'녹음 동의 미기록'))+(sub?' <small>'+esc(sub)+'</small>':'')+'</button>';
+}
+function openConsentForm(){ try{ window.open('consent.html','_blank'); }catch(e){} }   // 인쇄용 동의서
+function openConsentEdit(mid){
+  var m=S.members.find(function(x){return x.id===mid;});
+  if(!m || m.ownerWatch) return;
+  S.consentEdit=Object.assign({mid:mid}, _rcFormState(m)); render();
+}
+function closeConsentEdit(){ S.consentEdit=null; render(); }
+function saveConsentEdit(){
+  var st=S.consentEdit; if(!st) return;
+  var m=S.members.find(function(x){return x.id===st.mid;});
+  S.consentEdit=null;
+  if(m && _rcApply(m, st)){ _rcLog(m); save(); syncConsentUp(m); }   // 동의 칸만 서버에 (이 기기의 낡은 회원 정보로 다른 칸을 되돌리지 않게)
+  render();
+}
+function renderConsentEdit(){
+  var st=S.consentEdit; if(!st) return '';
+  var m=S.members.find(function(x){return x.id===st.mid;}); if(!m) return '';
+  var cur=recConsentState(m), isInfo=(S.currentRole==='infodesk'||S.currentRole==='admin');
+  var now=cur?('지금 기록: '+(cur==='yes'?('동의 · '+(m.recConsentHow||'')+' · '+(m.recConsent||'')):('거부 · '+(m.recConsentNo||'')))+(m.recConsentBy?' · '+m.recConsentBy:'')):'지금 기록: 없음';
+  return '<div class="modal-overlay" onclick="if(event.target===this)closeConsentEdit()"><div class="modal rc-modal">'
+    +'<div class="modal-title">🎙 녹음·AI 정리 동의 — '+esc(m.name)+'님</div>'
+    +'<div class="rc-now">'+esc(now)+'</div>'
+    +_rcFormHtml('S.consentEdit', st)
+    +(isInfo?'<button type="button" class="rc-print" onclick="openConsentForm()">🖨 동의서 인쇄</button>':'')
+    +'<div class="modal-actions"><button class="btn" onclick="closeConsentEdit()">취소</button><button class="btn primary" onclick="saveConsentEdit()">저장</button></div>'
+    +'</div></div>';
+}
 function toggleAssign(name){
   var arr=S.newMember.assignedTo||[];
   var idx=arr.indexOf(name);
@@ -100,6 +170,7 @@ function openEditMember(id){
     handicap:m.handicap||'', avgScore:m.avgScore||'',
     goal:m.goal||'', focusPoints:m.focusPoints||''
   };
+  Object.assign(S.newMember, _rcFormState(m));   // 녹음·AI 정리 동의
   S.editMemberId=id; S.showAddMember=true; render();
 }
 function saveMemberEdit(){
@@ -119,6 +190,7 @@ function saveMemberEdit(){
   m.memberType=S.newMember.memberType||'pt_lesson';
   m.handicap=S.newMember.handicap;m.avgScore=S.newMember.avgScore;
   m.goal=S.newMember.goal;m.focusPoints=S.newMember.focusPoints;
+  if(_rcApply(m, S.newMember)) _rcLog(m);   // 녹음·AI 정리 동의 — 바꿨을 때만
   var newAssigned = m.assignedTo;
   var removed = oldAssigned.filter(function(n){return newAssigned.indexOf(n)===-1;});
   var added = newAssigned.filter(function(n){return oldAssigned.indexOf(n)===-1;});
@@ -177,18 +249,18 @@ function renderHandoverModal(){
   if(list.length===0) return '';
   return `<div class="modal-overlay" onclick="if(event.target===this)closeHandover()">
     <div class="modal" style="width:600px;max-height:90vh;overflow-y:auto">
-      <div class="modal-title">인수인계 기록 — ${list[0].memberName}</div>
+      <div class="modal-title">인수인계 기록 — ${esc(list[0].memberName)}</div>
       ${list.map(function(h,i){
         return '<div class="handover-card'+(i===0?' latest':'')+'">' +
           '<div class="ho-header">' +
-            '<span class="ho-date">'+h.date+'</span>' +
-            '<span class="ho-badge">'+h.from.join(', ')+' → '+h.to.join(', ')+'</span>' +
+            '<span class="ho-date">'+esc(h.date)+'</span>' +
+            '<span class="ho-badge">'+esc((h.from||[]).join(', '))+' → '+esc((h.to||[]).join(', '))+'</span>' +
           '</div>' +
           '<div class="ho-section"><strong>세션 현황:</strong> 총 '+h.totalSessions+'회 (프로 '+h.proSessions+' / PT '+h.trainerSessions+')</div>' +
-          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul></div>':'') +
-          (h.assessSummary.length>0?'<div class="ho-section"><strong>체형평가 이상 소견 ('+h.assessDate+'):</strong><ul>'+h.assessSummary.map(function(a){return '<li>'+a+'</li>';}).join('')+'</ul></div>':'') +
-          '<div class="ho-section"><strong>최근 세션 (최대 10개):</strong><ol>'+h.recentSessions.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol></div>' +
-          (h.videoLinks.length>0?'<div class="ho-section"><strong>최근 스윙 영상:</strong><ul>'+h.videoLinks.map(function(v){return '<li>'+v+'</li>';}).join('')+'</ul></div>':'') +
+          (h.warnings.length>0?'<div class="ho-section ho-warn"><strong>Body-Swing 주의 항목:</strong><ul>'+h.warnings.map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul></div>':'') +
+          (h.assessSummary.length>0?'<div class="ho-section"><strong>체형평가 이상 소견 ('+esc(h.assessDate)+'):</strong><ul>'+h.assessSummary.map(function(a){return '<li>'+esc(a)+'</li>';}).join('')+'</ul></div>':'') +
+          '<div class="ho-section"><strong>최근 세션 (최대 10개):</strong><ol>'+h.recentSessions.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ol></div>' +
+          (h.videoLinks.length>0?'<div class="ho-section"><strong>최근 스윙 영상:</strong><ul>'+h.videoLinks.map(function(v){return '<li>'+esc(v)+'</li>';}).join('')+'</ul></div>':'') +
         '</div>';
       }).join('<hr style="border:none;border-top:1px dashed #ddd;margin:16px 0">')}
       <div class="modal-actions"><button class="btn" onclick="closeHandover()">닫기</button></div>
@@ -230,11 +302,11 @@ function renderQuickNoteModal(){
   var m=S.members.find(function(x){return x.id===S.selectedMember;});
   return `<div class="modal-overlay" onclick="if(event.target===this)closeQuickNote()">
     <div class="modal" style="width:440px">
-      <div class="modal-title">레슨 노트 — ${m?m.name+' 회원님':''}</div>
+      <div class="modal-title">레슨 노트 — ${m?esc(m.name)+' 회원님':''}</div>
       <div class="member-info-row">
         <div class="form-group">
           <label class="form-label">날짜</label>
-          <input type="date" class="form-input" value="${S.quickNote.date}" onchange="S.quickNote.date=this.value">
+          <input type="date" class="form-input" value="${esc(S.quickNote.date)}" onchange="S.quickNote.date=this.value">
         </div>
         <div class="form-group">
           <label class="form-label">레슨 시간</label>
@@ -243,7 +315,7 @@ function renderQuickNoteModal(){
       </div>
       <div class="form-group">
         <label class="form-label">메모</label>
-        <textarea class="form-textarea" rows="3" placeholder="오늘 레슨 내용을 간단히..." oninput="S.quickNote.memo=this.value" autofocus>${S.quickNote.memo}</textarea>
+        <textarea class="form-textarea" rows="3" placeholder="오늘 레슨 내용을 간단히..." oninput="S.quickNote.memo=this.value" autofocus>${esc(S.quickNote.memo)}</textarea>
       </div>
       <div class="form-group">
         <label class="form-label">태그</label>
@@ -361,7 +433,7 @@ function renderImageCardModal(){
   return `<div class="modal-overlay" onclick="if(event.target===this)closeImageCard()">
     <div class="modal" style="width:380px">
       <div class="modal-title">레슨 카드</div>
-      <p style="font-size:13.5px;color:var(--tx-2);margin-bottom:18px;line-height:1.6">${m.name} 회원님의 월간 레슨 리포트 카드입니다.<br>다운로드하거나 바로 공유하세요.</p>
+      <p style="font-size:13.5px;color:var(--tx-2);margin-bottom:18px;line-height:1.6">${esc(m.name)} 회원님의 월간 레슨 리포트 카드입니다.<br>다운로드하거나 바로 공유하세요.</p>
       <div class="modal-actions card-actions">
         <button class="btn" onclick="closeImageCard()">닫기</button>
         <button class="btn" onclick="generateImageCard()">📥 다운로드</button>
@@ -371,232 +443,8 @@ function renderImageCardModal(){
   </div>`;
 }
 
-function openReport(){
-  // 성과 화면에서 호출되면 perfMember 우선, 아니면 selectedMember
-  var mid = S.perfMember || S.selectedMember;
-  var m = S.members.find(function(x){return x.id===mid;});
-  if(!m){ alert('리포트를 만들 회원이 선택되지 않았습니다.'); return; }
-  var allSess = (S.sessions[mid]||[]).slice().sort(sessionCompare).slice(0,10);
-  var cleaned = allSess.map(function(s){
-    return {
-      id:s.id, date:s.date, author:s.author, role:getRole(s.author),
-      original:s.content,
-      cleaned:cleanupContent(s.content, getRole(s.author)),
-      ai:s._ai||null, approved:false,
-      videos:(s.media||[]).filter(function(mm){var mt=mm.mimeType||inferMime(mm.name);return mt.indexOf('video/')!==-1 && (mm.r2Key||mm.mediaId);}).map(function(mm){return {key:mm.r2Key||mm.mediaId, view:mm.view||'other'};})
-    };
-  });
-  S.reportDraft = {mid:mid, sessions:cleaned, step:'review', link:''};
-  S.showReport = true; render();
-}
-function closeReport(){S.showReport=false; S.reportDraft=null; render();}
-
-// ============ AI 리포트 확장 (1→3~4배) ============
-var EXPAND_GOLF = {
-  '하체턴':{t:'하체 턴 (Hip Rotation)',d:'다운스윙 시 하체 선행 회전을 유도하여 X-Factor를 극대화하고 클럽헤드 스피드 증가를 목표로 반복 훈련 진행. 골반 오픈 타이밍과 체중이동 시퀀스를 점검하며, 왼발 힐을 기준으로 한 회전축 설정 및 자연스러운 Transition 동작 패턴을 구축.'},
-  '샬로윙':{t:'샬로윙 (Shallowing)',d:'다운스윙 초기 클럽을 플래트닝하여 인사이드-아웃 경로를 만드는 샬로윙 동작을 집중 훈련함. 오른팔꿈치를 몸통 가까이 유지하며 클럽이 자연스럽게 슬롯에 떨어지도록 반복하여, 오버더탑(Over the Top) 패턴을 교정.'},
-  '스쿠핑':{t:'스쿠핑 방지 (Anti-Scooping)',d:'임팩트 시 왼손목이 꺾이면서 클럽이 볼 아래로 파고드는 스쿠핑 동작을 교정. 핸드 퍼스트 포지션을 유지한 상태에서 디센딩 블로(Descending Blow) 타격감을 익히며, 볼 컴프레션을 향상시키는 훈련 진행.'},
-  '핸드퍼스트':{t:'핸드 퍼스트 (Hands First)',d:'임팩트 순간 손이 클럽헤드보다 앞에 위치하는 핸드 퍼스트 포지션을 반복 훈련. 샤프트 린(Shaft Lean)을 확보하여 일관된 볼 스트라이킹과 적정 발사각을 만들어내는 것을 목표로 함.'},
-  '임팩트':{t:'임팩트 (Impact) 포지션 교정',d:'올바른 임팩트 자세를 만들기 위해 체중 배분(좌 70:우 30), 힙 오픈, 손 위치를 종합적으로 점검함. 임팩트 백 드릴을 활용하여 정확한 타격 감각을 체득하도록 반복 훈련 진행.'},
-  '라그':{t:'라그 유지 (Lag Retention)',d:'다운스윙에서 손목 라그를 최대한 늦게까지 유지하여 임팩트 직전에 에너지를 폭발적으로 릴리스하는 훈련 진행. 지연 릴리스(Delayed Release)를 통해 클럽헤드 스피드를 극대화하는 감각을 습득.'},
-  '슬라이스':{t:'슬라이스 교정',d:'아웃투인(Outside-In) 스윙 경로와 오픈 페이스가 복합적으로 작용하는 슬라이스의 근본 원인을 분석하고, 인사이드 어프로치 경로를 만드는 드릴과 임팩트 시 페이스 앵글 컨트롤 훈련을 병행함.'},
-  '훅':{t:'훅 교정',d:'과도한 인투아웃(Inside-Out) 경로와 클로즈 페이스로 인한 훅 구질을 교정했습니다. 적절한 바디 릴리스와 페이스 로테이션 타이밍을 조정하여 볼의 곡률을 컨트롤하는 훈련 진행.'},
-  '드로우':{t:'드로우 구질 연습',d:'인투아웃 경로에서 적절한 클로즈 페이스 앵글을 만들어 의도적인 드로우 구질을 구사하는 훈련 진행. 타겟 대비 오른쪽 시작 후 왼쪽으로 부드럽게 휘어지는 탄도를 만들기 위한 셋업과 스윙 경로를 반복 연습.'},
-  '페이드':{t:'페이드 구질 연습',d:'아웃투인 경로에서 살짝 오픈된 페이스 앵글을 활용하여 컨트롤된 페이드 구질을 만드는 훈련 진행. 바람이나 핀 위치에 따라 전략적으로 활용할 수 있는 안정적인 페이드 샷을 목표로 함.'},
-  '어드레스':{t:'어드레스 (Address) 자세 교정',d:'척추 앵글, 힙 힌지 각도, 무릎 굴곡 정도를 종합적으로 점검하고, 클럽별 최적의 어드레스 포스처를 설정. 일관된 셋업이 일관된 샷의 기본임을 강조하며 반복 훈련.'},
-  '그립':{t:'그립 교정',d:'V자 라인 정렬과 그립 프레셔 균일화를 통해 스윙 전반의 안정성을 향상. 뉴트럴/스트롱/위크 그립 유형별 구질 차이를 이해하고, 회원의 스윙 특성에 맞는 최적 그립을 설정.'},
-  '백스윙':{t:'백스윙 교정',d:'원피스 테이크어웨이로 시작하여 어깨 90도 회전을 목표로 하는 풀 백스윙을 반복 훈련. 상하체 분리를 통한 X-Factor 생성과 코킹 타이밍을 점검하며, 일관된 탑 포지션을 만드는 데 집중함.'},
-  '템포':{t:'스윙 템포 교정',d:'백스윙과 다운스윙의 3:1 템포 비율을 목표로 메트로놈 기반 리듬 훈련 진행. 일정한 템포 유지가 타이밍과 볼 컨택의 일관성에 직결됨을 체감하도록 반복 연습.'},
-  '체중이동':{t:'체중이동 (Weight Transfer) 훈련',d:'백스윙 시 오른발로의 체중 로딩과 다운스윙 시 왼발로의 체중 전환 타이밍을 체계적으로 훈련함. 스텝 드릴을 활용하여 자연스러운 체중이동 패턴을 구축.'},
-  '칩':{t:'칩 샷 훈련',d:'그린 주변에서의 정밀한 칩 샷 기술을 훈련함. 좁은 스탠스, 체중 왼발 배분, 핸드 퍼스트 셋업을 기본으로 하여 볼 위치 변화에 따른 탄도와 런 조절 기술을 연습.'},
-  '퍼팅':{t:'퍼팅 훈련',d:'펜듈럼 스트로크의 일관성을 높이는 훈련 진행. 거리감 재현력 향상을 위한 래그 퍼팅 드릴과 숏 퍼트 자신감 빌딩을 병행하며, 그린 리딩 능력도 함께 향상.'},
-  '벙커':{t:'벙커 샷 훈련',d:'모래를 먼저 치는 익스플로전 샷의 기본 원리를 반복 훈련. 바운스 활용법, 페이스 오픈 정도에 따른 탄도 변화, 거리 조절 기법을 체계적으로 연습.'},
-  '숏게임':{t:'숏게임 종합 훈련',d:'그린 주변 50m 이내에서의 다양한 숏게임 기술을 종합적으로 훈련함. 칩, 피치, 벙커, 로브 샷의 기본기를 점검하고 상황별 클럽 선택과 기술 적용 능력을 향상.'},
-};
-var EXPAND_PT = {
-  '스쿼트':{t:'스쿼트 (Squat)',d:'하체 근력과 코어 안정성을 동시에 강화하는 스쿼트 훈련 진행. 적절한 깊이(대퇴부 수평)까지 내려가면서 무릎이 발끝 방향을 유지하도록 폼을 교정하고, 골프 스윙에 필요한 하체 파워 베이스를 구축.'},
-  '데드리프트':{t:'데드리프트 (Deadlift)',d:'후면사슬(Posterior Chain) 전체를 강화하는 데드리프트 훈련 진행. 힙 힌지 패턴을 정확히 수행하여 둔근과 햄스트링의 협응력을 높이고,, 골프 어드레스 자세의 기반이 되는 척추 중립 유지 능력을 향상.'},
-  '코어':{t:'코어 안정화 (Core Stability) 훈련',d:'골프 스윙의 기초가 되는 코어 안정화 훈련 진행. 플랭크, 데드버그, 팔로프 프레스 등을 통해 항회전(Anti-Rotation) 능력을 강화하고, 스윙 시 상하체 분리를 효과적으로 수행할 수 있는 몸통 안정성을 확보.'},
-  '회전':{t:'회전력 (Rotational Power) 훈련',d:'메디신볼 회전 슬램과 케이블 우드찹을 활용한 회전 파워 훈련 진행. 골프 스윙과 동일한 회전 패턴에서 폭발적인 파워를 생성하고 효과적으로 감속하는 능력을 향상.'},
-  '모빌리티':{t:'모빌리티 (Mobility) 향상 훈련',d:'흉추 회전, 고관절 내·외회전, 어깨 가동성을 종합적으로 개선하는 모빌리티 세션을 진행. FRC(Functional Range Conditioning) 기반의 능동적 가동 범위 확장을 통해 스윙의 제한 요소를 해소.'},
-  '하체':{t:'하체 강화 훈련',d:'스쿼트, 런지, 힙 쓰러스트 등 다양한 하체 운동을 통해 골프 스윙의 파워 소스인 하체 근력을 체계적으로 강화함. 단측성(Unilateral) 훈련을 병행하여 좌우 밸런스도 함께 개선함.'},
-  '상체':{t:'상체 근력 훈련',d:'푸쉬(벤치프레스, 숄더프레스)와 풀(로우, 랫풀다운) 동작을 균형 있게 수행하여 상체 전반의 근력을 향상. 견갑골 안정화와 회전근개 강화를 통해 스윙 시 안정적인 팔 동작의 기반을 마련.'},
-  '밸런스':{t:'밸런스 & 안정성 훈련',d:'싱글 레그 운동과 불안정면 훈련을 통해 고유감각(Proprioception)과 동적 밸런스를 향상. 골프 스윙의 피니시에서 3초 이상 안정적으로 유지할 수 있는 밸런스 능력을 구축.'},
-  '스트레치':{t:'스트레칭 & 유연성 훈련',d:'주요 근육군의 유연성 향상을 위한 정적·동적 스트레칭을 진행. 특히 고관절 굴근, 흉추, 어깨 관절낭의 가동 범위를 확보하여 스윙의 효율성을 높이는 데 집중함.'},
-  '파워':{t:'파워 (Power) 트레이닝',d:'케틀벨 스윙, 메디신볼 슬램, 점프 스쿼트 등 폭발적인 파워 생성 훈련 진행. 근력을 속도로 전환하는 Rate of Force Development(RFD)를 향상시켜 클럽헤드 스피드 증가에 기여하도록 함.'},
-  '기능성':{t:'기능성 (Functional) 트레이닝',d:'골프 동작 패턴에 특화된 기능성 훈련 진행. TPI(Titleist Performance Institute) 기반의 움직임 평가 결과를 반영하여 개인별 약점을 보완하는 맞춤형 프로그램으로 수행함.'},
-  '폼롤링':{t:'근막 이완 (Myofascial Release)',d:'폼롤러와 라크로스볼을 활용한 자가 근막 이완(Self-Myofascial Release)을 진행. IT밴드, 둔근, 흉추, 종아리 등 주요 부위의 트리거 포인트를 해소하여 운동 후 회복을 촉진.'},
-};
-
-function cleanupContent(text, role){
-  if(!text) return '';
-  var content = text.toLowerCase();
-  var output = [];
-  var dict = role==='pro' ? EXPAND_GOLF : EXPAND_PT;
-  var matched = {};
-  Object.keys(dict).forEach(function(key){
-    if(content.indexOf(key)!==-1 && !matched[key]){
-      matched[key] = true;
-      var e = dict[key];
-      output.push('■ '+e.t+'\n'+e.d);
-    }
-  });
-  if(output.length===0){
-    var lines = text.split(/[,\n]/).filter(function(l){return l.trim();});
-    lines.forEach(function(l){
-      output.push('- '+l.trim());
-    });
-  }
-  return output.join('\n\n');
-}
-function updateReportSession(idx, val){if(S.reportDraft&&S.reportDraft.sessions[idx]) S.reportDraft.sessions[idx].cleaned=val;}
-function toggleReportApprove(idx){if(S.reportDraft&&S.reportDraft.sessions[idx]){S.reportDraft.sessions[idx].approved=!S.reportDraft.sessions[idx].approved;render();}}
-function approveAllReport(){if(S.reportDraft){S.reportDraft.sessions.forEach(function(s){s.approved=true;});S.reportDraft.step='approved';render();}}
-async function generateShareLink(){
-  var mid = (S.reportDraft&&S.reportDraft.mid) || S.perfMember || S.selectedMember;
-  var m = S.members.find(function(x){return x.id===mid;});
-  if(!m || !cloud.enabled || !S.reportDraft) return;
-  var st = stats(mid);
-  var reportId = 'rpt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-  var sessions = S.reportDraft.sessions.filter(function(s){return s.approved;}).map(function(s){
-    return {date:s.date, author:s.author, role:s.role, content:s.cleaned, ai:s.ai, videos:s.videos};
-  });
-  var allSess = S.sessions[mid]||[];
-  // 트랙맨 측정 요약 — 회원 공유 리포트에 실측 데이터·영상 포함
-  var trackman=null;
-  try{
-    var perf = buildPerfData(mid);
-    if(perf && perf.shots && perf.shots.length){
-      var avgs=_buildClubAverages(perf.shots);
-      var clubs=['driver','wood','iron','wedge'].map(function(g){return avgs[g];}).filter(function(a){return a.n>0;})
-        .map(function(a){return {name:a.name,n:a.n,metric:!!a._metric,clubSpeed:a.clubSpeed,ballSpeed:a.ballSpeed,smash:a.smash,carry:a.carry,total:a.total,launch:a.launch,spin:a.spin};});
-      var best=null,bc=-1; perf.shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bc){bc=c;best=s;}});
-      // 추이는 드라이버 우선 — 클럽 혼합 추이는 오해를 부른다 (부족하면 전 클럽 fallback)
-      var trendSrc=(perf.golf||[]).filter(function(g){return _carryM(g)!=null && _clubGroup(g.club)==='driver';});
-      if(trendSrc.length<2) trendSrc=(perf.golf||[]).filter(function(g){return _carryM(g)!=null;});
-      var trend=trendSrc.map(function(g){return {date:g.date, carryM:Math.round(_carryM(g)*10)/10};});
-      var trendClub=trendSrc.length? (_clubKo(trendSrc[trendSrc.length-1].club)||'') : '';
-      // 영상: 아이폰 재생 보장되는 mp4 변환본 우선, mkv 원본은 후순위 + 플래그
-      var vids=perf.shots.filter(function(s){return s.videoR2Key||(s.data&&s.data.videoMp4R2Key);})
-        .sort(function(a,b){
-          var am=!!(a.data&&a.data.videoMp4R2Key), bm=!!(b.data&&b.data.videoMp4R2Key);
-          if(am!==bm) return am?-1:1;
-          return String(b.ts).localeCompare(String(a.ts));
-        }).slice(0,6)
-        .map(function(s){
-          var key=(s.data&&s.data.videoMp4R2Key)||s.videoR2Key;
-          return {ts:s.ts, club:s.data&&s.data.club, carry:s.data&&s.data.carry, metric:_isMetricShot(s.data), key:key, mkv:/\.mkv$/i.test(String(key||''))};
-        });
-      trackman={shotCount:perf.shots.length, clubs:clubs,
-        best:best?{ts:best.ts,club:best.data.club,carry:best.data.carry,ballSpeed:best.data.ballSpeed,smash:best.data.smash,metric:_isMetricShot(best.data)}:null,
-        trend:trend, trendClub:trendClub, videos:vids, measuredBy:APP_BRAND.measuredBy};
-    }
-  }catch(e){ console.warn('[report] trackman summary skip:', e); }
-  var content = {
-    member:{name:m.name, phone:m.phone||'', registeredDate:m.registeredDate||'', handicap:m.handicap||'', avgScore:m.avgScore||'', goal:m.goal||'', focusPoints:m.focusPoints||''},
-    totalSessions:allSess.length, proSessions:st?st.pro:0, trainerSessions:st?st.trainer:0,
-    sessions:sessions, trackman:trackman,
-    brand:{name:APP_BRAND.name, nameKo:APP_BRAND.nameKo, measuredBy:APP_BRAND.measuredBy}
-  };
-  try{
-    var {error} = await cloud.client.from('reports').upsert({
-      id:reportId, member_id:mid, member_name:m.name,
-      created_by:S.currentUser||'', content:content
-    });
-    if(error) throw error;
-    var base = location.origin+location.pathname.replace(/\/[^\/]*$/,'/');
-    S.reportDraft.link = base+'report.html?id='+reportId;
-    S.reportDraft.step = 'shared';
-    render();
-  }catch(e){
-    console.warn('[report] failed:', e);
-    S.reportDraft.link = 'error';
-    render();
-  }
-}
-function copyReportLink(){
-  if(!S.reportDraft||!S.reportDraft.link) return;
-  navigator.clipboard.writeText(S.reportDraft.link).then(function(){
-    var btn = document.getElementById('copy-link-btn');
-    if(btn){btn.textContent='복사됨!';setTimeout(function(){btn.textContent='링크 복사';},2000);}
-  });
-}
-function renderReportModal(){
-  if(!S.showReport || !S.reportDraft) return '';
-  var mid = S.reportDraft.mid || S.selectedMember;
-  var m = S.members.find(function(x){return x.id===mid;});
-  if(!m) return '';
-  var d = S.reportDraft;
-  var approvedCount = d.sessions.filter(function(s){return s.approved;}).length;
-  if(d.step==='review'){
-    return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:680px;max-height:92vh;overflow-y:auto">
-      <div class="modal-title">${m.name} 회원님 리포트 검토</div>
-      <div style="font-size:12px;color:var(--tx-2);margin-bottom:14px;padding:10px 14px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">
-        AI가 세션 기록을 자동 정리함. 각 세션을 <strong>검토 후 수정</strong>하고 승인해주세요.
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-        ${d.sessions.map(function(s,i){
-          return '<div style="border:1px solid '+(s.approved?'rgba(0,184,132,.3)':'var(--brd)')+';border-radius:12px;overflow:hidden;background:'+(s.approved?'var(--ac-glow2)':'var(--card)')+'">'+
-            '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--brd);background:var(--bg-3)">'+
-              '<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;'+(s.role==='pro'?'background:var(--pro-bg);color:var(--pro)':'background:var(--tr-bg);color:var(--ac)')+'">'+
-                (s.role==='pro'?'PRO':'PT')+'</span>'+
-              '<span style="font-size:12px;font-weight:600">'+s.author+'</span>'+
-              '<span style="font-size:11px;color:var(--tx-3);margin-left:auto">'+s.date+'</span>'+
-            '</div>'+
-            '<div style="padding:10px 14px">'+
-              '<div style="font-size:9px;font-weight:700;color:var(--tx-3);margin-bottom:3px">원본</div>'+
-              '<div style="font-size:11px;color:var(--tx-3);margin-bottom:8px;line-height:1.5;white-space:pre-line">'+s.original.slice(0,100)+(s.original.length>100?'...':'')+'</div>'+
-              '<div style="font-size:9px;font-weight:700;color:var(--ac);margin-bottom:3px">AI 정리 (수정 가능)</div>'+
-              '<textarea style="width:100%;min-height:50px;padding:6px 8px;border:1px solid var(--brd-2);border-radius:6px;font-size:11px;font-family:var(--font);color:var(--tx);background:var(--bg-4);resize:vertical;line-height:1.5" onchange="updateReportSession('+i+',this.value)">'+s.cleaned+'</textarea>'+
-            '</div>'+
-            '<div style="padding:6px 14px;border-top:1px solid var(--brd);display:flex;align-items:center;gap:6px">'+
-              '<button class="btn'+(s.approved?' primary':'')+'" style="font-size:10px;padding:5px 12px" onclick="toggleReportApprove('+i+')">'+(s.approved?'승인 ✓':'승인 필요')+'</button>'+
-              (s.videos.length>0?'<span style="font-size:10px;color:var(--tx-3)">영상 '+s.videos.length+'개</span>':'')+
-            '</div>'+
-          '</div>';
-        }).join('')}
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeReport()">취소</button>
-        <button class="btn" onclick="approveAllReport()">전체 승인</button>
-        <button class="btn primary" ${approvedCount===0?'disabled':''} onclick="S.reportDraft.step='approved';render()">검토 완료 (${approvedCount}건)</button>
-      </div>
-    </div></div>`;
-  }
-  if(d.step==='approved'){
-    return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:500px">
-      <div class="modal-title">리포트 공유 준비 완료</div>
-      <div style="font-size:12px;color:var(--tx-2);margin-bottom:16px;padding:12px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);line-height:1.6">
-        <strong>${approvedCount}건 세션 승인 완료.</strong><br>
-        공유 링크를 생성하면 회원에게 카카오톡으로 전달할 수 있습니다.<br><br>
-        포함: 회원 정보 · AI 정리 세션 · 훈련 추천 · 스윙 영상
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="S.reportDraft.step='review';render()">뒤로</button>
-        <button class="btn primary" onclick="generateShareLink()">공유 링크 생성</button>
-      </div>
-    </div></div>`;
-  }
-  // shared step
-  return `<div class="modal-overlay" onclick="if(event.target===this)closeReport()"><div class="modal" style="width:500px">
-    <div class="modal-title">공유 링크 생성 완료</div>
-    ${d.link && d.link!=='error' ? `
-    <div style="padding:14px;background:var(--ac-glow2);border:1px solid rgba(0,184,132,.15);border-radius:var(--r);margin-bottom:16px">
-      <div style="font-size:12px;color:var(--tx-2);word-break:break-all;margin-bottom:10px;padding:8px;background:var(--bg-4);border-radius:6px;font-family:var(--mono);font-size:11px">${d.link}</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn primary" id="copy-link-btn" onclick="copyReportLink()">링크 복사</button>
-        <button class="btn" onclick="window.open('${d.link}','_blank')">미리보기</button>
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--tx-3);margin-bottom:16px">카카오톡으로 링크를 보내면 회원이 직접 열어볼 수 있습니다.</div>
-    ` : `
-    <div style="padding:10px;background:var(--err-bg);border-radius:var(--r);color:var(--err);font-size:12px;margin-bottom:12px">
-      링크 생성 실패. Supabase reports 테이블을 확인하세요.
-    </div>
-    `}
-    <div class="modal-actions"><button class="btn" onclick="closeReport()">닫기</button></div>
-  </div></div>`;
-}
+// (v9.99) 옛 리포트 생성기(openReport → generateShareLink · renderReportModal) 삭제 — 부르는 곳이 없던 코드로, 회원 전화번호를 anon 으로 reports 에 쓰고
+// 추측 가능한 'rpt_<시각>' 링크를 만들었다. 지금 회원 리포트는 js/app_dashboard.js 의 고정 링크(/r/) 흐름 하나뿐.
 
 function requestDelete(id){
   if(!confirm('이 회원의 삭제를 요청하시겠습니까? 운동지도자 승인 후 삭제됩니다.'))return;
@@ -611,22 +459,25 @@ function approveDelete(id){
   // 세션 tombstone 도 같이 남겨 다른 기기 캐시가 세션을 되살리지 못하게
   if(!S.deletedSessionIds) S.deletedSessionIds={};
   (S.sessions[id]||[]).forEach(function(s){ S.deletedSessionIds[s.id]=Date.now(); });
-  // R2 정리 — 이 회원의 세션 첨부 영상/사진 + 저장된 샷 영상(mkv+mp4)을 모두 삭제.
-  // (기존엔 DB 행만 지우고 R2 객체는 남겨 삭제 회원의 영상이 영구 고아로 쌓이던 누수)
+  // R2 정리 — 이 회원의 세션 첨부 영상/사진 + 샷 영상(전 앵글)을 모두 삭제. 서버 전파(cloud.deleteMember)가 서버에서 그 회원의
+  // 샷(member_id)·첨부를 찾아 파일부터 지우고, 다 지워진 뒤에 행을 지운다(A2). 이 기기에만 있는 첨부·샷도 같이 넘긴다.
+  // (기존엔 DB 행만 지우고 R2 객체는 남겨 삭제 회원의 영상이 영구 고아로 쌓이던 누수 → 그 뒤엔 보내고 잊기라 실패하면 남았다)
+  var _keys=[], _shots=[];
   try{
-    (S.sessions[id]||[]).forEach(function(s){ (s.media||[]).forEach(function(m){ var k=m.r2Key||m.mediaId; if(k && typeof r2!=='undefined' && r2.enabled){ try{ r2.remove(k); }catch(e){} } if(m.mediaId){ try{ mediaDB.del(m.mediaId); }catch(e){} } }); });
-    (S.shotEvents||[]).filter(function(s){ return s.memberId===id; }).forEach(r2RemoveShotVideos);
+    (S.sessions[id]||[]).forEach(function(s){ (s.media||[]).forEach(function(m){ var k=m.r2Key||m.mediaId; if(k && _keys.indexOf(k)===-1) _keys.push(k); if(m.mediaId){ try{ mediaDB.del(m.mediaId); }catch(e){} } }); });
+    _shots=(S.shotEvents||[]).filter(function(s){ return s.memberId===id; });
   }catch(e){ console.warn('[r2] 회원삭제 정리 실패', e); }
   // 회원 tombstone — 부팅 머지가 삭제된 회원을 재업로드해 부활시키는 것 차단
   if(!S.deletedMemberIds) S.deletedMemberIds={};
   S.deletedMemberIds[id]=Date.now();
   S.members=S.members.filter(function(x){return x.id!==id;});
   delete S.assessments[id];delete S.sessions[id];delete S.deleteRequests[id];
+  S.shotEvents=(S.shotEvents||[]).filter(function(s){ return s.memberId!==id; });
   if(S.selectedMember===id) S.selectedMember=S.members.length>0?S.members[0].id:null;
   logAudit('member','삭제 승인',mName,{id:id});
   save(); render();
-  // 서버 전파 (회원+세션+평가+샷)
-  try{ cloud.deleteMember(id); }catch(e){}
+  // 서버 전파 (파일 → 샷 → 세션·평가 → 회원)
+  try{ cloud.deleteMember(id, {keys:_keys, shots:_shots}); }catch(e){}
 }
 function rejectDelete(id){
   var mName=(S.members.find(function(m){return m.id===id;})||{}).name||'';
@@ -665,19 +516,20 @@ async function submitPasswordChange(){
       if(cur !== getPassword(key)) return fail('현재 비밀번호가 일치하지 않습니다');
       setPassword(key, nw); done('local');
     };
+    if(r.error) return fail(r.error.message);   // 서버가 이유를 적어 거절
     if(r.data){
       var d=r.data;
-      if(d.ok){ _forgetLegacyPw(key); await pwCache.put(key, nw); logAudit('auth','비밀번호 변경', key, {server:true}); return done('server'); }
+      if(d.ok){ _tokFromPw(d, key, true); _forgetLegacyPw(key); await pwCache.put(key, nw); logAudit('auth','비밀번호 변경', key, {server:true}); return done('server'); }
       if(d.locked) return fail(_pwLockedMsg(d));
       if(d.busy) return fail('잠시 후 다시 시도해 주세요');
       if(d.expired) return fail(_pwExpiredMsg);
-      if(d.weak) return fail('새 비밀번호는 '+minLen+'~64자로 해 주세요');
+      if(d.weak) return fail(d.reuse ? '공개된 초기 비밀번호나 지금 비밀번호는 쓸 수 없어요' : '새 비밀번호는 '+minLen+'~64자로 해 주세요');
       if(d.unknown) return legacy();   // 서버에 아직 없는 계정 → 이 기기에 (관리자가 '직원 비밀번호 초기화'로 서버에 만들 수 있음)
       // '현재 비밀번호'가 이 기기에서 바꿔 쓰던 값이고 서버는 아직 초기값이면 → 초기값→새 비밀번호로 바로 이전
       var lg=_legacyStoredPw(key), df=DEFAULT_PASSWORDS[key];
       if(!f && lg && cur===lg && df && lg!==df){
         var m; try{ m=await pwServer.call('pw_change', {p_key:key, p_old:df, p_new:nw}, 15000); }catch(e){ m={offline:true}; }
-        if(m.data && m.data.ok){ _forgetLegacyPw(key); await pwCache.put(key, nw); logAudit('auth','비밀번호 변경', key, {server:true, migrated:true}); return done('server'); }
+        if(m.data && m.data.ok){ _tokFromPw(m.data, key, true); _forgetLegacyPw(key); await pwCache.put(key, nw); logAudit('auth','비밀번호 변경', key, {server:true, migrated:true}); return done('server'); }
         if(m.data && m.data.locked) return fail(_pwLockedMsg(m.data));
         if(m.data && !m.data.ok && !m.data.busy && !m.data.expired && !m.data.weak) _forgetLegacyPw(key);   // 서버는 이미 다른 값
       }
@@ -709,6 +561,7 @@ async function submitPwReset(){
   R.busy=false;
   if(S.pwReset!==R) return;
   if(r.missing) return fail('서버 비밀번호 설정(worker/supabase_passwords.sql)을 먼저 실행해야 쓸 수 있어요');
+  if(r.error) return fail(r.error.message);   // 서버가 이유를 적어 거절 (예: 공개된 초기 비밀번호는 임시 비밀번호로 못 씀)
   if(!r.data) return fail('인터넷 연결을 확인한 뒤 다시 시도해 주세요');
   var d=r.data;
   if(d.locked) return fail(_pwLockedMsg(d));
@@ -724,22 +577,71 @@ async function submitPwReset(){
 }
 function openAuditLog(){S.showAuditLog=true; S.auditFilter=S.auditFilter||'all'; S.auditUserSelected=null; render();}
 
+// ============ 녹음 원문 — 볼 때만 서버에서 (B3) ============
+// 앱을 켤 때는 원문을 받지 않는다(받는 양의 94%). 관리자가 회원 화면을 열면 그 회원의 '원문이 있는 일지' id 목록만,
+// [🎙 녹음 원문 전체 보기]를 누르면 그 일지 원문 하나만 받는다. 받은 원문은 이 화면 메모리에만 둔다(기기에 저장 안 함).
+var _rawTx={}, _rawBusy={}, _rawIdx={};   // 일지id → 원문('' = 없음, null = 못 받음) · 받는 중 · 회원id → {ids, at, busy}
+function _rawIdxReset(){ _rawIdx={}; }
+function _rawIdxFor(mid){
+  var x=_rawIdx[mid];
+  if(x && (x.busy || Date.now()-x.at < (x.ids?5*60000:30000))) return x.ids;   // 받은 목록은 5분, 실패는 30초 동안 다시 안 물음
+  if(!(typeof cloud!=='undefined' && cloud.enabled)) return null;
+  var keep=x?x.ids:null;
+  _rawIdx[mid]={busy:true, at:Date.now(), ids:keep};
+  Promise.resolve(cloud.transcripts({mid:mid, idsOnly:true})).then(function(ids){
+    _rawIdx[mid]={busy:false, at:Date.now(), ids:ids||keep};
+    if(ids && S.currentRole==='admin' && S.selectedMember===mid) render();
+  }, function(){ _rawIdx[mid]={busy:false, at:Date.now(), ids:keep}; });
+  return keep;
+}
+// 관리자 회원 화면 일지 카드 안의 원문 칸 (app_render) — 원문이 없는 일지는 빈 문자열
+function sessionRawBlock(mid, s){
+  if(S.currentRole!=='admin' || !s) return '';
+  var local=String(s.rawTranscript||'').trim() ? String(s.rawTranscript) : '';   // 이 기기에서 쓴 일지(아직 업로드 전 등)는 기기에 원문이 있음
+  if(local && local.trim()===String(s.content||'').trim()) return '';            // 본문과 똑같으면 따로 안 보임(예전 규칙)
+  if(!local){ var ids=_rawIdxFor(mid); if(!(ids && ids[s.id])) return ''; }
+  var tx=local || _rawTx[s.id];
+  var open=!!(S._rawOpen && S._rawOpen[s.id]);
+  var has=(typeof tx==='string' && tx.trim());
+  var body=!open ? '' : '<div class="raw-transcript-body">'+(has ? esc(tx).replace(/\n/g,'<br>') : (tx===null ? '원문을 불러오지 못했어요 — 접었다가 다시 눌러 주세요' : (tx===undefined ? '불러오는 중…' : '녹음 원문이 없어요')))+'</div>';
+  return '<details class="raw-transcript"'+(open?' open':'')+'><summary onclick="event.preventDefault();toggleSessionRaw('+jsq(s.id)+')">🎙 녹음 원문 전체 보기'+(has?' ('+tx.trim().length+'자)':'')+' · 관리자 전용</summary>'+body+'</details>';
+}
+function toggleSessionRaw(sid){
+  if(S.currentRole!=='admin' || !sid) return;
+  if(!S._rawOpen) S._rawOpen={};
+  S._rawOpen[sid]=!S._rawOpen[sid];
+  var own=(S.sessions[S.selectedMember]||[]).find(function(x){ return x.id===sid; });
+  var local=!!(own && String(own.rawTranscript||'').trim());   // 기기에 원문이 있는 일지(업로드 전 등)는 받지 않음
+  if(S._rawOpen[sid] && !local && typeof _rawTx[sid]!=='string' && !_rawBusy[sid] && typeof cloud!=='undefined' && cloud.enabled){
+    _rawBusy[sid]=1; delete _rawTx[sid];   // 못 받았던(null) 것은 다시 받기
+    Promise.resolve(cloud.fetchSessionRaw(sid, true)).then(function(raw){ delete _rawBusy[sid]; _rawTx[sid]=(typeof raw==='string')?raw:null; render(); }, function(){ delete _rawBusy[sid]; _rawTx[sid]=null; render(); });
+  }
+  render();
+}
+
 // ============ 녹음 원문 보관함 (관리자 전용) ============
 // 레슨 녹음 원문은 지도자 화면에는 남기지 않고(당사자 프라이버시),
 // 관리자만 이 보관함에서 신뢰도 검증용으로 열람한다.
+// 원문은 앱을 켤 때 받지 않으므로(B3) 보관함을 열 때 원문이 있는 일지의 id·원문만 한 번 받아 온다(닫으면 메모리에서도 버림).
 function openTranscriptVault(){
   if(S.currentRole!=='admin'){alert('관리자 전용 기능입니다'); return;}
   S.showTranscriptVault=true; S.vaultAuthorFilter='all'; S.sidebarOpen=false;
   logAudit('system','녹음 원문 보관함 열람','',{});
+  var v=S._vault={loading:true, tx:null, err:false};
   render();
+  if(!(typeof cloud!=='undefined' && cloud.enabled)){ v.loading=false; v.tx={}; render(); return; }
+  Promise.resolve(cloud.transcripts()).then(function(tx){ if(S._vault!==v) return; v.loading=false; v.tx=tx||{}; v.err=!tx; render(); },
+    function(){ if(S._vault!==v) return; v.loading=false; v.tx={}; v.err=true; render(); });
 }
-function closeTranscriptVault(){S.showTranscriptVault=false; render();}
+function closeTranscriptVault(){S.showTranscriptVault=false; S._vault=null; render();}
 function renderTranscriptVault(){
   if(!S.showTranscriptVault || S.currentRole!=='admin') return '';
+  var v=S._vault||{loading:false, tx:{}, err:false};
   var rows=[];
   S.members.forEach(function(m){
     (S.sessions[m.id]||[]).forEach(function(s){
-      if(s.rawTranscript && s.rawTranscript.trim()) rows.push({member:m.name, s:s});
+      var tx=String(s.rawTranscript||'').trim() ? String(s.rawTranscript) : String((v.tx&&v.tx[s.id])||'');
+      if(tx.trim()) rows.push({member:m.name, s:s, tx:tx});
     });
   });
   rows.sort(function(a,b){return sessionCompare(a.s,b.s);});
@@ -750,21 +652,31 @@ function renderTranscriptVault(){
     +'<div class="modal-title">🎙 녹음 원문 보관함 <span style="font-size:11px;font-weight:400;color:var(--tx-3)">관리자 전용 · '+rows.length+'건</span></div>'
     +'<div style="font-size:12px;color:var(--tx-2);margin-bottom:12px;padding:10px 14px;background:var(--bg-3);border-radius:var(--r);line-height:1.6">레슨 녹음 원문은 지도자·회원 화면에는 표시되지 않습니다. AI 일지 정리가 정확했는지 검증할 때만 열람하세요.</div>'
     +'<div class="audit-filter" style="margin-bottom:10px"><button class="audit-filter-btn'+(filt==='all'?' active':'')+'" onclick="S.vaultAuthorFilter=\'all\';render()">전체 '+rows.length+'</button>'
-    +Object.keys(authors).map(function(a){return '<button class="audit-filter-btn'+(filt===a?' active':'')+'" onclick="S.vaultAuthorFilter=\''+a.replace(/'/g,'')+'\';render()">'+a+' '+authors[a]+'</button>';}).join('')
+    +Object.keys(authors).map(function(a){return '<button class="audit-filter-btn'+(filt===a?' active':'')+'" onclick="S.vaultAuthorFilter='+jsq(a)+';render()">'+esc(a)+' '+authors[a]+'</button>';}).join('')
     +'</div>'
-    +(shown.length===0?'<div class="empty-state" style="padding:30px">녹음 원문이 저장된 세션이 없습니다</div>':
+    +(v.loading?'<div class="empty-state vault-loading" style="padding:30px">녹음 원문을 불러오는 중…</div>':'')
+    +(v.err?'<div class="empty-state vault-err" style="padding:12px;color:#993c1d">서버에서 원문을 불러오지 못했어요 — 네트워크 확인 후 다시 열어 주세요</div>':'')
+    +(v.loading?'':(shown.length===0?'<div class="empty-state" style="padding:30px">녹음 원문이 저장된 세션이 없습니다</div>':
       shown.map(function(r){
         var s=r.s;
-        return '<details class="raw-transcript" style="margin-bottom:8px"><summary>'+s.date+' · <b>'+r.member+'</b> 회원 · '+(s.author||'')+' · '+s.rawTranscript.trim().length+'자</summary>'
-          +'<div class="raw-transcript-body">'+String(s.rawTranscript).replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div></details>';
-      }).join(''))
+        return '<details class="raw-transcript" style="margin-bottom:8px"><summary>'+esc(s.date)+' · <b>'+esc(r.member)+'</b> 회원 · '+esc(s.author||'')+' · '+r.tx.trim().length+'자</summary>'
+          +'<div class="raw-transcript-body">'+esc(r.tx).replace(/\n/g,'<br>')+'</div></details>';
+      }).join('')))
     +'<div class="modal-actions"><button class="btn" onclick="closeTranscriptVault()">닫기</button></div>'
   +'</div></div>';
 }
 
-// ============ 스토리지 진단·정리 (관리자 전용) ============
-// R2 버킷 전체를 훑어 구성(용량·개수)을 보여주고, mp4 재생본이 이미 있는
-// 중복 mkv 원본을 안전하게 정리(삭제)할 수 있게 한다. — 워커 /__list 라우트 필요.
+// ============ 스토리지 진단·정리 (관리자 전용, A6 · v9.99) ============
+// R2 버킷 전체를 훑어 구성(종류별 개수·용량)을 보여주고, 아무 데도 안 쓰이는 '고아' 타석 영상만 골라 지울 수 있게 한다 — 워커 /__list 필요.
+// 예전 도구는 이 기기의 최근 샷 1000개만 보고 리포트·일지를 보지 않아, 정면·클럽 영상(가장 큰 쓰레기)은 못 보고
+// 리포트·저장 샷이 쓰는 영상을 지울 수 있었다. 이제 정리 후보는 네 조건을 모두 만족하는 파일뿐이다(A1):
+//  ① DB 의 모든 표·모든 행(1000행 넘게 끝까지, 리포트 본문 포함) 어디에도 그 키가 적혀 있지 않음
+//  ② 올린 지 7일이 지남(최근 업로드 보호)  ③ 타석 폴더의 샷 영상(<타석>/<샷id>_scene|fo|club) — rec/·orig/·일지 첨부(m_)·hb/ 는 제외
+//  ④ 파일 이름의 샷 id 로 된 행이 없음(측정ID 파일은 'tm_'+측정ID 행)
+// 지우기 전에 후보 목록(CSV)을 내려받아 확인하고, 지우기 직전에 DB 를 한 번 더 대조한다. 6개씩 동시에, 실패가 1%를 넘으면 멈춘다.
+// 목록은 관리자 열쇠(X-Admin-Key)·관리자 토큰으로(wFetch), 지우기는 관리자 토큰 또는 공용 열쇠로(r2.removeSure — 없는 파일 404 = 성공).
+var SA_KEEP_DAYS = 7, SA_CONC = 6;
+var _SA_CLS = { scene:'측면·내장 카메라 영상', fo:'정면 영상', club:'클럽 영상', mov:'원본 형식 영상(.mov·.mkv)', rec:'녹음·전사 백업(rec/)', orig:'요청한 원본(orig/)', root:'일지 첨부 등', hb:'타석 PC 신호(hb/)', other:'기타' };
 function _fmtBytes(b){
   b = b||0;
   if(b >= 1073741824) return (b/1073741824).toFixed(2)+' GB';
@@ -775,156 +687,188 @@ function _fmtBytes(b){
 async function openStorageAudit(){
   if(S.currentRole!=='admin'){ alert('관리자 전용 기능입니다'); return; }
   if(typeof r2==='undefined' || !r2.enabled){ alert('R2 스토리지가 설정되지 않았습니다'); return; }
-  S.storageAudit = { loading:true, error:'', data:null }; S.sidebarOpen=false; render();
+  if(S.storageAudit && S.storageAudit.purging && !S.storageAudit.purging.finished) return;   // 지우는 중에는 다시 진단하지 않음
+  var A={ loading:true, step:'list', listed:0, error:'', data:null };
+  S.storageAudit=A; S.sidebarOpen=false; render();
   logAudit('system','스토리지 진단 열람','',{});
   try{
     var objects=[], cursor=null, pages=0;
     do{
       var res=await r2.list(cursor);
+      if(S.storageAudit!==A) return;   // 그사이 창을 닫았거나 다시 열었음
+      // 워커 v2 에 관리자 열쇠(ADMIN_KEY)를 넣은 뒤 — 관리자 토큰이 없으면 열쇠를 물어본다
+      if(!res && (r2.lastListStatus===401 || r2.lastListStatus===403)){ S.storageAudit={ loading:false, error:'', data:null, needKey:true, badKey:!!_adminKey() }; render(); return; }
       if(!res){ throw new Error('목록 조회 실패 — 워커에 /__list 라우트가 배포됐는지 확인하세요 (worker/golf-pt-storage-worker.js 최신본을 Cloudflare 에 붙여넣기)'); }
       (res.objects||[]).forEach(function(o){ objects.push(o); });
-      cursor=res.cursor; pages++;
+      cursor=res.cursor; pages++; A.listed=objects.length; render();
     }while(cursor && pages<60);   // 최대 6만 객체 안전 상한
-    // ⚠️ 오삭제 방지 1 — 정리 계산 직전에 샷 목록을 서버에서 새로 받는다.
-    // (이 기기의 S.shotEvents 가 오래됐으면 방금 친 샷의 영상이 '미보관'으로 잘못 분류됨)
-    try{ var lv=await cloud.loadLive(); if(lv && lv.shotEvents && lv.shotEvents.length) S.shotEvents=lv.shotEvents; }catch(e){}
-    // 보관해야 할 샷 영상 키 = 선별 저장(_kept) 샷 + 최근 KEEP_DAYS 이내 샷의 영상
-    var days=(window.APP_CONFIG&&APP_CONFIG.SHOT_VIDEO_KEEP_DAYS)||3;
-    var recentCut=Date.now()-days*24*3600*1000;
-    var keep={};
-    // 회원별 최근 8개(영상 보유) 샷도 보호 — 자동 보관 정책(purgeOldShotVideos)과 동일 기준
-    var prot=(typeof _memberRecentVideoShotIds==='function') ? _memberRecentVideoShotIds(8) : {};
-    (S.shotEvents||[]).forEach(function(s){
-      var t=Date.parse(s.ts);
-      var protect=(s.data&&s.data._kept) || (!isNaN(t)&&t>=recentCut) || prot[s.id];
-      if(!protect) return;
-      if(s.videoR2Key) keep[s.videoR2Key]=1;
-      if(s.data&&s.data.videoMp4R2Key) keep[s.data.videoMp4R2Key]=1;
-      if(s.data&&s.data.videoFO) keep[s.data.videoFO]=1;   // 정면 각도도 보호(선별 저장/최근 샷)
-      if(s.data&&s.data.videoDL) keep[s.data.videoDL]=1;
-      if(s.data&&s.data.videoClub) keep[s.data.videoClub]=1;   // 클럽 딜리버리 각도
-    });
-    // ⚠️ 오삭제 방지 2 — 업로드된 지 KEEP_DAYS 안 된 파일은 무조건 보호(워커가 uploaded 제공 시)
-    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects, keep, recentCut), truncated: !!cursor };
+    // 보호 목록 — 이 기기의 사본이 아니라 서버 DB 의 모든 표·모든 행을 지금 끝까지 다시 읽는다
+    var noDb=!(typeof cloud!=='undefined' && cloud.enabled);
+    A.step='db'; render();
+    var P=noDb ? null : await cloud.storageProtect();
+    if(S.storageAudit!==A) return;
+    S.storageAudit={ loading:false, error:'', data:analyzeStorage(objects, P, Date.now()), truncated:!!cursor, noDb:noDb };
   }catch(e){
+    if(S.storageAudit!==A) return;
     S.storageAudit={ loading:false, error:String(e&&e.message||e), data:null };
   }
   render();
 }
 function closeStorageAudit(){ S.storageAudit=null; render(); }
-function analyzeStorage(objects, keepKeys, recentUploadCut){
-  keepKeys = keepKeys || {};
-  recentUploadCut = recentUploadCut || 0;
-  var cat={ mkv:{n:0,b:0}, mp4:{n:0,b:0}, rec:{n:0,b:0}, manual:{n:0,b:0}, other:{n:0,b:0} };
-  var total={ n:objects.length, b:0 };
-  var mp4Bases={};
+// 관리자 열쇠 입력 → 이 탭에만 보관(sessionStorage) 후 다시 조회
+function submitAdminKey(){ var el=document.getElementById('adm-key-in'); var v=el ? String(el.value||'').trim() : ''; if(!v) return; setAdminKey(v); openStorageAudit(); }
+function _saClass(k){
+  if(/^rec\//.test(k)) return 'rec';
+  if(/^orig\//.test(k)) return 'orig';
+  if(/^hb\//.test(k)) return 'hb';
+  if(k.indexOf('/')===-1) return 'root';
+  if(/\.(mov|mkv)$/i.test(k)) return 'mov';
+  if(/_scene\.[A-Za-z0-9]+$/.test(k)) return 'scene';
+  if(/_fo\.[A-Za-z0-9]+$/.test(k)) return 'fo';
+  if(/_club\.[A-Za-z0-9]+$/.test(k)) return 'club';
+  return 'other';
+}
+// 파일 이름의 샷 id — '<타석>/<샷id>_(scene|fo|club).(mp4|mov|mkv)' 만(대소문자까지 에이전트·워커 v2 의 키 규칙 그대로). 1·2번 타석 내장 영상은
+// '<측정ID>_scene' → 행은 'tm_'+측정ID. 다른 모양(rec/·orig/·첨부·hb/·모르는 이름)은 null → 정리 후보가 될 수 없다
+function _saShotIds(k){
+  var m=/^bay[A-Za-z0-9_-]{1,29}\/([A-Za-z0-9][A-Za-z0-9_-]{0,127})_(?:scene|fo|club)\.(?:mp4|mov|mkv)$/.exec(k);
+  if(!m) return null;
+  return m[1].indexOf('tm_')===0 ? [m[1]] : [m[1], 'tm_'+m[1]];
+}
+// 지우지 않는 이유 — 'ref'(DB·리포트에 적힘) | 'excl'(정리 대상 아님) | 'recent'(7일 안 됨·업로드 시각 모름) | 'row'(샷 행 있음) | ''(정리 후보)
+function _saWhy(o, P, now){
+  var k=String(o.key||'');
+  if(P.strs[k]) return 'ref';
+  var ids=_saShotIds(k);
+  if(!ids) return 'excl';
+  if(!(+o.uploaded>0) || now-(+o.uploaded) < SA_KEEP_DAYS*86400000) return 'recent';
+  for(var i=0;i<ids.length;i++){ if(P.shotIds[ids[i]]) return 'row'; }
+  return '';
+}
+function _saKst(ms){ return ms ? new Date(ms+9*3600000).toISOString().slice(0,16).replace('T',' ') : ''; }
+// objects: /__list 결과 [{key,size,uploaded}] · P: cloud.storageProtect() (null 이면 구성만, 정리 후보 계산 안 함)
+function analyzeStorage(objects, P, now){
+  now=now||Date.now();
+  var cls={}; Object.keys(_SA_CLS).forEach(function(k){ cls[k]={n:0, b:0, c:0}; });
+  var total={n:objects.length, b:0}, why={ref:{n:0,b:0}, excl:{n:0,b:0}, recent:{n:0,b:0}, row:{n:0,b:0}};
+  var cand={n:0, b:0, list:[], month:{}};
   objects.forEach(function(o){
-    total.b += o.size||0;
-    if(/_scene\.mp4$/i.test(o.key)) mp4Bases[o.key.replace(/_scene\.mp4$/i,'')]=1;
+    var k=String(o.key||''), s=+o.size||0, c=_saClass(k);
+    total.b+=s; cls[c].n++; cls[c].b+=s;
+    if(!P) return;
+    var w=_saWhy(o, P, now);
+    if(w){ why[w].n++; why[w].b+=s; return; }
+    cls[c].c++; cand.n++; cand.b+=s;
+    var it={key:k, size:s, uploaded:+o.uploaded, cls:c}; cand.list.push(it);
+    var mo=_saKst(it.uploaded).slice(0,7); if(!cand.month[mo]) cand.month[mo]={n:0, b:0}; cand.month[mo].n++; cand.month[mo].b+=s;
   });
-  var reclaim={ n:0, b:0 }, reclaimKeys=[];          // mp4 재생본이 있는 중복 mkv
-  var unkept={ n:0, b:0 }, unkeptKeys=[];            // 앱에서 저장(선별)하지 않은 샷 영상 (mkv+mp4)
-  objects.forEach(function(o){
-    var k=o.key, s=o.size||0;
-    var isScene=/_scene\.(mkv|mp4)$/i.test(k);
-    var recentlyUploaded = recentUploadCut && o.uploaded && o.uploaded >= recentUploadCut;   // 방금 올라온 파일 보호
-    if(isScene && !keepKeys[k] && !recentlyUploaded){ unkept.n++; unkept.b+=s; unkeptKeys.push(k); }
-    if(/_scene\.mkv$/i.test(k)){
-      cat.mkv.n++; cat.mkv.b+=s;
-      if(mp4Bases[k.replace(/_scene\.mkv$/i,'')]){ reclaim.n++; reclaim.b+=s; reclaimKeys.push(k); }
-    } else if(/_scene\.mp4$/i.test(k)){ cat.mp4.n++; cat.mp4.b+=s; }
-    else if(/^rec\//i.test(k)){ cat.rec.n++; cat.rec.b+=s; }
-    else if(/^m_/i.test(k)){ cat.manual.n++; cat.manual.b+=s; }
-    else { cat.other.n++; cat.other.b+=s; }
-  });
-  return { total:total, cat:cat, reclaim:reclaim, reclaimKeys:reclaimKeys, unkept:unkept, unkeptKeys:unkeptKeys };
+  cand.list.sort(function(a,b){ return (a.uploaded-b.uploaded) || (a.key<b.key?-1:(a.key>b.key?1:0)); });
+  return {total:total, cls:cls, why:why, cand:cand, protect:!!P, rows:P?P.rows:null};
 }
-// 공용 병렬 삭제 루프 (청크 8) — 진행률은 S.storageAudit.purging 에 기록
-async function _purgeKeyList(keys){
-  var A=S.storageAudit; if(!A) return;
-  A.purging={ done:0, total:keys.length, fail:0, finished:false }; render();
-  var CHUNK=8, chunkIdx=0;
-  for(var i=0;i<keys.length;i+=CHUNK){
-    var batch=keys.slice(i,i+CHUNK);
-    await Promise.all(batch.map(function(k){
-      return r2.remove(k).then(function(ok){ if(!ok) A.purging.fail++; }, function(){ A.purging.fail++; }).then(function(){ A.purging.done++; });
-    }));
-    if((++chunkIdx % 4)===0) render();
-  }
-  A.purging.finished=true; render();
+// 정리 후보 목록 CSV (키·크기·업로드 시각·분류) — 회원 영상 주소 목록이므로 밖으로 공유하지 않는다. 내려받아야 [지우기]가 켜진다
+function storageCandCsv(){
+  var A=S.storageAudit, d=A&&A.data; if(S.currentRole!=='admin' || !d || !d.cand || !d.cand.list.length) return;
+  var cell=function(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };   // 엑셀 수식으로 읽히지 않게
+  var rows=[['키','크기(바이트)','업로드(한국 시간)','분류']].concat(d.cand.list.map(function(o){ return [o.key, o.size, _saKst(o.uploaded), o.cls]; }));
+  var csv=rows.map(function(r){ return r.map(cell).join(','); }).join('\n');
+  try{
+    var blob=new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'}), url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='storage_cleanup_'+today()+'.csv'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }catch(e){ alert('목록을 내려받지 못했어요'); return; }
+  A.csvAt=Date.now();
+  logAudit('system','스토리지 정리 후보 목록 내려받기','',{count:d.cand.n, bytes:d.cand.b});
+  render();
 }
-// 앱에서 저장(선별)하지 않은 샷 영상 일괄 정리 — 측정 데이터(성과 그래프)는 유지, 영상 파일만 삭제
-async function purgeUnkeptShotVideos(){
-  var A=S.storageAudit; var a=A&&A.data;
-  if(!a || !a.unkeptKeys || !a.unkeptKeys.length) return;
-  if(!confirm('앱에서 저장(선별)하지 않은 샷 영상 '+a.unkept.n+'개('+_fmtBytes(a.unkept.b)+')를 삭제합니다.\n\n· 측정 수치·성과 그래프는 그대로 유지 (영상 파일만 삭제)\n· 선별 저장한 샷·최근 며칠 영상·일지 첨부는 보호됨\n· 되돌릴 수 없습니다\n\n계속할까요?')) return;
-  await _purgeKeyList(a.unkeptKeys);
-  logAudit('system','미보관 샷 영상 정리','',{count:a.unkept.n, bytes:a.unkept.b, fail:A.purging.fail});
-  liveToastSafe && liveToastSafe('🎞 미보관 샷 영상 '+(a.unkept.n-A.purging.fail)+'개 정리 완료');
-  setTimeout(openStorageAudit, 800);
-}
-// mp4 재생본이 이미 존재하는 mkv 원본만 삭제 — 재생본은 유지되므로 재생에 영향 없음(안전).
-async function purgeReclaimableMkv(){
-  var A=S.storageAudit; var a=A&&A.data;
-  if(!a || !a.reclaimKeys || !a.reclaimKeys.length){ return; }
-  if(!confirm('mp4 재생본이 이미 있는 중복 mkv 원본 '+a.reclaim.n+'개('+_fmtBytes(a.reclaim.b)+')를 삭제합니다.\n\n· 재생본(mp4)은 그대로 유지 → 영상 재생에는 전혀 영향 없음\n· 되돌릴 수 없습니다\n\n계속할까요?')) return;
-  await _purgeKeyList(a.reclaimKeys);
-  logAudit('system','스토리지 mkv 원본 정리','',{count:a.reclaim.n, bytes:a.reclaim.b, fail:A.purging.fail});
-  liveToastSafe && liveToastSafe('🧹 mkv 원본 '+(a.reclaim.n-A.purging.fail)+'개 정리 완료 — 대시보드에 반영까지 잠시 걸립니다');
-  setTimeout(openStorageAudit, 800);   // 재조회로 결과 갱신
+var _saRT=null;
+function _saRenderSoon(){ if(_saRT) return; _saRT=setTimeout(function(){ _saRT=null; try{ render(); }catch(e){} }, 400); }
+// 정리 후보 지우기 — 지우기 직전에 DB 를 다시 대조(그사이 리포트·샷이 쓰게 된 파일은 남김) → 첫 파일은 혼자(지금 워커 v1 의 CORS 거절을 한 번만),
+// 나머지는 6개씩 동시에. 실패가 1%를 넘으면(전체의 1%, 또는 100개 넘게 지운 뒤 지금까지의 1%) 멈춘다. 창을 닫아도 멈춘다
+async function purgeStorageOrphans(){
+  var A=S.storageAudit, d=A&&A.data;
+  if(S.currentRole!=='admin' || !d || !d.protect || !d.cand || !d.cand.n || A.purging) return;
+  if(!A.csvAt){ alert('먼저 후보 목록(CSV)을 내려받아 확인해 주세요'); return; }
+  if(!confirm('정리 후보 '+d.cand.n.toLocaleString()+'개('+_fmtBytes(d.cand.b)+')를 저장소에서 지웁니다.\n\n· DB 어디에도 안 쓰이고 7일이 지난, 샷 기록 없는 타석 영상만\n· 지우기 직전에 서버 자료를 한 번 더 대조해요\n· 레슨이 없는 시간에 해 주세요 · 되돌릴 수 없습니다\n\n계속할까요?')) return;
+  var R={checking:true, done:0, fail:0, total:0, bytes:0, skipped:0, stopped:false, finished:false};
+  A.purging=R; render();
+  var P=null; try{ P=await cloud.storageProtect(); }catch(e){ P=null; }
+  if(S.storageAudit!==A) return;
+  if(!P){ A.purging=null; render(); alert('서버 자료를 다시 확인하지 못해 아무것도 지우지 않았어요 — 잠시 후 다시 해 주세요'); return; }
+  var now=Date.now(), list=d.cand.list.filter(function(o){ return !_saWhy(o, P, now); });
+  // 마지막으로 후보 파일 이름의 샷 id 를 서버에 콕 집어 다시 묻는다(80개씩) — 전체 대조 중에 놓쳤거나 그 뒤에 생긴 샷 행이 있으면 지우지 않는다
+  var sids=[], seen={}; list.forEach(function(o){ (_saShotIds(o.key)||[]).forEach(function(id){ if(!seen[id]){ seen[id]=1; sids.push(id); } }); });
+  var have=sids.length ? await cloud.shotsByIds(sids, true) : {};
+  if(S.storageAudit!==A) return;
+  if(!have){ A.purging=null; render(); alert('서버 자료를 다시 확인하지 못해 아무것도 지우지 않았어요 — 잠시 후 다시 해 주세요'); return; }
+  list=list.filter(function(o){ return !(_saShotIds(o.key)||[]).some(function(id){ return have[id]; }); });
+  R.checking=false; R.total=list.length; R.skipped=d.cand.list.length-list.length; render();
+  var i=0, closed=false;
+  var tooMany=function(){ var at=R.done+R.fail; return R.fail>R.total*0.01 || (at>=100 && R.fail>at*0.01); };
+  var alive=function(){ if(S.storageAudit!==A) closed=true; return !closed && !R.stopped; };
+  var one=async function(o){ var ok=false; try{ ok=await r2.removeSure(o.key); }catch(e){ ok=false; } if(ok){ R.done++; R.bytes+=o.size||0; } else R.fail++; if(tooMany()) R.stopped=true; _saRenderSoon(); };
+  if(list.length && alive()) await one(list[i++]);
+  var lane=async function(){ while(i<list.length && alive()){ await one(list[i++]); } };
+  var lanes=[]; for(var k=0;k<SA_CONC;k++) lanes.push(lane());
+  await Promise.all(lanes);
+  R.finished=true; R.left=list.length-R.done-R.fail; R.closed=closed;
+  logAudit('system','스토리지 고아 정리','',{count:R.done, bytes:R.bytes, fail:R.fail, stopped:R.stopped, closed:closed, skipped:R.skipped});
+  render();
 }
 function renderStorageAudit(){
   var A=S.storageAudit; if(!A || S.currentRole!=='admin') return '';
   var body;
   if(A.loading){
-    body='<div style="padding:30px 0;text-align:center;color:var(--tx-2)">R2 버킷 목록을 불러오는 중…<div style="font-size:11px;color:var(--tx-3);margin-top:6px">객체가 많으면 몇 초 걸립니다</div></div>';
+    body='<div class="sa-loading">'+(A.step==='db' ? '서버 자료(모든 표·모든 행)와 대조하는 중…' : '저장소 목록을 불러오는 중…'+(A.listed?' '+(+A.listed).toLocaleString()+'개':''))+'<small>파일이 많으면 몇십 초 걸릴 수 있어요</small></div>';
   } else if(A.error){
     body='<div style="padding:18px;background:#fdecec;border-radius:10px;color:#993c1d;font-size:13px;line-height:1.7">'+String(A.error).replace(/</g,'&lt;')+'</div>';
+  } else if(A.needKey){
+    body='<div style="padding:16px;background:#fff7ea;border:1px solid #f0ddb8;border-radius:12px;font-size:13px;line-height:1.7">'
+      +'<div style="font-weight:800;color:#8a5a10">🔑 관리자 열쇠가 필요해요'+(A.badKey?' — 넣은 열쇠가 맞지 않아요':'')+'</div>'
+      +'<div style="font-size:11.5px;color:var(--tx-2);margin:2px 0 10px">저장 워커 설정(Cloudflare)의 ADMIN_KEY 값 · 이 기기에 남지 않고 앱을 닫으면 지워져요</div>'
+      +'<input type="password" class="form-input" id="adm-key-in" autocomplete="off" placeholder="관리자 열쇠" onkeydown="if(event.key===\'Enter\')submitAdminKey()">'
+      +'<button class="btn primary" style="width:100%;margin-top:8px" onclick="submitAdminKey()">확인</button></div>';
   } else if(A.data){
-    var d=A.data, c=d.cat;
-    var row=function(label,o,hint){ return '<tr><td style="padding:7px 4px">'+label+(hint?'<div style="font-size:10.5px;color:var(--tx-3)">'+hint+'</div>':'')+'</td><td style="text-align:right;padding:7px 4px;white-space:nowrap">'+o.n.toLocaleString()+'개</td><td style="text-align:right;padding:7px 4px;white-space:nowrap;font-weight:700">'+_fmtBytes(o.b)+'</td></tr>'; };
-    body=''
-      +'<div style="font-size:13px;color:var(--tx-2);margin-bottom:10px">전체 <b>'+d.total.n.toLocaleString()+'개</b> · <b>'+_fmtBytes(d.total.b)+'</b>'+(A.truncated?' <span style="color:#b8791d">(상한 도달 — 일부만 집계)</span>':'')+'</div>'
-      +'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--line);color:var(--tx-3);font-size:11px"><th style="text-align:left;padding:4px">유형</th><th style="text-align:right;padding:4px">개수</th><th style="text-align:right;padding:4px">용량</th></tr></thead><tbody>'
-      +row('🎥 스윙영상 mkv 원본', c.mkv, 'TrackMan 원본 (iOS 재생 불가)')
-      +row('📱 스윙영상 mp4 재생본', c.mp4, '앱에서 실제 재생되는 버전')
-      +row('🎙 음성 백업(rec/)', c.rec, 'STT 실패분 백업')
-      +row('📎 세션 첨부(수동 업로드)', c.manual, '사진·영상 첨부')
-      +row('❓ 기타', c.other, '')
-      +'</tbody></table>';
-    if(d.reclaim.n>0){
-      body+='<div style="margin-top:16px;padding:14px;background:#eafaf3;border:1px solid #b6ead2;border-radius:12px">'
-        +'<div style="font-weight:800;font-size:13.5px;color:#0f7a52;margin-bottom:4px">✅ 안전하게 정리 가능: '+d.reclaim.n.toLocaleString()+'개 · '+_fmtBytes(d.reclaim.b)+'</div>'
-        +'<div style="font-size:12px;color:var(--tx-2);line-height:1.6;margin-bottom:10px">mp4 재생본이 <b>이미 있는</b> mkv 원본입니다. 삭제해도 재생본은 그대로라 영상 재생엔 영향이 없고, 저장 용량만 줄어듭니다.</div>';
-      if(A.purging){
-        var p=A.purging;
-        body+='<div style="font-size:12.5px;color:'+(p.finished?'#0f7a52':'var(--tx-2)')+'">'+(p.finished?'완료 — ':'삭제 중 ')+p.done+' / '+p.total+(p.fail?(' · 실패 '+p.fail):'')+'</div>';
-      } else {
-        body+='<button class="btn primary" style="width:100%" onclick="purgeReclaimableMkv()">🧹 중복 mkv 원본 '+_fmtBytes(d.reclaim.b)+' 정리</button>';
-      }
-      body+='</div>';
+    var d=A.data, R=A.purging, N=function(n){ return (+n||0).toLocaleString(); };
+    var rows=Object.keys(_SA_CLS).filter(function(k){ return d.cls[k] && d.cls[k].n; }).map(function(k){ var c=d.cls[k];
+      return '<tr><td>'+_SA_CLS[k]+'</td><td class="n">'+N(c.n)+'개</td><td class="n b">'+_fmtBytes(c.b)+'</td><td class="n">'+(d.protect?(c.c?'<b>'+N(c.c)+'개</b>':'0'):'-')+'</td></tr>'; }).join('');
+    body='<div class="sa-sum">전체 <b>'+N(d.total.n)+'개</b> · <b>'+_fmtBytes(d.total.b)+'</b>'+(A.truncated?' <span class="sa-warn">(목록 상한 도달 — 일부만 집계)</span>':'')+'</div>'
+      +'<table class="sa-tbl"><thead><tr><th>종류</th><th class="n">개수</th><th class="n">용량</th><th class="n">정리 후보</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    if(!d.protect){
+      body+='<div class="sa-box warn">'+(A.noDb ? '서버 DB 에 연결되지 않아 정리 후보를 계산하지 않았어요.' : '⚠️ 서버 자료를 끝까지 확인하지 못해 정리 후보를 계산하지 않았어요 — 네트워크·로그인 상태를 확인하고 [새로고침]을 눌러 주세요.')+'</div>';
     } else {
-      body+='<div style="margin-top:16px;padding:12px;background:var(--bg-2);border-radius:10px;font-size:12px;color:var(--tx-2);line-height:1.6">중복 mkv 원본이 발견되지 않았습니다. (에이전트 mp4 변환이 꺼져 있거나 이미 정리된 상태)</div>';
-    }
-    if(d.unkept && d.unkept.n>0){
-      body+='<div style="margin-top:12px;padding:14px;background:#fff7ea;border:1px solid #f0ddb8;border-radius:12px">'
-        +'<div style="font-weight:800;font-size:13.5px;color:#8a5a10;margin-bottom:4px">🎞 앱 미저장 샷 영상: '+d.unkept.n.toLocaleString()+'개 · '+_fmtBytes(d.unkept.b)+'</div>'
-        +'<div style="font-size:12px;color:var(--tx-2);line-height:1.6;margin-bottom:10px">연습 중 자동으로 쌓인, 앱에서 <b>저장(선별)하지 않은</b> 샷 영상입니다. 삭제해도 <b>측정 수치·성과 그래프는 그대로</b>이고 영상 파일만 지워집니다. 선별 저장 샷·최근 며칠 영상·일지 첨부는 보호됩니다.</div>';
-      if(A.purging && !A.purging.finished){
-        body+='<div style="font-size:12.5px;color:var(--tx-2)">삭제 중 '+A.purging.done+' / '+A.purging.total+(A.purging.fail?(' · 실패 '+A.purging.fail):'')+'</div>';
+      var w=d.why;
+      body+='<div class="sa-keep">지우지 않는 파일 — DB·리포트에 적힌 파일 '+N(w.ref.n)+'개 · 올린 지 7일 안 됨 '+N(w.recent.n)+'개 · 샷 기록이 남은 영상 '+N(w.row.n)+'개 · 정리 대상 아님(녹음 백업·원본·일지 첨부 등) '+N(w.excl.n)+'개</div>';
+      if(!d.cand.n){
+        body+='<div class="sa-box ok">✅ 지울 고아 파일이 없어요</div>';
       } else {
-        body+='<button class="btn" style="width:100%;background:#8a5a10;color:#fff" onclick="purgeUnkeptShotVideos()">🎞 미저장 샷 영상 '+_fmtBytes(d.unkept.b)+' 정리</button>';
+        var months=Object.keys(d.cand.month).sort().map(function(m){ var x=d.cand.month[m]; return '<span>'+m.replace('-','.')+' <b>'+N(x.n)+'개</b> '+_fmtBytes(x.b)+'</span>'; }).join('');
+        body+='<div class="sa-box cand"><div class="sa-h">🧹 정리 후보 '+N(d.cand.n)+'개 · '+_fmtBytes(d.cand.b)+'</div>'
+          +'<div>DB 어디에도 안 쓰이고, 올린 지 7일이 지났고, 그 샷 기록도 없는 타석 영상만 골랐어요 (녹음 백업·원본·일지 첨부는 제외).</div>'
+          +'<div class="sa-months">'+months+'</div>';
+        if(R){
+          if(R.checking) body+='<div class="sa-prog">지우기 전에 서버 자료를 다시 대조하는 중…</div>';
+          else if(!R.finished) body+='<div class="sa-prog">지우는 중 '+N(R.done+R.fail)+' / '+N(R.total)+(R.fail?' · 실패 '+N(R.fail):'')+'</div>';
+          else if(R.stopped) body+='<div class="sa-prog err">⚠️ 실패가 1%를 넘어 멈췄어요 — '+N(R.done)+'개 지움 · 실패 '+N(R.fail)+'개 · 나머지 '+N(R.left)+'개는 그대로예요</div>';
+          else if(R.closed) body+='<div class="sa-prog err">정리를 멈췄어요 — '+N(R.done)+'개 지움</div>';
+          else body+='<div class="sa-prog ok">완료 — '+N(R.done)+'개 지움 ('+_fmtBytes(R.bytes)+')'+(R.fail?' · 실패 '+N(R.fail)+'개':'')+'</div>';
+          if(R.skipped && !R.checking) body+='<div class="sa-note">그사이 DB 에 적힌 '+N(R.skipped)+'개는 남겼어요</div>';
+          if(R.finished) body+='<div class="sa-note">[새로고침]으로 다시 진단할 수 있어요</div>';
+        } else {
+          body+='<div class="sa-acts"><button class="btn sa-csv" onclick="storageCandCsv()">⬇ 후보 목록(CSV)</button>'
+            +'<button class="btn primary sa-del"'+(A.csvAt?'':' disabled')+' onclick="purgeStorageOrphans()">🧹 후보 '+N(d.cand.n)+'개 지우기</button></div>'
+            +(A.csvAt?'':'<div class="sa-note">지우기 전에 후보 목록을 내려받아 확인해 주세요</div>');
+        }
+        body+='<div class="sa-note">후보 목록은 회원 영상 주소 목록이라 밖으로 공유하지 마세요 · 지우기 직전에 서버 자료를 한 번 더 대조하고, 실패가 1%를 넘으면 멈춰요 · 레슨이 없는 시간에 해 주세요</div></div>';
       }
-      body+='</div>';
     }
-    body+='<div style="margin-top:14px;font-size:11px;color:var(--tx-3);line-height:1.7">· rec/ 오래된 음성 백업과 미완료 업로드는 Cloudflare 대시보드의 <b>라이프사이클 규칙</b>으로 자동 정리하세요 (docs/R2-비용-절감.md 참고).<br>· DB에서 사라진 회원/세션의 고아 영상 정리는 안전을 위해 별도 스크립트로 진행합니다 (문서 참고).</div>';
   } else {
     body='<div style="padding:20px;color:var(--tx-2)">데이터 없음</div>';
   }
-  return '<div class="modal-overlay" onclick="if(event.target===this)closeStorageAudit()"><div class="modal" style="width:520px;max-height:92vh;overflow-y:auto">'
+  var busy=!!(A.purging && !A.purging.finished);
+  return '<div class="modal-overlay" onclick="if(event.target===this)closeStorageAudit()"><div class="modal sa-modal" style="width:520px;max-height:92vh;overflow-y:auto">'
     +'<div class="modal-title">🧹 스토리지 진단·정리 <span style="font-size:11px;font-weight:400;color:var(--tx-3)">관리자 전용 · R2</span></div>'
     +body
-    +'<div class="modal-actions"><button class="btn" onclick="closeStorageAudit()">닫기</button>'+(A.data?'<button class="btn" onclick="openStorageAudit()">새로고침</button>':'')+'</div>'
+    +'<div class="modal-actions"><button class="btn" onclick="closeStorageAudit()">'+(busy?'멈추고 닫기':'닫기')+'</button>'+(A.data&&!busy?'<button class="btn" onclick="openStorageAudit()">새로고침</button>':'')+'</div>'
   +'</div></div>';
 }
 function exportAuditLog(user){
@@ -945,7 +889,7 @@ function updateNS(k,v){S.newSession[k]=v; if(k==='author'||k==='date') render();
 // ── 레슨 시간 유틸 ─────────────────────────────────────────
 // 세션에 레슨 시각(time:'HH:MM')을 붙여 같은 날 여러 레슨을 순서대로 정렬한다.
 function nowHalfHour(){ try{ var d=new Date(); var h=d.getHours(); var m=d.getMinutes()<30?'00':'30'; return (h<10?'0'+h:h)+':'+m; }catch(e){ return ''; } }
-function timeLabel(t){ if(!t) return ''; var p=String(t).split(':'); var h=parseInt(p[0],10); var m=p[1]||'00'; if(isNaN(h)) return ''; var ap=h<12?'오전':'오후'; var hh=h%12; if(hh===0) hh=12; return ap+' '+hh+':'+m; }
+function timeLabel(t){ if(!t) return ''; var p=String(t).split(':'); var h=parseInt(p[0],10); var m=(/^\d{1,2}/.exec(p[1]||'')||['00'])[0]; if(isNaN(h)) return ''; var ap=h<12?'오전':'오후'; var hh=h%12; if(hh===0) hh=12; return ap+' '+hh+':'+m; }
 function sessionTimeOptions(sel){
   sel=sel||'';
   var out='<option value=""'+(sel?'':' selected')+'>시간 미지정</option>';
@@ -1178,6 +1122,23 @@ function _aiSourceForSession(s, opts){
   var p=(typeof cloud!=='undefined' && cloud && typeof cloud.fetchSessionRaw==='function') ? cloud.fetchSessionRaw(s.id) : Promise.resolve('');
   return Promise.resolve(p).then(function(raw){ raw=String(raw||'').trim(); return raw.length>fb.length ? raw : fb; }, function(){ return fb; });
 }
+// 일지를 만든 시각(ms) — 이 기기에서 쓴 일지는 _addedAt, 서버에서 받은 일지는 id('s'+13자리 시각, suid)에서.
+// 둘 다 없으면 그 날짜가 끝나는 시각으로 본다(늦게 잡을수록 '실패'로 덜 단정). 모르면 0
+function _sessMadeAt(s){
+  if(!s) return 0;
+  var t=s._addedAt?Date.parse(s._addedAt):NaN; if(!isNaN(t)) return t;
+  var m=/^s(\d{13})/.exec(String(s.id||'')); if(m){ t=parseInt(m[1],10); if(t>1500000000000 && t<Date.now()+86400000) return t; }
+  t=s.date?Date.parse(String(s.date).slice(0,10)+'T23:59:59'):NaN;
+  return isNaN(t)?0:t;
+}
+// 'AI 정리 대기' 일지 상태 — ''(아님) · 'pending'(정리 중) · 'failed'(하루가 지나도 정리 안 됨 = 사실상 실패 → '눌러서 다시')
+// 일지 카드 배지·대시보드 'AI 정리 대기 N건'·고객 리포트 제외가 같은 기준을 쓴다 (D3)
+function aiPendingState(s){
+  if(!s || String(s.content||'').indexOf('AI 정리 대기')===-1) return '';
+  if(typeof _aiInflightActive==='function' && _aiInflightActive(s.id)) return 'pending';   // 지금 다시 정리하는 중
+  var t=_sessMadeAt(s);
+  return (t && Date.now()-t>86400000) ? 'failed' : 'pending';
+}
 // 손대지 않은 자동 생성 '정리 대기' 본문인지 — [레슨 녹음 메모 … AI 정리 대기] 머리줄 + 받아쓰기 불릿(+[트랙맨] 줄)만 있는 상태.
 // 오래된 일지(7일+)는 이 형태 그대로일 때만 자동 교체한다(사람이 고친 일지를 AI 결과로 덮지 않게, v9.98).
 var _AI_PENDING_UNTOUCHED = /^\[레슨 녹음 메모[^\n]*AI 정리 대기[^\n]*\]\n([•\-·] [^\n]*\n?)+(\n\[트랙맨\][^\n]*)?$/;
@@ -1242,6 +1203,7 @@ function applyAiResultToSaved(mid, sessId, better, tmSummary, opts){
 // 저장된 녹음 일지를 백그라운드에서 AI 정리 → 자동 교체 (프로가 저장 후 기다릴 필요 없음)
 function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary, opts){
   if(typeof aiEnabled!=='function' || !aiEnabled() || !transcript) return Promise.resolve(false);
+  if(_rcRefusedId(mid)) return Promise.resolve(false);   // 녹음·AI 정리를 거부한 회원 — AI 로 보내지 않는다 (v9.99)
   if(typeof aiSummarizeWithClaude!=='function') return Promise.resolve(false);
   _aiInflight[sessId]=Date.now();
   return aiSummarizeWithClaude(transcript, author).then(function(better){
@@ -1259,6 +1221,7 @@ function bgAiCleanupSaved(mid, sessId, transcript, author, tmSummary, opts){
 function retryAiForSession(mid, sid){
   try{
     var s=(S.sessions[mid]||[]).find(function(x){return x.id===sid;}); if(!s) return;
+    if(_rcRefusedId(mid)){ alert('녹음·AI 정리를 거부한 회원이에요.\nAI 정리를 하지 않으니 일지를 [수정]으로 직접 정리해 주세요.'); return; }
     if(_aiInflightActive(sid)){ liveToastSafe('🤖 AI 정리 진행 중 — 잠시만요'); return; }
     if(typeof aiEnabled!=='function' || !aiEnabled()){ alert('AI 정리가 설정되지 않았습니다. 관리자에게 알려주세요.'); return; }
     var tm=''; try{ var m=String(s.content||'').match(/\n\n\[트랙맨\][^\n]*/); tm=m?m[0]:''; }catch(e){}
@@ -1295,12 +1258,12 @@ function retryPendingAiSummaries(force){
     var oldCutoff = Date.now() - 180*24*3600*1000;
     var cands = [];
     Object.keys(S.sessions||{}).forEach(function(mid){
+      if(_rcRefusedId(mid)) return;   // 녹음·AI 정리를 거부한 회원의 일지는 AI 로 보내지 않는다
       (S.sessions[mid]||[]).forEach(function(s){
         if(String(s.content||'').indexOf('AI 정리 대기')===-1) return;
-        // 원문이 기기에 없어도(프로 기기는 loadAll 이 원문을 안 실음) 건너뛰지 않는다 —
-        // 실행 시점에 _aiSourceForSession 이 클라우드 원문 → 본문 조각 순으로 소스를 정한다.
-        // 예전엔 원문 없으면 그냥 건너뛰어 프로 기기에서 스위퍼가 아무것도 못 했다.
-        if(!String(s.rawTranscript||'').trim() && _aiSourceFromContent(s.content).length < 20) return;
+        // 원문이 기기에 없어도(어느 기기도 loadAll 로 원문을 받지 않음 — v9.99) 건너뛰지 않는다 —
+        // 실행 시점에 _aiSourceForSession 이 클라우드 원문 → 본문 조각 순으로 소스를 정하고, 그래도 20자가 안 되면 그때 건너뛴다(아래).
+        // 예전엔 이 자리에서 '기기의 원문 없음 + 조각 20자 미만'이면 건너뛰어, 조각은 짧아도 서버에 원문이 있는 일지가 영영 정리되지 않았다.
         // 담당자 본인 기기 또는 관리자 기기만 — 여러 기기의 중복 API 호출 억제
         // (겹쳐 돌아도 applyAiResultToSaved 가 '대기' 마커 확인 후 교체하므로 안전)
         if(S.currentRole!=='admin' && s.author!==S.currentUser) return;
@@ -1327,6 +1290,7 @@ function retryPendingAiSummaries(force){
       _aiInflight[s.id]=Date.now();
       (c.rawOnly ? _aiOldSource(s) : _aiSourceForSession(s)).then(function(src){
         if(!src){ delete _aiInflight[s.id]; if(c.rawOnly) _aiSweepAttempts[s.id]=3; return 'skip'; }   // 원문 없는 오래된 일지 — 이번 실행에선 다시 안 봄
+        if(!c.rawOnly && !String(s.rawTranscript||'').trim() && String(src).trim()===_aiSourceFromContent(s.content) && String(src).trim().length < 20){ delete _aiInflight[s.id]; _aiSweepAttempts[s.id]=3; return 'skip'; }   // 원문이 어디에도 없고(받아쓰기 조각으로 대신) 조각도 너무 짧음 — AI 로 보내지 않음(이번 실행에선 다시 안 봄)
         used++;
         return bgAiCleanupSaved(c.mid, s.id, src, s.author, tm, c.rawOnly ? {old:true} : null);
       }).then(function(r){ if(r==='skip') skip(); else go(); }, go);
@@ -1339,11 +1303,23 @@ function retryPendingAiSummaries(force){
 
 // ============ 데이터 백업 / 복구 (관리자) ============
 // Supabase/R2 장애·오조작 대비 로컬 스냅샷. 회원·세션·평가·인수인계 전부 JSON 한 파일로.
-function backupData(){
+async function backupData(){
   try{
+    // 녹음 원문은 기기에 두지 않으므로(B3·B4) 백업할 때 서버에서 받아 각 일지에 함께 담는다(rawTranscript). 못 받으면 원문 없이 백업하고 알려 준다
+    var tx=null, txFail=false;
+    if(typeof cloud!=='undefined' && cloud.enabled){ liveToastSafe('💾 백업 준비 중 — 녹음 원문 받는 중'); tx=await cloud.transcripts(); if(!tx) txFail=true; }
+    var nTx=0, sessions={};
+    Object.keys(S.sessions||{}).forEach(function(mid){
+      sessions[mid]=(S.sessions[mid]||[]).map(function(s){
+        var o=Object.assign({}, s), t=String(s.rawTranscript||'').trim() ? s.rawTranscript : ((tx&&tx[s.id])||'');
+        delete o.supplement; delete o.rawTranscript;
+        if(String(t).trim()){ o.rawTranscript=t; nTx++; }
+        return o;
+      });
+    });
     var snap = {
-      _type:'golfpt-backup', _ver:1, _at:new Date().toISOString(),
-      members:S.members, assessments:S.assessments, sessions:S.sessions,
+      _type:'golfpt-backup', _ver:1, _at:new Date().toISOString(), transcripts:nTx,
+      members:S.members, assessments:S.assessments, sessions:sessions,
       handovers:S.handovers, deleteRequests:S.deleteRequests,
       deletedSessionIds:S.deletedSessionIds, deletedMemberIds:S.deletedMemberIds
     };
@@ -1354,7 +1330,8 @@ function backupData(){
     a.href=url; a.download='golfpt_backup_'+stamp+'.json';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
-    logAudit('system','데이터 백업 다운로드','',{members:(S.members||[]).length});
+    logAudit('system','데이터 백업 다운로드','',{members:(S.members||[]).length, transcripts:nTx});
+    if(txFail) alert('백업 파일은 저장했어요. 다만 녹음 원문은 서버에서 받지 못해 빠졌어요 — 네트워크 확인 후 다시 백업해 주세요');
   }catch(e){ alert('백업 실패: '+(e.message||e)); }
 }
 function triggerRestore(){
@@ -1375,15 +1352,25 @@ function triggerRestore(){
         if(snap.deletedSessionIds) S.deletedSessionIds=snap.deletedSessionIds;
         if(snap.deletedMemberIds) S.deletedMemberIds=snap.deletedMemberIds;
         save();
-        // 서버로 밀어올리기(복구 반영)
-        try{
-          (S.members||[]).forEach(function(m){ syncMemberUp(m); });
-          Object.keys(S.sessions||{}).forEach(function(mid){ (S.sessions[mid]||[]).forEach(function(s){ s._dirty=true; syncSessionUp(mid,s); }); });
-          Object.keys(S.assessments||{}).forEach(function(mid){ Object.keys(S.assessments[mid]||{}).forEach(function(k){ if(k.indexOf('_')!==0) syncAssessUp(mid,k,S.assessments[mid][k]); }); });
-        }catch(e){}
-        logAudit('system','데이터 복구','',{members:mc});
-        alert('복구 완료 — 회원 '+mc+'명. 서버 업로드는 백그라운드로 진행됩니다.');
-        render();
+        // 녹음 원문: 서버에 이미 원문이 있는 일지는 백업 원문으로 덮어쓰지 않는다 — 그 칸을 빼고 올리면(upsert 는 보낸 칸만 바꿈) 서버 원문이 그대로 남는다.
+        // 서버에 원문이 없는(지워졌거나 빈) 일지만 백업 원문으로 되살린다. 서버 확인이 안 되면 원문은 하나도 올리지 않는다(파일에는 그대로 있음)
+        var withTx=[];
+        Object.keys(S.sessions||{}).forEach(function(mid){ (S.sessions[mid]||[]).forEach(function(s){ if(String(s.rawTranscript||s.supplement||'').trim()) withTx.push(s); }); });
+        var push=function(srvHas){
+          var revived=0;
+          withTx.forEach(function(s){ if(!srvHas || srvHas[s.id]){ delete s.rawTranscript; s.supplement=''; } else revived++; });
+          // 서버로 밀어올리기(복구 반영)
+          try{
+            (S.members||[]).forEach(function(m){ syncMemberUp(m); });
+            Object.keys(S.sessions||{}).forEach(function(mid){ (S.sessions[mid]||[]).forEach(function(s){ s._dirty=true; syncSessionUp(mid,s); }); });
+            Object.keys(S.assessments||{}).forEach(function(mid){ Object.keys(S.assessments[mid]||{}).forEach(function(k){ if(k.indexOf('_')!==0) syncAssessUp(mid,k,S.assessments[mid][k]); }); });
+          }catch(e){}
+          logAudit('system','데이터 복구','',{members:mc, transcripts:revived});
+          alert('복구 완료 — 회원 '+mc+'명'+(withTx.length?(srvHas?' · 녹음 원문 '+revived+'건 되살림(서버에 있는 원문은 그대로 둠)':' · 녹음 원문은 서버 확인이 안 돼 올리지 않았어요'):'')+'. 서버 업로드는 백그라운드로 진행됩니다.');
+          render();
+        };
+        if(withTx.length && typeof cloud!=='undefined' && cloud.enabled) Promise.resolve(cloud.transcripts({idsOnly:true})).then(push, function(){ push(null); });
+        else push({});
       }catch(e){ alert('복구 실패: 잘못된 파일 ('+(e.message||e)+')'); }
     };
     r.readAsText(f);

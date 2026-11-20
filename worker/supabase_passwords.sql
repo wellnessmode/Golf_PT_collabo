@@ -4,7 +4,9 @@
 --  실행 전 딱 한 곳만 고칩니다: 아래 [관리자 비밀번호] 줄의 '<<여기에 관리자 비밀번호>>' 를
 --  대표가 쓸 관리자 비밀번호(8자 이상)로 바꾼 뒤, Supabase → SQL Editor 에 전체 붙여넣고 RUN.
 --  (안 바꾸면 실행이 멈추고 아무것도 바뀌지 않습니다. 실행 뒤에는 SQL Editor 에 저장된 쿼리를 지우세요 —
---   비밀번호가 평문으로 남지 않게.)  다시 실행해도 안전합니다(이미 있는 비밀번호는 그대로).
+--   비밀번호가 평문으로 남지 않게.)  supabase_tokens.sql 을 실행하기 전까지는 다시 실행해도 안전합니다(이미 있는 비밀번호는 그대로).
+--   ⚠️ supabase_tokens.sql 을 실행한 뒤에는 이 파일을 다시 실행하지 마세요 — 실행하면 멈추고 아무것도 바뀌지 않습니다
+--      (로그인 토큰 기능을 지우지 않게). 그때 필요한 일은 supabase_tokens.sql 을 다시 실행하면 됩니다.
 --
 --  · 비밀번호는 private 스키마 표에 bcrypt 해시로만 저장 — 공개(anon) 키로는 표를 읽을 수도 쓸 수도 없음.
 --  · 앱은 아래 함수 3개(RPC)로만 확인·변경:
@@ -16,6 +18,14 @@
 --    기기에서 이미 바꿔 쓰던 비밀번호는 그 기기로 첫 로그인할 때 앱이 자동으로 서버에 옮김.
 --  · 되돌리기(비상): 맨 아래 주석의 drop 문 실행 → 앱은 예전처럼 기기 저장 방식으로 동작.
 -- ============================================================
+
+-- 토큰 SQL(supabase_tokens.sql)을 이미 실행한 DB 면 여기서 멈춤 — 이 파일이 pw_login·pw_change 를 토큰 없는 옛 버전으로
+-- 되돌려서, 잠근 뒤에는 새로 로그인한 기기가 데이터를 못 읽게 되는 사고를 막는다. (아무것도 바뀌지 않음)
+do $$ begin
+  if to_regclass('private.app_secrets') is not null then
+    raise exception '이미 supabase_tokens.sql 이 실행된 DB 입니다. 이 파일(supabase_passwords.sql)은 다시 실행하지 마세요 — 필요하면 supabase_tokens.sql 을 다시 실행하세요. 지금은 아무것도 바뀌지 않았습니다.';
+  end if;
+end $$;
 
 create extension if not exists pgcrypto with schema extensions;
 do $$ begin

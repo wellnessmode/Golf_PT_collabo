@@ -22,6 +22,9 @@ window.APP_CONFIG = {
   // 위 R2_WORKER_URL(/r/...)로 폴백하므로 죽은 링크가 고객에게 나가지 않는다.
   REPORT_BASE: 'https://report.nationalgym.kr',
   R2_API_KEY: 'national_gym-golf-pt-qwpiefjwofjwioefhlkjd',
+  // DB 잠금(worker/supabase_lock.sql) 뒤에만 true — 로그인 토큰이 없는 기기는 서버 자료를 불러오지 않고 비밀번호 로그인부터.
+  // (false 여도 잠긴 DB 를 알아채면 같게 동작. true 는 첫 부팅부터 확실히 하는 스위치)
+  AUTH_REQUIRED: false,
   // (선택) Claude API — 음성 세션카드 자동 정리.
   // 권장: AI_VIA_WORKER=true 로 R2 워커 프록시 사용 (키는 Cloudflare 시크릿에만, 브라우저·깃에 노출 0).
   //   → worker/README.md 참고해서 워커에 /claude 추가 + `wrangler secret put ANTHROPIC_API_KEY` 후 true 로.

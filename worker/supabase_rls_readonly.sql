@@ -1,3 +1,7 @@
+-- ⛔ 사용 중지 (2026-11): 이 파일은 실행하지 마세요. 공개 읽기를 그대로 두고 쓰기만 워커로 돌리는 옛 계획이라 보안 효과가 거의 없습니다.
+--    대신 worker/supabase_tokens.sql → worker/supabase_lock.sql 순서를 따르세요.
+do $$ begin raise exception '이 파일(supabase_rls_readonly.sql)은 사용 중지되었습니다 — worker/supabase_tokens.sql 과 worker/supabase_lock.sql 을 쓰세요. 아무것도 바뀌지 않았습니다.'; end $$;
+
 -- ============================================================
 --  Golf PT — 읽기 전용 RLS (보안 조이기)
 --  anon(공개 키)은 SELECT 만. 모든 쓰기는 워커 /db (서비스 키) 경유.

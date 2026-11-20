@@ -22,7 +22,8 @@ var PT_KEYWORDS = {
   '파워': {keywords:['파워','폭발력','점프','스윙','케틀벨','클린','스내치'], exercises:['케틀벨 스윙','박스 점프','파워 클린','메디신볼 슬램']},
 };
 
-function generateLocalSummary(memberId, session){
+// noSave: 저장은 부른 쪽이 한 번에 (앱 시작 때 모든 일지를 훑는 analyzeExistingSessions — 일지마다 기기 저장을 하면 화면이 멈췄다)
+function generateLocalSummary(memberId, session, noSave){
   if(session._ai) return;
   if(!session.content || session.content.trim().length<5) return;
   // 요약 인용에는 헤더([레슨 녹음 메모...] 등)·마크다운 기호·불릿 대시를 걷어낸 본문만 사용
@@ -83,7 +84,7 @@ function generateLocalSummary(memberId, session){
       next_focus: detected.length>0 ? detected[0]+' 강화 훈련 지속' : '전신 밸런스 훈련'
     };
   }
-  save();
+  if(!noSave) save();
 }
 
 // ============ 세션 수정 ============
@@ -103,6 +104,13 @@ function openEditSession(sid){
   };
   S.showAddSession = true;
   render();
+  // 관리자: 원문은 앱을 켤 때 받지 않으므로(B3) 수정 창을 열 때 그 일지 원문만 받아 '녹음 원문 전체' 칸에 (기기에는 저장 안 함)
+  if(S.currentRole==='admin' && !String(sess.rawTranscript||'').trim() && typeof cloud!=='undefined' && cloud.enabled){
+    var ns=S.newSession, known=(typeof _rawTx!=='undefined') ? _rawTx[sid] : undefined;
+    var put=function(raw){ if(S.newSession===ns && S.showAddSession && S.editSessionId===sid && typeof raw==='string' && raw.trim() && !String(ns.rawTranscript||'').trim()){ ns.rawTranscript=raw; render(); } };
+    if(typeof known==='string') put(known);
+    else Promise.resolve(cloud.fetchSessionRaw(sid, true)).then(function(raw){ if(typeof raw==='string' && typeof _rawTx!=='undefined') _rawTx[sid]=raw; put(raw); }, function(){});
+  }
 }
 function saveEditSession(){
   var mid = S.selectedMember;
@@ -138,6 +146,113 @@ function openSessionFromDash(mid, sid){
   }, 150);
 }
 function closeDashboard(){S.showDashboard=false;render();}
+// ── 대시보드 공용 작은 도구 ──
+// 오늘(today(), 일지 날짜와 같은 기준)에서 n일 전 'YYYY-MM-DD'
+function _dashCut(n){ var t=Date.parse(today()+'T00:00:00Z'); return new Date(t-n*86400000).toISOString().slice(0,10); }
+function _dashMD(d){ d=String(d||''); return d ? d.slice(5,10).replace('-','.') : ''; }
+function _dashAgo(d){ var a=Date.parse(today()+'T00:00:00Z'), b=Date.parse(String(d||'').slice(0,10)+'T00:00:00Z'); if(isNaN(a)||isNaN(b)) return ''; var n=Math.round((a-b)/86400000); return n<=0?'오늘':n+'일 전'; }
+// 일지 목록에서 가장 늦은 날짜(pred 로 거를 수 있음) — 없으면 ''
+function _dashLast(sess, pred){ return (sess||[]).reduce(function(x,s){ if(pred && !pred(s)) return x; var d=String(s.date||''); return d>x?d:x; }, ''); }
+// 목록 펼치기·접기 — 화면을 다시 그려도 유지
+function dashToggle(k){ if(!S._dashOpen) S._dashOpen={}; S._dashOpen[k]=!S._dashOpen[k]; render(); }
+function _dashOpenK(k){ return !!(S._dashOpen && S._dashOpen[k]); }
+function _dashMore(k, n, unit){ return '<button class="dash-more" onclick="dashToggle(\''+k+'\')">'+(_dashOpenK(k)?'접기':'전체 '+n+unit+' 보기')+'</button>'; }
+// 대시보드 카드들(Stage 5 · D1 D2 D3 D5 D9) — renderDashboard 가 계산한 목록을 그린다. 회원 이름·작성자 등 DB 값은 모두 esc, id 는 safeId
+function _dashCards(o){
+  var out={ai:'', link:'', rc:'', inst:'', warn:'', tx:'', hb:''};
+  var LIM=8;
+  if(o.aiWait.length){
+    var aiShow=_dashOpenK('ai')?o.aiWait:o.aiWait.slice(0,LIM);
+    out.ai='<div class="dash-card dash-ai-card"><h3>🤖 AI 정리 대기 <b>'+o.aiWait.length+'</b>건 <small>받아쓰기 조각 상태라 회원 리포트에는 빠져요 · 배지를 눌러 다시 정리</small></h3>'
+      +aiShow.map(function(x){
+        var mid=safeId(x.m.id), sid=safeId(x.s.id), fail=x.st==='failed';
+        return '<div class="dash-ai-row"><button class="dar-open" onclick="openSessionFromDash(\''+mid+'\',\''+sid+'\')"><span>'+esc(x.m.name)+'<small>'+esc(_dashMD(x.s.date))+(o.isAdmin?' · '+esc(x.s.author||''):'')+'</small></span></button>'
+          +'<span class="ai-wait-chip'+(fail?' fail':'')+'" onclick="retryAiForSession(\''+mid+'\',\''+sid+'\')">'+(fail?'⚠️ AI 정리 실패 — 눌러서 다시':'🤖 AI 정리 중 · 탭하면 재시도')+'</span></div>';
+      }).join('')
+      +(o.aiWait.length>LIM?_dashMore('ai', o.aiWait.length, '건'):'')
+      +'</div>';
+  }
+  if(o.noLink.length){
+    var lkShow=_dashOpenK('nolink')?o.noLink:o.noLink.slice(0,LIM);
+    out.link='<div class="dash-card dash-link-card"><h3>📤 리포트 링크 없는 활성 회원 <b>'+o.noLink.length+'</b>명 <small>레슨 기록은 있는데 아직 리포트 링크를 못 받은 회원 · 눌러서 리포트를 확인하고 공유</small></h3>'
+      +lkShow.map(function(x){
+        var who=(o.isInfo && Array.isArray(x.m.assignedTo) && x.m.assignedTo.length) ? ' · '+esc(x.m.assignedTo.join(', ')) : '';
+        return '<button class="dash-link-row" onclick="selectMember(\''+safeId(x.m.id)+'\');openPerformance()"><span>'+esc(x.m.name)+'<small>최근 레슨 '+esc(_dashMD(x.last))+who+'</small></span><em>공유 →</em></button>';
+      }).join('')
+      +(o.noLink.length>LIM?_dashMore('nolink', o.noLink.length, '명'):'')
+      +'</div>';
+  }
+  // 녹음 동의 미기록 활성 회원 (v9.99) — 녹음하기 전에 동의를 받아 기록할 회원(최근 레슨 순). 거부한 회원은 수만 보여 준다
+  if(o.rcNone.length){
+    var rcShow=_dashOpenK('rc')?o.rcNone:o.rcNone.slice(0,LIM);
+    out.rc='<div class="dash-card dash-rc-card"><h3>🎙 녹음 동의 미기록 활성 회원 <b>'+o.rcNone.length+'</b>명 <small>수업 녹음 전에 녹음·AI 정리 동의를 받아 기록해 주세요'+(o.rcNo?' · 거부 '+o.rcNo+'명':'')+'</small></h3>'
+      +rcShow.map(function(x){
+        var id=safeId(x.m.id), who=(o.isInfo && Array.isArray(x.m.assignedTo) && x.m.assignedTo.length) ? ' · '+esc(x.m.assignedTo.join(', ')) : '';
+        return '<button class="dash-rc-row" onclick="selectMember(\''+id+'\');openConsentEdit(\''+id+'\')"><span>'+esc(x.m.name)+'<small>'+(x.last?'최근 레슨 '+esc(_dashMD(x.last)):'레슨 기록 없음')+who+'</small></span><em>기록 →</em></button>';
+      }).join('')
+      +(o.rcNone.length>LIM?_dashMore('rc', o.rcNone.length, '명'):'')
+      +(o.isInfo?'<button class="rc-print" onclick="openConsentForm()">🖨 동의서 인쇄</button>':'')
+      +'</div>';
+  }
+  if(o.isInfo){
+    out.inst='<div class="dash-card dash-inst-card"><h3>지도자별 기록 <small>최근 7일·30일 일지 수 · 마지막 작성 · 60일간 기록이 없는 담당 활성 회원</small></h3><div class="dash-inst-list">'
+      +INSTRUCTORS.map(function(i, ix){
+        var a=o.instructorStats[i.name]; if(!a) return '';
+        var k='idle'+ix, open=_dashOpenK(k);
+        return '<div class="dash-inst-row">'
+          +'<div class="dir-top"><span class="dir-name '+(i.role==='trainer'?'trainer':'pro')+'">'+esc(i.name)+'</span>'
+          +'<span class="dir-n"><b>'+a.n7+'</b>7일</span><span class="dir-n"><b>'+a.n30+'</b>30일</span>'
+          +'<span class="dir-last">'+(a.last?'마지막 '+esc(_dashMD(a.last))+' · '+esc(_dashAgo(a.last)):'기록 없음')+'</span></div>'
+          +'<div class="dir-sub">담당 활성 '+a.active+'명 · '+(a.idle.length?'<button class="dir-idle" onclick="dashToggle(\''+k+'\')">60일 기록 없음 <b>'+a.idle.length+'</b>명 '+(open?'▲':'▼')+'</button>':'60일 기록 없음 0명')+' · 누적 '+a.total+'건</div>'
+          +((open && a.idle.length)?'<div class="dir-idle-list">'+a.idle.map(function(x){ return '<button onclick="selectMember(\''+safeId(x.m.id)+'\')">'+esc(x.m.name)+'<small>'+(x.last?'마지막 '+esc(_dashMD(x.last)):'기록 없음')+'</small></button>'; }).join('')+'</div>':'')
+          +'</div>';
+      }).join('')+'</div></div>';
+    var uniq=function(list){ var u={}; list.forEach(function(x){ u[x.m.id]=1; }); return Object.keys(u).length; };
+    var none='<div class="empty-state" style="padding:16px">해당 회원이 없습니다</div>';
+    out.warn='<div class="dash-card dash-warn-card"><h3>⚠️ 만료됐는데 최근 30일 레슨 있음 <b>'+uniq(o.expLess)+'</b>명 <small>결제·재등록을 확인하고 유효기간을 고쳐 주세요</small></h3>'
+      +(o.expLess.length?'<div class="dash-warn-list">'+o.expLess.map(function(x){
+        return '<button class="dash-warn-row" onclick="selectMember(\''+safeId(x.m.id)+'\')"><span>'+esc(x.m.name)+'<small>'+x.kind+' '+(x.exp?'만료 '+esc(x.exp):'유효기간 미입력')+' · 최근 레슨 '+esc(_dashMD(x.last))+(x.after?' · 만료 후 '+x.after+'회':'')+'</small></span><em>확인 →</em></button>';
+      }).join('')+'</div>':none)
+      +'</div>'
+      +'<div class="dash-card dash-warn-card"><h3>📈 구매 횟수 초과 <b>'+uniq(o.overUse)+'</b>명 <small>구매한 횟수보다 일지가 많은 회원 — 재등록·결제를 확인해 주세요</small></h3>'
+      +(o.overUse.length?'<div class="dash-warn-list">'+o.overUse.map(function(x){
+        return '<button class="dash-warn-row" onclick="selectMember(\''+safeId(x.m.id)+'\')"><span>'+esc(x.m.name)+'<small>'+x.kind+' '+x.used+'/'+x.total+'회 (+'+(x.used-x.total)+')</small></span><em>확인 →</em></button>';
+      }).join('')+'</div>':none)
+      +'</div>';
+  }
+  if(o.isAdmin){
+    setTimeout(function(){ try{ _dashTxMissFill(); }catch(e){} }, 0);
+    out.tx='<div class="dash-card dash-txmiss" id="dash-txmiss">'+_dashTxMissHtml()+'</div>';
+    // 타석 PC 상태(하트비트, A3) — 대시보드가 보이는 동안 60초마다 새로 (js/app_live.js)
+    if(typeof _hbDashHtml==='function'){ out.hb=_hbDashHtml(); setTimeout(function(){ try{ hbEnsure(); }catch(e){} }, 0); }
+  }
+  return out;
+}
+// 관리자 '원문 없는 녹음 일지 N건'(D9) — 서버에서 개수만 센다(5분마다 새로). 늘어나면 녹음 원문이 지워지고 있다는 신호
+var _txMiss={at:0, tryAt:0, busy:false, all:null, recent:null, err:false};
+function _dashTxMissHtml(){
+  var c=_txMiss;
+  if(c.all==null) return '<h3>🎙 원문 없는 녹음 일지 <small>'+(c.err?'확인하지 못했어요 — 잠시 후 대시보드를 다시 열어 주세요':'확인 중…')+'</small></h3>';
+  return '<h3>🎙 원문 없는 녹음 일지 <b class="'+(c.all?'warn':'ok')+'">'+c.all+'</b>건'+(c.recent!=null?' · 최근 30일 '+c.recent+'건':'')
+    +' <small>AI로 정리된 녹음 일지인데 서버에 녹음 원문이 없는 것 — 늘어나면 원문이 지워지고 있다는 신호예요</small></h3>';
+}
+async function _dashTxMissFill(){
+  if(S.currentRole!=='admin') return;
+  var put=function(){ var el=document.getElementById('dash-txmiss'); if(el) el.innerHTML=_dashTxMissHtml(); };
+  if(_txMiss.busy) return;
+  if(_txMiss.all!=null && Date.now()-_txMiss.at<300000){ put(); return; }
+  if(Date.now()-_txMiss.tryAt<60000){ put(); return; }   // 1분 안에는 다시 묻지 않음 — 실패했을 때 화면을 다시 그릴 때마다 묻지 않게
+  if(S.cloudSync==='auth'){ put(); return; }               // 잠긴 DB 에 로그인 전 — 0건으로 잘못 보이지 않게, 로그인 뒤 다시
+  if(typeof cloud==='undefined' || !cloud.enabled){ _txMiss.err=true; put(); return; }
+  _txMiss.busy=true; _txMiss.tryAt=Date.now();
+  try{
+    var r=await Promise.all([cloud.countTxMissing(), cloud.countTxMissing(_dashCut(29))]);
+    if(r[0]==null){ _txMiss.err=true; }
+    else { _txMiss.all=r[0]; _txMiss.recent=r[1]; _txMiss.err=false; _txMiss.at=Date.now(); }
+  }catch(e){ _txMiss.err=true; }
+  _txMiss.busy=false;
+  put();
+}
 // 홈 대시보드 — 회원을 선택하지 않은 기본 화면 (로그인 착지점).
 // 예전엔 담당 첫 회원이 자동 선택돼 "첫 화면이 맨날 로버트" 였음.
 function renderDashboard(){
@@ -183,31 +298,78 @@ function renderDashboard(){
   recentActivity.sort(sessionCompare); // 날짜+시간 기준 최신순 (앱 공통 정렬 규칙)
   recentActivity = recentActivity.slice(0,15);
   expiringMembers.sort(function(a,b){return a.days-b.days;});
-  // 지도자별 세션 수
+  var isStaff = S.currentRole==='pro'||S.currentRole==='trainer';
+  var isAdmin = S.currentRole==='admin';
+  var d7=_dashCut(6), d30=_dashCut(29), d60=_dashCut(59);   // 최근 7·30·60일 (오늘 포함)
+  // 지도자별 기록 (D1) — 예전엔 누적 건수만 보여 '요즘 누가 안 쓰는지'가 안 보였다.
+  // 최근 7일·30일 일지 수 · 마지막 작성일 · 담당 활성 회원 중 60일간 본인 기록이 없는 회원 (프로는 레슨, 트레이너는 PT 유효기간 기준)
   var instructorStats = {};
-  INSTRUCTORS.forEach(function(i){instructorStats[i.name]=0;});
-  visibleMembers.forEach(function(m){
-    (S.sessions[m.id]||[]).forEach(function(s){
-      if(instructorStats.hasOwnProperty(s.author)) instructorStats[s.author]++;
+  INSTRUCTORS.forEach(function(i){ instructorStats[i.name]={total:0, n7:0, n30:0, last:'', active:0, idle:[]}; });
+  if(isInfo) visibleMembers.forEach(function(m){
+    var sess=S.sessions[m.id]||[];
+    sess.forEach(function(s){
+      if(!instructorStats.hasOwnProperty(s.author)) return;
+      var a=instructorStats[s.author], d=String(s.date||'');
+      a.total++; if(d>=d7) a.n7++; if(d>=d30) a.n30++; if(d>a.last) a.last=d;
+    });
+    INSTRUCTORS.forEach(function(i){
+      if(!(m.assignedTo && m.assignedTo.indexOf(i.name)!==-1) || !memberActive(m, i.role)) return;
+      var a=instructorStats[i.name]; a.active++;
+      var last=_dashLast(sess, function(s){ return s.author===i.name; });
+      if(last<d60) a.idle.push({m:m, last:last});
     });
   });
-  // 회원별 진행률
+  Object.keys(instructorStats).forEach(function(k){ instructorStats[k].idle.sort(function(a,b){ return a.last.localeCompare(b.last); }); });
+  // 리포트 링크 없는 활성 회원 (D2) — 레슨 기록은 있는데 링크를 한 번도 못 받은 회원, 최근 레슨 순
+  var noLink = visibleMembers.filter(function(m){ return !m.reportId && memberActive(m) && (S.sessions[m.id]||[]).length>0; })
+    .map(function(m){ return {m:m, last:_dashLast(S.sessions[m.id])}; })
+    .sort(function(a,b){ return b.last.localeCompare(a.last); });
+  // 인포데스크 확인 목록 (D5) — ① 유효기간이 지났거나 비었는데 최근 30일 레슨이 있는 회원(레슨·PT 각각) ② 구매 횟수보다 일지가 많은 회원
+  var expLess = [], overUse = [];
+  if(isInfo) visibleMembers.forEach(function(m){
+    var sess=S.sessions[m.id]||[];
+    [['pro','레슨'],['trainer','PT']].forEach(function(k){
+      var mine=sess.filter(function(s){ return getRole(s.author)===k[0]; });
+      var last=_dashLast(mine);
+      if(!last || last<d30) return;
+      var exp=expiryFor(m, k[0]), dd=exp?daysUntilExpiry(exp):null;
+      if(exp && dd!==null && dd>=0) return;   // 아직 유효
+      expLess.push({m:m, kind:k[1], exp:exp, last:last, after:exp?mine.filter(function(s){ return String(s.date||'')>exp; }).length:0});
+    });
+    var st=stats(m.id), lc=parseInt(m.golfLessonCount)||0, pc=parseInt(m.golfPTCount)||0;
+    if(lc>0 && st.pro>lc) overUse.push({m:m, kind:'레슨', used:st.pro, total:lc});
+    if(pc>0 && st.trainer>pc) overUse.push({m:m, kind:'PT', used:st.trainer, total:pc});
+  });
+  expLess.sort(function(a,b){ return b.last.localeCompare(a.last); });
+  overUse.sort(function(a,b){ return (b.used-b.total)-(a.used-a.total); });
+  // 'AI 정리 대기' 일지 (D3) — 담당자는 본인 일지, 관리자는 전체 (일지 카드 배지와 같은 대상·기준). 관찰용 회원 제외
+  var aiWait = [];
+  if(isStaff || isAdmin) S.members.forEach(function(m){
+    if(m.ownerWatch) return;
+    (S.sessions[m.id]||[]).forEach(function(s){ var ap=aiPendingState(s); if(ap && (isAdmin || s.author===S.currentUser)) aiWait.push({m:m, s:s, st:ap}); });
+  });
+  aiWait.sort(function(a,b){ return sessionCompare(a.s,b.s); });
+  // 녹음 동의 미기록 활성 회원 (v9.99) — 인포데스크·관리자는 전체, 프로·트레이너는 담당 회원. 거부한 회원은 따로 수만
+  var rcNone = [], rcNo = 0;
+  visibleMembers.forEach(function(m){ if(!memberActive(m)) return; var rs=recConsentState(m); if(rs==='no') rcNo++; else if(!rs) rcNone.push({m:m, last:_dashLast(S.sessions[m.id])}); });
+  rcNone.sort(function(a,b){ return b.last.localeCompare(a.last) || String(a.m.name||'').localeCompare(String(b.m.name||'')); });
+  // 회원별 진행률 — 구매 횟수보다 많이 기록되면 100%를 넘긴 값을 그대로 보여 준다(예: 12/10 · 120%). 예전엔 100%에서 멈춰 초과가 안 보였다 (D5)
   var memberProgress = visibleMembers.map(function(m){
     var sess = (S.sessions[m.id]||[]);
     var st = stats(m.id);
     var lessonTotal = parseInt(m.golfLessonCount)||0;
     var ptTotal = parseInt(m.golfPTCount)||0;
-    var lessonPct = lessonTotal>0?Math.min(100,Math.round(st.pro/lessonTotal*100)):0;
-    var ptPct = ptTotal>0?Math.min(100,Math.round(st.trainer/ptTotal*100)):0;
-    return {name:m.name, id:m.id, total:sess.length, lessonPct:lessonPct, ptPct:ptPct, pro:st.pro, trainer:st.trainer, lessonTotal:lessonTotal, ptTotal:ptTotal};
+    var lessonRaw = lessonTotal>0?Math.round(st.pro/lessonTotal*100):0;
+    var ptRaw = ptTotal>0?Math.round(st.trainer/ptTotal*100):0;
+    return {name:m.name, id:m.id, total:sess.length, lessonPct:Math.min(100,lessonRaw), ptPct:Math.min(100,ptRaw), lessonRaw:lessonRaw, ptRaw:ptRaw,
+      lessonOver:lessonTotal>0&&st.pro>lessonTotal, ptOver:ptTotal>0&&st.trainer>ptTotal, pro:st.pro, trainer:st.trainer, lessonTotal:lessonTotal, ptTotal:ptTotal};
   }).sort(function(a,b){return b.total-a.total;});
-
-  var isStaff = S.currentRole==='pro'||S.currentRole==='trainer';
+  var cards = _dashCards({isInfo:isInfo, isAdmin:isAdmin, instructorStats:instructorStats, noLink:noLink, expLess:expLess, overUse:overUse, aiWait:aiWait, rcNone:rcNone, rcNo:rcNo});
   var todayLabel = (function(){ var d=new Date(); return (d.getMonth()+1)+'월 '+d.getDate()+'일 '+['일','월','화','수','목','금','토'][d.getDay()]+'요일'; })();
   return `
   <div class="dashboard">
     <div class="dash-header">
-      <h2>${isStaff?('안녕하세요, '+S.currentUser+'님 👋'):'대시보드'}</h2>
+      <h2>${isStaff?('안녕하세요, '+esc(S.currentUser)+'님 👋'):'대시보드'}</h2>
       <span class="dash-ver">${todayLabel} · ${APP_VERSION.version}</span>
     </div>
     ${S.currentRole!=='infodesk'?'<button class="dash-live-btn" onclick="openLiveSession()">🏌️ 수업 센터 <small>타석 레슨 시작 · 트랙맨 샷 자동 저장</small></button>':''}
@@ -224,13 +386,15 @@ function renderDashboard(){
           var days=Math.floor((Date.now()-(Date.parse(m.reportDirty)||Date.now()))/86400000);
           var wait=days<=0?'오늘':days+'일째 대기';
           var who=(isInfo&&typeof _reviewOwner==='function')?_reviewOwner(m):'';
-          return '<button class="dash-review-row" onclick="selectMember(\''+m.id+'\');openPerformance()">'
-            +'<span>'+m.name+((lastD||who)?'<small>'+(lastD?'레슨 '+lastD:'')+(who?(lastD?' · ':'')+'검토 '+who:'')+'</small>':'')+'</span>'
+          return '<button class="dash-review-row" onclick="selectMember(\''+safeId(m.id)+'\');openPerformance()">'
+            +'<span>'+esc(m.name)+((lastD||who)?'<small>'+(lastD?'레슨 '+esc(lastD):'')+(who?(lastD?' · ':'')+'검토 '+esc(who):'')+'</small>':'')+'</span>'
             +'<i class="drr-days'+(days>=3?' late':'')+'">'+wait+'</i>'
             +'<em>검토 →</em></button>';
         }).join('')
         +'</div>';
     })()}
+    ${cards.hb}
+    ${cards.ai}
     <div class="dash-stats">
       <div class="dash-stat"><div class="ds-val green">${todaySessions}</div><div class="ds-lbl">오늘 세션</div></div>
       <div class="dash-stat"><div class="ds-val blue">${thisMonthSessions}</div><div class="ds-lbl">이번 달</div></div>
@@ -238,31 +402,28 @@ function renderDashboard(){
       <div class="dash-stat"><div class="ds-val">${totalSessions}</div><div class="ds-lbl">총 세션</div></div>
       <div class="dash-stat"><div class="ds-val amber">${trainerSessions}</div><div class="ds-lbl">PT 세션</div></div>
     </div>
+    ${cards.link}
+    ${cards.rc}
+    ${cards.inst}
     <div class="dash-grid">
-      ${isInfo?`<div class="dash-card">
-        <h3>지도자별 세션</h3>
-        <div class="dash-bar-list">${Object.keys(instructorStats).map(function(name){
-          var cnt = instructorStats[name];
-          var pct = totalSessions>0?Math.round(cnt/totalSessions*100):0;
-          return '<div class="dash-bar-row"><span class="dbr-name">'+name+'</span><div class="dbr-bar-wrap"><div class="dbr-bar '+(name.indexOf('프로')!==-1?'pro':'trainer')+'" style="width:'+pct+'%"></div></div><span class="dbr-cnt">'+cnt+'</span></div>';
-        }).join('')}</div>
-      </div>`:''}
       <div class="dash-card">
         <h3>만료 임박 회원</h3>
         ${expiringMembers.length>0?'<div class="dash-expire-list">'+expiringMembers.map(function(e){
-          return '<div class="dash-expire-item"><span>'+e.name+'</span><span class="exp-badge exp-soon">D-'+e.days+'</span><span class="de-date">~'+e.expiry+'</span></div>';
+          return '<div class="dash-expire-item"><span>'+esc(e.name)+'</span><span class="exp-badge exp-soon">D-'+e.days+'</span><span class="de-date">~'+esc(e.expiry)+'</span></div>';
         }).join('')+'</div>':'<div class="empty-state" style="padding:20px">30일 이내 만료 회원이 없습니다</div>'}
       </div>
+      ${cards.warn}
+      ${cards.tx}
     </div>
     <div class="dash-card" style="margin-top:12px">
       <h3>회원별 진행률</h3>
       <div class="dash-progress-list">
         ${memberProgress.map(function(p){
-          return '<div class="dash-prog-row" onclick="selectMember(\''+p.id+'\');closeDashboard()">'+
-            '<span class="dp-name">'+p.name+'</span>'+
+          return '<div class="dash-prog-row" onclick="selectMember(\''+safeId(p.id)+'\');closeDashboard()">'+
+            '<span class="dp-name">'+esc(p.name)+'</span>'+
             '<div class="dp-bars">'+
-              '<div class="dp-bar-group"><span class="dp-lbl">레슨</span><div class="dp-bar-wrap"><div class="dp-bar pro" style="width:'+p.lessonPct+'%"></div></div><span class="dp-pct">'+p.pro+'/'+p.lessonTotal+'</span></div>'+
-              '<div class="dp-bar-group"><span class="dp-lbl">PT</span><div class="dp-bar-wrap"><div class="dp-bar trainer" style="width:'+p.ptPct+'%"></div></div><span class="dp-pct">'+p.trainer+'/'+p.ptTotal+'</span></div>'+
+              '<div class="dp-bar-group"><span class="dp-lbl">레슨</span><div class="dp-bar-wrap"><div class="dp-bar pro'+(p.lessonOver?' over':'')+'" style="width:'+p.lessonPct+'%"></div></div><span class="dp-pct'+(p.lessonOver?' over':'')+'">'+p.pro+'/'+p.lessonTotal+(p.lessonOver?' <em>'+p.lessonRaw+'%</em>':'')+'</span></div>'+
+              '<div class="dp-bar-group"><span class="dp-lbl">PT</span><div class="dp-bar-wrap"><div class="dp-bar trainer'+(p.ptOver?' over':'')+'" style="width:'+p.ptPct+'%"></div></div><span class="dp-pct'+(p.ptOver?' over':'')+'">'+p.trainer+'/'+p.ptTotal+(p.ptOver?' <em>'+p.ptRaw+'%</em>':'')+'</span></div>'+
             '</div>'+
           '</div>';
         }).join('')}
@@ -273,7 +434,7 @@ function renderDashboard(){
       <div class="dash-recent">
         ${recentActivity.map(function(a){
           var prevTxt=String(a.content||'').replace(/^##\s+/gm,'').replace(/\*\*/g,'').replace(/^[-•·]\s+/gm,'').replace(/\s+/g,' ').trim();
-          return '<div class="dash-recent-item clickable" onclick="openSessionFromDash(\''+a.mid+'\',\''+a.id+'\')"><span class="dr-date">'+a.date+(a.time?'<em class="dr-time">'+timeLabel(a.time)+'</em>':'')+'</span><span class="dr-member">'+a.member+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+prevTxt.slice(0,50)+(prevTxt.length>50?'…':'')+'</span><span class="dr-open">열기 ›</span></div>';
+          return '<div class="dash-recent-item clickable" onclick="openSessionFromDash(\''+safeId(a.mid)+'\',\''+safeId(a.id)+'\')"><span class="dr-date">'+esc(a.date)+(a.time?'<em class="dr-time">'+esc(timeLabel(a.time))+'</em>':'')+'</span><span class="dr-member">'+esc(a.member)+'</span><span class="dr-author role-tag '+(getRole(a.author)==='pro'?'pro':'trainer')+'">'+(getRole(a.author)==='pro'?'PRO':'PT')+'</span><span class="dr-content">'+esc(prevTxt.slice(0,50))+(prevTxt.length>50?'…':'')+'</span><span class="dr-open">열기 ›</span></div>';
         }).join('')||'<div class="empty-state" style="padding:20px">최근 활동이 없습니다</div>'}
       </div>
     </div>
@@ -303,6 +464,7 @@ function addMember(){
     goal:S.newMember.goal||'',
     focusPoints:S.newMember.focusPoints||''
   };
+  var rcSet = (typeof _rcApply==='function') && _rcApply(m, S.newMember);   // 등록하면서 받은 녹음·AI 정리 동의(보통 서면)
   S.members.push(m);
   S.assessments[id] = {};
   S.sessions[id] = [];
@@ -310,6 +472,7 @@ function addMember(){
   S.showAddMember = false;
   logActivity('회원 등록', id, name);
   logAudit('member','회원 등록',name,{phone:m.phone,email:m.email,registeredDate:m.registeredDate,expiry:m.expiry});
+  if(rcSet) _rcLog(m);
   save(); render();
   syncMemberUp(m);
 }
@@ -495,8 +658,8 @@ function onVideoError(videoEl, vid){
     var src=videoEl ? videoEl.currentSrc || videoEl.src : '';
     var note=document.createElement('div');
     note.className='sm-error';
-    var safe=String(src||'').replace(/[<>"]/g,'');
-    note.innerHTML=reason+(safe?' · <a href="'+safe+'" target="_blank" rel="noopener">새 창 열기</a>':'');
+    var safe=safeUrl(src);
+    note.innerHTML=reason+(safe?' · <a href="'+esc(safe)+'" target="_blank" rel="noopener">새 창 열기</a>':'');
     wrap.appendChild(note);
   }catch(e){}
 }
@@ -518,13 +681,15 @@ function setSpeed(vid,spd){
 function openMediaView(src){
   var d=document.createElement('div');d.className='media-overlay';
   d.onclick=function(){d.remove();};
-  d.innerHTML='<img src="'+src+'" style="max-width:92vw;max-height:92vh;border-radius:8px">';
+  d.innerHTML='<img src="'+esc(safeUrl(src))+'" style="max-width:92vw;max-height:92vh;border-radius:8px">';
   document.body.appendChild(d);
 }
 
 
 async function deleteSession(id){
   if(!confirm('이 세션 기록을 삭제하시겠습니까?')) return;
+  // 잠긴 DB: 이 기기 토큰이 지금 유효할 때만 지운다 — 무효(취소·만료)면 첨부 영상만 지워지고 일지는 서버에 오류 없이 남는다(무효면 비밀번호 로그인부터)
+  if(typeof _lockedWriteOk==='function' && !(await _lockedWriteOk())){ if(S.currentRole) liveToastSafe('지금은 삭제할 수 없어요 — 연결을 확인한 뒤 다시 눌러 주세요'); return; }
   const mid = S.selectedMember;
   var sess = (S.sessions[mid]||[]).find(function(x){return x.id===id;});
   if(sess && sess.media){
@@ -548,6 +713,8 @@ async function deleteSession(id){
 }
 
 // ============ 기존 세션 자동 분석 (로컬) ============
+// 앱 시작 3초 뒤 모든 일지의 로컬 요약(_ai)을 만든다 — 기기 저장(save)은 끝에 한 번만. 예전엔 일지마다 상태 전체를 기기에 다시 써서
+// (일지 수 × 전체 크기) 앱을 켤 때마다 화면이 몇 초씩 멈췄고, 일지가 1,500건을 넘으면 페이지가 죽었다
 function analyzeExistingSessions(){
   var count = 0;
   for(var mid in S.sessions){
@@ -555,11 +722,12 @@ function analyzeExistingSessions(){
     for(var i=0;i<sessions.length;i++){
       if(sessions[i]._ai) continue;
       if(!sessions[i].content || sessions[i].content.trim().length<5) continue;
-      generateLocalSummary(mid, sessions[i]);
+      generateLocalSummary(mid, sessions[i], true);
       count++;
     }
   }
-  if(count>0) render();
+  if(count>0){ try{ save(); }catch(e){} }
+  if(count>0 && !(typeof _rvFormOpen==='function' && _rvFormOpen())) render();   // 입력 중(일지·회원 폼, 관리자 열쇠 칸)이면 다시 그리지 않음 — 친 글자가 지워지지 않게
 }
 
 // ============ 시작 ============

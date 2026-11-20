@@ -2077,3 +2077,121 @@ select.form-input{appearance:none;-webkit-appearance:none;background-image:url("
 .ntc-it.co:active{background:rgba(0,184,132,.14)}
 .ntc-it .co-sum{color:#454c55;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ntc-it .t .co-dot{box-shadow:none;margin-left:4px}
+
+/* ===== 대시보드 점검 카드 (v9.99) — AI 정리 대기 · 리포트 링크 없는 활성 회원 · 지도자별 기록 · 인포데스크 확인 목록 · 원문 없는 녹음 일지 ===== */
+.ai-wait-chip.fail{background:#fdecec;color:#a8321e;border-color:rgba(168,50,30,.25)}
+.dash-ai-card,.dash-link-card,.dash-inst-card{margin-bottom:14px}
+.dash-ai-card h3 small,.dash-link-card h3 small,.dash-inst-card h3 small,.dash-warn-card h3 small,.dash-txmiss h3 small{display:block;font-size:11px;font-weight:600;color:var(--tx-3);margin-top:3px}
+.dash-ai-card{border-color:#cfe0f3;background:#f7fbff}
+.dash-ai-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.dar-open{flex:1;min-width:0;text-align:left;padding:9px 12px;background:#fff;border:1.5px solid #cfe0f3;border-radius:10px;font-size:13px;font-weight:700;color:#1a4a7a;cursor:pointer;font-family:inherit}
+.dar-open small{display:block;font-size:11px;font-weight:600;color:#6a87a6;margin-top:1px}
+.dash-ai-row .ai-wait-chip{margin-left:0;padding:7px 10px;font-size:11px;flex-shrink:0}
+.dash-link-card{border-color:#cfe8db;background:#f6fcf9}
+.dash-link-row{display:flex;align-items:center;width:100%;box-sizing:border-box;padding:11px 13px;margin-top:8px;background:#fff;border:1.5px solid #cfe8db;border-radius:10px;font-size:13.5px;font-weight:700;color:#0d4f36;cursor:pointer;text-align:left;font-family:inherit}
+.dash-link-row span small{display:block;font-size:11px;font-weight:600;color:#5d8a76;margin-top:1px}
+.dash-link-row em{margin-left:auto;padding-left:10px;font-style:normal;font-size:12px;font-weight:800;color:#0d6f4a;flex-shrink:0}
+.dash-link-row:active{background:#eef7f2}
+.dash-more{display:block;width:100%;margin-top:8px;padding:8px;border:none;background:transparent;color:var(--tx-3);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.dash-inst-list{display:flex;flex-direction:column;gap:10px}
+.dash-inst-row{padding:10px 12px;border:1px solid var(--brd);border-radius:10px;background:var(--bg-1)}
+.dir-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dir-name{font-weight:800;font-size:13px;color:var(--tx);min-width:96px}
+.dir-name.pro{color:var(--pro)}.dir-name.trainer{color:var(--ac)}
+.dir-n{font-size:11px;font-weight:600;color:var(--tx-3);white-space:nowrap}
+.dir-n b{font-size:15px;font-weight:800;color:var(--tx);margin-right:3px;font-variant-numeric:tabular-nums}
+.dir-last{margin-left:auto;font-size:11px;font-weight:600;color:var(--tx-3);white-space:nowrap}
+.dir-sub{margin-top:6px;font-size:11.5px;color:var(--tx-2)}
+.dir-idle{border:none;background:#fff3d6;color:#7a5a1e;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.dir-idle-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.dir-idle-list button{border:1px solid var(--brd);background:var(--bg-2);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;font-family:inherit;text-align:left}
+.dir-idle-list button small{display:block;font-size:10.5px;font-weight:600;color:var(--tx-3)}
+.dash-warn-list{display:flex;flex-direction:column;gap:6px}
+.dash-warn-row{display:flex;align-items:center;width:100%;box-sizing:border-box;padding:9px 12px;background:#fff;border:1.5px solid #f3d9d2;border-radius:10px;font-size:13px;font-weight:700;color:#6a2a1c;cursor:pointer;text-align:left;font-family:inherit}
+.dash-warn-row span small{display:block;font-size:11px;font-weight:600;color:#a0604f;margin-top:1px}
+.dash-warn-row em{margin-left:auto;padding-left:10px;font-style:normal;font-size:12px;font-weight:800;color:#c0503a;flex-shrink:0}
+.dash-txmiss h3 b.warn{color:#c0392b}.dash-txmiss h3 b.ok{color:#0d6f4a}
+.dp-bar.over{background:#e5533d}
+.dp-pct.over{width:auto;min-width:40px;color:#c0392b;font-weight:800;white-space:nowrap}
+.dp-pct.over em{font-style:normal;font-size:9.5px;margin-left:2px}
+.pv-nolink{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0;padding:10px 14px;border-radius:11px;font-size:.72em;font-weight:600;background:#eef6ff;color:#1a4a7a;border:1px solid #cfe0f3}
+.pv-nolink button{margin-left:auto;padding:9px 16px;border:none;border-radius:9px;background:#1a4a7a;color:#fff;font-weight:800;font-size:1em;cursor:pointer;white-space:nowrap}
+.pv-aiwarn{margin:10px 0 0;padding:10px 14px;border-radius:11px;font-size:.72em;font-weight:600;background:#fdecec;color:#993c1d;border:1px solid #f3d0c8}
+.pv-lesson-ex{font-size:0.531em;font-weight:800;padding:2px 7px;border-radius:5px;white-space:nowrap;background:#fdecec;color:#a8321e}
+
+/* ===== 녹음·AI 정리 동의 (v9.99) — 회원 화면 배지 · 동의 입력 칸 · 녹음 시작 전 확인 창 · 대시보드 카드 ===== */
+.rc-badge{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:3px 9px;border-radius:999px;border:1px solid transparent;font-size:11px;font-weight:700;line-height:1.4;vertical-align:middle;white-space:nowrap;cursor:pointer;font-family:inherit;letter-spacing:0}
+.rc-badge small{font-size:10px;font-weight:600;opacity:.85}
+.rc-badge.rc-yes{background:var(--tr-bg);color:var(--ac-deep);border-color:rgba(0,168,120,.22)}
+.rc-badge.rc-no{background:var(--err-bg);color:var(--err);border-color:rgba(217,45,32,.22)}
+.rc-badge.rc-none{background:var(--warn-bg);color:var(--warn);border-color:rgba(199,106,4,.22)}
+.member-rc-line{margin:3px 0 1px}
+.member-rc-line .rc-badge{margin-left:0}
+.rc-label{display:flex;align-items:center;gap:8px}
+.rc-print{margin-left:auto;padding:5px 10px;border:1px solid var(--brd-2);border-radius:8px;background:var(--bg-1);color:var(--tx-2);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.rc-form .rc-modes .radio-opt{flex:1 1 0;min-width:0}
+.rc-form .rc-row{margin-top:10px}
+.radio-opt.sel-no{border-color:var(--err);background:var(--err-bg);color:var(--err)}
+.rc-hint{margin-top:6px;font-size:11.5px;line-height:1.6;color:var(--tx-3);word-break:keep-all}
+.modal.rc-modal{width:400px}
+.rc-now{margin:-12px 0 14px;font-size:12px;color:var(--tx-3);word-break:keep-all}
+.modal.rc-modal .rc-print{display:block;margin:12px 0 0}
+.modal.rc-ask{width:360px;text-align:center}
+.rc-ask-icon{font-size:40px;margin:2px 0 6px}
+.modal.rc-ask .modal-title{margin-bottom:10px}
+.rc-ask-msg{margin-bottom:16px;font-size:13.5px;line-height:1.7;color:var(--tx-2);word-break:keep-all}
+.rc-ask-btns{display:flex;flex-direction:column;gap:8px}
+.rc-ask-btns .btn{width:100%;white-space:normal}
+.rc-ask-btns .rc-ask-cancel{background:transparent;border-color:transparent;box-shadow:none;color:var(--tx-3)}
+.rec-disabled.rc-refused{background:var(--err-bg);border-color:rgba(217,45,32,.2);color:#9f2a1d}
+.rec-disabled.rc-refused small{color:#b2574a}
+.dash-rc-card{margin-bottom:14px;border-color:#f0dfb8;background:#fffaf0}
+.dash-rc-card h3 small{display:block;font-size:11px;font-weight:600;color:var(--tx-3);margin-top:3px}
+.dash-rc-row{display:flex;align-items:center;width:100%;box-sizing:border-box;padding:11px 13px;margin-top:8px;background:#fff;border:1.5px solid #f0dfb8;border-radius:10px;font-size:13.5px;font-weight:700;color:#6b4a0e;cursor:pointer;text-align:left;font-family:inherit}
+.dash-rc-row span small{display:block;font-size:11px;font-weight:600;color:#9a7a3e;margin-top:1px}
+.dash-rc-row em{margin-left:auto;padding-left:10px;font-style:normal;font-size:12px;font-weight:800;color:#a06a00;flex-shrink:0}
+.dash-rc-row:active{background:#fdf3df}
+.dash-rc-card .rc-print{display:block;margin:10px 0 0 auto}
+@media(max-width:480px){ .rc-badge{margin-left:6px;padding:2px 8px} }
+
+/* ===== 타석 PC 상태 신호 (v9.99) — 수업 센터 타석 카드 · 관리자 대시보드 / 스토리지 진단·정리 ===== */
+.bay-hb{display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:11.5px;font-weight:600;line-height:1.45;color:var(--tx-3);background:var(--bg-2);border-bottom:1px solid var(--brd);word-break:keep-all}
+.bay-hb:empty{display:none}
+.bay-hb::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--brd-2);flex-shrink:0}
+.bay-hb.ok{color:var(--tx-2)}
+.bay-hb.ok::before{background:var(--ac)}
+.bay-hb.late::before{background:var(--warn)}
+.bay-hb.red{color:var(--err);background:var(--err-bg);font-weight:800}
+.bay-hb.red::before{background:var(--err)}
+.dash-hb-card{margin-bottom:14px}
+.dash-hb-card h3 small{display:block;font-size:11px;font-weight:600;color:var(--tx-3);margin-top:3px}
+.hb-row{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;padding:8px 0;border-top:1px solid var(--brd)}
+.hb-row:first-of-type{border-top:none;padding-top:2px}
+.hb-bay{font-weight:800;font-size:13px;color:var(--tx);min-width:64px}
+.hb-row .bay-hb{padding:0;background:transparent;border:none;flex:1;min-width:0}
+.hb-row .bay-hb.red{background:transparent}
+.hb-sub{flex-basis:100%;font-size:11px;color:var(--tx-3);padding-left:13px}
+.hb-sub:empty{display:none}
+.sa-loading{padding:30px 0;text-align:center;color:var(--tx-2);font-size:13px}
+.sa-loading small{display:block;font-size:11px;color:var(--tx-3);margin-top:6px}
+.sa-sum{font-size:13px;color:var(--tx-2);margin-bottom:10px}
+.sa-warn{color:#b8791d}
+.sa-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.sa-tbl th{text-align:left;padding:4px;color:var(--tx-3);font-size:11px;font-weight:600;border-bottom:1px solid var(--brd-2)}
+.sa-tbl td{padding:6px 4px;border-bottom:1px solid var(--brd)}
+.sa-tbl .n{text-align:right;white-space:nowrap}
+.sa-tbl td.b{font-weight:700}
+.sa-keep{margin-top:12px;font-size:11.5px;line-height:1.7;color:var(--tx-2);word-break:keep-all}
+.sa-box{margin-top:12px;padding:13px 14px;border-radius:12px;font-size:12.5px;line-height:1.65;word-break:keep-all}
+.sa-box.ok{background:#eafaf3;border:1px solid #b6ead2;color:#0f7a52;font-weight:700}
+.sa-box.warn{background:#fdecec;border:1px solid #f3d0c8;color:#993c1d}
+.sa-box.cand{background:#fff7ea;border:1px solid #f0ddb8;color:var(--tx-2)}
+.sa-h{font-weight:800;font-size:13.5px;color:#8a5a10;margin-bottom:4px}
+.sa-months{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 2px;font-size:11.5px;color:var(--tx-2)}
+.sa-acts{display:flex;gap:8px;margin-top:10px}
+.sa-acts .btn{flex:1;white-space:normal}
+.sa-acts .btn[disabled]{opacity:.45}
+.sa-note{margin-top:8px;font-size:11px;color:var(--tx-3);line-height:1.6}
+.sa-prog{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--tx-2)}
+.sa-prog.ok{color:#0f7a52}
+.sa-prog.err{color:#a8321e}

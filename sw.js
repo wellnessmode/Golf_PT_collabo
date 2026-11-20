@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-pt-v9.98';
+const CACHE_NAME = 'golf-pt-v9.99';
 const ASSETS = [
   './',
   './index.html',
@@ -15,7 +15,8 @@ const ASSETS = [
   './assets/logo.png',
   './assets/icon-192.png',
   './assets/icon-512.png',
-  './manifest.json'
+  './manifest.json',
+  './consent.html'   // 인쇄용 녹음 동의서 (v9.99 — 인포데스크·관리자 화면·매뉴얼에서 열림)
 ];
 
 self.addEventListener('install', function(e) {
