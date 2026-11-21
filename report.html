@@ -252,7 +252,7 @@ function renderReport(c, meta){
   }
 
   // ── 히어로: "OO님의 골프 성장기"
-  var updDay=String(c.publishedAt||meta.createdAt||'').slice(0,10);
+  var updDay=__dayOf(c.publishedAt||meta.createdAt||'');   // 이 기기(한국) 날짜 — 시각은 UTC 라 앞 10글자는 오전 9시 전엔 전날 (v10.00)
   var days=null; try{ if(m.registeredDate){ days=Math.max(0,Math.floor((Date.now()-new Date(String(m.registeredDate)+'T00:00:00').getTime())/86400000)); if(!isFinite(days)) days=null; } }catch(e){}
   var golfN=num(c.proSessions), ptN=num(c.trainerSessions), shotN=num(t&&t.shotCount);
   html+='<div class="hero"><div class="hero-top"><div class="hero-brand">'+esc(storeEn)+'</div><button class="hero-zoom" onclick="rptZoom()" title="글자 크기">글자<small id="rp-zoom-l">크게</small></button></div>'
@@ -526,15 +526,15 @@ function __paneHTML(p, open, vurl, esc, fmt){
     var sameClub=String(p.b.club||'')===String(p.a.club||'');
     if(sameClub&&bC!=null&&aC!=null&&aC>bC) inner+='<div class="ba-delta">비거리가 <b>'+fmt(aC-bC)+'m 늘었어요!</b> (캐리 기준)</div>';
     inner+='<div class="ba-dlrow">'
-      +'<button class="dl-btn" data-k="'+esc(p.b.key)+'" data-n="비포_'+esc(p.date||String(p.b.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 비포 저장</button>'
-      +'<button class="dl-btn" data-k="'+esc(p.a.key)+'" data-n="애프터_'+esc(p.date||String(p.a.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 애프터 저장</button>'
+      +'<button class="dl-btn" data-k="'+esc(p.b.key)+'" data-n="비포_'+esc(p.date||__dayOf(p.b.ts||''))+'" onclick="rptDownload(this)">⬇ 비포 저장</button>'
+      +'<button class="dl-btn" data-k="'+esc(p.a.key)+'" data-n="애프터_'+esc(p.date||__dayOf(p.a.ts||''))+'" onclick="rptDownload(this)">⬇ 애프터 저장</button>'
       +'</div>';
   } else {
     var one=p.b||p.a, isB=!!p.b;
     if(one) inner+='<div class="ba-one"><div class="ba-lab '+(isB?'b':'a')+'" style="border-radius:14px 14px 0 0">'+(isB?'BEFORE':'AFTER')+'</div>'
       +'<div class="ba-onev"><video '+vAttr(one.key)+' controls playsinline preload="'+(open?'metadata':'none')+'"></video></div>'+cap(one)
       +'<button class="ba-big" style="border-radius:0 0 14px 14px" onclick="vwOpenBA('+pi+',\''+(isB?'b':'a')+'\')">⤢ 크게 보기</button>'
-      +'<div class="ba-dlrow"><button class="dl-btn" data-k="'+esc(one.key)+'" data-n="스윙_'+esc(p.date||String(one.ts||'').slice(0,10))+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div></div>';
+      +'<div class="ba-dlrow"><button class="dl-btn" data-k="'+esc(one.key)+'" data-n="스윙_'+esc(p.date||__dayOf(one.ts||''))+'" onclick="rptDownload(this)">⬇ 영상 저장</button></div></div>';
   }
   return inner;
 }

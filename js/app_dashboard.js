@@ -246,11 +246,12 @@ function buildPerfData(memberId){
   // 라이브 세션에서 저장된 트랙맨 샷 (데모/가짜 mock 제외 — 실측만)
   var memberShots=(S.shotEvents||[]).filter(function(s){return s.memberId===memberId && s.source!=='mock';});
   if(memberShots.length){
-    var existDates={}; golf.forEach(function(g){existDates[g.date]=true;});
+    // 날짜는 연도까지(_d) 비교 — 'MM-DD' 만 보면 해가 바뀐 뒤 1월이 앞에 오고, 다른 해 같은 날 일지가 그날 샷을 가렸다 (v10.00)
+    var existDates={}; golf.forEach(function(g){existDates[g._d||g.date]=true;});
     var byDate={};
-    memberShots.forEach(function(s){ var d=String(s.ts).slice(0,10); if(d) (byDate[d]=byDate[d]||[]).push(s); });
+    memberShots.forEach(function(s){ var d=localDay(s.ts); if(d) (byDate[d]=byDate[d]||[]).push(s); });   // 샷 날짜 = 이 기기 날짜 (일지 날짜와 같은 기준, v10.00)
     Object.keys(byDate).sort().forEach(function(d){
-      var md=d.slice(5); if(existDates[md]) return;
+      var md=d.slice(5); if(existDates[d]) return;
       var arr=byDate[d];
       // 트랙맨 에이전트는 club 을 영문('Driver','7Iron')으로 저장 — 그룹 분류로 매칭 (한글/영문 모두)
       var drv=arr.filter(function(s){return _clubGroup(s.data&&s.data.club)==='driver';});
@@ -261,7 +262,7 @@ function buildPerfData(memberId){
         carry:avg('carry'), total:avg('total'), spin:avg('spin'),
         clubPath:avg('clubPath'), faceAngle:avg('faceAngle'), attack:avg('attack'), _shots:use.length});
     });
-    golf.sort(function(a,b){return a.date.localeCompare(b.date);});
+    golf.sort(function(a,b){return String(a._d||a.date).localeCompare(String(b._d||b.date));});
   }
   var assess=[];
   var a=S.assessments[memberId]||{};
@@ -328,7 +329,7 @@ function exportShotsCsv(){
   var rows=[['시각','클럽','단위계','클럽스피드','볼스피드','스매시','캐리','토탈','발사각','스핀','클럽패스','페이스앵글','어택앵글','캐리좌우','토탈좌우','스핀축','낙하각']];
   data.shots.slice().sort(function(a,b){return String(a.ts).localeCompare(String(b.ts));}).forEach(function(s){
     var d=s.data||{};
-    rows.push([String(s.ts).replace('T',' ').slice(0,19), _clubKo(d.club)||'', _isMetricShot(d)?'m·m/s':'yd·mph']
+    rows.push([localStamp(s.ts, true), _clubKo(d.club)||'', _isMetricShot(d)?'m·m/s':'yd·mph']
       .concat(keys.map(function(k){return d[k]!=null?d[k]:'';})));
   });
   var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
@@ -714,7 +715,7 @@ async function publishDemoReport(){
 // 상담 예시 레슨일지 — 골프 프로 ↔ 골프 트레이너가 번갈아 쓴 4주 협업 스토리 8건
 // (최신순 표시 기준: 프로 → 트레이너 → 프로 → ... 퐁당퐁당)
 function _demoSessions(){
-  var d=function(off){ return new Date(Date.now()-off*86400000).toISOString().slice(0,10); };
+  var d=function(off){ return localDay(Date.now()-off*86400000); };
   var by=APP_BRAND.measuredBy;
   return [
     {date:d(0), time:'10:00', author:'담당 프로', role:'pro',
@@ -762,13 +763,13 @@ function deletePerfShot(shotId){
   var s=(S.shotEvents||[]).find(function(x){return x.id===shotId;});
   if(!s){ alert('샷을 찾을 수 없습니다'); return; }
   var club=(typeof _clubKo==='function'?_clubKo(s.data&&s.data.club):(s.data&&s.data.club))||'샷';
-  if(!confirm('이 샷을 리포트에서 삭제할까요?\n\n'+club+' · '+String(s.ts).slice(0,16).replace('T',' ')
+  if(!confirm('이 샷을 리포트에서 삭제할까요?\n\n'+club+' · '+localStamp(s.ts)
     +'\n\n영상(모든 앵글)과 측정 기록이 완전히 삭제됩니다.\n잘못 저장된 다른 회원의 영상을 제거할 때 사용하세요.\n\n※ 되돌릴 수 없습니다')) return;
   S.shotEvents=(S.shotEvents||[]).filter(function(x){return x.id!==shotId;});
   save();
   // 영상(모든 앵글)을 먼저 지우고, 다 지워지면 서버 행(A2). 못 지운 영상은 대기열에 남아 자동으로 다시 — 그동안 리포트 발행에도 안 들어감
   try{ delShotsRun([s]).then(function(r){ try{ liveToastSafe(r.left ? DEL_LATER_MSG : '🗑 샷 삭제됨 — 영상·측정 기록 제거'); }catch(e){} }, function(){}); }catch(e){}
-  try{ logActivity('리포트 샷 삭제', s.memberId, club+' · '+String(s.ts).slice(0,10)); }catch(e){}
+  try{ logActivity('리포트 샷 삭제', s.memberId, club+' · '+localDay(s.ts)); }catch(e){}
   try{ logAudit('session','리포트 샷 삭제', s.memberName||'', {shotId:shotId, club:club, ts:s.ts, tag:(s.data&&s.data._tag)||''}); }catch(e){}
   S.perfShotModal=null; S.perfShotView=0;
   render();
@@ -1103,7 +1104,7 @@ function renderPerformance(){
     var best=null, bestC=-1;
     data.shots.forEach(function(s){var c=parseFloat(s.data&&s.data.carry); if(!isNaN(c)&&c>bestC){bestC=c;best=s;}});
     var bd=(best&&best.data)||{}; var bm=_isMetricShot(bd);
-    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>베스트 샷</div><div class="pv-sec-x">'+(best?esc(_clubKo(bd.club))+' · '+esc(String(best.ts).slice(5,10)):'')+'</div></div>'
+    html+='<div class="pv-sec"><div class="pv-sec-h"><div class="pv-sec-t"><i>'+_sn()+'</i>베스트 샷</div><div class="pv-sec-x">'+(best?esc(_clubKo(bd.club))+' · '+esc(localDay(best.ts).slice(5,10)):'')+'</div></div>'
       +'<div class="pv-kgrid">'
         +'<div class="pv-k hi"><div class="pv-k-l">캐리</div><div class="pv-k-v">'+(bd.carry!=null?_fmtNum(pfDistFrom(bd.carry,bm)):'—')+'<span class="pv-k-u">'+pfDistU()+'</span></div></div>'
         +'<div class="pv-k"><div class="pv-k-l">볼 스피드</div><div class="pv-k-v">'+(bd.ballSpeed!=null?_fmtNum(pfSpdFrom(bd.ballSpeed,bm)):'—')+'<span class="pv-k-u">'+pfSpdU()+'</span></div></div>'
@@ -1260,7 +1261,7 @@ function renderPerformance(){
         // (교정 전 나쁜 습관 예시 영상이 "베스트"로 보일 수 있음) → 제거.
         var tagBadge = d._tag==='before' ? '<span class="pv-vbest tag-before">BEFORE</span>'
                      : d._tag==='after'  ? '<span class="pv-vbest tag-after">AFTER</span>' : '';
-        var dateStr=String(s.ts).slice(5,10);
+        var dateStr=localDay(s.ts).slice(5,10);
         var hasVid=!!(s.videoR2Key || d.videoMp4R2Key || d.videoDL);
         html+='<div class="pv-vcard" onclick="openPerfShot('+idx+')"><div class="pv-vthumb">'
           +tagBadge
@@ -1285,7 +1286,7 @@ function renderPerformance(){
     var diffM=aCm-bCm, pctChg=bCm>0?Math.round((diffM/bCm)*100*10)/10:0;
     var bIdx=data.shots.indexOf(ba.before), aIdx=data.shots.indexOf(ba.after);
     var _vk=function(s){ var d=(s&&s.data)||{}; return d.videoDL||d.videoMp4R2Key||d.videoClub||s.videoR2Key||null; };
-    var _cap=function(s){ var d=(s&&s.data)||{}; var met=_isMetricShot(d); var c=d.carry!=null?_fmtNum(pfDistFrom(d.carry,met))+' '+pfDistU():''; return (_clubKo(d.club)||'샷')+' · '+String(s.ts).slice(5,10)+(c?' · '+c:''); };
+    var _cap=function(s){ var d=(s&&s.data)||{}; var met=_isMetricShot(d); var c=d.carry!=null?_fmtNum(pfDistFrom(d.carry,met))+' '+pfDistU():''; return (_clubKo(d.club)||'샷')+' · '+localDay(s.ts).slice(5,10)+(c?' · '+c:''); };
     // 각 샷의 앵글별 키 — 비교 재생기에서 측면/정면/클럽 전환용
     var _ang=function(s){ var d=(s&&s.data)||{}; var dl=d.videoDL||d.videoMp4R2Key||s.videoR2Key||null; if(dl&&(dl===d.videoClub||dl===d.videoFO)) dl=null; return {dl:dl, fo:d.videoFO||null, club:d.videoClub||null}; };
     var bKey=_vk(ba.before), aKey=_vk(ba.after);
@@ -1295,10 +1296,10 @@ function renderPerformance(){
       +'<div class="pv-bna-h">⏮ BEFORE  ·  AFTER ⏭</div>'
       +'<div class="pv-bna">'
         +'<div class="pv-bna-col" onclick="openPerfShot('+bIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">BEFORE</span>'+(bVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
-          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+esc(String(ba.before.ts).slice(0,10))+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(bCm))+' <span>'+pfDistU()+'</span></div></div></div>'
+          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+esc(localDay(ba.before.ts))+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(bCm))+' <span>'+pfDistU()+'</span></div></div></div>'
         +'<div class="pv-bna-arr">→</div>'
         +'<div class="pv-bna-col after" onclick="openPerfShot('+aIdx+')" style="cursor:pointer"><div class="pv-bna-thumb"><span class="pv-bna-tag">AFTER</span>'+(aVid?'<span class="pv-vhasvid">🎬</span>':'')+'<div class="pv-vplay">▶</div></div>'
-          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+esc(String(ba.after.ts).slice(0,10))+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(aCm))+' <span>'+pfDistU()+'</span></div></div></div>'
+          +'<div class="pv-bna-stats"><div class="pv-bna-date">'+esc(localDay(ba.after.ts))+'</div><div class="pv-bna-val">'+_fmtNum(pfDistM(aCm))+' <span>'+pfDistU()+'</span></div></div></div>'
       +'</div>'
       +(bVid&&aVid
         ? '<button class="pv-cmp-btn" onclick="openCompareBA()">🎬 비포·애프터 나란히 재생 <small>슬로우 · 배속 · 동시 탐색 · 앵글 전환</small></button>'
@@ -1450,7 +1451,7 @@ function renderPerformance(){
       +'<div class="pv-vm-box">'
         +'<div class="pv-vm-vid">'+vidHtml+'</div>'
         +'<div class="pv-vm-info">'
-          +'<div class="pv-vm-h"><div class="pv-vm-club">'+esc(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+esc(String(sm.ts).slice(0,16).replace('T',' '))+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
+          +'<div class="pv-vm-h"><div class="pv-vm-club">'+esc(_clubKo(dm.club)||'샷')+(dm._tag==='before'?' <span class="pv-vm-tagb b">BEFORE</span>':(dm._tag==='after'?' <span class="pv-vm-tagb a">AFTER</span>':''))+'</div><div class="pv-vm-date">'+esc(localStamp(sm.ts))+(dm._src==='trackman_io'?' · TrackMan':'')+'</div></div>'
           +(vidUrl?'<button class="pv-dl-btn" onclick="var v=document.querySelector(\'.pv-vm-video\');downloadShotVideo(this, v?v.src:'+jsq(vidUrl)+', '+jsq(fname)+')">⬇ 영상 저장</button>':'')
           +((!S.perfDemo && (S.currentRole==='pro'||S.currentRole==='trainer'||S.currentRole==='admin'))?'<button class="pv-del-btn" onclick="deletePerfShot(\''+safeId(sm.id)+'\')">🗑 이 샷 삭제 <small>잘못 저장된 영상 제거 · 되돌릴 수 없음</small></button>':'')
           +'<div class="pv-vm-tiles">'+vmt('캐리', dm.carry!=null?_fmtNum(pfDistFrom(dm.carry,metric)):'—', pfDistU())
@@ -1527,7 +1528,7 @@ function openNotices(){
   var rows=(S._notices||[]).map(function(n){
     var c=n.content||{};
     var isNew=String(n.created_at||'')>seen;
-    var when=String(n.created_at||'').replace('T',' ').slice(5,16);
+    var when=localStamp(n.created_at).slice(5,16);   // 'MM-DD HH:MM' 이 기기 시간 (created_at 은 UTC, v10.00)
     var roleKo=c.role==='pro'?'프로':(c.role==='trainer'?'트레이너':(c.role==='infodesk'?'인포데스크':''));
     return '<div class="ntc-it'+(isNew?' new':'')+'">'
       +'<div class="t">'+esc(when)+' · '+esc(c.user||n.created_by||'')+(roleKo?' ('+roleKo+')':'')+'</div>'
@@ -1942,7 +1943,7 @@ function openCoNotices(){
   var seen=_coSeenMap();
   var rows=_coMine().map(function(n){
     var c=n.content||{}; var isNew=String(n.created_at||'')>(seen[c.memberId]||'');
-    var when=(c.date?String(c.date).slice(5).replace('-','.'):String(n.created_at||'').replace('T',' ').slice(5,16))+(c.time?' '+c.time:'');
+    var when=(c.date?String(c.date).slice(5).replace('-','.'):localStamp(n.created_at).slice(5,16))+(c.time?' '+c.time:'');
     return '<div class="ntc-it co'+(isNew?' new':'')+'" data-mid="'+esc(c.memberId||'')+'">'
       +'<div class="t">'+esc(when)+' · '+esc(c.user||n.created_by||'')+(isNew?' <span class="co-dot"></span>':'')+'</div>'
       +'<div><b>'+esc(c.target||n.member_name||'')+'</b> 회원 레슨 일지 작성</div>'
