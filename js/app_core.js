@@ -343,9 +343,10 @@ async function pwClaimAfterLogin(role,user){
 }
 
 const APP_VERSION = {
-  version:'v9.99',
-  date:'2026-11-20',
+  version:'v10.00',
+  date:'2026-11-21',
   changes:[
+    '오전 9시 전에 저장한 일지가 전날 날짜로 저장되던 문제 수정 — 레슨 시간은 맞는데 날짜만 하루 전으로 들어가던 버그. 새 일지·간편 노트·수업 종료 후 일지 초안, 회원 등록일, 체형평가 날짜, 내려받는 파일 이름, 오늘·이번 달 통계, 대시보드 최근 7·30일이 모두 이 기기(한국) 날짜 기준. 오전 레슨의 트랙맨 샷 요약과 타석 카드의 오늘 샷 수도 그날 샷만 세고, 리포트의 샷 날짜·알림 시각도 한국 시간으로 표시. 끄지 않아 다음 날 열린 수업 일지 초안은 그 수업 날짜·시간으로, 유효기간이 끝난 다음 날은 만료로',
     '수업 센터·녹음 안정화 — 다른 기기에서 시작한 레슨이 몇 초 안에 타석 카드에 뜨고, 느린 와이파이에서 방금 시작한 레슨이 사라지지 않게. 오전 9시 전에 시작한 레슨이 9시에 "어제 세션"으로 자동 종료되던 문제 수정, 녹음 중인 레슨은 자동 종료하지 않고 끝나면 일지 초안으로. 동의 기록이 있으면 🎙 녹음이 누르는 즉시 시작',
     '기록 보호 — 녹음 동의를 저장해도 인포데스크가 고친 유효기간·횟수·연락처가 되돌아가지 않게, 새로고침·다시 로그인할 때 아직 못 올린 회원·평가 수정이 사라지지 않게. 자동 정리는 다시 지우기 직전에 서버에서 다시 확인해 그 사이 저장·배정된 샷과 리포트 영상은 지우지 않음. 폰 와이파이가 끊기면 PC 신호를 빨간색 대신 "확인 안 됨"으로',
     '녹음·AI 정리 동의 기록 — 회원 등록·[수정] 화면 맨 아래와 회원 이름 옆 배지(🎙 녹음 동의 / 녹음 거부 / 녹음 동의 미기록)에서 동의(서면·구두와 날짜) 또는 거부를 기록. 동의 기록이 없는 회원의 수업 녹음을 시작하면 [오늘 구두 동의 받음 — 기록하고 녹음] · [녹음 없이 진행] · [취소]를 묻고, 거부한 회원은 녹음·AI 정리 없이 레슨·샷 저장만 진행. 인쇄용 동의서는 인포데스크·관리자 사이드바 [🖨 녹음 동의서 (인쇄용)]',
@@ -1161,7 +1162,7 @@ function applyRemoteActive(remoteActive){
   if(S._lostTx && S._lostTx.length && !S.showAddSession){
     var _it=S._lostTx[0];
     try{
-      if(typeof openVoiceDraft==='function' && openVoiceDraft(_it.memberId, _it.author, _it.tx)){
+      if(typeof openVoiceDraft==='function' && openVoiceDraft(_it.memberId, _it.author, _it.tx, _it.startedAt||_it.at)){   // 그 수업 날짜로 (v10.00 전 항목은 보관한 시각)
         S._lostTx.shift(); try{ save(); }catch(e){}
         liveToastSafe('🎙 대기 중이던 녹음 전문을 복구했어요 — 일지를 저장하세요');
       } else {
@@ -1185,12 +1186,12 @@ function applyRemoteActive(remoteActive){
     if(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(p.memberId)) return;   // 관찰용 회원 — 일지 복구 대상 아님
     if(typeof _rec!=='undefined' && (_rec.bayId===b || _rec._lastBay===b)) return;   // 이 기기에서 녹음 중·마지막 조각 변환 중 — 녹음 마무리(_finishRec)가 전문으로 복구한다(초안 두 번 방지)
     try{
-      if(typeof openVoiceDraft==='function' && !S.showAddSession && openVoiceDraft(p.memberId, p.author, tx)){
+      if(typeof openVoiceDraft==='function' && !S.showAddSession && openVoiceDraft(p.memberId, p.author, tx, p.startedAt)){   // 밤새 꺼져 있다 다음 날 알아채도 그 수업 날짜로
         liveToastSafe('🎙 다른 곳에서 종료된 세션의 녹음 전문을 복구했어요 — 일지를 저장하세요');
       } else {
         // 일지 작성 중 등으로 지금 못 열면 보관함에 쌓아두고 폴링에서 재시도
         S._lostTx = S._lostTx || [];
-        S._lostTx.push({ memberId:p.memberId, author:p.author, tx:tx, at:new Date().toISOString() });
+        S._lostTx.push({ memberId:p.memberId, author:p.author, tx:tx, at:new Date().toISOString(), startedAt:p.startedAt });
         try{ save(); }catch(e){}
       }
     }catch(e){}
@@ -1519,8 +1520,15 @@ function getUnreadCount(){if(!S.currentUser) return 0;var last=S.lastSeen[S.curr
 function markSeen(){if(!S.currentUser)return;S.lastSeen[S.currentUser]=new Date().toISOString();save();}
 
 // ============ Helpers ============
-function today(){return new Date().toISOString().slice(0,10);}
-function daysUntilExpiry(dateStr){if(!dateStr)return null;var exp=new Date(dateStr+'T23:59:59');var now=new Date();return Math.ceil((exp-now)/(1000*60*60*24));}
+// 날짜는 이 기기 시간대(한국) 기준 'YYYY-MM-DD' (v10.00) — 예전 today() 는 UTC 날짜(toISOString)라 오전 9시 전엔 전날이 됐다
+// (그 시간에 쓴 일지·등록일·평가일·파일 이름·이번 달 통계·대시보드 기간). 저장 형식은 그대로 — 날짜 'YYYY-MM-DD', 시각은 ISO(UTC).
+// localDay(시각): 샷 ts·created_at 같은 UTC 시각을 날짜와 비교·표시하기 전에 이 기기의 날짜로. 'YYYY-MM-DD' 는 그대로, 못 읽으면 앞 10글자(예전 동작)
+function localDay(t){ if(typeof t==='string' && /^\d{4}-\d{2}-\d{2}$/.test(t)) return t; var d=(t instanceof Date)?t:new Date(t==null||t===''?NaN:t); if(isNaN(d.getTime())) return String(t||'').slice(0,10); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// 시각 → 이 기기 시간대 'YYYY-MM-DD HH:MM' (sec 이면 ':SS' 까지) — 화면·CSV 표시용. 못 읽으면 예전처럼 글자 그대로('T' → ' ')
+function localStamp(t, sec){ var d=(t instanceof Date)?t:new Date(t==null||t===''?NaN:t); if(isNaN(d.getTime())) return String(t||'').replace('T',' ').slice(0,sec?19:16); var p=function(n){return String(n).padStart(2,'0');}; return localDay(d)+' '+p(d.getHours())+':'+p(d.getMinutes())+(sec?':'+p(d.getSeconds()):''); }
+function today(){return localDay(new Date());}
+// 유효기간 날짜(그날 23:59:59 까지)가 지나면 음수 — 예전엔 다음 날 하루 종일 -0 이라 'D-0'·유효로 남았다 (v10.00). 마지막 날은 그대로 D-1
+function daysUntilExpiry(dateStr){if(!dateStr)return null;var exp=new Date(dateStr+'T23:59:59');var ms=exp-new Date();return ms<0?Math.floor(ms/86400000):Math.ceil(ms/86400000);}
 function nearestExpiry(m){if(!m) return '';var dates=[];if(m.golfLessonExpiry) dates.push(m.golfLessonExpiry);if(m.golfPTExpiry) dates.push(m.golfPTExpiry);if(dates.length===0&&m.expiry) dates.push(m.expiry);if(dates.length===0) return '';return dates.reduce(function(a,b){return a<b?a:b;});}
 function expiryBadge(dateStr){var d=daysUntilExpiry(dateStr);if(d===null)return '';if(d<0)return ' <span class="exp-badge exp-expired">만료</span>';if(d<=30)return ' <span class="exp-badge exp-soon">D-'+d+'</span>';return '';}
 // 지도자 역할에 맞는 유효기간 — 프로(골프 레슨): 레슨 유효기간, 트레이너(PT): PT 유효기간. 둘 다 비어 있으면 예전 단일 유효기간(expiry)
@@ -1536,8 +1544,8 @@ function _rcRefusedId(mid){var m=(S.members||[]).find(function(x){return x.id===
 // 비교용 기록 시각 — 시각 없는 기록은 '0'(기록 없음 '' 보다는 새것)
 function _rcAt(d){return d?String(d.recConsentAt||((d.recConsent||d.recConsentNo)?'0':'')):'';}
 function _rcCopy(to, from){REC_CONSENT_KEYS.forEach(function(k){to[k]=(from&&from[k])||'';});}
-// 이 기기의 오늘 날짜 — today() 는 UTC 날짜라 오전 9시 전엔 어제가 된다(동의한 날은 실제 날짜로)
-function _rcToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// 이 기기의 오늘 날짜(동의한 날) — v10.00 부터 today() 와 같다 (그 전 today() 는 UTC 날짜라 오전 9시 전엔 어제가 돼 따로 계산했다)
+function _rcToday(){return today();}
 // 서버에서 회원을 새로 받은 뒤 — 이 기기의 동의 기록이 더 새로우면(올리기 실패, 또는 옛 버전 앱이 회원을 저장하며 동의 칸을 지움) 다시 올린다
 function _rcKeep(localMembers){(localMembers||[]).forEach(function(lm){if(!lm||!_rcAt(lm)) return;var rm=(S.members||[]).find(function(x){return x.id===lm.id;});if(!rm||_rcAt(lm)<=_rcAt(rm)) return;_rcCopy(rm, lm);try{syncConsentUp(rm);}catch(e){}});}
 // 녹음 시작 직전 — 서버의 동의 기록을 그 자리에서 확인(다른 기기에서 방금 거부·동의를 적었을 수 있음). ms 까지만 기다리고, 못 받으면 이 기기 기록대로

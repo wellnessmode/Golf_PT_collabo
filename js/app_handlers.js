@@ -873,9 +873,10 @@ function renderStorageAudit(){
 }
 function exportAuditLog(user){
   var entries = user ? S.auditLog.filter(function(e){return e.user===user;}) : S.auditLog;
-  var rows = [['시간','카테고리','사용자','역할','액션','대상','메타']];
+  // 시간 = 이 기기(한국) 날짜·시각 — 앱의 감사 로그 목록·파일 이름과 같은 기준 (v10.00, 예전엔 UTC 라 오전 9시 전 기록이 전날로). 원본 시각(UTC)은 맨 뒤 칸
+  var rows = [['시간(한국)','카테고리','사용자','역할','액션','대상','메타','원본 시각(UTC)']];
   entries.forEach(function(e){
-    rows.push([e.time, e.category, e.user, e.role||'', e.action, e.target||'', JSON.stringify(e.meta||{})]);
+    rows.push([localStamp(e.time, true), e.category, e.user, e.role||'', e.action, e.target||'', JSON.stringify(e.meta||{}), e.time||'']);
   });
   var csv = rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});

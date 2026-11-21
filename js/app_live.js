@@ -529,7 +529,8 @@ function _patchLivePartials(){
       var shotsEl = card.querySelector('.bay-shots');
       if(shotsEl){
         var shotsCnt = (typeof liveBayShots==='function') ? liveBayShots(bayId, act).length : 0;
-        var todayCnt2 = (S.shotEvents||[]).filter(function(s){ return s.bayId===bayId && String(s.ts).slice(0,10)===today(); }).length;
+        var _td2 = today();   // 샷 ts 는 UTC — 이 기기 날짜로 바꿔 비교 (오전 9시 전 샷이 빠지지 않게, v10.00)
+        var todayCnt2 = (S.shotEvents||[]).filter(function(s){ return s.bayId===bayId && localDay(s.ts)===_td2; }).length;
         shotsEl.innerHTML = shotsCnt>0 ? ('저장된 샷 <strong>'+shotsCnt+'</strong>개')
           : (todayCnt2>0 ? ('이번 수업 샷 없음 · 오늘 '+todayCnt2+'개는 아래 목록에') : '아직 저장된 샷 없음');
       }
@@ -564,7 +565,7 @@ function autoEndStaleSessions(remoteActive){
       try{ logAudit('session','방치 세션 자동종료', act.memberName||'', {bay:bayId, startedAt:act.startedAt}); }catch(e){}
       console.warn('[live] 방치 세션 자동종료:', bayId, act.memberName, act.startedAt);
       if(tx && author===S.currentUser){
-        try{ if(openVoiceDraft(mid, author, tx)) liveToastSafe('🎙 어제 세션의 녹음 전문을 일지 초안으로 복구했어요'); }catch(e){}
+        try{ if(openVoiceDraft(mid, author, tx, (local||act).startedAt)) liveToastSafe('🎙 어제 세션의 녹음 전문을 일지 초안으로 복구했어요'); }catch(e){}   // 그 수업 날짜로
       }
     }
   });
@@ -1109,11 +1110,11 @@ function forceEndPrevSession(bayId){
   // 앞 세션이 내 것이었고 받아쓴 내용이 있으면 초안/보관함으로 회수 (조용히 버리지 않음)
   if(tx && author===S.currentUser && !(typeof isOwnerWatchMember==='function' && isOwnerWatchMember(memberId))){
     try{
-      if(!S.showAddSession && openVoiceDraft(memberId, author, tx)){
+      if(!S.showAddSession && openVoiceDraft(memberId, author, tx, act.startedAt)){
         liveToastSafe('🎙 앞 세션의 녹음 전문을 일지 초안으로 복구했어요 — 저장 후 새 세션을 시작하세요');
       } else {
         S._lostTx=S._lostTx||[];
-        S._lostTx.push({memberId:memberId, author:author, tx:tx, at:new Date().toISOString()});
+        S._lostTx.push({memberId:memberId, author:author, tx:tx, at:new Date().toISOString(), startedAt:act.startedAt});
         try{ save(); }catch(e){}
       }
     }catch(e){}
@@ -1192,12 +1193,12 @@ function autoEndOverdueSessions(){
     // 담당자 본인 기기 + 받아쓴 내용 있음 → 일지 초안으로 복구 (조용히 버리지 않음)
     if(author===S.currentUser){
       if(transcript){
-        try{ openVoiceDraft(memberId, author, transcript); }catch(e){}
+        try{ openVoiceDraft(memberId, author, transcript, _bkAct.startedAt); }catch(e){}
       } else {
         // 이 기기에 전문이 없으면(다른 기기에서 녹음 등) 서버 백업에서 복구
         _fetchTranscriptBackup(bayId, _bkAct).then(function(bk){
           if(!bk) return;
-          try{ if(openVoiceDraft(memberId, author, bk)){ liveToastSafe('🎙 서버 백업에서 녹음 전문을 복구했어요 — 일지를 저장하세요'); render(); } }catch(e){}
+          try{ if(openVoiceDraft(memberId, author, bk, _bkAct.startedAt)){ liveToastSafe('🎙 서버 백업에서 녹음 전문을 복구했어요 — 일지를 저장하세요'); render(); } }catch(e){}
         });
       }
     }
@@ -1249,12 +1250,13 @@ async function endLiveSession(bayId){
   }
   // 라이브 세션 종료 = 세션 기록 생성 (일원화). 음성 있으면 AI 정리, 없으면 빈 카드.
   if(transcript.trim()){
-    openVoiceDraft(memberId, author, transcript);
+    openVoiceDraft(memberId, author, transcript, _bkAct.startedAt);   // 자정을 넘긴 수업은 시작한 날짜로
     liveToast(rcNo ? '⏹ 세션 종료 — 메모를 세션카드에 옮겼어요, 확인 후 저장' : '🤖 AI가 세션카드를 정리했어요 — 확인 후 저장','ok');
   } else {
-    // 음성 없음 → 회원 선택 후 빈 세션카드 모달 (수기 입력)
+    // 음성 없음 → 회원 선택 후 빈 세션카드 모달 (수기 입력) — 날짜·시간은 메모 있는 초안과 같은 기준(_lessonWhen)
     S.selectedMember = memberId;
-    S.newSession = {date:today(), time:nowHalfHour(), author:author||S.currentUser||'', content:'', media:[], mediaUrls:['','']};
+    var _w = _lessonWhen(_bkAct.startedAt);
+    S.newSession = {date:_w.date, time:_w.time, author:author||S.currentUser||'', content:'', media:[], mediaUrls:['','']};
     S.showAddSession = true;
     liveToast('⏹ '+bay.name+' 세션 종료 — 세션 카드를 작성하세요','ok');
   }
@@ -1567,10 +1569,11 @@ async function _handleSegment(blob, isFinal, R){
   if(isFinal){ _finishRec(); }
 }
 // 녹음한 수업이 이미 끝났을 때 받아쓴 글 → 그 회원 일지 초안(지금 못 열면 보관했다가 다음 확인 때). 관찰용 회원은 아님
-function _recRecover(mid, author, tx){
+// startedAt = 그 수업(없으면 녹음) 시작 시각 — 초안 날짜·시간을 그 수업 기준으로
+function _recRecover(mid, author, tx, startedAt){
   if(!mid || !tx || (typeof isOwnerWatchMember==='function' && isOwnerWatchMember(mid))) return false;
-  try{ if(!S.showAddSession && openVoiceDraft(mid, author, tx)){ liveToast('🎙 수업이 다른 곳에서 끝나 녹음 내용을 일지 초안으로 옮겼어요 — 저장해 주세요','ok'); return true; } }catch(e){}
-  S._lostTx=S._lostTx||[]; S._lostTx.push({memberId:mid, author:author, tx:tx, at:new Date().toISOString()}); try{ save(); }catch(e){}
+  try{ if(!S.showAddSession && openVoiceDraft(mid, author, tx, startedAt)){ liveToast('🎙 수업이 다른 곳에서 끝나 녹음 내용을 일지 초안으로 옮겼어요 — 저장해 주세요','ok'); return true; } }catch(e){}
+  S._lostTx=S._lostTx||[]; S._lostTx.push({memberId:mid, author:author, tx:tx, at:new Date().toISOString(), startedAt:startedAt}); try{ save(); }catch(e){}
   liveToast('🎙 녹음 내용을 보관했어요 — 잠시 뒤 일지 초안으로 열어요','ok');
   return true;
 }
@@ -1590,8 +1593,9 @@ function _finishRec(){
   // 녹음하던 수업이 그 사이 다른 곳에서 끝났거나(이 기기에만 남겨 둔 수업 · _gone) 다른 회원 수업으로 바뀜 → 받아쓴 글을 녹음한 회원의 일지 초안으로
   if(!act || act._gone){
     var _mid=act ? act.memberId : _rec.mid, _au=act ? act.author : _rec.author, _tx=String(full||(act&&act._transcript)||'').trim();
+    var _st=(act && act.startedAt) || (_rec.startedAt ? new Date(_rec.startedAt).toISOString() : '');   // 그 수업(없으면 녹음) 시작 — 초안 날짜용
     if(act){ delete S.activeSessions[bayId]; try{save();}catch(e){} act=null; }
-    if(_tx && _mid){ _rec._lastBay=null; _rec._finishT0=null; _recRecover(_mid, _au, _tx); try{ render(); }catch(e){} return; }
+    if(_tx && _mid){ _rec._lastBay=null; _rec._finishT0=null; _recRecover(_mid, _au, _tx, _st); try{ render(); }catch(e){} return; }
   }
   if(act){
     if(full) act._transcript=full;   // 최종 전문 덮어쓰기 (중간에 뭐가 지웠어도 복원)
@@ -2025,15 +2029,26 @@ function toggleAiItem(idx){
   render();
 }
 
+// 수업 일지의 날짜·시간 (v10.00) — 지난 날 시작한 수업(끄지 않은 채 다음 날 자동 종료·복구된 수업, 자정을 넘긴 수업)은 그 수업을 시작한
+// 날·시각(30분 단위). 오늘 시작했거나 시작 시각을 모르면 예전처럼 오늘·지금. startedAt = ISO 시각 또는 ms
+function _lessonWhen(startedAt){
+  var td=today(), t=(startedAt==null||startedAt==='')?NaN:new Date(startedAt).getTime();
+  if(isNaN(t) || localDay(t)>=td) return {date:td, time:nowHalfHour(), past:false, st:t};
+  var d=new Date(t); return {date:localDay(t), time:String(d.getHours()).padStart(2,'0')+':'+(d.getMinutes()<30?'00':'30'), past:true, st:t};
+}
 // 종료 시: 구조화 + 트랙맨 요약 → 기존 세션카드 모달에 프리필 (트레이너 검토 후 저장)
-function openVoiceDraft(memberId, author, transcript){
+// startedAt = 그 수업 시작 시각 — 복구 경로는 수업이 끝나고 몇 시간 뒤(다음 날 아침)에 초안을 열 수 있어서, 날짜·시간·샷 요약을 그 수업 기준으로
+function openVoiceDraft(memberId, author, transcript, startedAt){
   var m=S.members.find(function(x){return x.id===memberId;});
   if(!m) return false;
   if(m.ownerWatch) return false;   // 관찰용 회원은 일지 초안 생성 안 함 (자동 종료·복구 경로 포함)
   var accessible=(S.currentRole==='admin'||S.currentRole==='infodesk')||(m.assignedTo&&m.assignedTo.indexOf(S.currentUser)!==-1);
   var authorOk=author===S.currentUser && INSTRUCTORS.some(function(i){return i.name===author;});
   if(!accessible || !authorOk) return false;
-  var todayShots=S.shotEvents.filter(function(s){return s.memberId===memberId && String(s.ts).slice(0,10)===today();});
+  // 그 수업 날(오늘 수업이면 오늘, 이 기기 날짜) 이 회원의 샷 — ts 는 UTC 라 이 기기 날짜로 바꿔 비교 (오전 레슨 샷이 빠지거나 전날 저녁 샷이 섞이지 않게, v10.00)
+  // 지난 날 시작한 수업은 자정을 넘겨 친 그 수업의 샷(시작 2분 전 ~ 자동 종료 시간)도
+  var _w=_lessonWhen(startedAt), _lim=((window.APP_CONFIG && APP_CONFIG.SESSION_AUTO_END_HOURS)||2)*3600000;
+  var todayShots=S.shotEvents.filter(function(s){ if(s.memberId!==memberId) return false; if(localDay(s.ts)===_w.date) return true; if(!_w.past) return false; var t=new Date(s.ts).getTime(); return t>=_w.st-120000 && t<=_w.st+_lim; });
   var summary='';
   if(todayShots.length){
     var carries=todayShots.map(function(s){return parseFloat(s.data&&s.data.carry)||0;}).filter(Boolean);
@@ -2042,14 +2057,14 @@ function openVoiceDraft(memberId, author, transcript){
   S.showLiveSession=false; S.selectedMember=memberId; S.editSessionId=null;
   if(recConsentState(m)==='no'){
     // 녹음·AI 정리를 거부한 회원 (v9.99) — 메모를 그대로 일지 칸에 옮기고 AI 로 보내지 않는다(녹음 원문으로도 저장 안 함)
-    S.newSession={ date:today(), time:nowHalfHour(), author:author, content:String(transcript||'').trim()+summary, media:[], mediaUrls:['',''], _tmSummary:summary };
+    S.newSession={ date:_w.date, time:_w.time, author:author, content:String(transcript||'').trim()+summary, media:[], mediaUrls:['',''], _tmSummary:summary };
     S.showAddSession=true;
     return true;
   }
   var localStructured=structureTranscript(transcript,author);
   var prefill=localStructured+summary;
   // rawTranscript = 받아쓴 전문(원문). 신뢰도 담보용 — 세션에 함께 저장, 화면에선 접어둠.
-  S.newSession={ date:today(), time:nowHalfHour(), author:author, content:prefill, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''], _tmSummary:summary };
+  S.newSession={ date:_w.date, time:_w.time, author:author, content:prefill, rawTranscript:(transcript||'').trim(), media:[], mediaUrls:['',''], _tmSummary:summary };
   S.showAddSession=true;
   if(aiEnabled()){
     var ns=S.newSession;
@@ -2595,7 +2610,8 @@ function renderBayCard(bay, canCoach, isAdmin){
   }
   // 세션 샷이 0개여도 오늘 이 타석 샷이 있으면 알려줌 — "샷이 사라졌나?" 혼란 방지
   // (카드는 이번 세션 시작 이후만 셈. 이전 샷은 아래 '최근 저장된 샷' 목록에 있음)
-  var todayBayCnt = (S.shotEvents||[]).filter(function(s){ return s.bayId===bay.id && String(s.ts).slice(0,10)===today(); }).length;
+  var _tdB = today();   // ts(UTC) → 이 기기 날짜로 비교 (v10.00)
+  var todayBayCnt = (S.shotEvents||[]).filter(function(s){ return s.bayId===bay.id && localDay(s.ts)===_tdB; }).length;
   body += '<div class="bay-shots">'
         + (shots.length>0
             ? ('저장된 샷 <strong>'+shots.length+'</strong>개'
